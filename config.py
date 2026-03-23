@@ -1,4 +1,6 @@
-OPENAI_API_KEY = "PUT_YOUR_KEY_HERE"
+import os
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 NODE_URL = "http://YOUR_VPS_IP:5000"
 
