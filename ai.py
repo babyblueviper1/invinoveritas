@@ -7,7 +7,8 @@ if not OPENAI_API_KEY:
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 
-def premium_reasoning(question):
+def premium_reasoning(question: str):
+
     response = client.responses.create(
         model="gpt-4.1-mini",
         input=f"""
@@ -19,4 +20,4 @@ Give a high-level, structured, clear and deep answer to:
 """
     )
 
-    return response.output_text
+    return response.output[0].content[0].text
