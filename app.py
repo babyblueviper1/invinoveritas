@@ -1,24 +1,47 @@
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
 from ai import premium_reasoning
 from config import SUBSCRIPTION_PRICE
 import time
+import os
 
 app = FastAPI()
 
 
-@app.get("/")
-def home():
-    return {"status": "API running"}
+# -------- Request model (important for JSON requests) --------
 
+class PremiumRequest(BaseModel):
+    subscription_key: str
+    question: str
+
+
+# -------- Home page --------
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "<h1>invinoveritas API is running</h1>"
+
+
+# -------- Health check (Render uses this sometimes) --------
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# -------- Subscribe --------
 
 @app.post("/subscribe")
 def subscribe():
     invoice = create_invoice(SUBSCRIPTION_PRICE)
-
     payment_hash = invoice["payment_hash"]
 
-    # wait for payment automatically
+    # wait automatically for payment
     for _ in range(90):
         if check_payment(payment_hash):
             return {
@@ -35,13 +58,15 @@ def subscribe():
     }
 
 
-@app.post("/premium")
-def premium(subscription_key: str, question: str):
+# -------- Premium reasoning --------
 
-    if not check_payment(subscription_key):
+@app.post("/premium")
+def premium(data: PremiumRequest):
+
+    if not check_payment(data.subscription_key):
         return {"error": "subscription required"}
 
-    result = premium_reasoning(question)
+    result = premium_reasoning(data.question)
 
     return {
         "status": "unlocked",
