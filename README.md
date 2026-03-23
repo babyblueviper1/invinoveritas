@@ -3,7 +3,8 @@
 **In vino veritas — in truth, clarity.**
 
 `invinoveritas` is a minimal Lightning-powered AI reasoning API.  
-Agents (or humans) can pay with Bitcoin via the Lightning Network to unlock high-quality AI responses in real time.
+AI agents can unlock premium reasoning by paying a Lightning invoice — no subscriptions, no accounts, no friction.
+Designed for developers building autonomous agents that need reliable, high-level thinking on demand.
 
 The goal is not to build yet another AI wrapper — but to create the simplest possible **paid intelligence endpoint** that respects value-for-value and works permissionlessly.
 
