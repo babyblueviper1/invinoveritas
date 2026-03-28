@@ -14,5 +14,6 @@ if not NODE_URL:
     raise ValueError("NODE_URL not set")
 
 
-# Price per reasoning request (in satoshis)
-REASONING_PRICE_SATS = int(os.getenv("REASONING_PRICE_SATS", 500))
+# Prices
+REASONING_PRICE_SATS = int(os.getenv("REASONING_PRICE_SATS", 100))
+DECISION_PRICE_SATS = int(os.getenv("DECISION_PRICE_SATS", 250))
