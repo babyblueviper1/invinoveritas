@@ -1,29 +1,14 @@
 import os
 
-# =============================
-# OpenAI
-# =============================
-
+# OpenAI API key (set in Render → Environment Variables)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Lightning bridge running on your VPS
+NODE_URL = os.getenv("NODE_URL", "http://YOUR_VPS_IP:5000")
 
-# =============================
-# Lightning Node (your VPS bridge)
-# =============================
-
-# Example: http://123.45.67.89:5000
-NODE_URL = os.getenv("NODE_URL")
-
-
-# =============================
-# Pricing (in satoshis)
-# =============================
-
-# Premium reasoning endpoint
-REASONING_PRICE_SATS = int(os.getenv("REASONING_PRICE_SATS", "500"))
-
-# Agent decision endpoint
-DECISION_PRICE_SATS = int(os.getenv("DECISION_PRICE_SATS", "250"))
+# Pricing per request in satoshis
+REASONING_PRICE_SATS = int(os.getenv("REASONING_PRICE_SATS", 500))
+DECISION_PRICE_SATS = int(os.getenv("DECISION_PRICE_SATS", 750))
 
 
 # =============================
