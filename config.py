@@ -8,7 +8,7 @@ NODE_URL = os.getenv("NODE_URL", "http://YOUR_VPS_IP:5000")
 
 # Pricing per request in satoshis
 REASONING_PRICE_SATS = int(os.getenv("REASONING_PRICE_SATS", 500))
-DECISION_PRICE_SATS = int(os.getenv("DECISION_PRICE_SATS", 750))
+DECISION_PRICE_SATS = int(os.getenv("DECISION_PRICE_SATS", 1000))
 
 
 # =============================
