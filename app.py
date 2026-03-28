@@ -80,7 +80,43 @@ def home():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """
+    Health check + machine-readable endpoint info for agents
+    """
+    return {
+        "status": "ok",
+        "service": "invinoveritas",
+        "version": "0.1",
+        "endpoints": [
+            {
+                "path": "/reason",
+                "description": "Human-friendly premium reasoning",
+                "price_sats": REASONING_PRICE_SATS,
+                "method": "POST",
+                "input_schema": {
+                    "question": "string"
+                },
+                "auth": "Lightning L402 token via Authorization header"
+            },
+            {
+                "path": "/decision",
+                "description": "Agent-friendly structured decision intelligence",
+                "price_sats": DECISION_PRICE_SATS,
+                "method": "POST",
+                "input_schema": {
+                    "goal": "string",
+                    "context": "string",
+                    "question": "string"
+                },
+                "auth": "Lightning L402 token via Authorization header"
+            }
+        ],
+        "payment": {
+            "method": "Lightning L402",
+            "currency": "sats",
+            "dynamic_pricing": True
+        }
+    }
 
 # -------------------------
 # PAID REASONING ENDPOINT
