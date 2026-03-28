@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>invinoveritas API</title>
+
 <style>
 body {
     font-family: system-ui, -apple-system, sans-serif;
@@ -11,8 +12,10 @@ body {
     padding: 0 20px;
     line-height: 1.6;
 }
+
 h1 { font-size: 34px; margin-bottom: 5px; }
 h2 { margin-top: 40px; }
+
 code, pre {
     background: #f4f4f4;
     padding: 6px 8px;
@@ -20,143 +23,123 @@ code, pre {
     display: block;
     overflow-x: auto;
 }
+
 .box {
     background: #fafafa;
     padding: 16px;
     border-radius: 10px;
     margin: 20px 0;
 }
-input, textarea, select, button {
-    font-family: inherit;
-    font-size: 14px;
-    margin-top: 5px;
-}
-button { padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-#response { white-space: pre-wrap; background: #f0f0f0; padding: 10px; border-radius: 6px; margin-top: 10px; }
 </style>
 </head>
+
 <body>
 
 <h1>invinoveritas</h1>
 <p><b>Lightning-powered AI reasoning & decision intelligence API</b></p>
 
-<p>Agents (or humans) can pay with Bitcoin via the Lightning Network to unlock high-quality AI responses instantly.</p>
+<p>
+Agents (or humans) can pay with Bitcoin via the Lightning Network and instantly unlock high-quality AI responses.
+</p>
 
-<hr>
+---
 
 <h2>How it works</h2>
+
 <div class="box">
-1. Choose an endpoint (/reason or /decision)<br>
-2. Enter your question (and context/goal for /decision)<br>
-3. Click "Send Request"<br>
-4. If payment is required, a Lightning invoice appears<br>
-5. Pay invoice and enter preimage<br>
-6. The AI response is unlocked
+1. Send a request to <b>/reason</b> or <b>/decision</b><br>
+2. The API returns a Lightning invoice<br>
+3. Pay the invoice<br>
+4. Retry request with Authorization header → response unlocked
 </div>
 
-<hr>
+---
 
 <h2>Pricing</h2>
+
 <div class="box">
-Reasoning: <b>500 sats / request</b><br>
-Decision intelligence: <b>1000 sats / request</b><br>
-Dynamic pricing may be added in future versions.
+Reasoning: <b>500 sats per request</b><br>
+Decision intelligence: <b>750 sats per request</b>
 </div>
 
-<hr>
+---
 
-<h2>Request Interface</h2>
-<div class="box" id="popup">
-<label for="endpoint">Endpoint:</label>
-<select id="endpoint">
-    <option value="/reason">/reason</option>
-    <option value="/decision">/decision</option>
-</select>
+<h2>Endpoints</h2>
 
-<div id="decisionFields" style="display:none; margin-top: 10px;">
-    <label for="goal">Goal:</label>
-    <input type="text" id="goal" placeholder="Goal (for /decision)">
-    <label for="context">Context:</label>
-    <textarea id="context" rows="3" placeholder="Context (for /decision)"></textarea>
-</div>
+<b>Reasoning</b>
 
-<label for="prompt">Question:</label>
-<textarea id="prompt" rows="3" placeholder="Enter your question here"></textarea>
-<button onclick="sendRequest()">Send Request</button>
+<pre>POST /reason</pre>
 
-<div id="response"></div>
-</div>
+Body:
 
-<hr>
+<pre>{
+  "question": "Explain Bitcoin as a long-term strategy"
+}</pre>
 
-<h2>Example curl</h2>
-<pre>curl -X POST https://your-api.onrender.com/reason -d '{"question":"Explain Bitcoin as a long-term strategy"}'</pre>
+Response:
 
-<hr>
+<pre>{
+  "status": "success",
+  "type": "premium_reasoning",
+  "answer": "High-quality structured reasoning..."
+}</pre>
+
+---
+
+<b>Decision Intelligence</b>
+
+<pre>POST /decision</pre>
+
+Body:
+
+<pre>{
+  "goal": "Grow capital safely",
+  "context": "User holds BTC and cash",
+  "question": "Should exposure be increased?"
+}</pre>
+
+Response:
+
+<pre>{
+  "status": "success",
+  "type": "decision_intelligence",
+  "result": {
+    "decision": "Increase exposure slightly",
+    "confidence": 0.72,
+    "reasoning": "Market structure improving while risk remains moderate.",
+    "risk_level": "medium"
+  }
+}</pre>
+
+---
+
+<h2>Example request (curl)</h2>
+
+<pre>curl -X POST https://your-api.onrender.com/reason \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Explain Bitcoin as a long-term strategy"}'
+</pre>
+
+---
+
+<h2>Why this exists</h2>
+
+<p>
+Most AI tools charge per user.  
+invinoveritas charges per insight using Bitcoin and the Lightning Network.
+</p>
+
+<p>
+No accounts. No subscriptions through banks. No platform lock-in.
+</p>
+
+---
 
 <h2>Project</h2>
-<p>Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.</p>
 
-<script>
-const endpointSelect = document.getElementById('endpoint');
-const decisionFields = document.getElementById('decisionFields');
-
-endpointSelect.addEventListener('change', () => {
-    decisionFields.style.display = endpointSelect.value === '/decision' ? 'block' : 'none';
-});
-
-let paymentHash = null;
-
-async function sendRequest() {
-    const endpoint = endpointSelect.value;
-    const payload = endpoint === '/reason' 
-        ? {question: document.getElementById('prompt').value} 
-        : {
-            question: document.getElementById('prompt').value,
-            context: document.getElementById('context').value,
-            goal: document.getElementById('goal').value
-        };
-
-    if(!payload.question || (endpoint === '/decision' && (!payload.context || !payload.goal))) {
-        return alert('Fill in all required fields!');
-    }
-
-    document.getElementById('response').textContent = 'Sending...';
-
-    try {
-        const headers = {'Content-Type':'application/json'};
-        if(paymentHash && document.getElementById('preimage')?.value) {
-            headers['Authorization'] = `L402 ${paymentHash}:${document.getElementById('preimage').value}`;
-        }
-
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-
-        if(res.status === 402) {
-            paymentHash = res.headers.get('www-authenticate')?.match(/token="([a-f0-9]+)"/)?.[1];
-            document.getElementById('response').textContent = `Invoice required:\n${JSON.stringify(data, null, 2)}\n\nInvoice string:\n${res.headers.get('www-authenticate')}`;
-            
-            if(!document.getElementById('preimage')) {
-                const preimageInput = document.createElement('input');
-                preimageInput.id = 'preimage';
-                preimageInput.placeholder = 'Enter preimage after payment';
-                document.getElementById('popup').appendChild(preimageInput);
-            }
-        } else if(res.ok) {
-            document.getElementById('response').textContent = JSON.stringify(data, null, 2);
-        } else {
-            document.getElementById('response').textContent = `Error ${res.status}: ${data.detail || JSON.stringify(data)}`;
-        }
-    } catch(err) {
-        document.getElementById('response').textContent = 'Network or server error.';
-    }
-}
-</script>
+<p>
+Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.
+</p>
 
 </body>
 </html>
