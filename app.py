@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
 from ai import premium_reasoning, client
-from config import REASONING_PRICE_SATS
+from config import REASONING_PRICE_SATS, DECISION_PRICE_SATS
 import os
 
 app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
@@ -58,7 +58,7 @@ async def reason(request: Request, data: ReasoningRequest):
     # Step 1: No payment → issue invoice
     if not auth or not auth.startswith("L402 "):
 
-        invoice_data = create_invoice(PRICE_SATS)
+        invoice_data = create_invoice(REASONING_PRICE_SATS)
 
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
@@ -120,7 +120,7 @@ async def decision(request: Request, data: DecisionRequest):
     # Step 1: No payment → issue invoice
     if not auth or not auth.startswith("L402 "):
 
-        invoice_data = create_invoice(PRICE_SATS)
+        invoice_data = create_invoice(DECISION_PRICE_SATS)
 
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
