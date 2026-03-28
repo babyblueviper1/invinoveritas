@@ -10,7 +10,6 @@ app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
 
 PRICE_SATS = SUBSCRIPTION_PRICE
 
-
 class ReasoningRequest(BaseModel):
     question: str
 
@@ -40,6 +39,8 @@ async def reason(request: Request, data: ReasoningRequest):
     # Step 1: No payment yet → send Lightning invoice
     if not auth or not auth.startswith("L402 "):
         invoice_data = create_invoice(PRICE_SATS)
+        if not invoice_data:
+    		raise HTTPException(503, "Lightning node temporarily unavailable")
         invoice = invoice_data["invoice"]
         payment_hash = invoice_data["payment_hash"]
 
