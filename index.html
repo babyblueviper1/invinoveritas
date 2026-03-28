@@ -2,88 +2,159 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>invinoveritas – Lightning Decision Intelligence</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<title>invinoveritas API</title>
 <style>
 body {
-    font-family: Arial, sans-serif;
-    background: #0f0f0f;
-    color: white;
-    margin: 0;
-    padding: 40px;
-    text-align: center;
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 20px;
+    line-height: 1.6;
 }
-
-h1 {
-    font-size: 42px;
+h1 { font-size: 34px; margin-bottom: 5px; }
+h2 { margin-top: 40px; }
+code, pre {
+    background: #f4f4f4;
+    padding: 6px 8px;
+    border-radius: 6px;
+    display: block;
+    overflow-x: auto;
 }
-
-p {
-    font-size: 18px;
-    opacity: 0.8;
-}
-
 .box {
-    margin-top: 40px;
-    padding: 25px;
-    background: #1a1a1a;
-    border-radius: 12px;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
+    background: #fafafa;
+    padding: 16px;
+    border-radius: 10px;
+    margin: 20px 0;
 }
-
-button {
-    margin-top: 20px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-    background: #ff9900;
-    color: black;
+input, textarea, select, button {
+    font-family: inherit;
+    font-size: 14px;
+    margin-top: 5px;
 }
-
-input {
-    width: 90%;
-    padding: 12px;
-    margin-top: 10px;
-    border-radius: 8px;
-    border: none;
-}
+button { padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+#response { white-space: pre-wrap; background: #f0f0f0; padding: 10px; border-radius: 6px; margin-top: 10px; }
 </style>
 </head>
-
 <body>
 
-<h1>invinoveritas ⚡</h1>
-<p>Lightning‑paid decision intelligence for humans and AI agents</p>
+<h1>invinoveritas</h1>
+<p><b>Lightning-powered AI reasoning & decision intelligence API</b></p>
 
+<p>Agents (or humans) can pay with Bitcoin via the Lightning Network to unlock high-quality AI responses instantly.</p>
+
+<hr>
+
+<h2>How it works</h2>
 <div class="box">
-
-<h2>Ask a question</h2>
-
-<input id="question" placeholder="Should I increase my BTC exposure?" />
-<br>
-<button onclick="sendQuestion()">Ask</button>
-
-<pre id="output"></pre>
-
+1. Choose an endpoint (/reason or /decision)<br>
+2. Enter your question (and context/goal for /decision)<br>
+3. Click "Send Request"<br>
+4. If payment is required, a Lightning invoice appears<br>
+5. Pay invoice and enter preimage<br>
+6. The AI response is unlocked
 </div>
 
+<hr>
+
+<h2>Pricing</h2>
+<div class="box">
+Reasoning: <b>500 sats / request</b><br>
+Decision intelligence: <b>1000 sats / request</b><br>
+Dynamic pricing may be added in future versions.
+</div>
+
+<hr>
+
+<h2>Request Interface</h2>
+<div class="box" id="popup">
+<label for="endpoint">Endpoint:</label>
+<select id="endpoint">
+    <option value="/reason">/reason</option>
+    <option value="/decision">/decision</option>
+</select>
+
+<div id="decisionFields" style="display:none; margin-top: 10px;">
+    <label for="goal">Goal:</label>
+    <input type="text" id="goal" placeholder="Goal (for /decision)">
+    <label for="context">Context:</label>
+    <textarea id="context" rows="3" placeholder="Context (for /decision)"></textarea>
+</div>
+
+<label for="prompt">Question:</label>
+<textarea id="prompt" rows="3" placeholder="Enter your question here"></textarea>
+<button onclick="sendRequest()">Send Request</button>
+
+<div id="response"></div>
+</div>
+
+<hr>
+
+<h2>Example curl</h2>
+<pre>curl -X POST https://your-api.onrender.com/reason -d '{"question":"Explain Bitcoin as a long-term strategy"}'</pre>
+
+<hr>
+
+<h2>Project</h2>
+<p>Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.</p>
+
 <script>
-async function sendQuestion() {
-    const q = document.getElementById("question").value;
+const endpointSelect = document.getElementById('endpoint');
+const decisionFields = document.getElementById('decisionFields');
 
-    const response = await fetch("/reason", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({question: q})
-    });
+endpointSelect.addEventListener('change', () => {
+    decisionFields.style.display = endpointSelect.value === '/decision' ? 'block' : 'none';
+});
 
-    const text = await response.text();
-    document.getElementById("output").innerText = text;
+let paymentHash = null;
+
+async function sendRequest() {
+    const endpoint = endpointSelect.value;
+    const payload = endpoint === '/reason' 
+        ? {question: document.getElementById('prompt').value} 
+        : {
+            question: document.getElementById('prompt').value,
+            context: document.getElementById('context').value,
+            goal: document.getElementById('goal').value
+        };
+
+    if(!payload.question || (endpoint === '/decision' && (!payload.context || !payload.goal))) {
+        return alert('Fill in all required fields!');
+    }
+
+    document.getElementById('response').textContent = 'Sending...';
+
+    try {
+        const headers = {'Content-Type':'application/json'};
+        if(paymentHash && document.getElementById('preimage')?.value) {
+            headers['Authorization'] = `L402 ${paymentHash}:${document.getElementById('preimage').value}`;
+        }
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if(res.status === 402) {
+            paymentHash = res.headers.get('www-authenticate')?.match(/token="([a-f0-9]+)"/)?.[1];
+            document.getElementById('response').textContent = `Invoice required:\n${JSON.stringify(data, null, 2)}\n\nInvoice string:\n${res.headers.get('www-authenticate')}`;
+            
+            if(!document.getElementById('preimage')) {
+                const preimageInput = document.createElement('input');
+                preimageInput.id = 'preimage';
+                preimageInput.placeholder = 'Enter preimage after payment';
+                document.getElementById('popup').appendChild(preimageInput);
+            }
+        } else if(res.ok) {
+            document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+        } else {
+            document.getElementById('response').textContent = `Error ${res.status}: ${data.detail || JSON.stringify(data)}`;
+        }
+    } catch(err) {
+        document.getElementById('response').textContent = 'Network or server error.';
+    }
 }
 </script>
 
