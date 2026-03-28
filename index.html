@@ -36,10 +36,11 @@ code, pre {
 <body>
 
 <h1>invinoveritas</h1>
-<p><b>Lightning-powered AI reasoning API</b></p>
+<p><b>Lightning-powered AI reasoning API for humans and autonomous agents.</b></p>
 
 <p>
-Agents (or humans) can pay with Bitcoin via the Lightning Network and instantly unlock high-quality AI responses.
+Pay with Bitcoin (Lightning Network) and instantly unlock high-quality AI reasoning.
+No accounts. No subscriptions. No platform lock-in.
 </p>
 
 ---
@@ -48,9 +49,10 @@ Agents (or humans) can pay with Bitcoin via the Lightning Network and instantly 
 
 <div class="box">
 1. Send a request to the API<br>
-2. The API returns a Lightning invoice<br>
+2. The API returns a Lightning invoice (L402)<br>
 3. Pay the invoice<br>
-4. The AI response unlocks instantly
+4. Send the request again with the Authorization header<br>
+5. The AI response unlocks instantly
 </div>
 
 ---
@@ -58,51 +60,31 @@ Agents (or humans) can pay with Bitcoin via the Lightning Network and instantly 
 <h2>Pricing</h2>
 
 <div class="box">
-Subscription: <b>500 sats / 24 hours</b><br>
-Unlimited reasoning requests during the active period.
+<b>500 sats per reasoning request</b><br>
+Simple pay-per-decision model.
 </div>
 
 ---
 
-<h2>Endpoints</h2>
-
-<b>Subscribe</b>
-
-<pre>POST /subscribe</pre>
-
-Response:
-
-<pre>{
-  "status": "payment_required",
-  "price": 500,
-  "invoice": "lnbc1..."
-}</pre>
-
----
+<h2>Endpoint</h2>
 
 <b>Premium reasoning</b>
 
-<pre>POST /premium</pre>
+<pre>POST /reason</pre>
 
 Body:
 
 <pre>{
-  "subscription_key": "payment_hash_here",
   "question": "Explain Bitcoin as a long-term strategy"
-}</pre>
-
-Response:
-
-<pre>{
-  "status": "unlocked",
-  "result": "High-quality structured answer..."
 }</pre>
 
 ---
 
-<h2>Example request (curl)</h2>
+<h2>Example request</h2>
 
-<pre>curl -X POST https://your-api.onrender.com/subscribe</pre>
+<pre>curl -X POST https://your-api.onrender.com/reason \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Explain Bitcoin as a long-term strategy"}'</pre>
 
 ---
 
@@ -114,7 +96,7 @@ invinoveritas charges per insight using Bitcoin and the Lightning Network.
 </p>
 
 <p>
-No accounts. No subscriptions through banks. No platform lock-in.
+No accounts. No subscriptions. No bank payments. No platform lock-in.
 </p>
 
 ---
@@ -122,7 +104,8 @@ No accounts. No subscriptions through banks. No platform lock-in.
 <h2>Project</h2>
 
 <p>
-Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.
+Open-source project focused on paid intelligence, agent-to-agent payments,
+and Lightning-powered APIs.
 </p>
 
 </body>
