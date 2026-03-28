@@ -4,11 +4,36 @@ from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
 from ai import premium_reasoning, client
 from config import REASONING_PRICE_SATS, DECISION_PRICE_SATS
+from datetime import datetime
 import os
 
 app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
 
-PRICE_SATS = REASONING_PRICE_SATS
+
+# -------------------------
+# Logging helpers
+# -------------------------
+
+def log_event(event_type, endpoint, amount, caller):
+    print(
+        f"[{datetime.utcnow()}] "
+        f"{event_type.upper()} | "
+        f"endpoint={endpoint} | "
+        f"sats={amount} | "
+        f"caller={caller}"
+    )
+
+
+def detect_caller(request: Request):
+    user_agent = request.headers.get("user-agent", "").lower()
+
+    if "python" in user_agent or "curl" in user_agent or "node" in user_agent:
+        return "agent"
+
+    if "mozilla" in user_agent or "chrome" in user_agent or "safari" in user_agent:
+        return "browser"
+
+    return "unknown"
 
 
 # -------------------------
@@ -53,6 +78,7 @@ async def reason(request: Request, data: ReasoningRequest):
     if len(data.question) > 1200:
         raise HTTPException(400, "Prompt too long for this endpoint")
 
+    caller = detect_caller(request)
     auth = request.headers.get("Authorization")
 
     # Step 1: No payment → issue invoice
@@ -68,6 +94,8 @@ async def reason(request: Request, data: ReasoningRequest):
 
         if not invoice or not payment_hash:
             raise HTTPException(503, "Invalid response from Lightning node")
+
+        log_event("invoice_created", "reason", REASONING_PRICE_SATS, caller)
 
         macaroon = payment_hash
         challenge = f'token="{macaroon}", invoice="{invoice}"'
@@ -90,6 +118,8 @@ async def reason(request: Request, data: ReasoningRequest):
 
     if not check_payment(macaroon):
         raise HTTPException(403, "Invalid or unpaid credential")
+
+    log_event("payment_success", "reason", REASONING_PRICE_SATS, caller)
 
     # Step 3: Paid → run reasoning
     try:
@@ -115,6 +145,7 @@ async def decision(request: Request, data: DecisionRequest):
     if len(data.question) > 1200:
         raise HTTPException(400, "Question too long for this endpoint")
 
+    caller = detect_caller(request)
     auth = request.headers.get("Authorization")
 
     # Step 1: No payment → issue invoice
@@ -130,6 +161,8 @@ async def decision(request: Request, data: DecisionRequest):
 
         if not invoice or not payment_hash:
             raise HTTPException(503, "Invalid response from Lightning node")
+
+        log_event("invoice_created", "decision", DECISION_PRICE_SATS, caller)
 
         macaroon = payment_hash
         challenge = f'token="{macaroon}", invoice="{invoice}"'
@@ -152,6 +185,8 @@ async def decision(request: Request, data: DecisionRequest):
 
     if not check_payment(macaroon):
         raise HTTPException(403, "Invalid or unpaid credential")
+
+    log_event("payment_success", "decision", DECISION_PRICE_SATS, caller)
 
     # Step 3: Paid → structured JSON decision
     try:
