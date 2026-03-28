@@ -12,10 +12,8 @@ body {
     padding: 0 20px;
     line-height: 1.6;
 }
-
 h1 { font-size: 34px; margin-bottom: 5px; }
 h2 { margin-top: 40px; }
-
 code, pre {
     background: #f4f4f4;
     padding: 6px 8px;
@@ -23,7 +21,6 @@ code, pre {
     display: block;
     overflow-x: auto;
 }
-
 .box {
     background: #fafafa;
     padding: 16px;
@@ -36,38 +33,38 @@ code, pre {
 <body>
 
 <h1>invinoveritas</h1>
-<p><b>Lightning-powered AI reasoning & decision intelligence API</b></p>
+<p><b>Lightning-powered AI reasoning API</b></p>
 
 <p>
-Agents (or humans) can pay with Bitcoin via the Lightning Network and instantly unlock high-quality AI responses.
+Agents (or humans) pay via Bitcoin Lightning to unlock high-quality AI insights instantly.
 </p>
 
 ---
 
 <h2>How it works</h2>
-
 <div class="box">
-1. Send a request to <b>/reason</b> or <b>/decision</b><br>
-2. The API returns a Lightning invoice<br>
+1. Send a request to the API<br>
+2. API returns a Lightning invoice<br>
 3. Pay the invoice<br>
-4. Retry request with Authorization header → response unlocked
+4. Request again with Authorization header<br>
+5. AI response is unlocked
 </div>
 
 ---
 
-<h2>Pricing</h2>
-
+<h2>Dynamic Pricing</h2>
 <div class="box">
-Reasoning: <b>500 sats per request</b><br>
-Decision intelligence: <b>750 sats per request</b>
+- Base price for reasoning: <b>500 sats</b><br>
+- Base price for decision intelligence: <b>1000 sats</b><br>
+- Longer questions may increase cost slightly<br>
+- Agents (bots/scripts) may pay ~1.2x
 </div>
 
 ---
 
 <h2>Endpoints</h2>
 
-<b>Reasoning</b>
-
+<b>Premium Reasoning</b>
 <pre>POST /reason</pre>
 
 Body:
@@ -81,13 +78,12 @@ Response:
 <pre>{
   "status": "success",
   "type": "premium_reasoning",
-  "answer": "High-quality structured reasoning..."
+  "answer": "High-quality structured answer..."
 }</pre>
 
 ---
 
 <b>Decision Intelligence</b>
-
 <pre>POST /decision</pre>
 
 Body:
@@ -114,29 +110,23 @@ Response:
 ---
 
 <h2>Example request (curl)</h2>
-
-<pre>curl -X POST https://your-api.onrender.com/reason \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Explain Bitcoin as a long-term strategy"}'
-</pre>
+<pre>curl -X POST https://your-api.onrender.com/reason</pre>
 
 ---
 
 <h2>Why this exists</h2>
-
 <p>
 Most AI tools charge per user.  
-invinoveritas charges per insight using Bitcoin and the Lightning Network.
+invinoveritas charges per insight using Bitcoin and Lightning.
 </p>
 
 <p>
-No accounts. No subscriptions through banks. No platform lock-in.
+No accounts. No banks. No platform lock-in. Works for humans and autonomous agents.
 </p>
 
 ---
 
 <h2>Project</h2>
-
 <p>
 Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.
 </p>
