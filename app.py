@@ -4,25 +4,24 @@ from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
 from ai import premium_reasoning, client
 from config import REASONING_PRICE_SATS, DECISION_PRICE_SATS
-from datetime import datetime
 import os
+import time
+from collections import defaultdict
 
 app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
 
 
 # -------------------------
-# Logging helpers
+# Rate limiter (anti-spam invoices)
 # -------------------------
 
-def log_event(event_type, endpoint, amount, caller):
-    print(
-        f"[{datetime.utcnow()}] "
-        f"{event_type.upper()} | "
-        f"endpoint={endpoint} | "
-        f"sats={amount} | "
-        f"caller={caller}"
-    )
+last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
+RATE_LIMIT_SECONDS = 5
 
+
+# -------------------------
+# Logging helpers
+# -------------------------
 
 def detect_caller(request: Request):
     user_agent = request.headers.get("user-agent", "").lower()
@@ -36,8 +35,12 @@ def detect_caller(request: Request):
     return "unknown"
 
 
+def log_event(event_type, endpoint, amount, caller):
+    print(f"{event_type.upper()} | {endpoint} | {amount} sats | {caller}")
+
+
 # -------------------------
-# Request Models
+# Request models
 # -------------------------
 
 class ReasoningRequest(BaseModel):
@@ -68,21 +71,36 @@ def health():
 
 
 # -------------------------
-# Paid Reasoning Endpoint
+# PAID REASONING ENDPOINT
 # -------------------------
 
 @app.post("/reason")
 async def reason(request: Request, data: ReasoningRequest):
 
+    caller = detect_caller(request)
+
     # Protect cost
     if len(data.question) > 1200:
         raise HTTPException(400, "Prompt too long for this endpoint")
 
-    caller = detect_caller(request)
     auth = request.headers.get("Authorization")
 
+    # -------------------------
     # Step 1: No payment → issue invoice
+    # -------------------------
+
     if not auth or not auth.startswith("L402 "):
+
+        # Anti-spam limiter
+        now = time.time()
+        if now - last_request_time[caller] < RATE_LIMIT_SECONDS:
+            raise HTTPException(
+                429,
+                f"Rate limit: please wait {RATE_LIMIT_SECONDS} seconds before requesting another invoice"
+            )
+        last_request_time[caller] = now
+
+        log_event("request_without_payment", "reason", REASONING_PRICE_SATS, caller)
 
         invoice_data = create_invoice(REASONING_PRICE_SATS)
 
@@ -95,8 +113,7 @@ async def reason(request: Request, data: ReasoningRequest):
         if not invoice or not payment_hash:
             raise HTTPException(503, "Invalid response from Lightning node")
 
-        log_event("invoice_created", "reason", REASONING_PRICE_SATS, caller)
-
+        # L402 token = payment hash
         macaroon = payment_hash
         challenge = f'token="{macaroon}", invoice="{invoice}"'
 
@@ -109,7 +126,10 @@ async def reason(request: Request, data: ReasoningRequest):
             }
         )
 
+    # -------------------------
     # Step 2: Verify payment
+    # -------------------------
+
     try:
         _, creds = auth.split(" ", 1)
         macaroon, preimage = creds.split(":", 1)
@@ -121,7 +141,10 @@ async def reason(request: Request, data: ReasoningRequest):
 
     log_event("payment_success", "reason", REASONING_PRICE_SATS, caller)
 
+    # -------------------------
     # Step 3: Paid → run reasoning
+    # -------------------------
+
     try:
         result = premium_reasoning(data.question)
     except Exception:
@@ -135,21 +158,35 @@ async def reason(request: Request, data: ReasoningRequest):
 
 
 # -------------------------
-# Agent Decision Endpoint
+# AGENT DECISION ENDPOINT
 # -------------------------
 
 @app.post("/decision")
 async def decision(request: Request, data: DecisionRequest):
 
+    caller = detect_caller(request)
+
     # Protect cost
     if len(data.question) > 1200:
         raise HTTPException(400, "Question too long for this endpoint")
 
-    caller = detect_caller(request)
     auth = request.headers.get("Authorization")
 
+    # -------------------------
     # Step 1: No payment → issue invoice
+    # -------------------------
+
     if not auth or not auth.startswith("L402 "):
+
+        now = time.time()
+        if now - last_request_time[caller] < RATE_LIMIT_SECONDS:
+            raise HTTPException(
+                429,
+                f"Rate limit: please wait {RATE_LIMIT_SECONDS} seconds before requesting another invoice"
+            )
+        last_request_time[caller] = now
+
+        log_event("request_without_payment", "decision", DECISION_PRICE_SATS, caller)
 
         invoice_data = create_invoice(DECISION_PRICE_SATS)
 
@@ -161,8 +198,6 @@ async def decision(request: Request, data: DecisionRequest):
 
         if not invoice or not payment_hash:
             raise HTTPException(503, "Invalid response from Lightning node")
-
-        log_event("invoice_created", "decision", DECISION_PRICE_SATS, caller)
 
         macaroon = payment_hash
         challenge = f'token="{macaroon}", invoice="{invoice}"'
@@ -176,7 +211,10 @@ async def decision(request: Request, data: DecisionRequest):
             }
         )
 
+    # -------------------------
     # Step 2: Verify payment
+    # -------------------------
+
     try:
         _, creds = auth.split(" ", 1)
         macaroon, preimage = creds.split(":", 1)
@@ -188,7 +226,10 @@ async def decision(request: Request, data: DecisionRequest):
 
     log_event("payment_success", "decision", DECISION_PRICE_SATS, caller)
 
-    # Step 3: Paid → structured JSON decision
+    # -------------------------
+    # Step 3: Paid → structured decision output
+    # -------------------------
+
     try:
         prompt = f"""
 You are a strategic decision intelligence AI.
@@ -214,23 +255,7 @@ Return ONLY valid JSON in this exact format:
 
         response = client.responses.create(
             model="gpt-4.1-mini",
-            input=prompt,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "decision_schema",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "decision": {"type": "string"},
-                            "confidence": {"type": "number"},
-                            "reasoning": {"type": "string"},
-                            "risk_level": {"type": "string"}
-                        },
-                        "required": ["decision", "confidence", "reasoning", "risk_level"]
-                    }
-                }
-            }
+            input=prompt
         )
 
         result = response.output[0].content[0].text
