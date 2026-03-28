@@ -1,52 +1,52 @@
 import requests
 from config import NODE_URL
-from typing import Dict, Optional
 
 
-def create_invoice(amount: int) -> Optional[Dict[str, str]]:
-    """
-    Create Lightning invoice via bridge.
-    Returns: {"invoice": str, "payment_hash": str} or None if failure.
-    """
+# =============================
+# Create Lightning Invoice
+# =============================
+
+def create_invoice(amount_sats: int):
+
     try:
-        r = requests.post(
-            f"{NODE_URL}/create_invoice",
-            json={"amount": amount, "memo": "invinoveritas reasoning"},
-            timeout=10,
+        response = requests.post(
+            f"{NODE_URL}/create-invoice",
+            json={"amount": amount_sats},
+            timeout=10
         )
-        r.raise_for_status()
-        data = r.json()
 
-        if "invoice" not in data or "payment_hash" not in data:
-            return None
+        if response.status_code != 200:
+            return {"error": f"Node returned {response.status_code}"}
+
+        data = response.json()
 
         return {
-            "invoice": data["invoice"],
-            "payment_hash": data["payment_hash"]
+            "invoice": data.get("invoice"),
+            "payment_hash": data.get("payment_hash")
         }
 
-    except (requests.exceptions.RequestException, ValueError):
-        return None
+    except Exception as e:
+        return {"error": str(e)}
 
 
-def check_payment(payment_hash: str) -> bool:
-    """
-    Check if invoice is paid.
-    Returns True if settled, False otherwise.
-    """
+# =============================
+# Check if invoice is paid
+# =============================
 
-    if not payment_hash:
-        return False
+def check_payment(payment_hash: str):
 
     try:
-        r = requests.get(
-            f"{NODE_URL}/check/{payment_hash}",
-            timeout=8,
+        response = requests.get(
+            f"{NODE_URL}/check-payment/{payment_hash}",
+            timeout=10
         )
-        r.raise_for_status()
-        data = r.json()
+
+        if response.status_code != 200:
+            return False
+
+        data = response.json()
 
         return data.get("paid", False)
 
-    except (requests.exceptions.RequestException, ValueError):
+    except Exception:
         return False
