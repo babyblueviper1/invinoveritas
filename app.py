@@ -3,12 +3,12 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
 from ai import premium_reasoning
-from config import SUBSCRIPTION_PRICE
+from config import REASONING_PRICE_SATS
 import os
 
 app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
 
-PRICE_SATS = SUBSCRIPTION_PRICE
+PRICE_SATS = REASONING_PRICE_SATS
 
 
 class ReasoningRequest(BaseModel):
