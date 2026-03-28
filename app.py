@@ -37,6 +37,27 @@ def log_event(event_type: str, endpoint: str, amount: int, caller: str):
     print(f"{event_type.upper()} | {endpoint} | {amount} sats | {caller}")
 
 # -------------------------
+# Dynamic pricing helper
+# -------------------------
+def calculate_price(endpoint: str, question: str, caller: str) -> int:
+    """
+    Basic dynamic pricing:
+      - base price from config
+      - +1 sat per 100 characters
+      - agent multiplier 1.2x
+    """
+    if endpoint == "reason":
+        base = REASONING_PRICE_SATS
+    else:
+        base = DECISION_PRICE_SATS
+
+    length_sats = len(question) // 100  # 1 sat per 100 chars
+    agent_multiplier = 1.2 if caller == "agent" else 1.0
+
+    price = int((base + length_sats) * agent_multiplier)
+    return max(price, 1)  # ensure minimum 1 sat
+
+# -------------------------
 # Request models
 # -------------------------
 class ReasoningRequest(BaseModel):
@@ -82,8 +103,11 @@ async def reason(request: Request, data: ReasoningRequest):
             )
         last_request_time[caller] = now
 
-        log_event("request_without_payment", "reason", REASONING_PRICE_SATS, caller)
-        invoice_data = create_invoice(REASONING_PRICE_SATS)
+        # dynamic pricing
+        price = calculate_price("reason", data.question, caller)
+        log_event("invoice_issued", "reason", price, caller)
+
+        invoice_data = create_invoice(price)
 
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
@@ -121,7 +145,8 @@ async def reason(request: Request, data: ReasoningRequest):
         raise HTTPException(403, "Invalid or unpaid credential")
 
     used_invoices.add(macaroon)
-    log_event("payment_success", "reason", REASONING_PRICE_SATS, caller)
+    price = calculate_price("reason", data.question, caller)
+    log_event("payment_success", "reason", price, caller)
 
     # -------------------------
     # Step 3: Paid → run reasoning
@@ -159,8 +184,11 @@ async def decision(request: Request, data: DecisionRequest):
             )
         last_request_time[caller] = now
 
-        log_event("request_without_payment", "decision", DECISION_PRICE_SATS, caller)
-        invoice_data = create_invoice(DECISION_PRICE_SATS)
+        # dynamic pricing
+        price = calculate_price("decision", data.question, caller)
+        log_event("invoice_issued", "decision", price, caller)
+
+        invoice_data = create_invoice(price)
 
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
@@ -177,7 +205,7 @@ async def decision(request: Request, data: DecisionRequest):
             status_code=402,
             detail="Payment Required – pay Lightning invoice to unlock decision intelligence",
             headers={
-                "WWW-Authenticate": f'L402 {challenge}',
+                "WWW-Authenticate": f'L402 {challenge}",
                 "Retry-After": "10"
             }
         )
@@ -198,7 +226,8 @@ async def decision(request: Request, data: DecisionRequest):
         raise HTTPException(403, "Invalid or unpaid credential")
 
     used_invoices.add(macaroon)
-    log_event("payment_success", "decision", DECISION_PRICE_SATS, caller)
+    price = calculate_price("decision", data.question, caller)
+    log_event("payment_success", "decision", price, caller)
 
     # -------------------------
     # Step 3: Paid → structured decision output
