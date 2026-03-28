@@ -69,7 +69,7 @@ class DecisionRequest(BaseModel):
     question: str
 
 # -------------------------
-# Home / Health
+# Home / Health / Price
 # -------------------------
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -118,6 +118,14 @@ def health():
         }
     }
 
+@app.get("/price/{endpoint}")
+def get_price(endpoint: str):
+    if endpoint == "reason":
+        return {"price_sats": REASONING_PRICE_SATS}
+    elif endpoint == "decision":
+        return {"price_sats": DECISION_PRICE_SATS}
+    else:
+        raise HTTPException(404, "Unknown endpoint")
 # -------------------------
 # PAID REASONING ENDPOINT
 # -------------------------
