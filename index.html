@@ -2,111 +2,90 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>invinoveritas API</title>
+<title>invinoveritas – Lightning Decision Intelligence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body {
-    font-family: system-ui, -apple-system, sans-serif;
-    max-width: 720px;
-    margin: 40px auto;
-    padding: 0 20px;
-    line-height: 1.6;
+    font-family: Arial, sans-serif;
+    background: #0f0f0f;
+    color: white;
+    margin: 0;
+    padding: 40px;
+    text-align: center;
 }
 
-h1 { font-size: 34px; margin-bottom: 5px; }
-h2 { margin-top: 40px; }
+h1 {
+    font-size: 42px;
+}
 
-code, pre {
-    background: #f4f4f4;
-    padding: 6px 8px;
-    border-radius: 6px;
-    display: block;
-    overflow-x: auto;
+p {
+    font-size: 18px;
+    opacity: 0.8;
 }
 
 .box {
-    background: #fafafa;
-    padding: 16px;
-    border-radius: 10px;
-    margin: 20px 0;
+    margin-top: 40px;
+    padding: 25px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+button {
+    margin-top: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    background: #ff9900;
+    color: black;
+}
+
+input {
+    width: 90%;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 8px;
+    border: none;
 }
 </style>
 </head>
 
 <body>
 
-<h1>invinoveritas</h1>
-<p><b>Lightning-powered AI reasoning API for humans and autonomous agents.</b></p>
-
-<p>
-Pay with Bitcoin (Lightning Network) and instantly unlock high-quality AI reasoning.
-No accounts. No subscriptions. No platform lock-in.
-</p>
-
----
-
-<h2>How it works</h2>
+<h1>invinoveritas ⚡</h1>
+<p>Lightning‑paid decision intelligence for humans and AI agents</p>
 
 <div class="box">
-1. Send a request to the API<br>
-2. The API returns a Lightning invoice (L402)<br>
-3. Pay the invoice<br>
-4. Send the request again with the Authorization header<br>
-5. The AI response unlocks instantly
+
+<h2>Ask a question</h2>
+
+<input id="question" placeholder="Should I increase my BTC exposure?" />
+<br>
+<button onclick="sendQuestion()">Ask</button>
+
+<pre id="output"></pre>
+
 </div>
 
----
+<script>
+async function sendQuestion() {
+    const q = document.getElementById("question").value;
 
-<h2>Pricing</h2>
+    const response = await fetch("/reason", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({question: q})
+    });
 
-<div class="box">
-<b>500 sats per reasoning request</b><br>
-Simple pay-per-decision model.
-</div>
-
----
-
-<h2>Endpoint</h2>
-
-<b>Premium reasoning</b>
-
-<pre>POST /reason</pre>
-
-Body:
-
-<pre>{
-  "question": "Explain Bitcoin as a long-term strategy"
-}</pre>
-
----
-
-<h2>Example request</h2>
-
-<pre>curl -X POST https://your-api.onrender.com/reason \
-  -H "Content-Type: application/json" \
-  -d '{"question": "Explain Bitcoin as a long-term strategy"}'</pre>
-
----
-
-<h2>Why this exists</h2>
-
-<p>
-Most AI tools charge per user.  
-invinoveritas charges per insight using Bitcoin and the Lightning Network.
-</p>
-
-<p>
-No accounts. No subscriptions. No bank payments. No platform lock-in.
-</p>
-
----
-
-<h2>Project</h2>
-
-<p>
-Open-source project focused on paid intelligence, agent-to-agent payments,
-and Lightning-powered APIs.
-</p>
+    const text = await response.text();
+    document.getElementById("output").innerText = text;
+}
+</script>
 
 </body>
 </html>
