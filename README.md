@@ -2,26 +2,72 @@
 
 **In vino veritas — in truth, clarity.**
 
-`invinoveritas` is a minimal Lightning-powered AI reasoning API.  
-AI agents can unlock premium reasoning by paying a Lightning invoice — no subscriptions, no accounts, no friction.
-Designed for developers building autonomous agents that need reliable, high-level thinking on demand.
+`invinoveritas` is a minimal Lightning-powered **decision and reasoning endpoint** for AI agents.
 
-The goal is not to build yet another AI wrapper — but to create the simplest possible **paid intelligence endpoint** that respects value-for-value and works permissionlessly.
+Instead of selling access to models, this project sells **high-quality thinking on demand** — paid per request using the Lightning Network. No subscriptions. No accounts. No friction.
+
+It is designed for developers building autonomous agents that need reliable reasoning at the exact moment a decision matters.
+
+The goal is not to build another AI wrapper.
+
+The goal is to create the simplest possible **paid intelligence endpoint** that works permissionlessly and respects value-for-value.
+
+---
 
 ## What this project does
 
-Instead of subscriptions, user accounts, Stripe, or dashboards, the flow is:
+Instead of subscriptions, user accounts, Stripe, or dashboards, the flow is intentionally simple:
 
-1. Client sends a reasoning request to the API  
-2. Server returns a Lightning invoice  
-3. Client pays the invoice (via any Lightning wallet)  
-4. Once confirmed, the full AI response is delivered instantly
+1. An agent sends a reasoning or decision request to the API
+2. The server returns a Lightning invoice
+3. The agent pays the invoice (via any Lightning wallet)
+4. Once payment is confirmed, the full reasoning response is delivered instantly
 
-Simple. Transparent. No middlemen. No rent-seeking.
+No accounts. No platform lock-in. No middlemen.
+
+This is not "pay per user".
+
+This is **pay per decision**.
+
+---
+
+## What this is really for
+
+Most AI APIs are built for apps.
+
+`invinoveritas` is built for **autonomous agents**.
+
+Examples of agents that benefit from this model:
+
+* trading agents that need higher-quality reasoning before executing a position
+* research agents that must verify a hypothesis before continuing
+* decision agents that occasionally need stronger analysis than their base model
+* tools that want to monetize high-signal reasoning instead of raw model access
+
+This turns intelligence into something that can be purchased **only when it is actually needed**.
+
+---
+
+## Core idea
+
+Instead of:
+
+* paying monthly for unused intelligence
+* exposing API keys everywhere
+* forcing agents to rely on centralized subscriptions
+
+`invinoveritas` enables:
+
+* pay-per-insight using Bitcoin + Lightning
+* machine-to-machine micro-payments
+* permissionless premium reasoning
+* monetization based on **value delivered**, not usage quotas
+
+---
 
 ## Architecture
 
-Intentionally minimal stack — deploys fast, almost no moving parts.
+The stack is intentionally minimal so it can be deployed fast and tested in the real world.
 
 ```
                   ┌──────────────┐
@@ -46,51 +92,59 @@ Intentionally minimal stack — deploys fast, almost no moving parts.
                    Bitcoin Mainnet
 ```
 
-- **Render** → FastAPI backend + OpenAI (or compatible) reasoning  
-- **VPS** → Bitcoin full node + LND + tiny bridge endpoint  
-- No database  
-- No background workers / queues  
-- No persistent sessions
+* **Render** → FastAPI backend + AI reasoning (OpenAI or compatible)
+* **VPS** → Bitcoin full node + LND + lightweight bridge endpoint
+* No database
+* No background workers
+* No sessions
+* No complex infrastructure
+
+The focus is not features.
+
+The focus is a clean bridge between **AI reasoning and real payments**.
+
+---
 
 ## Why this exists
 
-Today's AI APIs are usually:
+Most AI APIs today are:
 
-- centralized  
-- subscription-locked  
-- platform-dependent  
-- hard to integrate natively into autonomous agents
+* centralized
+* subscription-locked
+* tied to user accounts
+* not built for autonomous agents
+* designed for apps, not machines
 
-`invinoveritas` tries a different path:
+`invinoveritas` explores a different direction:
 
-**Pay-per-insight using Bitcoin + Lightning Network.**
+**Paid intelligence that works natively on Bitcoin.**
 
-This unlocks:
-
-- agent-to-agent micro-payments for reasoning  
-- machine-native value exchange  
-- truly permissionless premium intelligence  
-- monetization per insight instead of per user
+---
 
 ## Use cases
 
-- Autonomous AI agents that pay for better reasoning  
-- Research / analysis tools with real usage-based pricing  
-- Trading, strategy, or decision agents  
-- Premium endpoints behind a Lightning paywall  
-- Experiments in paid intelligence & AI ↔ Bitcoin integration
+* Autonomous AI agents that pay for stronger reasoning only when needed
+* Trading or strategy agents that want a higher-confidence decision before acting
+* Research tools that monetize insight instead of model access
+* Developers experimenting with AI-to-AI payments
+* Paid reasoning endpoints behind Lightning paywalls
+* Experiments in Bitcoin ⚡ + AI integration
+
+---
 
 ## Project structure
 
 ```
 .
 ├── app.py              # Main FastAPI application
-├── ai.py               # OpenAI / reasoning logic
+├── ai.py               # AI reasoning logic
 ├── node_bridge.py      # Lightning node communication (LND)
 ├── config.py           # Environment variables & settings
 ├── requirements.txt    # Dependencies
 └── README.md
 ```
+
+---
 
 ## Quick start
 
@@ -104,9 +158,9 @@ pip install -r requirements.txt
 
 Copy `.env.example` to `.env` and fill in:
 
-- OpenAI API key  
-- LND gRPC host, port, cert, macaroon  
-- (optional) your preferred model, base price, etc.
+* OpenAI (or compatible) API key
+* LND gRPC host, port, cert, macaroon
+* Optional: preferred model and base price
 
 ### 3. Run locally
 
@@ -122,46 +176,68 @@ curl -X POST http://localhost:8000/subscribe \
   -d '{"prompt": "Explain why Bitcoin is the hardest money ever created."}'
 ```
 
-→ You receive a Lightning invoice (bolt11 string)  
-→ Pay it with any wallet  
-→ Poll or wait for webhook → get the full AI response
+You will receive a Lightning invoice (bolt11 string).
+
+Pay it with any Lightning wallet and the full response will be returned after confirmation.
+
+---
 
 ## Philosophy
 
-Intelligence should be **paid directly**, not bundled inside platforms.  
+Intelligence should be **paid directly**, not bundled inside platforms.
 
-- Instead of monetizing attention → monetize insight  
-- Instead of accounts → use payments  
-- Instead of subscriptions → use atomic value transfer
+Instead of monetizing attention → monetize insight
+Instead of subscriptions → use atomic payments
+Instead of accounts → use value transfer
+Instead of platforms → use Bitcoin
 
-Lightning makes this finally practical at machine scale.
+Lightning makes this practical at machine scale.
+
+---
+
+## Positioning
+
+This is not an AI product.
+
+This is an **intelligence endpoint with real pricing**.
+
+It exists to explore a simple but powerful idea:
+
+> When an agent truly needs better reasoning, it should be able to pay for it instantly.
+
+---
 
 ## Roadmap (rough)
 
-- Dynamic pricing based on token estimate / complexity  
-- Agent identity / reputation hints via Lightning keys  
-- Recurring “subscriptions” via recurring invoices  
-- Multi-model / multi-provider support  
-- AI-to-AI payment handoff patterns  
-- Better error handling & invoice status polling  
-- Optional L402 / HTTP 402 integration
+* Dynamic pricing based on prompt complexity
+* Agent identity / reputation via Lightning keys
+* Multi-model reasoning (fallback + premium modes)
+* Reusable payment credentials (L402-compatible flow)
+* AI-to-AI payment handoff patterns
+* Better invoice status handling
+* Additional high-signal endpoints
+
+---
 
 ## License
 
-MIT — do whatever you want with it. Fork, improve, deploy, sell access, whatever.
+MIT — fork it, modify it, deploy it, sell access to it, break it, improve it.
 
 Built to be used and extended.
 
+---
+
 ## Final note
 
-This is deliberately small.
+This project is deliberately small.
 
-The point is not to build the most features.  
-The point is to prove a clean bridge between:
+The objective is not to build the most features.
 
-**Bitcoin ⚡ + AI + paid reasoning**
+The objective is to prove a clean bridge between:
 
-If this resonates — clone it, break it, improve it.
+**Bitcoin ⚡ + AI + paid decision-making**
 
-Cheers  
+If this resonates with you — clone it, test it, improve it, and build something real with it.
+
+Cheers
 ⚡🤖
