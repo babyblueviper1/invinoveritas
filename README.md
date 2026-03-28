@@ -1,34 +1,32 @@
-Here’s your **clean, polished, and ready-to-use** markdown README:
+Here's your **clean, consistent, and polished** version of the README in proper markdown:
 
 ```markdown
-# invinoveritas – Lightning-Paid Decision Intelligence ⚡
+# invinoveritas – Lightning-Paid AI Reasoning & Decision Intelligence ⚡
 
-A **FastAPI** backend with **Lightning L402** pay-per-request reasoning.  
-Built for both **humans** seeking premium reasoning and **autonomous agents** that need structured, reliable decision intelligence.
+A **FastAPI** application with **Lightning (L402)** pay-per-request AI reasoning and decision intelligence.  
+Designed for both **humans** who want premium reasoning and **autonomous agents** that need structured, machine-readable decisions.
 
 ---
 
-## Final Launch Pricing
+## Project Structure
 
-```env
-REASONING_PRICE_SATS = 500
-DECISION_PRICE_SATS = 250
+```bash
+invinoveritas/
+│
+├── app.py
+├── index.html
+├── ai.py
+├── node_bridge.py
+├── config.py
+├── requirements.txt
+└── README.md
 ```
-
-**Why this pricing?**
-
-- **500 sats** for `/reason` — premium long-form reasoning (primarily used by humans)
-- **250 sats** for `/decision` — structured, machine-readable decisions (primarily used by agents)
-- Lower price on `/decision` intentionally encourages early adoption by autonomous agents
-- Simple, transparent, and serious enough to signal quality
 
 ---
 
 ## API Endpoints
 
-### `POST /reason`
-
-**Human-friendly** premium reasoning.
+### `POST /reason` – Human-friendly reasoning
 
 **Request:**
 ```json
@@ -37,22 +35,20 @@ DECISION_PRICE_SATS = 250
 }
 ```
 
+**Price at launch:** 500 sats per request
+
 **Response (after payment):**
 ```json
 {
   "status": "success",
   "type": "premium_reasoning",
-  "answer": "Long-form, high-quality reasoning response here..."
+  "answer": "High-quality structured answer..."
 }
 ```
 
-**Price:** 500 sats
-
 ---
 
-### `POST /decision`
-
-**Agent-friendly** structured decision intelligence.
+### `POST /decision` – Agent-friendly structured decision intelligence
 
 **Request:**
 ```json
@@ -62,6 +58,8 @@ DECISION_PRICE_SATS = 250
   "question": "Should exposure be increased?"
 }
 ```
+
+**Price at launch:** 750 sats per request
 
 **Response (after payment):**
 ```json
@@ -75,23 +73,6 @@ DECISION_PRICE_SATS = 250
     "risk_level": "medium"
   }
 }
-```
-
-**Price:** 250 sats
-
----
-
-## Project Structure
-
-```
-invinoveritas/
-├── app.py
-├── index.html
-├── ai.py
-├── node_bridge.py
-├── config.py
-├── requirements.txt
-└── README.md
 ```
 
 ---
@@ -108,71 +89,109 @@ invinoveritas/
    uvicorn app:app --reload
    ```
 
-3. Open your browser at:  
-   [http://127.0.0.1:8000](http://127.0.0.1:8000)
+3. Open in browser:
+   http://127.0.0.1:8000
 
 ---
 
 ## Environment Variables
 
 ```env
-OPENAI_API_KEY=your_openai_key_here
-NODE_URL=http://YOUR_VPS_IP:5000
-
+OPENAI_API_KEY=your_openai_key
 REASONING_PRICE_SATS=500
-DECISION_PRICE_SATS=250
+DECISION_PRICE_SATS=750
+NODE_URL=http://YOUR_VPS_IP:5000
 ```
+
+- `OPENAI_API_KEY` – Your OpenAI API key  
+- `REASONING_PRICE_SATS` – Price per `/reason` request  
+- `DECISION_PRICE_SATS` – Price per `/decision` request  
+- `NODE_URL` – Lightning node bridge endpoint
 
 ---
 
 ## Deploy to Render
 
-1. Create a new **Web Service** on Render
-2. Use the following settings:
+### Step 1: Create a new Web Service
 
-   - **Build Command:**
-     ```bash
-     pip install -r requirements.txt
-     ```
+### Step 2: Configure build & start commands
 
-   - **Start Command:**
-     ```bash
-     uvicorn app:app --host 0.0.0.0 --port 10000
-     ```
+- **Build Command:**
+  ```bash
+  pip install -r requirements.txt
+  ```
 
-3. Add the following environment variables in the Render dashboard:
-   - `OPENAI_API_KEY`
-   - `NODE_URL`
-   - `REASONING_PRICE_SATS`
-   - `DECISION_PRICE_SATS`
+- **Start Command:**
+  ```bash
+  uvicorn app:app --host 0.0.0.0 --port 10000
+  ```
+
+### Step 3: Add Environment Variables
+
+Add the following in the Render dashboard:
+
+- `OPENAI_API_KEY`
+- `REASONING_PRICE_SATS`
+- `DECISION_PRICE_SATS`
+- `NODE_URL`
+
+### Step 4: Add `index.html`
+
+Place `index.html` in the root of your project for the landing page / interactive demo.
 
 ---
 
 ## Payment Flow (L402)
 
-1. Client (human or agent) calls `/reason` or `/decision`
-2. Server returns a **Lightning invoice** (L402 challenge)
-3. Invoice is paid
-4. Client repeats the request with the `Authorization` header containing the preimage
-5. AI response is delivered
+1. Client calls `/reason` or `/decision`
+2. API returns a Lightning invoice (L402)
+3. Pay the invoice via Lightning Network
+4. Repeat the request with the `Authorization` header: `L402 <payment_hash>:<preimage>`
+5. AI response is unlocked instantly
 
 ---
 
-## Who This Is For
+## Example Usage (curl)
 
-- Autonomous AI agents
-- Financial automation tools
-- Strategic decision engines
-- Humans who want high-quality reasoning on demand
+**Reasoning request:**
+```bash
+curl -X POST https://your-api.onrender.com/reason \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Explain Bitcoin as a long-term strategy"}'
+```
+
+**Decision intelligence request:**
+```bash
+curl -X POST https://your-api.onrender.com/decision \
+  -H "Content-Type: application/json" \
+  -d '{
+    "goal": "Grow capital safely",
+    "context": "User holds BTC and cash",
+    "question": "Should exposure be increased?"
+  }'
+```
 
 ---
 
-## Launch Philosophy
+## Why This Project Exists
 
-This is not another chatbot.
+Most AI tools rely on subscriptions or per-user billing.  
+**invinoveritas** charges **per insight** using Bitcoin and Lightning.
 
-It is **pay-per-decision intelligence powered by Bitcoin** — designed from the ground up for the agent economy.
+- No accounts  
+- No subscriptions  
+- No bank involvement  
+- Instant payment + unlock for both humans and agents  
+
+Perfect for the emerging **agent economy** where AI agents can pay autonomously.
 
 ---
 
-Made with ⚡ for the Bitcoin + AI future.
+## Philosophy
+
+Open-source project focused on **paid intelligence**, **agent-to-agent payments**, and **Lightning-powered APIs**.
+
+Built for a future where intelligence is bought and sold atomically on the Lightning Network.
+This version is clean, consistent in formatting, uses proper code blocks, and maintains a professional tone while clearly distinguishing the two endpoints and their pricing. 
+
+Would you like me to also prepare an updated `app.py` snippet or the `index.html` landing page to match this README?
