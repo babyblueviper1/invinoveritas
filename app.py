@@ -10,6 +10,7 @@ app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
 
 PRICE_SATS = SUBSCRIPTION_PRICE
 
+
 class ReasoningRequest(BaseModel):
     question: str
 
@@ -30,23 +31,27 @@ def health():
 @app.post("/reason")
 async def reason(request: Request, data: ReasoningRequest):
 
-    # Basic prompt safety guard (protect cost)
-    if len(data.question) > 2000:
+    # Cost protection
+    if len(data.question) > 1200:
         raise HTTPException(400, "Prompt too long for this endpoint")
 
     auth = request.headers.get("Authorization")
 
     # Step 1: No payment yet → send Lightning invoice
     if not auth or not auth.startswith("L402 "):
+
         invoice_data = create_invoice(PRICE_SATS)
-        if not invoice_data:
-    		raise HTTPException(503, "Lightning node temporarily unavailable")
-        invoice = invoice_data["invoice"]
-        payment_hash = invoice_data["payment_hash"]
 
-        # For v1: use payment_hash as temporary credential
+        if "error" in invoice_data:
+            raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
+
+        invoice = invoice_data.get("invoice")
+        payment_hash = invoice_data.get("payment_hash")
+
+        if not invoice or not payment_hash:
+            raise HTTPException(503, "Invalid response from Lightning node")
+
         macaroon = payment_hash
-
         challenge = f'token="{macaroon}", invoice="{invoice}"'
 
         raise HTTPException(
@@ -69,7 +74,10 @@ async def reason(request: Request, data: ReasoningRequest):
         raise HTTPException(403, "Invalid or unpaid credential")
 
     # Step 3: Paid → run premium reasoning
-    result = premium_reasoning(data.question)
+    try:
+        result = premium_reasoning(data.question)
+    except Exception:
+        raise HTTPException(500, "Reasoning engine temporarily unavailable")
 
     return {
         "status": "success",
