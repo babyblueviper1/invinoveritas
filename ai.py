@@ -9,30 +9,34 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def premium_reasoning(question: str):
     """
-    Uses OpenAI Responses API for high-quality, structured reasoning.
-    Returns the generated text answer.
+    High-quality paid reasoning endpoint.
+    Focused on structured thinking, decision clarity, and strategic insight.
     """
-    response = client.responses.create(
-        model="gpt-4.1-mini",  # Cheap/fast; upgrade to o4-mini / gpt-5-mini / o1 variants for deeper reasoning if budget allows
-        # For simple single-turn: can use a plain string
-        input=f"""
-You are a strategic intelligence AI.
 
-Give a high-level, structured, clear and deep answer to:
+    prompt = f"""
+You are a high-level strategic intelligence system.
 
+Your goal is NOT to give a generic answer.
+Your goal is to deliver clear thinking that helps a human or an AI agent make a better decision.
+
+Answer the following question with:
+
+1) Core insight (what actually matters here)
+2) Deep reasoning (not surface-level explanation)
+3) Clear structure
+4) Practical conclusion (what should be done / what this means)
+
+Question:
 {question}
-""",
-        # Optional: force plain text output, control verbosity
+"""
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt,
         text={
-            "format": {"type": "text"},  # or "json_schema" later if you want structured JSON
-            "verbosity": "detailed"      # or "concise" / default
+            "format": {"type": "text"},
+            "verbosity": "detailed"
         },
-        # Optional: if using a reasoning-capable model
-        # reasoning={"effort": "medium"},  # low/medium/high — only on supported models
-        # max_tokens=2048,
     )
 
-    # Access the output (Responses API typically provides .output_text or similar)
-    # Exact attribute: check response.model_dump() if needed, but common patterns:
-    return response.output_text  # Preferred in many 2026 examples
-    # Fallback/alternative: response.choices[0].message.content if it mirrors chat shape
+    return response.output_text
