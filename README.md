@@ -1,12 +1,7 @@
-Here's your **clean, polished, and consistent** version of the README in proper markdown:
-
-```markdown
 # invinoveritas – Lightning-Paid Decision Intelligence ⚡
 
-A **FastAPI** application with **Lightning (L402)** pay-per-request AI reasoning and decision intelligence.  
-Supports both humans seeking premium reasoning and autonomous agents needing structured outputs.
-
-**Dynamic pricing** is applied based on request size and caller type.
+A **FastAPI** app with **Lightning (L402)** pay-per-request reasoning and agent decision intelligence.  
+Built for both humans and autonomous agents.
 
 ---
 
@@ -26,11 +21,23 @@ invinoveritas/
 
 ---
 
-## API Endpoints
+## API Overview
 
-### `POST /reason` – Human-friendly reasoning
+### Endpoints
 
-**Request:**
+| Endpoint              | Type                          | Base Price     | Description                                                              |
+|-----------------------|-------------------------------|----------------|--------------------------------------------------------------------------|
+| `/reason`             | Human-friendly reasoning      | 500 sats       | High-quality structured reasoning response                               |
+| `/decision`           | Agent-friendly decision JSON  | 1000 sats      | Strategic decision output with confidence, reasoning & risk level        |
+| `/price/{endpoint}`   | Price query                   | Free           | Returns current sats price for `/reason` or `/decision`                  |
+
+---
+
+## Request Examples
+
+### `POST /reason`
+
+**Input:**
 ```json
 {
   "question": "Should I increase my BTC exposure right now?"
@@ -42,15 +49,15 @@ invinoveritas/
 {
   "status": "success",
   "type": "premium_reasoning",
-  "answer": "High-quality structured reasoning for your question..."
+  "answer": "High-quality structured reasoning output..."
 }
 ```
 
 ---
 
-### `POST /decision` – Agent-friendly structured decision intelligence
+### `POST /decision`
 
-**Request:**
+**Input:**
 ```json
 {
   "goal": "Grow capital safely",
@@ -75,17 +82,21 @@ invinoveritas/
 
 ---
 
-## Dynamic Pricing
+### `GET /price/{endpoint}`
 
-Pricing is **dynamic** and calculated per request. It depends on:
+Agents can check the current price before calling:
 
-- Base price from environment variables (`REASONING_PRICE_SATS` or `DECISION_PRICE_SATS`)
-- Question/context length (+1 sat per 100 characters)
-- Agent multiplier (1.2x for detected automated agents)
+```python
+import requests
 
-**Examples:**
-- Human asking a short question → ~500 sats
-- Agent asking a longer question → ~720 sats
+API_URL = "https://your-api.onrender.com"
+
+reason_price = requests.get(f"{API_URL}/price/reason").json()["price_sats"]
+decision_price = requests.get(f"{API_URL}/price/decision").json()["price_sats"]
+
+print(f"Reasoning cost: {reason_price} sats")
+print(f"Decision cost: {decision_price} sats")
+```
 
 ---
 
@@ -102,7 +113,7 @@ Pricing is **dynamic** and calculated per request. It depends on:
    ```
 
 3. Open in browser:  
-   [http://127.0.0.1:8000](http://127.0.0.1:8000)
+   http://127.0.0.1:8000
 
 ---
 
@@ -119,11 +130,9 @@ NODE_URL=http://YOUR_VPS_IP:5000
 
 ## Deploy to Render
 
-### Step 1
-Create a new **Web Service**
+### Step 1: Create a new Web Service
 
-### Step 2
-Set the following commands:
+### Step 2: Set commands
 
 - **Build Command:**
   ```bash
@@ -135,8 +144,9 @@ Set the following commands:
   uvicorn app:app --host 0.0.0.0 --port 10000
   ```
 
-### Step 3
-Add these environment variables in the Render dashboard:
+### Step 3: Add Environment Variables
+
+Add in the Render dashboard:
 
 - `OPENAI_API_KEY`
 - `REASONING_PRICE_SATS`
@@ -147,30 +157,38 @@ Add these environment variables in the Render dashboard:
 
 ## Payment Flow (L402)
 
-1. User or agent calls `/reason` or `/decision`
-2. API returns a **Lightning invoice** (L402)
-3. Invoice is paid via Lightning Network
-4. Request is repeated with the `Authorization` header containing the preimage
-5. AI response is unlocked instantly
+1. User/agent calls `/reason` or `/decision`
+2. API returns a **Lightning invoice** (bolt11) if unpaid
+3. Pay the invoice via Lightning Network
+4. Repeat the request with header: `Authorization: L402 <payment_hash>:<preimage>`
+5. AI response unlocks instantly
 
-Invoices are tracked to prevent replay attacks and rate-limited to avoid spam.
+---
+
+## Agent Considerations
+
+- Use `/price/{endpoint}` to check cost before calling
+- Rate-limiting applied (minimum 5s per caller to prevent spam)
+- Invoices are tracked — once used, they cannot be reused
 
 ---
 
 ## Why This Exists
 
-Most AI tools charge via subscriptions or per user.  
-**invinoveritas** charges **per insight** using Bitcoin and the Lightning Network.
-
-- No accounts  
-- No bank subscriptions  
-- No platform lock-in  
-- Works seamlessly for both humans and autonomous agents
+- No accounts required
+- No bank subscriptions
+- Fully open-source and Bitcoin-powered
+- Designed for both human users and autonomous agents
 
 ---
 
-## Project Philosophy
+## Launch Pricing
 
-An open-source project focused on **paid intelligence**, **agent-to-agent payments**, and **Lightning-powered APIs**.
+- **`/reason`** (reasoning): **500 sats**
+- **`/decision`** (decision intelligence): **1000 sats**
 
-Built for a future where intelligence can be bought and sold atomically on Bitcoin’s Lightning Network.
+Pricing can evolve into fully dynamic logic based on node load, question length, or agent type in the future.
+
+---
+
+Built for the Bitcoin + AI future — where intelligence is paid for atomically on Lightning.
