@@ -244,5 +244,3 @@ Most AI tools rely on subscriptions or per-user billing.
 ---
 
 Built for the Bitcoin + AI future — where intelligence is bought and sold atomically on Lightning ⚡
-
-Would you like me to prepare the actual code for `agent_client.py` next?
