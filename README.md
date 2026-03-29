@@ -1,7 +1,7 @@
 # invinoveritas – Lightning-Paid Decision Intelligence ⚡
 
-A **FastAPI** app with **Lightning (L402)** pay-per-request reasoning and agent decision intelligence.  
-Built for both humans and autonomous agents.
+A **FastAPI** app with **Lightning (L402)** pay-per-request AI reasoning and decision intelligence.  
+Designed to serve both **humans** and **autonomous agents**.
 
 ---
 
@@ -16,28 +16,17 @@ invinoveritas/
 ├── node_bridge.py
 ├── config.py
 ├── requirements.txt
+├── agent_client.py     # Optional Python client for autonomous agents
 └── README.md
 ```
 
 ---
 
-## API Overview
+## API Endpoints
 
-### Endpoints
+### `POST /reason` – Human-friendly reasoning
 
-| Endpoint              | Type                          | Base Price     | Description                                                              |
-|-----------------------|-------------------------------|----------------|--------------------------------------------------------------------------|
-| `/reason`             | Human-friendly reasoning      | 500 sats       | High-quality structured reasoning response                               |
-| `/decision`           | Agent-friendly decision JSON  | 1000 sats      | Strategic decision output with confidence, reasoning & risk level        |
-| `/price/{endpoint}`   | Price query                   | Free           | Returns current sats price for `/reason` or `/decision`                  |
-
----
-
-## Request Examples
-
-### `POST /reason`
-
-**Input:**
+**Request:**
 ```json
 {
   "question": "Should I increase my BTC exposure right now?"
@@ -49,15 +38,15 @@ invinoveritas/
 {
   "status": "success",
   "type": "premium_reasoning",
-  "answer": "High-quality structured reasoning output..."
+  "answer": "High-quality structured answer..."
 }
 ```
 
 ---
 
-### `POST /decision`
+### `POST /decision` – Agent-friendly structured decision intelligence
 
-**Input:**
+**Request:**
 ```json
 {
   "goal": "Grow capital safely",
@@ -82,38 +71,34 @@ invinoveritas/
 
 ---
 
-### `GET /price/{endpoint}`
+### `GET /price/{endpoint}` – Dynamic pricing
 
-Agents can check the current price before calling:
+- `GET /price/reason`
+- `GET /price/decision`
 
-```python
-import requests
-
-API_URL = "https://your-api.onrender.com"
-
-reason_price = requests.get(f"{API_URL}/price/reason").json()["price_sats"]
-decision_price = requests.get(f"{API_URL}/price/decision").json()["price_sats"]
-
-print(f"Reasoning cost: {reason_price} sats")
-print(f"Decision cost: {decision_price} sats")
+**Response:**
+```json
+{
+  "price_sats": 500
+}
 ```
 
 ---
 
 ## Local Installation
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-2. Run the server:
-   ```bash
-   uvicorn app:app --reload
-   ```
+Run the server:
 
-3. Open in browser:  
-   http://127.0.0.1:8000
+```bash
+uvicorn app:app --reload
+```
+
+Open in browser:  
+http://127.0.0.1:8000
 
 ---
 
@@ -126,13 +111,22 @@ DECISION_PRICE_SATS=1000
 NODE_URL=http://YOUR_VPS_IP:5000
 ```
 
+**For the optional agent client (`agent_client.py`):**
+
+```env
+LND_DIR=/path/to/lnd
+CLN_RPC_PATH=/path/to/bolt-rpc
+```
+
 ---
 
 ## Deploy to Render
 
-### Step 1: Create a new Web Service
+### Step 1
+Create a new **Web Service**
 
-### Step 2: Set commands
+### Step 2
+Use these settings:
 
 - **Build Command:**
   ```bash
@@ -144,9 +138,8 @@ NODE_URL=http://YOUR_VPS_IP:5000
   uvicorn app:app --host 0.0.0.0 --port 10000
   ```
 
-### Step 3: Add Environment Variables
-
-Add in the Render dashboard:
+### Step 3
+Add the following environment variables in the Render dashboard:
 
 - `OPENAI_API_KEY`
 - `REASONING_PRICE_SATS`
@@ -157,38 +150,66 @@ Add in the Render dashboard:
 
 ## Payment Flow (L402)
 
-1. User/agent calls `/reason` or `/decision`
-2. API returns a **Lightning invoice** (bolt11) if unpaid
-3. Pay the invoice via Lightning Network
-4. Repeat the request with header: `Authorization: L402 <payment_hash>:<preimage>`
-5. AI response unlocks instantly
+1. User or agent calls `/reason` or `/decision`
+2. API returns a Lightning invoice (L402)
+3. Invoice is paid via Lightning Network
+4. Request is repeated with the `Authorization` header: `L402 <payment_hash>:<preimage>`
+5. AI response is unlocked instantly
 
 ---
 
-## Agent Considerations
+## Agent Client (`agent_client.py`)
 
-- Use `/price/{endpoint}` to check cost before calling
-- Rate-limiting applied (minimum 5s per caller to prevent spam)
-- Invoices are tracked — once used, they cannot be reused
+We provide a ready-to-use **Python client** for autonomous agents.
+
+### Features:
+- Automatically fetches current price via `/price/{endpoint}`
+- Requests Lightning invoice
+- Pays the invoice using **LND** or **Core Lightning (CLN)**
+- Retries the request with proper `Authorization` header
+- Returns the final AI output
+
+### Example Usage:
+
+```bash
+python agent_client.py --endpoint reason --question "Explain Bitcoin as a long-term strategy"
+```
+
+or
+
+```bash
+python agent_client.py --endpoint decision \
+  --goal "Grow capital safely" \
+  --context "User holds BTC and cash" \
+  --question "Should exposure be increased?"
+```
+
+The client will print:
+- Current price in sats
+- Generated BOLT11 invoice
+- Payment preimage
+- Final AI response
 
 ---
 
 ## Why This Exists
 
-- No accounts required
-- No bank subscriptions
-- Fully open-source and Bitcoin-powered
-- Designed for both human users and autonomous agents
+Most AI tools charge per user or via subscriptions.  
+**invinoveritas** charges **per insight** using Bitcoin and the Lightning Network.
+
+- No accounts  
+- No bank subscriptions  
+- No platform lock-in  
+- Seamless support for both humans and autonomous agents
 
 ---
 
-## Launch Pricing
+## Project Philosophy
 
-- **`/reason`** (reasoning): **500 sats**
-- **`/decision`** (decision intelligence): **1000 sats**
+An open-source project focused on **paid intelligence**, **agent-to-agent payments**, and **Lightning-powered APIs**.
 
-Pricing can evolve into fully dynamic logic based on node load, question length, or agent type in the future.
+Built for the emerging Bitcoin + AI economy where intelligence can be bought and sold atomically.
 
 ---
 
-Built for the Bitcoin + AI future — where intelligence is paid for atomically on Lightning.
+Would you like me to also create the content for `agent_client.py` next?
