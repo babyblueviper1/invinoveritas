@@ -148,68 +148,101 @@ Add the following environment variables in the Render dashboard:
 
 ---
 
-## Payment Flow (L402)
+## 7. How the Payment Flow Works
 
 1. User or agent calls `/reason` or `/decision`
-2. API returns a Lightning invoice (L402)
-3. Invoice is paid via Lightning Network
-4. Request is repeated with the `Authorization` header: `L402 <payment_hash>:<preimage>`
+2. API returns a **Lightning invoice (L402)** along with a temporary token
+3. User/agent pays the invoice via Lightning Network
+4. Retry the request with the `Authorization` header:  
+   `L402 {token}:{preimage}`
 5. AI response is unlocked instantly
 
 ---
 
-## Agent Client (`agent_client.py`)
+## 8. Agent Discovery
 
-We provide a ready-to-use **Python client** for autonomous agents.
+Agents can programmatically discover the API and its dynamic pricing.
 
-### Features:
-- Automatically fetches current price via `/price/{endpoint}`
-- Requests Lightning invoice
-- Pays the invoice using **LND** or **Core Lightning (CLN)**
-- Retries the request with proper `Authorization` header
+### 8.1 Check Dynamic Pricing
+
+```bash
+curl https://your-api.onrender.com/price/reason
+curl https://your-api.onrender.com/price/decision
+```
+
+### 8.2 Full Invoice Flow
+
+1. Send request to `/reason` or `/decision` with payload
+2. API returns Lightning invoice + token
+3. Pay the invoice using LND or Core Lightning (CLN)
+4. Retry the request with header: `Authorization: L402 {token}:{preimage}`
+5. Receive the AI response
+
+---
+
+## 9. Unified Agent Client (Python)
+
+A ready-to-use Python client (`agent_client.py`) is included for autonomous agents.
+
+It automatically:
+- Fetches the current price via `/price/{endpoint}`
+- Requests a Lightning invoice
+- Pays the invoice using LND or Core Lightning
+- Retries the request with the proper Authorization header
 - Returns the final AI output
 
-### Example Usage:
+**Example usage:**
 
 ```bash
 python agent_client.py --endpoint reason --question "Explain Bitcoin as a long-term strategy"
 ```
 
-or
+```python
+import os
+import requests
+import json
+import sys
 
-```bash
-python agent_client.py --endpoint decision \
-  --goal "Grow capital safely" \
-  --context "User holds BTC and cash" \
-  --question "Should exposure be increased?"
+API_BASE = "https://your-api.onrender.com"
+ENDPOINT = "reason"   # or "decision"
+
+# Node config
+LND_DIR = os.getenv("LND_DIR")
+CLN_RPC_PATH = os.getenv("CLN_RPC_PATH")
+
+# Fetch current price
+price = requests.get(f"{API_BASE}/price/{ENDPOINT}").json()["price_sats"]
+print(f"{ENDPOINT} price: {price} sats")
+
+# Full client handles invoice request, payment, and retry (see agent_client.py)
 ```
 
-The client will print:
-- Current price in sats
-- Generated BOLT11 invoice
-- Payment preimage
-- Final AI response
+The full client supports **LND**, **Core Lightning (CLN)**, dynamic pricing, retries, and pre-paid invoice detection.
+
+---
+
+## 10. Notes for Launch
+
+- **Rate limiting**: 5 seconds per caller to prevent spam
+- **Invoice tracking**: Prevents replay attacks
+- **Agent-first design**: `/decision` endpoint is optimized for autonomous agents
+- **Dynamic pricing**: Allows future adjustments based on market conditions, load, or request complexity
+- **No accounts or subscriptions** required — pure pay-per-insight model
 
 ---
 
 ## Why This Exists
 
-Most AI tools charge per user or via subscriptions.  
+Most AI tools rely on subscriptions or per-user billing.  
 **invinoveritas** charges **per insight** using Bitcoin and the Lightning Network.
 
 - No accounts  
-- No bank subscriptions  
+- No bank involvement  
 - No platform lock-in  
-- Seamless support for both humans and autonomous agents
+- Works seamlessly for both humans and autonomous agents
 
 ---
 
-## Project Philosophy
+Built for the Bitcoin + AI future — where intelligence is bought and sold atomically on Lightning ⚡
 
-An open-source project focused on **paid intelligence**, **agent-to-agent payments**, and **Lightning-powered APIs**.
-
-Built for the emerging Bitcoin + AI economy where intelligence can be bought and sold atomically.
-
----
-
-Would you like me to also create the content for `agent_client.py` next?
+Would you like me to prepare the actual code for `agent_client.py` next?
