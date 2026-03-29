@@ -30,19 +30,20 @@ code, pre {
     border-radius: 10px;
     margin: 20px 0;
 }
+
+a { color: #007acc; text-decoration: none; }
+a:hover { text-decoration: underline; }
 </style>
 </head>
 
 <body>
 
 <h1>invinoveritas</h1>
-<p><b>Lightning-powered AI reasoning API</b></p>
+<p><b>Lightning-powered AI reasoning & decision API</b></p>
 
-<p>
-Agents (or humans) pay with Bitcoin via the Lightning Network and instantly unlock high-quality AI responses.
-</p>
+<p>Agents and humans can pay with Bitcoin via the Lightning Network and instantly unlock AI responses.</p>
 
----
+<hr>
 
 <h2>How it works</h2>
 
@@ -50,87 +51,55 @@ Agents (or humans) pay with Bitcoin via the Lightning Network and instantly unlo
 1. Send a request to the API<br>
 2. The API returns a Lightning invoice<br>
 3. Pay the invoice<br>
-4. Access reasoning or decision output instantly
+4. Resend request with Authorization header<br>
+5. AI response is unlocked
 </div>
 
----
+<hr>
 
-<h2>Pricing</h2>
+<h2>Pricing (dynamic)</h2>
 
 <div class="box">
-Reasoning: <b>500 sats per request</b><br>
-Decision Intelligence: <b>1000 sats per request</b>
+Reasoning: <span id="reason-price">loading...</span> sats / request<br>
+Decision: <span id="decision-price">loading...</span> sats / request
 </div>
 
----
+<hr>
 
 <h2>Endpoints</h2>
 
-<b>Reasoning (human-friendly)</b>
-
+<b>Reasoning</b>
 <pre>POST /reason</pre>
-
 Body:
-
 <pre>{
   "question": "Explain Bitcoin as a long-term strategy"
 }</pre>
 
-Response:
-
-<pre>{
-  "status": "success",
-  "type": "premium_reasoning",
-  "answer": "High-quality structured answer..."
-}</pre>
-
----
-
-<b>Decision Intelligence (agent-friendly)</b>
-
+<b>Decision Intelligence</b>
 <pre>POST /decision</pre>
-
 Body:
-
 <pre>{
   "goal": "Grow capital safely",
   "context": "User holds BTC and cash",
   "question": "Should exposure be increased?"
 }</pre>
 
-Response:
+<hr>
 
-<pre>{
-  "status": "success",
-  "type": "decision_intelligence",
-  "result": {
-    "decision": "Increase exposure slightly",
-    "confidence": 0.72,
-    "reasoning": "Market structure improving while risk remains moderate.",
-    "risk_level": "medium"
-  }
-}</pre>
-
----
-
-<h2>Check Current Prices</h2>
-
-<p>
-You can query the current Lightning price for each endpoint with:
+<h2>Get started (agents)</h2>
 
 <pre>
-GET /price/reason
-GET /price/decision
+// Request invoice
+curl -X POST https://your-api.onrender.com/reason
+
+// Pay invoice using your Lightning wallet
+// Resend request with header:
+// Authorization: L402 &lt;payment_hash&gt;:&lt;preimage&gt;
 </pre>
-</p>
 
----
+<p>Interactive API docs: <a href="/docs">Swagger UI</a> | <a href="/redoc">ReDoc</a></p>
 
-<h2>Example request (curl)</h2>
-
-<pre>curl -X POST https://your-api.onrender.com/reason -d '{"question":"Explain Bitcoin"}'</pre>
-
----
+<hr>
 
 <h2>Why this exists</h2>
 
@@ -143,13 +112,30 @@ invinoveritas charges per insight using Bitcoin and the Lightning Network.
 No accounts. No subscriptions through banks. No platform lock-in.
 </p>
 
----
+<hr>
 
 <h2>Project</h2>
 
 <p>
 Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.
 </p>
+
+<script>
+async function loadPrices() {
+    try {
+        const reason = await fetch('/price/reason').then(r => r.json());
+        const decision = await fetch('/price/decision').then(r => r.json());
+        document.getElementById('reason-price').innerText = reason.price_sats;
+        document.getElementById('decision-price').innerText = decision.price_sats;
+    } catch (e) {
+        document.getElementById('reason-price').innerText = 'unavailable';
+        document.getElementById('decision-price').innerText = 'unavailable';
+        console.error(e);
+    }
+}
+
+loadPrices();
+</script>
 
 </body>
 </html>
