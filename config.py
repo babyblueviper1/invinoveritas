@@ -6,11 +6,11 @@ import os
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # =====================================
-# Lightning Node (LND) - Direct Connection
+# Lightning Node (LND) - gRPC Connection
 # =====================================
-LND_REST_URL = os.getenv("LND_REST_URL", "http://127.0.0.1:8080")
+LND_DIR = os.getenv("LND_DIR", "/root/.lnd")
 
-# Your baked macaroon (DO NOT put the value directly in os.getenv like this)
+# Your restricted invoice macaroon (the one you baked earlier)
 LND_MACAROON_HEX = os.getenv("LND_MACAROON_HEX")
 
 # =====================================
@@ -26,14 +26,15 @@ ENABLE_DYNAMIC_PRICING = False
 ENABLE_AGENT_DISCOUNT = True
 
 # =====================================
-# Warnings (helpful during development)
+# Warnings
 # =====================================
 if not OPENAI_API_KEY:
     print("⚠️  WARNING: OPENAI_API_KEY is not set!")
 
 if not LND_MACAROON_HEX:
-    print("⚠️  WARNING: LND_MACAROON_HEX is not set! Lightning payments will fail.")
+    print("⚠️  WARNING: LND_MACAROON_HEX is not set! Lightning invoice creation will fail.")
 
-# Optional: Show config on startup in development
+# Optional: Show config on startup (development only)
 if os.getenv("ENVIRONMENT") == "development":
     print(f"✅ Config loaded - Reasoning: {REASONING_PRICE_SATS} sats | Decision: {DECISION_PRICE_SATS} sats")
+    print(f"LND_DIR = {LND_DIR}")
