@@ -117,7 +117,7 @@ def main():
             sys.exit(1)
         payload = {"question": args.question}
 
-    # Step 1: Get price
+    # Step 1: Get current price
     try:
         price = fetch_price(args.endpoint)
         print(f"Current price for /{args.endpoint}: {price} sats")
@@ -137,7 +137,7 @@ def main():
         sys.exit(1)
 
     print(f"✅ Received invoice for {price} sats")
-    print(f"Token: {token[:16]}...")   # shortened for cleanliness
+    print(f"Token : {token[:20]}...")
 
     # Step 3: Pay the invoice
     try:
@@ -152,7 +152,7 @@ def main():
         print(f"❌ Payment failed: {e}")
         sys.exit(1)
 
-    print(f"✅ Payment successful! Preimage: {preimage[:16]}...")
+    print(f"✅ Payment successful! Preimage: {preimage[:20]}...")
 
     # Step 4: Retry with L402 header
     auth_header = f"L402 {token}:{preimage}"
