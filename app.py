@@ -19,7 +19,7 @@ app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence ⚡"
 last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
 RATE_LIMIT_SECONDS = 5
 
-# Track used payment hashes (prevent replay attacks)
+# Track used payment hashes
 used_payments: set[str] = set()
 
 
@@ -197,7 +197,7 @@ Goal: {data.goal}
 Context: {data.context}
 Question: {data.question}
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {{
   "decision": "short answer",
   "confidence": 0.XX,
@@ -205,6 +205,9 @@ Return ONLY valid JSON in this exact format:
   "risk_level": "low|medium|high"
 }}
 """
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
