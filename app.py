@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
-from ai import premium_reasoning, client
+from ai import premium_reasoning
 from config import (
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
@@ -15,11 +15,11 @@ from collections import defaultdict
 
 app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence ⚡")
 
-# Rate limiter (simple in-memory)
+# Rate limiter
 last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
 RATE_LIMIT_SECONDS = 5
 
-# Track used payment hashes to prevent replay
+# Track used payment hashes (prevent replay attacks)
 used_payments: set[str] = set()
 
 
@@ -31,17 +31,11 @@ def detect_caller(request: Request) -> str:
 
 
 def calculate_price(endpoint: str, text: str, caller: str) -> int:
-    if endpoint == "reason":
-        base = REASONING_PRICE_SATS
-    else:
-        base = DECISION_PRICE_SATS
-
-    # Simple dynamic pricing
+    base = REASONING_PRICE_SATS if endpoint == "reason" else DECISION_PRICE_SATS
     length_bonus = len(text) // 100
     multiplier = 1.2 if caller == "agent" and ENABLE_DYNAMIC_PRICING else 1.0
-
     price = int((base + length_bonus) * multiplier)
-    return max(price, 50)  # minimum 50 sats
+    return max(price, 50)
 
 
 # =========================
@@ -72,7 +66,8 @@ def health():
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "payment_method": "Lightning L402"
+        "version": "0.1",
+        "payment": "Lightning L402"
     }
 
 
@@ -86,14 +81,13 @@ def get_price(endpoint: str):
 
 
 # =========================
-# PAID REASONING ENDPOINT
+# REASONING ENDPOINT
 # =========================
 @app.post("/reason")
 async def reason(request: Request, data: ReasoningRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
 
-    # Step 1: No valid payment → return invoice (402)
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         if now - last_request_time[caller] < RATE_LIMIT_SECONDS:
@@ -108,11 +102,7 @@ async def reason(request: Request, data: ReasoningRequest):
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning error: {invoice_data['error']}")
 
-        invoice = invoice_data["invoice"]
-        payment_hash = invoice_data["payment_hash"]
-
-        # Return L402 challenge
-        challenge = f'token="{payment_hash}", invoice="{invoice}"'
+        challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
 
         raise HTTPException(
             status_code=402,
@@ -123,7 +113,7 @@ async def reason(request: Request, data: ReasoningRequest):
             }
         )
 
-    # Step 2: Has Authorization header → verify payment
+    # Verify payment
     try:
         _, creds = auth.split(" ", 1)
         token, preimage = creds.split(":", 1)
@@ -138,7 +128,6 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(token)
 
-    # Step 3: Payment verified → deliver content
     try:
         result = premium_reasoning(data.question)
     except Exception as e:
@@ -152,7 +141,7 @@ async def reason(request: Request, data: ReasoningRequest):
 
 
 # =========================
-# PAID DECISION ENDPOINT
+# DECISION ENDPOINT
 # =========================
 @app.post("/decision")
 async def decision(request: Request, data: DecisionRequest):
@@ -173,10 +162,7 @@ async def decision(request: Request, data: DecisionRequest):
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning error: {invoice_data['error']}")
 
-        invoice = invoice_data["invoice"]
-        payment_hash = invoice_data["payment_hash"]
-
-        challenge = f'token="{payment_hash}", invoice="{invoice}"'
+        challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
 
         raise HTTPException(
             status_code=402,
@@ -211,7 +197,7 @@ Goal: {data.goal}
 Context: {data.context}
 Question: {data.question}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON in this exact format:
 {{
   "decision": "short answer",
   "confidence": 0.XX,
@@ -219,12 +205,17 @@ Return ONLY valid JSON:
   "risk_level": "low|medium|high"
 }}
 """
-        response = client.responses.create(model="gpt-4o-mini", input=prompt)  # adjust model if needed
-        result_text = response.output[0].content[0].text
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=800,
+        )
+        result_text = response.choices[0].message.content.strip()
         result_json = json.loads(result_text)
 
     except Exception as e:
-        print("Decision error:", e)
+        print("Decision engine error:", e)
         raise HTTPException(500, "Decision engine error")
 
     return {
