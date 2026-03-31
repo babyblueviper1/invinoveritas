@@ -1,6 +1,5 @@
 from openai import OpenAI
 from config import OPENAI_API_KEY
-import os
 
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY is not set in environment variables!")
@@ -37,7 +36,7 @@ Question:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",          # Fast + high quality
+            model="gpt-4o-mini",          # Best balance of speed and quality
             messages=[
                 {"role": "system", "content": "You are a world-class strategic intelligence AI."},
                 {"role": "user", "content": prompt}
@@ -49,8 +48,11 @@ Question:
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        print(f"OpenAI API error: {e}")
+        print(f"OpenAI API error in premium_reasoning: {e}")
         raise Exception("Reasoning engine temporarily unavailable") from e
 
 
-# Optional: Simple test when
+# Optional: Test when running the file directly
+if __name__ == "__main__":
+    test_question = "Should I increase my Bitcoin exposure right now given current market conditions?"
+    print(premium_reasoning(test_question))
