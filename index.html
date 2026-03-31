@@ -1,141 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>invinoveritas API</title>
-
-<style>
-body {
-    font-family: system-ui, -apple-system, sans-serif;
-    max-width: 720px;
-    margin: 40px auto;
-    padding: 0 20px;
-    line-height: 1.6;
-}
-
-h1 { font-size: 34px; margin-bottom: 5px; }
-h2 { margin-top: 40px; }
-
-code, pre {
-    background: #f4f4f4;
-    padding: 6px 8px;
-    border-radius: 6px;
-    display: block;
-    overflow-x: auto;
-}
-
-.box {
-    background: #fafafa;
-    padding: 16px;
-    border-radius: 10px;
-    margin: 20px 0;
-}
-
-a { color: #007acc; text-decoration: none; }
-a:hover { text-decoration: underline; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>invinoveritas ⚡ — Lightning-Paid AI Reasoning</title>
+    
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 760px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.7;
+            color: #222;
+            background: #fafafa;
+        }
+        h1 {
+            font-size: 42px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .tagline {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .box {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 14px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            border: 1px solid #eee;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .lightning {
+            color: #f7931a;
+            font-weight: bold;
+        }
+        footer {
+            margin-top: 60px;
+            text-align: center;
+            color: #777;
+            font-size: 14px;
+        }
+    </style>
 </head>
-
 <body>
 
-<h1>invinoveritas</h1>
-<p><b>Lightning-powered AI reasoning & decision API</b></p>
+    <h1>invinoveritas ⚡</h1>
+    <p class="tagline"><strong>Lightning-powered AI reasoning &amp; decision intelligence</strong></p>
 
-<p>Agents and humans can pay with Bitcoin via the Lightning Network and instantly unlock AI responses.</p>
+    <p>Pay-per-insight API. No subscriptions. No accounts. Just Bitcoin via Lightning.</p>
 
-<hr>
+    <div class="box">
+        <strong>How it works:</strong><br><br>
+        1. Send a request to <code>/reason</code> or <code>/decision</code><br>
+        2. Receive a Lightning invoice<br>
+        3. Pay the invoice with any Lightning wallet (Strike, Phoenix, Muun, etc.)<br>
+        4. Retry the request with <code>Authorization: L402 &lt;token&gt;:&lt;preimage&gt;</code><br>
+        5. Get high-quality AI response instantly
+    </div>
 
-<h2>How it works</h2>
+    <h2>Pricing (Dynamic)</h2>
+    <div class="box">
+        <strong>Reasoning:</strong> <span id="reason-price">loading...</span> sats per request<br>
+        <strong>Decision Intelligence:</strong> <span id="decision-price">loading...</span> sats per request
+    </div>
 
-<div class="box">
-1. Send a request to the API<br>
-2. The API returns a Lightning invoice<br>
-3. Pay the invoice<br>
-4. Resend request with Authorization header<br>
-5. AI response is unlocked
-</div>
+    <h2>Endpoints</h2>
 
-<hr>
-
-<h2>Pricing (dynamic)</h2>
-
-<div class="box">
-Reasoning: <span id="reason-price">loading...</span> sats / request<br>
-Decision: <span id="decision-price">loading...</span> sats / request
-</div>
-
-<hr>
-
-<h2>Endpoints</h2>
-
-<b>Reasoning</b>
-<pre>POST /reason</pre>
-Body:
-<pre>{
-  "question": "Explain Bitcoin as a long-term strategy"
+    <div class="box">
+        <strong>POST /reason</strong> — Human-friendly strategic reasoning<br><br>
+        <pre>{
+  "question": "Should I increase my BTC exposure right now?"
 }</pre>
 
-<b>Decision Intelligence</b>
-<pre>POST /decision</pre>
-Body:
-<pre>{
+        <strong>POST /decision</strong> — Agent-friendly structured output<br><br>
+        <pre>{
   "goal": "Grow capital safely",
-  "context": "User holds BTC and cash",
-  "question": "Should exposure be increased?"
+  "context": "User holds mostly BTC and some cash",
+  "question": "Should exposure be increased in the next 30 days?"
 }</pre>
+    </div>
 
-<hr>
+    <h2>For Autonomous Agents</h2>
+    <div class="box">
+        Use the included <code>agent_client.py</code> — it automatically:
+        <ul>
+            <li>Fetches current price</li>
+            <li>Requests invoice</li>
+            <li>Pays via LND or CLN</li>
+            <li>Retries with correct L402 header</li>
+        </ul>
+        <pre>python agent_client.py --endpoint reason --question "Explain Bitcoin as a long-term strategy"</pre>
+    </div>
 
-<h2>Get started (agents)</h2>
+    <h2>Useful Links</h2>
+    <div class="box">
+        • <a href="/docs">Interactive API Docs (Swagger)</a><br>
+        • <a href="/redoc">ReDoc Documentation</a><br>
+        • <a href="https://github.com/yourusername/invinoveritas" target="_blank">GitHub Repository</a>
+    </div>
 
-<pre>
-// Request invoice
-curl -X POST https://your-api.onrender.com/reason
+    <footer>
+        Built for the Bitcoin + AI future • Pay per insight • Powered by Lightning Network ⚡
+    </footer>
 
-// Pay invoice using your Lightning wallet
-// Resend request with header:
-// Authorization: L402 &lt;payment_hash&gt;:&lt;preimage&gt;
-</pre>
+    <script>
+        async function loadPrices() {
+            try {
+                const [reasonRes, decisionRes] = await Promise.all([
+                    fetch('/price/reason'),
+                    fetch('/price/decision')
+                ]);
 
-<p>Interactive API docs: <a href="/docs">Swagger UI</a> | <a href="/redoc">ReDoc</a></p>
+                const reason = await reasonRes.json();
+                const decision = await decisionRes.json();
 
-<hr>
+                document.getElementById('reason-price').innerText = reason.price_sats || '—';
+                document.getElementById('decision-price').innerText = decision.price_sats || '—';
+            } catch (e) {
+                console.error("Could not load prices", e);
+                document.getElementById('reason-price').innerText = 'unavailable';
+                document.getElementById('decision-price').innerText = 'unavailable';
+            }
+        }
 
-<h2>Why this exists</h2>
-
-<p>
-Most AI tools charge per user.  
-invinoveritas charges per insight using Bitcoin and the Lightning Network.
-</p>
-
-<p>
-No accounts. No subscriptions through banks. No platform lock-in.
-</p>
-
-<hr>
-
-<h2>Project</h2>
-
-<p>
-Open-source project focused on paid intelligence, agent-to-agent payments, and Lightning-powered APIs.
-</p>
-
-<script>
-async function loadPrices() {
-    try {
-        const reason = await fetch('/price/reason').then(r => r.json());
-        const decision = await fetch('/price/decision').then(r => r.json());
-        document.getElementById('reason-price').innerText = reason.price_sats;
-        document.getElementById('decision-price').innerText = decision.price_sats;
-    } catch (e) {
-        document.getElementById('reason-price').innerText = 'unavailable';
-        document.getElementById('decision-price').innerText = 'unavailable';
-        console.error(e);
-    }
-}
-
-loadPrices();
-</script>
+        // Load prices when page loads
+        window.onload = loadPrices;
+    </script>
 
 </body>
 </html>
