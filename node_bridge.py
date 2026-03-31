@@ -1,57 +1,49 @@
-import requests
 import os
-from typing import Dict, Optional
+from typing import Dict
+from lndgrpc import LNDClient
+from lndgrpc.common import Macaroon
 
-# Load from config
-from config import LND_REST_URL, LND_MACAROON_HEX
+# =========================
+# Config
+# =========================
+LND_DIR = os.getenv("LND_DIR", "/root/.lnd")
 
-if not LND_MACAROON_HEX:
-    raise ValueError("LND_MACAROON_HEX is missing in config! Please set it.")
+# Your restricted invoice macaroon (the long hex you baked)
+MACAROON_HEX = os.getenv("LND_MACAROON_HEX")
 
-HEADERS = {
-    "Grpc-Metadata-macaroon": LND_MACAROON_HEX,
-    "Content-Type": "application/json"
-}
+if not MACAROON_HEX:
+    raise ValueError("LND_MACAROON_HEX is not set in environment variables!")
 
+# Convert hex macaroon to bytes for lndgrpc
+macaroon_bytes = bytes.fromhex(MACAROON_HEX)
+
+# =========================
+# Initialize LND Client
+# =========================
+lnd = LNDClient(
+    LND_DIR,
+    macaroon=Macaroon(macaroon_bytes)   # Use your restricted macaroon
+)
 
 # =============================
 # Create Lightning Invoice
 # =============================
 def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict:
     """
-    Creates a Lightning invoice directly via LND.
-    Returns: {"invoice": "lnbc...", "payment_hash": "..."}
+    Creates a Lightning invoice using your restricted macaroon.
     """
     try:
-        payload = {
-            "value": str(amount_sats),
-            "memo": memo,
-            "expiry": 3600,          # 1 hour validity
-            "private": True          # Recommended for privacy
-        }
-
-        response = requests.post(
-            f"{LND_REST_URL}/v1/invoices",
-            json=payload,
-            headers=HEADERS,
-            timeout=15
+        invoice = lnd.add_invoice(
+            value=amount_sats,
+            memo=memo,
+            expiry=3600,          # 1 hour
         )
-
-        if response.status_code != 200:
-            return {
-                "error": f"LND returned {response.status_code}",
-                "details": response.text
-            }
-
-        data = response.json()
-
         return {
-            "invoice": data.get("payment_request"),
-            "payment_hash": data.get("r_hash")        # base64 encoded
+            "invoice": invoice.payment_request,
+            "payment_hash": invoice.r_hash.hex()   # return as hex string
         }
-
     except Exception as e:
-        return {"error": f"Exception: {str(e)}"}
+        return {"error": f"Failed to create invoice: {str(e)}"}
 
 
 # =============================
@@ -59,39 +51,18 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict:
 # =============================
 def check_payment(payment_hash: str) -> bool:
     """
-    Checks whether the invoice has been paid.
-    Works with the payment_hash returned by create_invoice.
+    Checks payment status using the restricted macaroon.
     """
     try:
-        response = requests.get(
-            f"{LND_REST_URL}/v1/invoice/{payment_hash}",
-            headers=HEADERS,
-            timeout=10
-        )
-
-        if response.status_code != 200:
-            return False
-
-        data = response.json()
-        return data.get("settled", False)   # True = paid
-
-    except Exception:
+        # payment_hash should be hex
+        invoice = lnd.lookup_invoice(r_hash_str=payment_hash)
+        return invoice.settled
+    except Exception as e:
+        print(f"Check payment error: {e}")
         return False
 
 
-# =============================
-# Optional: Get invoice details
-# =============================
-def get_invoice_details(payment_hash: str) -> Dict:
-    """Returns full invoice info (useful for debugging)"""
-    try:
-        response = requests.get(
-            f"{LND_REST_URL}/v1/invoice/{payment_hash}",
-            headers=HEADERS,
-            timeout=10
-        )
-        if response.status_code == 200:
-            return response.json()
-        return {"error": response.text}
-    except Exception as e:
-        return {"error": str(e)}
+# Optional: Test function
+if __name__ == "__main__":
+    result = create_invoice(1000, "Test invoice")
+    print(result)
