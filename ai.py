@@ -1,5 +1,6 @@
 from openai import OpenAI
 from config import OPENAI_API_KEY
+import os
 
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY is not set in environment variables!")
@@ -9,28 +10,26 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def premium_reasoning(question: str) -> str:
     """
-    High-quality paid reasoning.
-    Returns well-structured, strategic intelligence.
+    High-quality strategic reasoning for the /reason endpoint.
+    Returns clear, structured, and actionable intelligence.
     """
 
     prompt = f"""
-You are a high-level strategic intelligence system specialized in clear thinking and decision-making.
+You are a high-level strategic intelligence system.
 
-Your responses must be:
-- Deep and insightful (avoid generic advice)
-- Well-structured and easy to read
-- Action-oriented with practical conclusions
+Your goal is to deliver deep, clear thinking that helps a human or autonomous agent make a better decision.
+Avoid generic answers. Focus on what actually matters.
 
-Answer the user's question using this exact structure:
+Structure your response exactly like this:
 
 **Core Insight**
-(one or two sentences that cut to what really matters)
+(1-2 sentences that cut to the heart of the matter)
 
 **Deep Reasoning**
-(detailed analysis, key factors, risks, opportunities, second-order effects)
+(Detailed analysis, key factors, risks, opportunities, and second-order effects)
 
 **Practical Conclusion**
-(what the user should do or understand, with clear recommendation)
+(What the user should do or understand, with a clear recommendation)
 
 Question:
 {question}
@@ -38,8 +37,7 @@ Question:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",           # Best balance of quality/speed/price
-            # model="gpt-4o"               # Use this for higher quality (more expensive)
+            model="gpt-4o-mini",          # Fast + high quality
             messages=[
                 {"role": "system", "content": "You are a world-class strategic intelligence AI."},
                 {"role": "user", "content": prompt}
@@ -51,11 +49,8 @@ Question:
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        print(f"OpenAI API error in premium_reasoning: {e}")
-        raise HTTPException(500, "Reasoning engine temporarily unavailable") from e
+        print(f"OpenAI API error: {e}")
+        raise Exception("Reasoning engine temporarily unavailable") from e
 
 
-# Optional: Keep a simple test function
-if __name__ == "__main__":
-    test_question = "Should I increase my Bitcoin exposure right now given current market conditions?"
-    print(premium_reasoning(test_question))
+# Optional: Simple test when
