@@ -3,63 +3,50 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment
 from ai import premium_reasoning, client
-from config import REASONING_PRICE_SATS, DECISION_PRICE_SATS
+from config import (
+    REASONING_PRICE_SATS,
+    DECISION_PRICE_SATS,
+    ENABLE_DYNAMIC_PRICING
+)
 import os
 import time
-from collections import defaultdict
 import json
+from collections import defaultdict
 
-app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence")
+app = FastAPI(title="invinoveritas – Lightning-paid Decision Intelligence ⚡")
 
-# -------------------------
-# Rate limiter (anti-spam invoices)
-# -------------------------
+# Rate limiter (simple in-memory)
 last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
 RATE_LIMIT_SECONDS = 5
 
-# -------------------------
-# Invoice tracking (prevent replay)
-# -------------------------
-used_invoices: set[str] = set()
+# Track used payment hashes to prevent replay
+used_payments: set[str] = set()
 
-# -------------------------
-# Logging helpers
-# -------------------------
+
 def detect_caller(request: Request) -> str:
-    user_agent = request.headers.get("user-agent", "").lower()
-    if "python" in user_agent or "curl" in user_agent or "node" in user_agent:
+    ua = request.headers.get("user-agent", "").lower()
+    if any(x in ua for x in ["python", "curl", "node", "httpclient"]):
         return "agent"
-    if "mozilla" in user_agent or "chrome" in user_agent or "safari" in user_agent:
-        return "browser"
-    return "unknown"
+    return "browser"
 
-def log_event(event_type: str, endpoint: str, amount: int, caller: str):
-    print(f"{event_type.upper()} | {endpoint} | {amount} sats | {caller}")
 
-# -------------------------
-# Dynamic pricing helper
-# -------------------------
-def calculate_price(endpoint: str, question: str, caller: str) -> int:
-    """
-    Basic dynamic pricing:
-      - base price from config
-      - +1 sat per 100 characters
-      - agent multiplier 1.2x
-    """
+def calculate_price(endpoint: str, text: str, caller: str) -> int:
     if endpoint == "reason":
         base = REASONING_PRICE_SATS
     else:
         base = DECISION_PRICE_SATS
 
-    length_sats = len(question) // 100  # 1 sat per 100 chars
-    agent_multiplier = 1.2 if caller == "agent" else 1.0
+    # Simple dynamic pricing
+    length_bonus = len(text) // 100
+    multiplier = 1.2 if caller == "agent" and ENABLE_DYNAMIC_PRICING else 1.0
 
-    price = int((base + length_sats) * agent_multiplier)
-    return max(price, 1)  # ensure minimum 1 sat
+    price = int((base + length_bonus) * multiplier)
+    return max(price, 50)  # minimum 50 sats
 
-# -------------------------
-# Request models
-# -------------------------
+
+# =========================
+# Models
+# =========================
 class ReasoningRequest(BaseModel):
     question: str
 
@@ -68,55 +55,26 @@ class DecisionRequest(BaseModel):
     context: str
     question: str
 
-# -------------------------
-# Home / Health / Price
-# -------------------------
+
+# =========================
+# Basic Routes
+# =========================
 @app.get("/", response_class=HTMLResponse)
 def home():
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>invinoveritas API is running ⚡🤖</h1>"
+    return "<h1>invinoveritas API is running ⚡</h1>"
+
 
 @app.get("/health")
 def health():
-    """
-    Health check + machine-readable endpoint info for agents
-    """
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "version": "0.1",
-        "endpoints": [
-            {
-                "path": "/reason",
-                "description": "Human-friendly premium reasoning",
-                "price_sats": REASONING_PRICE_SATS,
-                "method": "POST",
-                "input_schema": {
-                    "question": "string"
-                },
-                "auth": "Lightning L402 token via Authorization header"
-            },
-            {
-                "path": "/decision",
-                "description": "Agent-friendly structured decision intelligence",
-                "price_sats": DECISION_PRICE_SATS,
-                "method": "POST",
-                "input_schema": {
-                    "goal": "string",
-                    "context": "string",
-                    "question": "string"
-                },
-                "auth": "Lightning L402 token via Authorization header"
-            }
-        ],
-        "payment": {
-            "method": "Lightning L402",
-            "currency": "sats",
-            "dynamic_pricing": True
-        }
+        "payment_method": "Lightning L402"
     }
+
 
 @app.get("/price/{endpoint}")
 def get_price(endpoint: str):
@@ -124,82 +82,67 @@ def get_price(endpoint: str):
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
         return {"price_sats": DECISION_PRICE_SATS}
-    else:
-        raise HTTPException(404, "Unknown endpoint")
-# -------------------------
+    raise HTTPException(404, "Unknown endpoint")
+
+
+# =========================
 # PAID REASONING ENDPOINT
-# -------------------------
+# =========================
 @app.post("/reason")
 async def reason(request: Request, data: ReasoningRequest):
     caller = detect_caller(request)
-
-    if len(data.question) > 1200:
-        raise HTTPException(400, "Prompt too long for this endpoint")
-
     auth = request.headers.get("Authorization")
 
+    # Step 1: No valid payment → return invoice (402)
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         if now - last_request_time[caller] < RATE_LIMIT_SECONDS:
-            raise HTTPException(
-                429,
-                f"Rate limit: please wait {RATE_LIMIT_SECONDS} seconds before requesting another invoice"
-            )
+            raise HTTPException(429, f"Rate limit: wait {RATE_LIMIT_SECONDS}s")
+
         last_request_time[caller] = now
 
-        # dynamic pricing
         price = calculate_price("reason", data.question, caller)
-        log_event("invoice_issued", "reason", price, caller)
 
-        invoice_data = create_invoice(price)
+        invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
+            raise HTTPException(503, f"Lightning error: {invoice_data['error']}")
 
-        invoice = invoice_data.get("invoice")
-        payment_hash = invoice_data.get("payment_hash")
-        if not invoice or not payment_hash:
-            raise HTTPException(503, "Invalid response from Lightning node")
+        invoice = invoice_data["invoice"]
+        payment_hash = invoice_data["payment_hash"]
 
-        macaroon = payment_hash
-        challenge = f'token="{macaroon}", invoice="{invoice}"'
+        # Return L402 challenge
+        challenge = f'token="{payment_hash}", invoice="{invoice}"'
 
         raise HTTPException(
             status_code=402,
-            detail="Payment Required – pay Lightning invoice to unlock premium reasoning",
+            detail="Payment Required",
             headers={
-                "WWW-Authenticate": f'L402 {challenge}',
+                "WWW-Authenticate": f"L402 {challenge}",
                 "Retry-After": "10"
             }
         )
 
-    # -------------------------
-    # Step 2: Verify payment
-    # -------------------------
+    # Step 2: Has Authorization header → verify payment
     try:
         _, creds = auth.split(" ", 1)
-        macaroon, preimage = creds.split(":", 1)
+        token, preimage = creds.split(":", 1)
     except Exception:
-        raise HTTPException(401, "Invalid L402 credentials")
+        raise HTTPException(401, "Invalid L402 format")
 
-    if macaroon in used_invoices:
+    if token in used_payments:
         raise HTTPException(403, "Invoice already used")
 
-    if not check_payment(macaroon):
-        raise HTTPException(403, "Invalid or unpaid credential")
+    if not check_payment(token):
+        raise HTTPException(403, "Payment not settled yet")
 
-    used_invoices.add(macaroon)
-    price = calculate_price("reason", data.question, caller)
-    log_event("payment_success", "reason", price, caller)
+    used_payments.add(token)
 
-    # -------------------------
-    # Step 3: Paid → run reasoning
-    # -------------------------
+    # Step 3: Payment verified → deliver content
     try:
         result = premium_reasoning(data.question)
     except Exception as e:
-        print("Reasoning engine error:", e)
-        raise HTTPException(500, "Reasoning engine temporarily unavailable")
+        raise HTTPException(500, "Reasoning engine error")
 
     return {
         "status": "success",
@@ -207,109 +150,82 @@ async def reason(request: Request, data: ReasoningRequest):
         "answer": result
     }
 
-# -------------------------
-# AGENT DECISION ENDPOINT
-# -------------------------
+
+# =========================
+# PAID DECISION ENDPOINT
+# =========================
 @app.post("/decision")
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
-
-    if len(data.question) > 1200:
-        raise HTTPException(400, "Question too long for this endpoint")
-
     auth = request.headers.get("Authorization")
 
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         if now - last_request_time[caller] < RATE_LIMIT_SECONDS:
-            raise HTTPException(
-                429,
-                f"Rate limit: please wait {RATE_LIMIT_SECONDS} seconds before requesting another invoice"
-            )
+            raise HTTPException(429, f"Rate limit: wait {RATE_LIMIT_SECONDS}s")
+
         last_request_time[caller] = now
 
-        # dynamic pricing
         price = calculate_price("decision", data.question, caller)
-        log_event("invoice_issued", "decision", price, caller)
 
-        invoice_data = create_invoice(price)
+        invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning node error: {invoice_data['error']}")
+            raise HTTPException(503, f"Lightning error: {invoice_data['error']}")
 
-        invoice = invoice_data.get("invoice")
-        payment_hash = invoice_data.get("payment_hash")
-        if not invoice or not payment_hash:
-            raise HTTPException(503, "Invalid response from Lightning node")
+        invoice = invoice_data["invoice"]
+        payment_hash = invoice_data["payment_hash"]
 
-        macaroon = payment_hash
-        challenge = f'token="{macaroon}", invoice="{invoice}"'
+        challenge = f'token="{payment_hash}", invoice="{invoice}"'
 
         raise HTTPException(
             status_code=402,
-            detail="Payment Required – pay Lightning invoice to unlock decision intelligence",
+            detail="Payment Required",
             headers={
-                "WWW-Authenticate": f'L402 {challenge}",
+                "WWW-Authenticate": f"L402 {challenge}",
                 "Retry-After": "10"
             }
         )
 
-    # -------------------------
-    # Step 2: Verify payment
-    # -------------------------
+    # Verify payment
     try:
         _, creds = auth.split(" ", 1)
-        macaroon, preimage = creds.split(":", 1)
+        token, preimage = creds.split(":", 1)
     except Exception:
-        raise HTTPException(401, "Invalid L402 credentials")
+        raise HTTPException(401, "Invalid L402 format")
 
-    if macaroon in used_invoices:
+    if token in used_payments:
         raise HTTPException(403, "Invoice already used")
 
-    if not check_payment(macaroon):
-        raise HTTPException(403, "Invalid or unpaid credential")
+    if not check_payment(token):
+        raise HTTPException(403, "Payment not settled")
 
-    used_invoices.add(macaroon)
-    price = calculate_price("decision", data.question, caller)
-    log_event("payment_success", "decision", price, caller)
+    used_payments.add(token)
 
-    # -------------------------
-    # Step 3: Paid → structured decision output
-    # -------------------------
+    # Run decision logic
     try:
         prompt = f"""
 You are a strategic decision intelligence AI.
 
-Goal:
-{data.goal}
+Goal: {data.goal}
+Context: {data.context}
+Question: {data.question}
 
-Context:
-{data.context}
-
-Question:
-{data.question}
-
-Return ONLY valid JSON in this exact format:
-
+Return ONLY valid JSON:
 {{
-  "decision": "",
-  "confidence": 0.0,
-  "reasoning": "",
-  "risk_level": ""
+  "decision": "short answer",
+  "confidence": 0.XX,
+  "reasoning": "clear explanation",
+  "risk_level": "low|medium|high"
 }}
 """
-        response = client.responses.create(model="gpt-4.1-mini", input=prompt)
+        response = client.responses.create(model="gpt-4o-mini", input=prompt)  # adjust model if needed
         result_text = response.output[0].content[0].text
-
-        # Validate JSON
-        try:
-            result_json = json.loads(result_text)
-        except json.JSONDecodeError:
-            raise HTTPException(500, "Decision engine returned invalid JSON")
+        result_json = json.loads(result_text)
 
     except Exception as e:
-        print("Decision engine error:", e)
-        raise HTTPException(500, "Decision engine temporarily unavailable")
+        print("Decision error:", e)
+        raise HTTPException(500, "Decision engine error")
 
     return {
         "status": "success",
