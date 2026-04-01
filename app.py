@@ -238,6 +238,7 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
+    # No authorization → generate and return Lightning invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -254,13 +255,15 @@ async def reason(request: Request, data: ReasoningRequest):
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
 
-        # Better 402 response
+        # Clean and informative 402 response
         raise HTTPException(
             status_code=402,
             detail={
                 "message": "Payment Required",
+                "description": "Pay the Lightning invoice to receive the reasoning",
+                "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
-                "payment_hash": invoice_data["payment_hash"]
+                "amount_sats": price
             },
             headers={
                 "WWW-Authenticate": f"L402 {challenge}",
@@ -268,7 +271,7 @@ async def reason(request: Request, data: ReasoningRequest):
             }
         )
 
-    # Payment verification
+    # === Payment verification ===
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -286,6 +289,7 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(payment_hash)
 
+    # Process the request
     try:
         result = premium_reasoning(data.question)
     except Exception as e:
@@ -304,7 +308,7 @@ async def decision(request: Request, data: DecisionRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No authorization → return invoice
+    # No authorization → generate and return Lightning invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:decision"
@@ -319,15 +323,19 @@ async def decision(request: Request, data: DecisionRequest):
         invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
+            raise HTTPException(503, f"Lightning error: {invoice_data.get('error', 'Unknown error')}")
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
+
+        # Clean and informative 402 response
         raise HTTPException(
             status_code=402,
             detail={
                 "message": "Payment Required",
+                "description": "Pay the Lightning invoice to receive the structured decision",
+                "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
-                "payment_hash": invoice_data["payment_hash"]
+                "amount_sats": price
             },
             headers={
                 "WWW-Authenticate": f"L402 {challenge}",
@@ -335,7 +343,7 @@ async def decision(request: Request, data: DecisionRequest):
             }
         )
 
-    # Payment verification
+    # === Payment verification ===
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -353,6 +361,7 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
+    # Process the request
     try:
         result_json = structured_decision(data.goal, data.context, data.question)
     except Exception as e:
