@@ -1,35 +1,93 @@
-# invinoveritas ⚡
+# ⚡ invinoveritas
 
-**Lightning-Paid AI Reasoning & Decision Intelligence**
+**Lightning-Paid Reasoning for Autonomous Agents**
 
 Pay-per-insight API using Bitcoin Lightning (L402 protocol).  
-No subscriptions. No accounts. No KYC.
-
-Designed for both humans and autonomous agents.
+No subscriptions. No accounts. No KYC.  
+Designed primarily for **autonomous AI agents**.
 
 ---
 
-## Features
+### What This Tool Is
 
-- Pay with Lightning using the L402 protocol
-- Two endpoints: `/reason` (strategic analysis) and `/decision` (structured JSON for agents)
+**invinoveritas** is a reasoning and decision-intelligence service that agents can call when they need:
+
+- Higher-quality reasoning than a local model
+- Structured decision outputs (JSON)
+- Deterministic pricing per request
+- Cryptographic payment using Bitcoin Lightning
+
+Instead of increasing local compute cost, the agent can **pay per high-confidence decision**.
+
+---
+
+### When an Agent Should Use This
+
+An agent should call **invinoveritas** when:
+
+- The decision has financial impact
+- The confidence of the answer matters
+- The question involves strategy, risk, or uncertainty
+- A structured decision output is required
+- The agent wants deterministic cost instead of extra reasoning tokens
+
+**Examples:**
+
+- Portfolio decisions
+- Risk analysis
+- Strategic trade-offs
+- Multi-step reasoning
+- Planning with uncertainty
+
+---
+
+### Core Features
+
+- Lightning payments using the **L402 protocol**
+- No authentication required
+- Two premium endpoints:
+  - `/reason` → high-quality strategic reasoning
+  - `/decision` → structured decision intelligence
+- Free price discovery endpoints
 - Dynamic pricing with optional agent multiplier
-- Strong replay protection and rate limiting
-- Excellent support for autonomous agents via MCP
-- Easy deployment on Render + lightweight bridge on VPS
+- Replay protection and rate limiting
+- Native support for **MCP (Model Context Protocol)**
 
 ---
 
-## API Endpoints
+### Quick Agent Integration
 
-### `POST /reason` – Strategic Reasoning
+1. **Discover price**
+   ```bash
+   GET /price/reason
+   GET /price/decision
+   ```
 
-**Request:**
-```json
-{ "question": "Should I increase my BTC exposure right now?" }
-```
+2. **Request reasoning**
+   ```http
+   POST /reason
+   Content-Type: application/json
+   {
+     "question": "What are the biggest risks to Bitcoin in 2026?"
+   }
+   ```
 
-**Response:**
+3. **Request structured decision intelligence**
+   ```http
+   POST /decision
+   Content-Type: application/json
+   {
+     "goal": "Grow capital safely",
+     "context": "Mostly BTC and cash position",
+     "question": "Should I increase exposure in the next 30 days?"
+   }
+   ```
+
+---
+
+### Response Format
+
+**`/reason`**
 ```json
 {
   "status": "success",
@@ -38,112 +96,114 @@ Designed for both humans and autonomous agents.
 }
 ```
 
-### `POST /decision` – Structured Decision Intelligence
-
-**Request:**
-```json
-{
-  "goal": "Grow capital safely",
-  "context": "Mostly BTC and cash position",
-  "question": "Should I increase exposure in the next 30 days?"
-}
-```
-
-**Response:**
+**`/decision`**
 ```json
 {
   "status": "success",
   "type": "decision_intelligence",
   "result": {
-    "decision": "Increase exposure slightly",
-    "confidence": 0.72,
+    "decision": "...",
+    "confidence": 0.0,
     "reasoning": "...",
-    "risk_level": "medium"
+    "risk_level": "low | medium | high"
   }
 }
 ```
 
-### Free Endpoints
-- `GET /price/reason`
-- `GET /price/decision`
-- `GET /health`
+---
+
+### Why This Exists
+
+Most AI agents pay for intelligence using:
+- API subscriptions
+- Token-based billing
+- Centralized identity systems
+
+**invinoveritas** enables something different:
+
+> **Pay-per-decision using Bitcoin Lightning.**
+
+This allows agents to:
+- Pay only when confidence matters
+- Avoid subscriptions
+- Avoid accounts
+- Avoid centralized payment systems
 
 ---
 
-## For Humans & Simple Use
+### Autonomous Agent Support
 
-Use the included `agent_client.py`:
+invinoveritas includes a built-in **MCP client** for agent integration.
 
+**Supported environments:**
+- Claude Desktop
+- Cursor
+- Autonomous Python agents
+- Research agents
+- Strategy agents
+- Trading agents
+
+**Install MCP Client**
 ```bash
-python agent_client.py --endpoint reason --question "What are the biggest risks to Bitcoin in 2026?"
-```
-
----
-
-## For Autonomous Agents (Recommended)
-
-Use the **MCP Client** — works great with Claude Desktop, Cursor, etc.
-
-```bash
-# 1. Clone or download the repo
-# 2. Install dependencies
 pip install mcp requests lndgrpc pyln-client
-
-# 3. Run the MCP server
 python mcp_client.py
 ```
 
-Then add it to your Claude Desktop configuration.
+Then add the MCP server to your agent configuration.
 
 ---
 
-## Project Structure
+### API Structure
 
 ```bash
 invinoveritas/
-├── app.py                 # Main FastAPI server (deployed on Render)
-├── ai.py                  # AI reasoning & decision logic
+├── app.py
+├── ai.py
 ├── config.py
-├── node_bridge.py         # Communicates with VPS bridge
-├── mcp_client.py          # MCP server for autonomous agents ← Important
-├── agent_client.py        # Simple CLI client
+├── node_bridge.py
+├── mcp_client.py
+├── agent_client.py
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Deployment
+### Free Endpoints
 
-### 1. Render (Main API)
-- Deploy `app.py` as a Web Service
-- Build command: `pip install -r requirements.txt`
-- Start command: `uvicorn app:app --host 0.0.0.0 --port $PORT`
-- Required env vars:
-  - `OPENAI_API_KEY`
-  - `NODE_URL` → your VPS bridge URL (e.g. `https://bridge.yourdomain.com`)
-
-### 2. VPS Bridge (Lightning Node)
-- Runs on your VPS that has access to LND
-- Connects to your local LND instance
-- Exposes `/create-invoice`, `/check-payment/{hash}`, `/verify-preimage`
+- `GET /price/reason`
+- `GET /price/decision`
+- `GET /health`
 
 ---
 
-## Environment Variables (Render)
+### Deployment
 
-| Variable                    | Description                              | Required |
-|----------------------------|------------------------------------------|----------|
-| `OPENAI_API_KEY`           | OpenAI API key                           | Yes      |
-| `NODE_URL`                 | URL of your VPS Lightning bridge         | Yes      |
-| `REASONING_PRICE_SATS`     | Base price for reasoning (default 500)   | No       |
-| `DECISION_PRICE_SATS`      | Base price for decisions (default 1000)  | No       |
-| `AGENT_PRICE_MULTIPLIER`   | Multiplier for agent calls (default 1.2) | No       |
+**Main API (Render)**
+- Deploy `app.py` as a web service
+- Install dependencies using `requirements.txt`
+- Connect to Lightning bridge using environment variables
+
+**Lightning Bridge (VPS)**
+- Runs on a VPS connected to LND
+- Creates invoices
+- Verifies payments
+- Provides preimage verification
+
+**Environment Variables**
+- `OPENAI_API_KEY`
+- `NODE_URL`
+- `REASONING_PRICE_SATS`
+- `DECISION_PRICE_SATS`
+- `AGENT_PRICE_MULTIPLIER`
 
 ---
 
-## Why invinoveritas?
+### Philosophy
 
-Because intelligence should be **atomically purchasable** with sats — not locked behind subscriptions and banks.
+AI intelligence should not require:
+- Monthly subscriptions
+- Identity verification
+- Centralized payment systems
 
-Built for the Bitcoin × AI future.
+**invinoveritas** enables **atomic intelligence purchases using sats**.
