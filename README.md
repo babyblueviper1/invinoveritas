@@ -2,20 +2,21 @@
 
 **Lightning-Paid AI Reasoning & Decision Intelligence**
 
-Pay-per-insight API. No subscriptions. No accounts. Just Bitcoin via Lightning.
+Pay-per-insight API using Bitcoin Lightning (L402 protocol).  
+No subscriptions. No accounts. No KYC.
 
-Designed for both **humans** and **autonomous agents**.
+Designed for both humans and autonomous agents.
 
 ---
 
 ## Features
 
-- Pay with Lightning (L402 protocol)
-- Two endpoints: `/reason` (human-friendly) and `/decision` (structured JSON for agents)
-- Dynamic pricing
-- Rate limiting & replay protection
-- Full support for autonomous agents
-- Easy deployment on Render
+- Pay with Lightning using the L402 protocol
+- Two endpoints: `/reason` (strategic analysis) and `/decision` (structured JSON for agents)
+- Dynamic pricing with optional agent multiplier
+- Strong replay protection and rate limiting
+- Excellent support for autonomous agents via MCP
+- Easy deployment on Render + lightweight bridge on VPS
 
 ---
 
@@ -25,17 +26,15 @@ Designed for both **humans** and **autonomous agents**.
 
 **Request:**
 ```json
-{
-  "question": "Should I increase my BTC exposure right now?"
-}
+{ "question": "Should I increase my BTC exposure right now?" }
 ```
 
-**Response (after payment):**
+**Response:**
 ```json
 {
   "status": "success",
   "type": "premium_reasoning",
-  "answer": "High-quality structured strategic answer..."
+  "answer": "..."
 }
 ```
 
@@ -45,12 +44,12 @@ Designed for both **humans** and **autonomous agents**.
 ```json
 {
   "goal": "Grow capital safely",
-  "context": "User holds mostly BTC and some cash",
-  "question": "Should exposure be increased in the next 30 days?"
+  "context": "Mostly BTC and cash position",
+  "question": "Should I increase exposure in the next 30 days?"
 }
 ```
 
-**Response (after payment):**
+**Response:**
 ```json
 {
   "status": "success",
@@ -58,95 +57,43 @@ Designed for both **humans** and **autonomous agents**.
   "result": {
     "decision": "Increase exposure slightly",
     "confidence": 0.72,
-    "reasoning": "Market structure improving while risk remains moderate.",
+    "reasoning": "...",
     "risk_level": "medium"
   }
 }
 ```
 
-### `GET /price/{endpoint}` – Current Pricing
-
+### Free Endpoints
 - `GET /price/reason`
 - `GET /price/decision`
-
-Returns:
-```json
-{
-  "price_sats": 500
-}
-```
+- `GET /health`
 
 ---
 
-## Quick Start (Local)
-
-```bash
-pip install -r requirements.txt
-uvicorn app:app --reload
-```
-
-Open: http://127.0.0.1:8000
-
----
-
-## Environment Variables
-
-| Variable                  | Description                              | Required |
-|--------------------------|------------------------------------------|----------|
-| `OPENAI_API_KEY`         | Your OpenAI key                          | Yes      |
-| `LND_REST_URL`           | LND REST endpoint (usually `http://127.0.0.1:8080`) | Yes      |
-| `LND_MACAROON_HEX`       | Restricted invoice macaroon              | Yes      |
-| `REASONING_PRICE_SATS`   | Base price for `/reason` (default 500)   | No       |
-| `DECISION_PRICE_SATS`    | Base price for `/decision` (default 1000)| No       |
-
-For the **agent client** (`agent_client.py`):
-
-- `LND_DIR` or `CLN_RPC_PATH`
-
----
-
-## Deployment on Render
-
-1. Create a new **Web Service**
-2. Build Command:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Start Command:
-   ```bash
-   uvicorn app:app --host 0.0.0.0 --port 10000
-   ```
-4. Add environment variables:
-   - `OPENAI_API_KEY`
-   - `LND_REST_URL`
-   - `LND_MACAROON_HEX`
-   - `REASONING_PRICE_SATS` (optional)
-   - `DECISION_PRICE_SATS` (optional)
-
----
-
-## Payment Flow (L402)
-
-1. Client sends request to `/reason` or `/decision`
-2. Server returns HTTP 402 + Lightning invoice
-3. Client pays the invoice
-4. Client retries with header:
-   ```http
-   Authorization: L402 <payment_hash>:<preimage>
-   ```
-5. AI response is returned
-
----
-
-## For Autonomous Agents
+## For Humans & Simple Use
 
 Use the included `agent_client.py`:
 
 ```bash
-python agent_client.py --endpoint reason --question "Explain Bitcoin as a long-term strategy"
+python agent_client.py --endpoint reason --question "What are the biggest risks to Bitcoin in 2026?"
 ```
 
-The client automatically handles price discovery, invoice payment (via LND or CLN), and retry.
+---
+
+## For Autonomous Agents (Recommended)
+
+Use the **MCP Client** — works great with Claude Desktop, Cursor, etc.
+
+```bash
+# 1. Clone or download the repo
+# 2. Install dependencies
+pip install mcp requests lndgrpc pyln-client
+
+# 3. Run the MCP server
+python mcp_client.py
+```
+
+Then add it to your Claude Desktop configuration.
 
 ---
 
@@ -154,30 +101,49 @@ The client automatically handles price discovery, invoice payment (via LND or CL
 
 ```bash
 invinoveritas/
-├── app.py
-├── index.html
-├── ai.py
-├── node_bridge.py
+├── app.py                 # Main FastAPI server (deployed on Render)
+├── ai.py                  # AI reasoning & decision logic
 ├── config.py
-├── agent_client.py
+├── node_bridge.py         # Communicates with VPS bridge
+├── mcp_client.py          # MCP server for autonomous agents ← Important
+├── agent_client.py        # Simple CLI client
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Why This Project Exists
+## Deployment
 
-Most AI tools charge monthly subscriptions through banks.  
-**invinoveritas** lets anyone buy intelligence **atomically** with sats on the Lightning Network.
+### 1. Render (Main API)
+- Deploy `app.py` as a Web Service
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn app:app --host 0.0.0.0 --port $PORT`
+- Required env vars:
+  - `OPENAI_API_KEY`
+  - `NODE_URL` → your VPS bridge URL (e.g. `https://bridge.yourdomain.com`)
 
-- No accounts  
-- No subscriptions  
-- No KYC  
-- Works perfectly with autonomous agents
+### 2. VPS Bridge (Lightning Node)
+- Runs on your VPS that has access to LND
+- Connects to your local LND instance
+- Exposes `/create-invoice`, `/check-payment/{hash}`, `/verify-preimage`
 
 ---
 
-Built for the Bitcoin + AI future ⚡
+## Environment Variables (Render)
+
+| Variable                    | Description                              | Required |
+|----------------------------|------------------------------------------|----------|
+| `OPENAI_API_KEY`           | OpenAI API key                           | Yes      |
+| `NODE_URL`                 | URL of your VPS Lightning bridge         | Yes      |
+| `REASONING_PRICE_SATS`     | Base price for reasoning (default 500)   | No       |
+| `DECISION_PRICE_SATS`      | Base price for decisions (default 1000)  | No       |
+| `AGENT_PRICE_MULTIPLIER`   | Multiplier for agent calls (default 1.2) | No       |
 
 ---
+
+## Why invinoveritas?
+
+Because intelligence should be **atomically purchasable** with sats — not locked behind subscriptions and banks.
+
+Built for the Bitcoin × AI future.
