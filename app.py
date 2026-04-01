@@ -330,3 +330,9 @@ async def decision(request: Request, data: DecisionRequest):
         "type": "decision_intelligence",
         "result": result_json
     }
+
+from fastapi.responses import FileResponse
+
+@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
+def ai_plugin():
+    return FileResponse(".well-known/ai-plugin.json", media_type="application/json")
