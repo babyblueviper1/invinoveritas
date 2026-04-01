@@ -1,42 +1,23 @@
 {
   "schema_version": "v1",
-
   "name_for_human": "invinoveritas ⚡",
   "name_for_model": "invinoveritas",
-
-  "description_for_human": "Lightning-paid reasoning and decision intelligence. Pay per insight using Bitcoin Lightning. No subscriptions, no accounts, no KYC.",
-
-  "description_for_model": "Lightning-paid reasoning and structured decision intelligence using the L402 protocol. The agent sends a request to /reason or /decision, receives a 402 response containing a Lightning invoice, pays the invoice, then retries the request with Authorization: L402 <payment_hash>:<preimage>.",
-
+  
+  "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin. No subscriptions, no accounts, no KYC.",
+  
+  "description_for_model": "invinoveritas provides high-quality strategic reasoning (/reason) and structured decision intelligence (/decision) using the Bitcoin Lightning Network via the L402 protocol. Every request requires a small Lightning payment (~500-1000 sats). The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request with the header: Authorization: L402 <payment_hash>:<preimage>.",
+  
   "auth": {
     "type": "none"
   },
-
+  
   "api": {
     "type": "openapi",
-    "url": "/openapi.json"
+    "url": "/openapi.json",
+    "is_user_authenticated": false
   },
-
-  "logo_url": "/logo.png",
-
-  "contact_email": "contact@invinoveritas.ai",
-  "legal_info_url": "https://invinoveritas.ai",
-
-  "tooling": {
-    "tool_definition_url": "/tool",
-    "health_url": "/health",
-    "price_endpoints": [
-      "/price/reason",
-      "/price/decision"
-    ]
-  },
-
-  "capabilities": {
-    "lightning_payments": true,
-    "l402_protocol": true,
-    "structured_decision_output": true,
-    "no_accounts": true,
-    "no_kyc": true,
-    "agent_optimized": true
-  }
+  
+  "logo_url": null,
+  "contact_email": "babyblueviperbusiness@gmail.com",
+  "legal_info_url": "https://babyblueviper.com"
 }
