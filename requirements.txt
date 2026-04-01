@@ -1,7 +1,18 @@
-fastapi==0.110.0
-uvicorn[standard]==0.29.0
-openai>=1.0.0
-requests>=2.31.0
-pydantic>=2.6.0
+# invinoveritas requirements.txt
+
+# Core dependencies for the API server (Render)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+openai>=1.40.0
+requests>=2.32.0
+pydantic>=2.9.0
+
+# MCP support for autonomous agents
+mcp>=1.2.0
+
+# Optional
 python-dotenv>=1.0.0
-mcp 
+
+# For running agent_client.py or mcp_client.py locally (uncomment if needed):
+# lndgrpc>=0.4.0
+# pyln-client>=24.5.0
