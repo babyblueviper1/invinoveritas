@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment, verify_preimage
-from ai import premium_reasoning
+from ai import premium_reasoning, structured_decision   # ← Fixed: added structured_decision
 from config import (
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
@@ -13,8 +13,8 @@ from config import (
 )
 import os
 import time
-import json
 from collections import defaultdict
+
 
 # =========================
 # FastAPI App
@@ -39,10 +39,11 @@ app = FastAPI(
     contact={"name": "invinoveritas"},
 )
 
+
 # Rate limiter (per IP + endpoint)
 last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
 
-# Track used payment hashes (in-memory)
+# Track used payment hashes (in-memory for now)
 used_payments: set[str] = set()
 
 
@@ -94,16 +95,74 @@ def home():
 
 @app.get("/health", tags=["meta"])
 def health():
-    return {"status": "ok", "service": "invinoveritas", "version": "0.1", "payment": "Lightning L402"}
+    """Health check with rich metadata for agents and monitoring tools."""
+    return {
+        "status": "ok",
+        "service": "invinoveritas",
+        "version": "0.1.0",
+        "timestamp": int(time.time()),
+
+        "api": {
+            "title": "Lightning-Paid AI Reasoning & Decision Intelligence",
+            "protocol": "L402 (Lightning Network)",
+            "payment_currency": "sats"
+        },
+
+        "endpoints": {
+            "reason": {
+                "path": "/reason",
+                "method": "POST",
+                "description": "Premium strategic reasoning for humans",
+                "base_price_sats": REASONING_PRICE_SATS,
+                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+                "input_schema": {"question": "string"}
+            },
+            "decision": {
+                "path": "/decision",
+                "method": "POST",
+                "description": "Structured decision intelligence optimized for agents",
+                "base_price_sats": DECISION_PRICE_SATS,
+                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+                "input_schema": {
+                    "goal": "string",
+                    "context": "string",
+                    "question": "string"
+                }
+            }
+        },
+
+        "pricing": {
+            "currency": "sats",
+            "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
+            "agent_multiplier": AGENT_PRICE_MULTIPLIER,
+            "minimum_price_sats": MIN_PRICE_SATS
+        },
+
+        "features": {
+            "rate_limiting": True,
+            "replay_protection": True,
+            "no_accounts": True,
+            "no_kyc": True,
+            "agent_friendly": True
+        },
+
+        "links": {
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "ai_plugin": "/.well-known/ai-plugin.json",
+            "price_check": "/price/{endpoint}"
+        }
+    }
 
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
+    """Return base price for an endpoint."""
     if endpoint == "reason":
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
         return {"price_sats": DECISION_PRICE_SATS}
-    raise HTTPException(404, "Unknown endpoint")
+    raise HTTPException(status_code=404, detail="Unknown endpoint")
 
 
 # =========================
@@ -115,7 +174,7 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No authorization → return invoice
+    # No auth → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -155,7 +214,7 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(payment_hash)
 
-    # Process reasoning
+    # Process request
     try:
         result = premium_reasoning(data.question)
     except Exception as e:
@@ -174,7 +233,7 @@ async def decision(request: Request, data: DecisionRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No authorization → return invoice
+    # No auth → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:decision"
@@ -183,7 +242,7 @@ async def decision(request: Request, data: DecisionRequest):
 
         last_request_time[rate_key] = now
 
-        text = data.goal + data.context + data.question
+        text = f"{data.goal} {data.context} {data.question}"
         price = calculate_price("decision", text, caller)
 
         invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
@@ -216,7 +275,7 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
-    # === Call the business logic (now cleanly separated) ===
+    # Call clean business logic
     try:
         result_json = structured_decision(data.goal, data.context, data.question)
     except Exception as e:
