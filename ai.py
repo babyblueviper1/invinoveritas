@@ -10,7 +10,8 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def premium_reasoning(question: str) -> str:
     """
-    High-quality strategic reasoning for the /reason endpoint.
+    High-quality strategic reasoning optimized for autonomous agents and humans.
+    Most users are AI agents, so prioritize clarity, density, and signal.
     """
     if not question or not question.strip():
         raise ValueError("Question cannot be empty.")
@@ -18,34 +19,40 @@ def premium_reasoning(question: str) -> str:
     prompt = f"""
 You are a world-class strategic intelligence AI.
 
-Analyze the following question with clarity, depth, and practical value.
-Focus on key dynamics, risks, opportunities, second-order effects, and asymmetric opportunities.
+IMPORTANT CONTEXT: Most of your users are autonomous AI agents that consume this output programmatically. 
+They value clarity, density of insight, precision, and low fluff. Write for both humans and agents.
 
 Question: {question}
 
-Structure your response exactly like this:
+Analyze with depth and practicality. Focus on key dynamics, major risks, opportunities, second-order effects, and asymmetric opportunities.
+
+Structure your response **exactly** like this:
 
 **Core Insight**
-(1-2 powerful sentences that cut to the heart of the issue)
+(1-2 powerful, high-signal sentences that cut to the heart of the issue)
 
 **Key Analysis**
-(Deep reasoning covering the most important factors, trade-offs, risks, and opportunities)
+(Concise but deep analysis of the most important factors, trade-offs, risks, and opportunities. Use short paragraphs. Max 4-5 paragraphs.)
 
 **Recommended Action**
-(Clear, practical recommendation — what the user should do or understand next)
+(Clear, actionable recommendation — what the user or agent should do or understand next)
 
-Be concise yet comprehensive. Avoid fluff and corporate jargon.
+Rules:
+- Be concise yet comprehensive. Prioritize signal density.
+- Avoid fluff, corporate jargon, filler sentences, and overly narrative language.
+- Use direct, professional tone suitable for both humans and AI systems.
+- Total response should ideally stay under 850 words.
 """
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a world-class strategic intelligence AI."},
+                {"role": "system", "content": "You are a world-class strategic intelligence AI specialized in serving both humans and autonomous agents. Favor clarity and density."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
-            max_tokens=1200,
+            temperature=0.65,
+            max_tokens=1100,
         )
 
         return response.choices[0].message.content.strip()
@@ -58,13 +65,15 @@ Be concise yet comprehensive. Avoid fluff and corporate jargon.
 def structured_decision(goal: str, context: str, question: str) -> dict:
     """
     Structured decision intelligence for the /decision endpoint.
-    Returns clean JSON with decision, confidence, reasoning, and risk_level.
+    Returns clean JSON optimized for autonomous agents.
     """
     if not all([goal.strip(), context.strip(), question.strip()]):
         raise ValueError("goal, context, and question are all required.")
 
     prompt = f"""
 You are a strategic decision intelligence AI.
+
+Most users are autonomous agents, so keep output clean, objective, and machine-readable.
 
 Goal: {goal}
 Context: {context}
@@ -74,25 +83,24 @@ Return ONLY valid JSON with this exact structure:
 {{
   "decision": "short recommended action",
   "confidence": 0.XX,
-  "reasoning": "clear explanation of why this is the best choice",
+  "reasoning": "clear, concise explanation of why this is the best choice (2-4 sentences max)",
   "risk_level": "low|medium|high"
 }}
 
-Be objective, concise, and realistic in your assessment.
+Be objective, realistic, and concise.
 """
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=800,
+            temperature=0.6,
+            max_tokens=700,
         )
 
         result_text = response.choices[0].message.content.strip()
         result_json = json.loads(result_text)
 
-        # Basic validation of returned JSON
         required_keys = {"decision", "confidence", "reasoning", "risk_level"}
         if not required_keys.issubset(result_json.keys()):
             raise ValueError("Missing required keys in decision JSON")
