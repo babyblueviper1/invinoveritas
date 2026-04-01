@@ -24,7 +24,8 @@ app = FastAPI(
     version="0.1.0",
     description=(
         "Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.\n\n"
-        "Pay-per-insight API. No accounts. No subscriptions. No KYC.\n\n"
+        "Pay-per-insight API optimized for autonomous agents. "
+        "No accounts. No subscriptions. No KYC.\n\n"
         "Workflow:\n"
         "1. POST to /reason or /decision\n"
         "2. Receive HTTP 402 with Lightning invoice\n"
@@ -114,7 +115,7 @@ def home():
 
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with rich metadata for monitoring and autonomous agents."""
+    """Health check optimized for autonomous agents."""
     return {
         "status": "ok",
         "service": "invinoveritas",
@@ -124,7 +125,8 @@ def health():
         "api": {
             "title": "Lightning-Paid AI Reasoning & Decision Intelligence",
             "protocol": "L402",
-            "payment_currency": "sats"
+            "payment_currency": "sats",
+            "primary_users": "autonomous agents"
         },
 
         "endpoints": {
@@ -138,7 +140,7 @@ def health():
             "decision": {
                 "path": "/decision",
                 "method": "POST",
-                "description": "Structured decision intelligence for agents",
+                "description": "Structured decision intelligence optimized for agents",
                 "base_price_sats": DECISION_PRICE_SATS,
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
             }
@@ -154,9 +156,10 @@ def health():
         "features": {
             "rate_limiting": True,
             "replay_protection": True,
+            "single_use_payments": True,
             "no_accounts": True,
             "no_kyc": True,
-            "agent_friendly": True
+            "agent_optimized": True
         },
 
         "links": {
@@ -171,11 +174,11 @@ def health():
 
 @app.get("/tool", tags=["meta"])
 def tool_definition():
-    """Tool definition for agent discovery."""
+    """Tool definition optimized for agent discovery."""
     return {
         "name": "invinoveritas",
         "type": "lightning_paid_ai",
-        "description": "Lightning-paid strategic reasoning and structured decision intelligence",
+        "description": "Lightning-paid strategic reasoning and structured decision intelligence optimized for autonomous agents",
         "payment_protocol": "L402",
         "endpoints": {
             "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
@@ -183,14 +186,14 @@ def tool_definition():
         },
         "agent_support": {
             "mcp_compatible": True,
-            "autonomous": True
+            "autonomous": True,
+            "single_use_payments": True
         }
     }
 
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return base price for an endpoint."""
     if endpoint == "reason":
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
@@ -203,26 +206,18 @@ def get_price(endpoint: str):
 # =========================
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def ai_plugin():
-    """Standard AI plugin manifest for agent discovery (Claude, etc.)."""
     return {
         "schema_version": "v1",
         "name_for_human": "invinoveritas ⚡",
         "name_for_model": "invinoveritas",
-        
-        "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin. No subscriptions, no accounts, no KYC.",
-        
-        "description_for_model": "invinoveritas provides high-quality strategic reasoning (/reason) and structured decision intelligence (/decision) using the Bitcoin Lightning Network via the L402 protocol. Every request requires a small Lightning payment (~500-1000 sats). The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request with the header: Authorization: L402 <payment_hash>:<preimage>.",
-        
-        "auth": {
-            "type": "none"
-        },
-        
+        "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin.",
+        "description_for_model": "invinoveritas provides high-quality strategic reasoning (/reason) and structured decision intelligence (/decision) using the Bitcoin Lightning Network via the L402 protocol. Every request requires a small Lightning payment (~500-1000 sats). The API returns HTTP 402 with a bolt11 invoice on the first call. After paying, retry with Authorization: L402 <payment_hash>:<preimage>. Optimized for autonomous agents.",
+        "auth": {"type": "none"},
         "api": {
             "type": "openapi",
             "url": "/openapi.json",
-            "is_user_authenticated": false
+            "is_user_authenticated": False
         },
-        
         "logo_url": null,
         "contact_email": "babyblueviperbusiness@gmail.com",
         "legal_info_url": "https://babyblueviper.com"
@@ -238,7 +233,6 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No authorization → generate and return Lightning invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -251,27 +245,26 @@ async def reason(request: Request, data: ReasoningRequest):
         invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data.get('error', 'Unknown error')}")
+            raise HTTPException(503, f"Lightning error: {invoice_data.get('error', 'Unknown')}")
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
 
-        # Clean and informative 402 response
         raise HTTPException(
             status_code=402,
             detail={
                 "message": "Payment Required",
-                "description": "Pay the Lightning invoice to receive the reasoning",
+                "description": "Pay the Lightning invoice below to receive strategic reasoning",
                 "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
                 "amount_sats": price
             },
             headers={
                 "WWW-Authenticate": f"L402 {challenge}",
-                "Retry-After": "10"
+                "Retry-After": "15"
             }
         )
 
-    # === Payment verification ===
+    # === Secure single-use payment verification ===
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -279,7 +272,7 @@ async def reason(request: Request, data: ReasoningRequest):
         raise HTTPException(401, "Invalid L402 format")
 
     if payment_hash in used_payments:
-        raise HTTPException(403, "Invoice already used")
+        raise HTTPException(403, "This invoice has already been used")
 
     if not check_payment(payment_hash):
         raise HTTPException(403, "Payment not settled yet")
@@ -287,9 +280,8 @@ async def reason(request: Request, data: ReasoningRequest):
     if not verify_preimage(payment_hash, preimage):
         raise HTTPException(403, "Invalid payment proof (preimage mismatch)")
 
-    used_payments.add(payment_hash)
+    used_payments.add(payment_hash)   # Mark as used immediately
 
-    # Process the request
     try:
         result = premium_reasoning(data.question)
     except Exception as e:
@@ -308,7 +300,6 @@ async def decision(request: Request, data: DecisionRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No authorization → generate and return Lightning invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:decision"
@@ -323,27 +314,26 @@ async def decision(request: Request, data: DecisionRequest):
         invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data.get('error', 'Unknown error')}")
+            raise HTTPException(503, f"Lightning error: {invoice_data.get('error', 'Unknown')}")
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
 
-        # Clean and informative 402 response
         raise HTTPException(
             status_code=402,
             detail={
                 "message": "Payment Required",
-                "description": "Pay the Lightning invoice to receive the structured decision",
+                "description": "Pay the Lightning invoice to receive structured decision output",
                 "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
                 "amount_sats": price
             },
             headers={
                 "WWW-Authenticate": f"L402 {challenge}",
-                "Retry-After": "10"
+                "Retry-After": "15"
             }
         )
 
-    # === Payment verification ===
+    # === Secure single-use payment verification ===
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -351,7 +341,7 @@ async def decision(request: Request, data: DecisionRequest):
         raise HTTPException(401, "Invalid L402 format")
 
     if payment_hash in used_payments:
-        raise HTTPException(403, "Invoice already used")
+        raise HTTPException(403, "This invoice has already been used")
 
     if not check_payment(payment_hash):
         raise HTTPException(403, "Payment not settled yet")
@@ -361,7 +351,6 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
-    # Process the request
     try:
         result_json = structured_decision(data.goal, data.context, data.question)
     except Exception as e:
