@@ -114,7 +114,7 @@ def home():
 
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with metadata for agents and monitoring."""
+    """Health check with rich metadata for monitoring and autonomous agents."""
     return {
         "status": "ok",
         "service": "invinoveritas",
@@ -178,14 +178,8 @@ def tool_definition():
         "description": "Lightning-paid strategic reasoning and structured decision intelligence",
         "payment_protocol": "L402",
         "endpoints": {
-            "reason": {
-                "path": "/reason",
-                "base_price_sats": REASONING_PRICE_SATS
-            },
-            "decision": {
-                "path": "/decision",
-                "base_price_sats": DECISION_PRICE_SATS
-            }
+            "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
+            "decision": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
         },
         "agent_support": {
             "mcp_compatible": True,
@@ -196,6 +190,7 @@ def tool_definition():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
+    """Return base price for an endpoint."""
     if endpoint == "reason":
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
@@ -204,28 +199,33 @@ def get_price(endpoint: str):
 
 
 # =========================
-# Well-known AI Plugin
+# AI Plugin Manifest
 # =========================
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def ai_plugin():
-    """Standard discovery endpoint for AI agents."""
+    """Standard AI plugin manifest for agent discovery (Claude, etc.)."""
     return {
         "schema_version": "v1",
-        "name_for_human": "invinoveritas",
+        "name_for_human": "invinoveritas ⚡",
         "name_for_model": "invinoveritas",
-        "description_for_human": "Pay-per-insight AI reasoning and decision intelligence with Lightning payments.",
-        "description_for_model": (
-            "Provides high-quality strategic reasoning (/reason) and structured decisions (/decision) "
-            "via Lightning Network using L402 protocol. All calls require small Lightning payment."
-        ),
-        "auth": {"type": "none"},
+        
+        "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin. No subscriptions, no accounts, no KYC.",
+        
+        "description_for_model": "invinoveritas provides high-quality strategic reasoning (/reason) and structured decision intelligence (/decision) using the Bitcoin Lightning Network via the L402 protocol. Every request requires a small Lightning payment (~500-1000 sats). The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request with the header: Authorization: L402 <payment_hash>:<preimage>.",
+        
+        "auth": {
+            "type": "none"
+        },
+        
         "api": {
             "type": "openapi",
             "url": "/openapi.json",
-            "is_user_authenticated": False
+            "is_user_authenticated": false
         },
+        
+        "logo_url": null,
         "contact_email": "babyblueviperbusiness@gmail.com",
-        "legal_info_url": "/legal"   # you can add this later
+        "legal_info_url": "https://babyblueviper.com"
     }
 
 
@@ -238,6 +238,7 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
+    # No authorization → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -295,6 +296,7 @@ async def decision(request: Request, data: DecisionRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
+    # No authorization → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:decision"
