@@ -4,8 +4,11 @@ from config import NODE_URL
 import time
 from typing import Dict, Any, Optional
 
-def _make_request(method: str, url: str, json_data: Optional[Dict] = None, timeout: int = 10) -> Dict[str, Any]:
-    """Helper with retry logic for flaky Render ↔ VPS connections"""
+# =========================
+# Helper
+# =========================
+def _make_request(method: str, url: str, json_data: Optional[Dict] = None, timeout: int = 12) -> Dict[str, Any]:
+    """Internal helper with retry logic for Render ↔ VPS communication"""
     for attempt in range(3):
         try:
             if method.upper() == "POST":
@@ -19,15 +22,18 @@ def _make_request(method: str, url: str, json_data: Optional[Dict] = None, timeo
         except requests.exceptions.RequestException as e:
             if attempt == 2:  # last attempt
                 print(f"Bridge request failed after {attempt+1} attempts to {url}: {e}")
-                return {"error": f"Bridge request failed: {str(e)}"}
-            time.sleep(0.5 * (attempt + 1))  # backoff
+                return {"error": f"Bridge communication failed: {str(e)}"}
+            time.sleep(0.6 * (attempt + 1))  # backoff
     
     return {"error": "Unknown bridge error"}
 
 
+# =========================
+# Main Functions
+# =========================
 def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, Any]:
     """
-    Create a Lightning invoice via your LND bridge on VPS.
+    Create a Lightning invoice via the VPS bridge.
     """
     if amount_sats < 1:
         return {"error": "Amount must be at least 1 sat"}
@@ -35,7 +41,7 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, A
     try:
         payload = {
             "amount": amount_sats,
-            "memo": memo[:100]   # safety limit
+            "memo": memo[:100]
         }
         
         url = f"{NODE_URL.rstrip('/')}/create-invoice"
@@ -43,12 +49,14 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, A
         
         if "error" in data:
             return data
-            
-        # Basic sanity check on response from bridge
-        if not isinstance(data, dict) or "payment_hash" not in data or "invoice" not in data:
-            return {"error": "Invalid response from bridge (missing payment_hash or invoice)"}
-            
-        return data
+
+        if not isinstance(data, dict) or "invoice" not in data or "payment_hash" not in data:
+            return {"error": "Invalid response from bridge"}
+
+        return {
+            "invoice": data["invoice"],
+            "payment_hash": data["payment_hash"]
+        }
         
     except Exception as e:
         print(f"Create invoice error: {e}")
@@ -57,10 +65,10 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, A
 
 def check_payment(payment_hash: str) -> bool:
     """
-    Check if the invoice has been paid (settled) on LND.
+    Check if the invoice has been paid.
     """
-    if not payment_hash or len(payment_hash) != 64:  # quick sanity check (64 hex chars)
-        print("Invalid payment_hash format")
+    if not payment_hash or len(payment_hash) != 64:
+        print("Invalid payment_hash provided")
         return False
 
     try:
@@ -68,11 +76,9 @@ def check_payment(payment_hash: str) -> bool:
         data = _make_request("GET", url, timeout=10)
         
         if "error" in data:
-            print(f"Check payment error: {data['error']}")
             return False
             
-        paid = data.get("paid", False)
-        return bool(paid)
+        return bool(data.get("paid", False))
         
     except Exception as e:
         print(f"Check payment error for {payment_hash[:12]}...: {e}")
@@ -81,29 +87,40 @@ def check_payment(payment_hash: str) -> bool:
 
 def verify_preimage(payment_hash: str, preimage: str) -> bool:
     """
-    Cryptographically verify that the provided preimage matches the payment_hash.
-    
-    This is the most secure way for L402 — no extra RPC call needed if you trust the hash.
-    LND uses SHA-256(preimage) == payment_hash.
+    Verify that the provided preimage matches the payment_hash.
+    This is the most important security check for L402.
     """
     if not payment_hash or not preimage:
         return False
-    
+
     try:
-        # Clean inputs
-        ph = payment_hash.strip().lower()
-        pi = preimage.strip().lower()
+        url = f"{NODE_URL.rstrip('/')}/verify-preimage"
+        payload = {
+            "payment_hash": payment_hash.strip().lower(),
+            "preimage": preimage.strip().lower()
+        }
         
-        # Compute SHA256 of preimage and compare (hex)
-        computed_hash = hashlib.sha256(bytes.fromhex(pi)).hexdigest()
+        data = _make_request("POST", url, json_data=payload, timeout=8)
         
-        is_valid = computed_hash == ph
-        
-        if not is_valid:
-            print(f"Preimage verification FAILED for hash {ph[:12]}...")
-            
-        return is_valid
+        if "error" in data:
+            print(f"Preimage verification error: {data['error']}")
+            return False
+
+        return bool(data.get("valid", False))
         
     except Exception as e:
-        print(f"Preimage verification error: {e}")
+        print(f"Preimage verification failed: {e}")
+        return False
+
+
+# =========================
+# Optional: Bridge Health Check
+# =========================
+def check_bridge_health() -> bool:
+    """Quick check if the bridge is reachable"""
+    try:
+        url = f"{NODE_URL.rstrip('/')}/health"
+        data = _make_request("GET", url, timeout=5)
+        return data.get("status") == "ok"
+    except Exception:
         return False
