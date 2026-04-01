@@ -6,14 +6,18 @@ from ai import premium_reasoning
 from config import (
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
-    ENABLE_DYNAMIC_PRICING
+    ENABLE_AGENT_MULTIPLIER,
+    AGENT_PRICE_MULTIPLIER,
+    MIN_PRICE_SATS,
+    RATE_LIMIT_SECONDS,
 )
 import os
 import time
+import json
 from collections import defaultdict
 
 # =========================
-# App
+# FastAPI App
 # =========================
 app = FastAPI(
     title="invinoveritas",
@@ -22,32 +26,23 @@ app = FastAPI(
         "Pay-per-insight API using the **L402 protocol** (Bitcoin Lightning Network). "
         "No accounts, no subscriptions, no KYC.\n\n"
         "### Payment flow\n"
-        "1. POST to `/reason` or `/decision` — receive HTTP **402** with a bolt11 invoice "
-        "in the `WWW-Authenticate: L402` header.\n"
-        "2. Pay the invoice with any Lightning wallet.\n"
-        "3. Retry the same request with header:\n"
-        "   `Authorization: L402 <payment_hash>:<preimage>`\n"
-        "4. Receive the AI response.\n\n"
+        "1. POST to `/reason` or `/decision` → receive HTTP 402 with bolt11 invoice\n"
+        "2. Pay the invoice with any Lightning wallet\n"
+        "3. Retry with header: `Authorization: L402 <payment_hash>:<preimage>`\n"
+        "4. Receive AI response\n\n"
         "### Pricing\n"
-        "- `/reason` — ~500 sats base (dynamic)\n"
-        "- `/decision` — ~1000 sats base (dynamic)\n"
-        "- Check current price: `GET /price/{endpoint}`\n\n"
-        "### For autonomous agents\n"
-        "Use the included `agent_client.py` or the MCP server."
+        "- `/reason`   → ~500 sats base\n"
+        "- `/decision` → ~1000 sats base\n"
+        "Agents pay a small premium (configurable)."
     ),
     version="0.1.0",
-    contact={"name": "invinoveritas", "url": "https://your-api.onrender.com"},
-    openapi_tags=[
-        {"name": "inference", "description": "AI reasoning and decision endpoints. All require Lightning payment."},
-        {"name": "meta", "description": "Pricing, health, and discovery endpoints. Always free."}
-    ]
+    contact={"name": "invinoveritas"},
 )
 
 # Rate limiter (per IP + endpoint)
 last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
-RATE_LIMIT_SECONDS = 5
 
-# Track used payment hashes (in-memory for now)
+# Track used payment hashes (in-memory)
 used_payments: set[str] = set()
 
 
@@ -62,16 +57,15 @@ def detect_caller(request: Request) -> str:
 
 
 def get_client_ip(request: Request) -> str:
-    """Use IP for better rate limiting"""
     return request.client.host if request.client else "unknown"
 
 
 def calculate_price(endpoint: str, text: str, caller: str) -> int:
     base = REASONING_PRICE_SATS if endpoint == "reason" else DECISION_PRICE_SATS
     length_bonus = len(text) // 100
-    multiplier = 1.2 if caller == "agent" and ENABLE_DYNAMIC_PRICING else 1.0
+    multiplier = AGENT_PRICE_MULTIPLIER if caller == "agent" and ENABLE_AGENT_MULTIPLIER else 1.0
     price = int((base + length_bonus) * multiplier)
-    return max(price, 50)
+    return max(price, MIN_PRICE_SATS)
 
 
 # =========================
@@ -100,12 +94,7 @@ def home():
 
 @app.get("/health", tags=["meta"])
 def health():
-    return {
-        "status": "ok",
-        "service": "invinoveritas",
-        "version": "0.1",
-        "payment": "Lightning L402"
-    }
+    return {"status": "ok", "service": "invinoveritas", "version": "0.1", "payment": "Lightning L402"}
 
 
 @app.get("/price/{endpoint}", tags=["meta"])
@@ -126,7 +115,7 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # === No auth → Return invoice ===
+    # No authorization → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -145,13 +134,10 @@ async def reason(request: Request, data: ReasoningRequest):
         raise HTTPException(
             status_code=402,
             detail="Payment Required",
-            headers={
-                "WWW-Authenticate": f"L402 {challenge}",
-                "Retry-After": "10"
-            }
+            headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
         )
 
-    # === Payment verification ===
+    # Payment verification
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -169,7 +155,7 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(payment_hash)
 
-    # === Process request ===
+    # Process reasoning
     try:
         result = premium_reasoning(data.question)
     except Exception as e:
@@ -188,7 +174,7 @@ async def decision(request: Request, data: DecisionRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # === No auth → Return invoice ===
+    # No authorization → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:decision"
@@ -197,9 +183,8 @@ async def decision(request: Request, data: DecisionRequest):
 
         last_request_time[rate_key] = now
 
-        # Use all fields for length calculation
-        text_length = data.goal + data.context + data.question
-        price = calculate_price("decision", text_length, caller)
+        text = data.goal + data.context + data.question
+        price = calculate_price("decision", text, caller)
 
         invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
 
@@ -210,13 +195,10 @@ async def decision(request: Request, data: DecisionRequest):
         raise HTTPException(
             status_code=402,
             detail="Payment Required",
-            headers={
-                "WWW-Authenticate": f"L402 {challenge}",
-                "Retry-After": "10"
-            }
+            headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
         )
 
-    # === Payment verification (same as /reason) ===
+    # Payment verification
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -234,7 +216,7 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
-    # === Process decision request ===
+    # Process structured decision
     try:
         prompt = f"""
 You are a strategic decision intelligence AI.
