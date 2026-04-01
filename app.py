@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
 from config import (
@@ -21,31 +21,22 @@ from collections import defaultdict
 # =========================
 app = FastAPI(
     title="invinoveritas",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-
+    version="0.1.0",
     description=(
         "Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.\n\n"
-        "Designed for autonomous agents and humans.\n"
-        "No accounts. No subscriptions. No KYC.\n\n"
+        "Pay-per-insight API. No accounts. No subscriptions. No KYC.\n\n"
         "Workflow:\n"
         "1. POST to /reason or /decision\n"
         "2. Receive HTTP 402 with Lightning invoice\n"
-        "3. Pay invoice\n"
-        "4. Retry request with Authorization: L402 <payment_hash>:<preimage>\n"
-        "5. Receive structured AI response"
+        "3. Pay the invoice\n"
+        "4. Retry with Authorization: L402 <payment_hash>:<preimage>\n"
+        "5. Receive AI response"
     ),
-
     contact={
         "name": "invinoveritas",
         "email": "babyblueviperbusiness@gmail.com"
     },
-
-    license_info={
-        "name": "MIT"
-    }
+    license_info={"name": "MIT"},
 )
 
 
@@ -90,26 +81,24 @@ class DecisionRequest(BaseModel):
     context: str
     question: str
 
-# =========================
-# Response Models (Agent-Optimized)
-# =========================
+
 class ReasoningResponse(BaseModel):
-    status: str = Field(description="Request status")
-    type: str = Field(description="Response type identifier")
-    answer: str = Field(description="High-quality strategic reasoning text")
+    status: str
+    type: str
+    answer: str
 
 
 class DecisionResult(BaseModel):
-    decision: str = Field(description="Final recommended action")
-    confidence: float = Field(description="Confidence score between 0 and 1")
-    reasoning: str = Field(description="Structured explanation of the decision")
-    risk_level: str = Field(description="Risk level of the decision: low, medium, or high")
+    decision: str
+    confidence: float
+    reasoning: str
+    risk_level: str
 
 
 class DecisionResponse(BaseModel):
-    status: str = Field(description="Request status")
-    type: str = Field(description="Response type identifier")
-    result: DecisionResult = Field(description="Structured decision output optimized for autonomous agents")
+    status: str
+    type: str
+    result: DecisionResult
 
 
 # =========================
@@ -125,6 +114,7 @@ def home():
 
 @app.get("/health", tags=["meta"])
 def health():
+    """Health check with metadata for agents and monitoring."""
     return {
         "status": "ok",
         "service": "invinoveritas",
@@ -133,7 +123,7 @@ def health():
 
         "api": {
             "title": "Lightning-Paid AI Reasoning & Decision Intelligence",
-            "protocol": "L402 (Lightning Network)",
+            "protocol": "L402",
             "payment_currency": "sats"
         },
 
@@ -143,18 +133,14 @@ def health():
                 "method": "POST",
                 "description": "Premium strategic reasoning",
                 "base_price_sats": REASONING_PRICE_SATS,
-                "input_schema": {"question": "string"}
+                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
             },
             "decision": {
                 "path": "/decision",
                 "method": "POST",
-                "description": "Structured decision intelligence optimized for agents",
+                "description": "Structured decision intelligence for agents",
                 "base_price_sats": DECISION_PRICE_SATS,
-                "input_schema": {
-                    "goal": "string",
-                    "context": "string",
-                    "question": "string"
-                }
+                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
             }
         },
 
@@ -185,59 +171,25 @@ def health():
 
 @app.get("/tool", tags=["meta"])
 def tool_definition():
+    """Tool definition for agent discovery."""
     return {
         "name": "invinoveritas",
-        "type": "lightning_paid_reasoning",
-        "description": "Lightning-paid reasoning and structured decision intelligence using the L402 protocol.",
-
+        "type": "lightning_paid_ai",
+        "description": "Lightning-paid strategic reasoning and structured decision intelligence",
+        "payment_protocol": "L402",
         "endpoints": {
             "reason": {
                 "path": "/reason",
-                "method": "POST",
-                "purpose": "High-quality strategic reasoning",
-                "input": {"question": "string"},
-                "output": {
-                    "status": "success",
-                    "type": "premium_reasoning",
-                    "answer": "string"
-                },
                 "base_price_sats": REASONING_PRICE_SATS
             },
-
             "decision": {
                 "path": "/decision",
-                "method": "POST",
-                "purpose": "Structured decision intelligence optimized for autonomous agents",
-                "input": {
-                    "goal": "string",
-                    "context": "string",
-                    "question": "string"
-                },
-                "output": {
-                    "status": "success",
-                    "type": "decision_intelligence",
-                    "result": {
-                        "decision": "string",
-                        "confidence": "float",
-                        "reasoning": "string",
-                        "risk_level": "low | medium | high"
-                    }
-                },
                 "base_price_sats": DECISION_PRICE_SATS
             }
         },
-
-        "payment": {
-            "protocol": "L402",
-            "currency": "sats",
-            "pricing_type": "pay_per_request",
-            "no_accounts": True,
-            "no_kyc": True
-        },
-
         "agent_support": {
             "mcp_compatible": True,
-            "autonomous_agents_supported": True
+            "autonomous": True
         }
     }
 
@@ -252,15 +204,35 @@ def get_price(endpoint: str):
 
 
 # =========================
+# Well-known AI Plugin
+# =========================
+@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
+def ai_plugin():
+    """Standard discovery endpoint for AI agents."""
+    return {
+        "schema_version": "v1",
+        "name_for_human": "invinoveritas",
+        "name_for_model": "invinoveritas",
+        "description_for_human": "Pay-per-insight AI reasoning and decision intelligence with Lightning payments.",
+        "description_for_model": (
+            "Provides high-quality strategic reasoning (/reason) and structured decisions (/decision) "
+            "via Lightning Network using L402 protocol. All calls require small Lightning payment."
+        ),
+        "auth": {"type": "none"},
+        "api": {
+            "type": "openapi",
+            "url": "/openapi.json",
+            "is_user_authenticated": False
+        },
+        "contact_email": "babyblueviperbusiness@gmail.com",
+        "legal_info_url": "/legal"   # you can add this later
+    }
+
+
+# =========================
 # Inference Routes
 # =========================
-@app.post(
-    "/reason",
-    tags=["inference"],
-    response_model=ReasoningResponse,
-    summary="Premium strategic reasoning (Lightning-paid)",
-    description="Returns high-quality reasoning after Lightning payment using the L402 protocol."
-)
+@app.post("/reason", response_model=ReasoningResponse, tags=["inference"])
 async def reason(request: Request, data: ReasoningRequest):
     caller = detect_caller(request)
     ip = get_client_ip(request)
@@ -278,7 +250,7 @@ async def reason(request: Request, data: ReasoningRequest):
         invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data['error']}")
+            raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
         raise HTTPException(
@@ -287,6 +259,7 @@ async def reason(request: Request, data: ReasoningRequest):
             headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
         )
 
+    # Payment verification
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -304,7 +277,10 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(payment_hash)
 
-    result = premium_reasoning(data.question)
+    try:
+        result = premium_reasoning(data.question)
+    except Exception as e:
+        raise HTTPException(500, "Reasoning engine error") from e
 
     return {
         "status": "success",
@@ -313,13 +289,7 @@ async def reason(request: Request, data: ReasoningRequest):
     }
 
 
-@app.post(
-    "/decision",
-    tags=["inference"],
-    response_model=DecisionResponse,
-    summary="Structured decision intelligence for autonomous agents",
-    description="Returns structured JSON decision output optimized for AI agents after Lightning payment using the L402 protocol."
-)
+@app.post("/decision", response_model=DecisionResponse, tags=["inference"])
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     ip = get_client_ip(request)
@@ -339,7 +309,7 @@ async def decision(request: Request, data: DecisionRequest):
         invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data['error']}")
+            raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
         raise HTTPException(
@@ -348,6 +318,7 @@ async def decision(request: Request, data: DecisionRequest):
             headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
         )
 
+    # Payment verification
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -365,16 +336,13 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
-    result_json = structured_decision(data.goal, data.context, data.question)
+    try:
+        result_json = structured_decision(data.goal, data.context, data.question)
+    except Exception as e:
+        raise HTTPException(500, "Decision engine error") from e
 
     return {
         "status": "success",
         "type": "decision_intelligence",
         "result": result_json
     }
-
-from fastapi.responses import FileResponse
-
-@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
-def ai_plugin():
-    return FileResponse(".well-known/ai-plugin.json", media_type="application/json")
