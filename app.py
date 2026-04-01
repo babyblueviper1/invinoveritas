@@ -238,7 +238,6 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No authorization → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -251,13 +250,22 @@ async def reason(request: Request, data: ReasoningRequest):
         invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
 
         if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
+            raise HTTPException(503, f"Lightning error: {invoice_data.get('error', 'Unknown error')}")
 
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
+
+        # Better 402 response
         raise HTTPException(
             status_code=402,
-            detail="Payment Required",
-            headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
+            detail={
+                "message": "Payment Required",
+                "invoice": invoice_data["invoice"],
+                "payment_hash": invoice_data["payment_hash"]
+            },
+            headers={
+                "WWW-Authenticate": f"L402 {challenge}",
+                "Retry-After": "10"
+            }
         )
 
     # Payment verification
@@ -316,8 +324,15 @@ async def decision(request: Request, data: DecisionRequest):
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
         raise HTTPException(
             status_code=402,
-            detail="Payment Required",
-            headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
+            detail={
+                "message": "Payment Required",
+                "invoice": invoice_data["invoice"],
+                "payment_hash": invoice_data["payment_hash"]
+            },
+            headers={
+                "WWW-Authenticate": f"L402 {challenge}",
+                "Retry-After": "10"
+            }
         )
 
     # Payment verification
