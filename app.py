@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment, verify_preimage
-from ai import premium_reasoning, structured_decision   # ← Fixed: added structured_decision
+from ai import premium_reasoning, structured_decision
 from config import (
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
@@ -40,10 +40,10 @@ app = FastAPI(
 )
 
 
-# Rate limiter (per IP + endpoint)
+# =========================
+# State
+# =========================
 last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
-
-# Track used payment hashes (in-memory for now)
 used_payments: set[str] = set()
 
 
@@ -95,7 +95,6 @@ def home():
 
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with rich metadata for agents and monitoring tools."""
     return {
         "status": "ok",
         "service": "invinoveritas",
@@ -112,9 +111,8 @@ def health():
             "reason": {
                 "path": "/reason",
                 "method": "POST",
-                "description": "Premium strategic reasoning for humans",
+                "description": "Premium strategic reasoning",
                 "base_price_sats": REASONING_PRICE_SATS,
-                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
                 "input_schema": {"question": "string"}
             },
             "decision": {
@@ -122,7 +120,6 @@ def health():
                 "method": "POST",
                 "description": "Structured decision intelligence optimized for agents",
                 "base_price_sats": DECISION_PRICE_SATS,
-                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
                 "input_schema": {
                     "goal": "string",
                     "context": "string",
@@ -150,14 +147,73 @@ def health():
             "docs": "/docs",
             "redoc": "/redoc",
             "ai_plugin": "/.well-known/ai-plugin.json",
+            "tool_definition": "/tool",
             "price_check": "/price/{endpoint}"
+        }
+    }
+
+
+@app.get("/tool", tags=["meta"])
+def tool_definition():
+    return {
+        "name": "invinoveritas",
+        "type": "lightning_paid_reasoning",
+        "description": "Lightning-paid reasoning and structured decision intelligence using the L402 protocol.",
+
+        "endpoints": {
+            "reason": {
+                "path": "/reason",
+                "method": "POST",
+                "purpose": "High-quality strategic reasoning",
+                "input": {"question": "string"},
+                "output": {
+                    "status": "success",
+                    "type": "premium_reasoning",
+                    "answer": "string"
+                },
+                "base_price_sats": REASONING_PRICE_SATS
+            },
+
+            "decision": {
+                "path": "/decision",
+                "method": "POST",
+                "purpose": "Structured decision intelligence optimized for autonomous agents",
+                "input": {
+                    "goal": "string",
+                    "context": "string",
+                    "question": "string"
+                },
+                "output": {
+                    "status": "success",
+                    "type": "decision_intelligence",
+                    "result": {
+                        "decision": "string",
+                        "confidence": "float",
+                        "reasoning": "string",
+                        "risk_level": "low | medium | high"
+                    }
+                },
+                "base_price_sats": DECISION_PRICE_SATS
+            }
+        },
+
+        "payment": {
+            "protocol": "L402",
+            "currency": "sats",
+            "pricing_type": "pay_per_request",
+            "no_accounts": True,
+            "no_kyc": True
+        },
+
+        "agent_support": {
+            "mcp_compatible": True,
+            "autonomous_agents_supported": True
         }
     }
 
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return base price for an endpoint."""
     if endpoint == "reason":
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
@@ -174,7 +230,6 @@ async def reason(request: Request, data: ReasoningRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No auth → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:reason"
@@ -196,7 +251,6 @@ async def reason(request: Request, data: ReasoningRequest):
             headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
         )
 
-    # Payment verification
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -214,11 +268,7 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(payment_hash)
 
-    # Process request
-    try:
-        result = premium_reasoning(data.question)
-    except Exception as e:
-        raise HTTPException(500, "Reasoning engine error")
+    result = premium_reasoning(data.question)
 
     return {
         "status": "success",
@@ -233,7 +283,6 @@ async def decision(request: Request, data: DecisionRequest):
     ip = get_client_ip(request)
     auth = request.headers.get("Authorization")
 
-    # No auth → return invoice
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{ip}:decision"
@@ -257,7 +306,6 @@ async def decision(request: Request, data: DecisionRequest):
             headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "10"}
         )
 
-    # Payment verification
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -275,11 +323,7 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
-    # Call clean business logic
-    try:
-        result_json = structured_decision(data.goal, data.context, data.question)
-    except Exception as e:
-        raise HTTPException(500, str(e))
+    result_json = structured_decision(data.goal, data.context, data.question)
 
     return {
         "status": "success",
