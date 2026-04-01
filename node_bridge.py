@@ -23,7 +23,7 @@ def _make_request(method: str, url: str, json_data: Optional[Dict] = None, timeo
             if attempt == 2:  # last attempt
                 print(f"Bridge request failed after {attempt+1} attempts to {url}: {e}")
                 return {"error": f"Bridge communication failed: {str(e)}"}
-            time.sleep(0.6 * (attempt + 1))  # backoff
+            time.sleep(0.7 * (attempt + 1))  # backoff
     
     return {"error": "Unknown bridge error"}
 
@@ -65,30 +65,40 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, A
 
 def check_payment(payment_hash: str) -> bool:
     """
-    Check if the invoice has been paid.
+    Robust payment check with multiple retries and longer patience.
+    This should greatly reduce 'Payment not settled yet' issues.
     """
     if not payment_hash or len(payment_hash) != 64:
         print("Invalid payment_hash provided")
         return False
 
-    try:
-        url = f"{NODE_URL.rstrip('/')}/check-payment/{payment_hash}"
-        data = _make_request("GET", url, timeout=10)
-        
-        if "error" in data:
-            return False
+    for attempt in range(10):        # Up to ~20 seconds of patience
+        try:
+            url = f"{NODE_URL.rstrip('/')}/check-payment/{payment_hash}"
+            data = _make_request("GET", url, timeout=12)
             
-        return bool(data.get("paid", False))
-        
-    except Exception as e:
-        print(f"Check payment error for {payment_hash[:12]}...: {e}")
-        return False
+            if data.get("paid", False):
+                print(f"Payment {payment_hash[:12]}... confirmed settled on attempt {attempt+1}")
+                return True
+                
+            # If not settled yet, wait before next attempt
+            if attempt < 9:
+                wait_time = 1.8 if attempt < 4 else 2.5
+                time.sleep(wait_time)
+                
+        except Exception as e:
+            print(f"Check payment attempt {attempt+1} failed: {e}")
+            if attempt < 9:
+                time.sleep(2.0)
+    
+    print(f"Payment {payment_hash[:12]}... still not settled after retries")
+    return False
 
 
 def verify_preimage(payment_hash: str, preimage: str) -> bool:
     """
     Verify that the provided preimage matches the payment_hash.
-    This is the most important security check for L402.
+    Critical for L402 security.
     """
     if not payment_hash or not preimage:
         return False
@@ -103,7 +113,7 @@ def verify_preimage(payment_hash: str, preimage: str) -> bool:
         data = _make_request("POST", url, json_data=payload, timeout=8)
         
         if "error" in data:
-            print(f"Preimage verification error: {data['error']}")
+            print(f"Preimage verification error: {data.get('error')}")
             return False
 
         return bool(data.get("valid", False))
