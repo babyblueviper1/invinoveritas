@@ -1,9 +1,9 @@
 # ⚡ invinoveritas
 
-**Lightning-Paid Reasoning for Autonomous Agents**
+**Lightning-paid reasoning API for autonomous agents (L402 protocol).**
 
-Pay-per-insight API using Bitcoin Lightning (L402 protocol).  
-No subscriptions. No accounts. No KYC.  
+Structured decision intelligence that agents can call when confidence matters.  
+No subscriptions. No accounts. Pay per decision with Bitcoin Lightning.
 Designed primarily for **autonomous AI agents**.
 
 ---
