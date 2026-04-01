@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
 from config import (
@@ -21,22 +21,31 @@ from collections import defaultdict
 # =========================
 app = FastAPI(
     title="invinoveritas",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+
     description=(
-        "## Lightning-Paid AI Reasoning & Decision Intelligence ⚡\n\n"
-        "Pay-per-insight API using the **L402 protocol** (Bitcoin Lightning Network). "
-        "No accounts, no subscriptions, no KYC.\n\n"
-        "### Payment flow\n"
-        "1. POST to `/reason` or `/decision` → receive HTTP 402 with bolt11 invoice\n"
-        "2. Pay the invoice with any Lightning wallet\n"
-        "3. Retry with header: `Authorization: L402 <payment_hash>:<preimage>`\n"
-        "4. Receive AI response\n\n"
-        "### Pricing\n"
-        "- `/reason`   → ~500 sats base\n"
-        "- `/decision` → ~1000 sats base\n"
-        "Agents pay a small premium (configurable)."
+        "Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.\n\n"
+        "Designed for autonomous agents and humans.\n"
+        "No accounts. No subscriptions. No KYC.\n\n"
+        "Workflow:\n"
+        "1. POST to /reason or /decision\n"
+        "2. Receive HTTP 402 with Lightning invoice\n"
+        "3. Pay invoice\n"
+        "4. Retry request with Authorization: L402 <payment_hash>:<preimage>\n"
+        "5. Receive structured AI response"
     ),
-    version="0.1.0",
-    contact={"name": "invinoveritas"},
+
+    contact={
+        "name": "invinoveritas",
+        "email": "babyblueviperbusiness@gmail.com"
+    },
+
+    license_info={
+        "name": "MIT"
+    }
 )
 
 
@@ -80,6 +89,27 @@ class DecisionRequest(BaseModel):
     goal: str
     context: str
     question: str
+
+# =========================
+# Response Models (Agent-Optimized)
+# =========================
+class ReasoningResponse(BaseModel):
+    status: str = Field(description="Request status")
+    type: str = Field(description="Response type identifier")
+    answer: str = Field(description="High-quality strategic reasoning text")
+
+
+class DecisionResult(BaseModel):
+    decision: str = Field(description="Final recommended action")
+    confidence: float = Field(description="Confidence score between 0 and 1")
+    reasoning: str = Field(description="Structured explanation of the decision")
+    risk_level: str = Field(description="Risk level of the decision: low, medium, or high")
+
+
+class DecisionResponse(BaseModel):
+    status: str = Field(description="Request status")
+    type: str = Field(description="Response type identifier")
+    result: DecisionResult = Field(description="Structured decision output optimized for autonomous agents")
 
 
 # =========================
@@ -224,7 +254,13 @@ def get_price(endpoint: str):
 # =========================
 # Inference Routes
 # =========================
-@app.post("/reason", tags=["inference"])
+@app.post(
+    "/reason",
+    tags=["inference"],
+    response_model=ReasoningResponse,
+    summary="Premium strategic reasoning (Lightning-paid)",
+    description="Returns high-quality reasoning after Lightning payment using the L402 protocol."
+)
 async def reason(request: Request, data: ReasoningRequest):
     caller = detect_caller(request)
     ip = get_client_ip(request)
@@ -277,7 +313,13 @@ async def reason(request: Request, data: ReasoningRequest):
     }
 
 
-@app.post("/decision", tags=["inference"])
+@app.post(
+    "/decision",
+    tags=["inference"],
+    response_model=DecisionResponse,
+    summary="Structured decision intelligence for autonomous agents",
+    description="Returns structured JSON decision output optimized for AI agents after Lightning payment using the L402 protocol."
+)
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     ip = get_client_ip(request)
