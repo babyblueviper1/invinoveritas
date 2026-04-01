@@ -1,16 +1,16 @@
 import requests
+import hashlib
 from config import NODE_URL
 import time
 from typing import Dict, Any, Optional
 
-# Optional: Add a small retry mechanism for better reliability
 def _make_request(method: str, url: str, json_data: Optional[Dict] = None, timeout: int = 10) -> Dict[str, Any]:
-    """Internal helper with basic retry logic"""
-    for attempt in range(3):  # retry up to 3 times
+    """Helper with retry logic for flaky Render ↔ VPS connections"""
+    for attempt in range(3):
         try:
-            if method == "POST":
+            if method.upper() == "POST":
                 response = requests.post(url, json=json_data, timeout=timeout)
-            else:  # GET
+            else:
                 response = requests.get(url, timeout=timeout)
             
             response.raise_for_status()
@@ -18,25 +18,16 @@ def _make_request(method: str, url: str, json_data: Optional[Dict] = None, timeo
             
         except requests.exceptions.RequestException as e:
             if attempt == 2:  # last attempt
-                print(f"Bridge request failed after {attempt+1} attempts: {e}")
-                raise
-            time.sleep(0.5 * (attempt + 1))  # exponential backoff
+                print(f"Bridge request failed after {attempt+1} attempts to {url}: {e}")
+                return {"error": f"Bridge request failed: {str(e)}"}
+            time.sleep(0.5 * (attempt + 1))  # backoff
     
     return {"error": "Unknown bridge error"}
 
 
 def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, Any]:
     """
-    Calls the Lightning bridge on your VPS to create a new invoice.
-    
-    Returns:
-        {
-            "payment_hash": "...",
-            "invoice": "lnbc...",
-            "amount": 500,
-            ...
-        }
-        or {"error": "..."} on failure
+    Create a Lightning invoice via your LND bridge on VPS.
     """
     if amount_sats < 1:
         return {"error": "Amount must be at least 1 sat"}
@@ -44,18 +35,18 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, A
     try:
         payload = {
             "amount": amount_sats,
-            "memo": memo[:100]  # prevent overly long memos
+            "memo": memo[:100]   # safety limit
         }
         
-        url = f"{NODE_URL}/create-invoice"
+        url = f"{NODE_URL.rstrip('/')}/create-invoice"
         data = _make_request("POST", url, json_data=payload, timeout=15)
         
-        # Basic validation of response
-        if not isinstance(data, dict):
-            return {"error": "Invalid response from bridge"}
+        if "error" in data:
+            return data
             
-        if "payment_hash" not in data or "invoice" not in data:
-            return {"error": "Bridge response missing required fields (payment_hash or invoice)"}
+        # Basic sanity check on response from bridge
+        if not isinstance(data, dict) or "payment_hash" not in data or "invoice" not in data:
+            return {"error": "Invalid response from bridge (missing payment_hash or invoice)"}
             
         return data
         
@@ -66,53 +57,52 @@ def create_invoice(amount_sats: int, memo: str = "invinoveritas") -> Dict[str, A
 
 def check_payment(payment_hash: str) -> bool:
     """
-    Calls the bridge to check if an invoice has been paid.
-    
-    Returns True only if the payment is confirmed settled.
+    Check if the invoice has been paid (settled) on LND.
     """
-    if not payment_hash or not isinstance(payment_hash, str):
-        print("Invalid payment_hash provided")
+    if not payment_hash or len(payment_hash) != 64:  # quick sanity check (64 hex chars)
+        print("Invalid payment_hash format")
         return False
 
     try:
-        url = f"{NODE_URL}/check-payment/{payment_hash}"
+        url = f"{NODE_URL.rstrip('/')}/check-payment/{payment_hash}"
         data = _make_request("GET", url, timeout=10)
         
-        if not isinstance(data, dict):
+        if "error" in data:
+            print(f"Check payment error: {data['error']}")
             return False
             
         paid = data.get("paid", False)
-        # Optional: log status for debugging
-        if not paid and data.get("status"):
-            print(f"Payment status for {payment_hash[:8]}...: {data.get('status')}")
-            
         return bool(paid)
         
     except Exception as e:
-        print(f"Check payment error for {payment_hash[:8]}...: {e}")
+        print(f"Check payment error for {payment_hash[:12]}...: {e}")
         return False
 
 
-# ================ RECOMMENDED ADDITION ================
 def verify_preimage(payment_hash: str, preimage: str) -> bool:
     """
-    IMPORTANT: Verify that the provided preimage actually matches the payment_hash.
-    This prevents fake preimages from being accepted.
+    Cryptographically verify that the provided preimage matches the payment_hash.
     
-    Call this in app.py before marking the payment as used.
+    This is the most secure way for L402 — no extra RPC call needed if you trust the hash.
+    LND uses SHA-256(preimage) == payment_hash.
     """
     if not payment_hash or not preimage:
         return False
     
     try:
-        url = f"{NODE_URL}/verify-preimage"
-        payload = {
-            "payment_hash": payment_hash,
-            "preimage": preimage
-        }
-        data = _make_request("POST", url, json_data=payload, timeout=8)
+        # Clean inputs
+        ph = payment_hash.strip().lower()
+        pi = preimage.strip().lower()
         
-        return bool(data.get("valid", False))
+        # Compute SHA256 of preimage and compare (hex)
+        computed_hash = hashlib.sha256(bytes.fromhex(pi)).hexdigest()
+        
+        is_valid = computed_hash == ph
+        
+        if not is_valid:
+            print(f"Preimage verification FAILED for hash {ph[:12]}...")
+            
+        return is_valid
         
     except Exception as e:
         print(f"Preimage verification error: {e}")
