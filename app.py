@@ -216,39 +216,11 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
-    # Process structured decision
+    # === Call the business logic (now cleanly separated) ===
     try:
-        prompt = f"""
-You are a strategic decision intelligence AI.
-
-Goal: {data.goal}
-Context: {data.context}
-Question: {data.question}
-
-Return ONLY valid JSON:
-{{
-  "decision": "short recommended action",
-  "confidence": 0.XX,
-  "reasoning": "clear explanation",
-  "risk_level": "low|medium|high"
-}}
-"""
-
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=800,
-        )
-        result_text = response.choices[0].message.content.strip()
-        result_json = json.loads(result_text)
-
+        result_json = structured_decision(data.goal, data.context, data.question)
     except Exception as e:
-        print("Decision engine error:", e)
-        raise HTTPException(500, "Decision engine error")
+        raise HTTPException(500, str(e))
 
     return {
         "status": "success",
