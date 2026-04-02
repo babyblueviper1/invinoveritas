@@ -1,5 +1,5 @@
 """
-invinoveritas MCP Client
+invinoveritas MCP Server
 
 Exposes /reason and /decision as MCP tools for autonomous agents.
 Handles the full L402 Lightning payment flow transparently.
