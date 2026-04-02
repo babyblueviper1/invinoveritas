@@ -142,6 +142,44 @@ The MCP server and `agent_client.py` handle this automatically.
 
 ---
 
+## Examples
+
+### Trading bots — Freqtrade strategy
+
+`examples/invinoveritas_strategy.py` is a drop-in Freqtrade strategy that uses invinoveritas as a confidence gate before every trade entry.
+
+The bot runs its normal EMA crossover signal. Before placing the order, it calls `/decision` and asks: *"Should I enter this trade right now?"* If confidence is too low or risk is too high, it skips the candle.
+
+```python
+# confirm_trade_entry is called by Freqtrade before every order
+result = _call_decision(goal, context, question)
+
+confidence = result["confidence"]   # e.g. 0.43
+risk_level = result["risk_level"]   # e.g. "high"
+
+if confidence < MIN_CONFIDENCE or risk_level == "high":
+    return False  # skip the trade
+```
+
+Real example:
+> Bot detected EMA crossover on BTC/USDT. Called invinoveritas → confidence 0.43, risk: high. Skipped the trade. BTC dropped 4% that candle.
+
+Three tunable thresholds at the top of the file:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MIN_CONFIDENCE` | `0.60` | Skip trade if AI confidence is below this |
+| `MAX_RISK` | `"medium"` | Skip trade if risk level exceeds this |
+| `SATS_BUDGET` | `10,000` | Circuit breaker — stop spending after this many sats |
+
+```bash
+# Drop into your strategies folder and run
+cp examples/InvinoveritasStrategy.py freqtrade/user_data/strategies/
+freqtrade trade --strategy InvinoveritasStrategy
+```
+
+---
+
 ## Discovery Endpoints
 
 These are always free and require no payment:
@@ -190,6 +228,8 @@ invinoveritas/
 ├── bridge.py           # LND bridge — runs on VPS
 ├── mcp_server.py       # MCP server for Claude, Cursor, etc.
 ├── agent_client.py     # CLI client for scripts and direct HTTP
+├── examples/
+│   └── invinoveritas_strategy.py  # Freqtrade strategy with AI confidence gate
 ├── index.html          # Landing page
 ├── requirements.txt
 └── README.md
