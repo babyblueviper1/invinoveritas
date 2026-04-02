@@ -103,9 +103,134 @@ class DecisionResponse(BaseModel):
 
 
 # =========================
-# Meta Routes (unchanged for brevity)
+# Meta Routes
 # =========================
-# ... (your current /, /health, /tool, /price, /.well-known/ai-plugin.json remain the same)
+@app.get("/", response_class=HTMLResponse, tags=["meta"])
+def home():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "<h1>invinoveritas API is running ⚡</h1>"
+
+
+@app.get("/health", tags=["meta"])
+def health():
+    """Health check with rich metadata for monitoring and autonomous agents."""
+    return {
+        "status": "ok",
+        "service": "invinoveritas",
+        "version": "0.1.0",
+        "timestamp": int(time.time()),
+
+        "api": {
+            "title": "Lightning-Paid AI Reasoning & Decision Intelligence",
+            "protocol": "L402",
+            "payment_currency": "sats",
+            "primary_users": "autonomous agents"
+        },
+
+        "endpoints": {
+            "reason": {
+                "path": "/reason",
+                "method": "POST",
+                "description": "Premium strategic reasoning",
+                "base_price_sats": REASONING_PRICE_SATS,
+                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+            },
+            "decision": {
+                "path": "/decision",
+                "method": "POST",
+                "description": "Structured decision intelligence for agents",
+                "base_price_sats": DECISION_PRICE_SATS,
+                "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+            }
+        },
+
+        "pricing": {
+            "currency": "sats",
+            "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
+            "agent_multiplier": AGENT_PRICE_MULTIPLIER,
+            "minimum_price_sats": MIN_PRICE_SATS
+        },
+
+        "features": {
+            "rate_limiting": True,
+            "replay_protection": True,
+            "single_use_payments": True,
+            "no_accounts": True,
+            "no_kyc": True,
+            "agent_friendly": True
+        },
+
+        "links": {
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "ai_plugin": "/.well-known/ai-plugin.json",
+            "tool_definition": "/tool",
+            "price_check": "/price/{endpoint}"
+        }
+    }
+
+
+@app.get("/tool", tags=["meta"])
+def tool_definition():
+    """Tool definition for agent discovery."""
+    return {
+        "name": "invinoveritas",
+        "type": "lightning_paid_ai",
+        "description": "Lightning-paid strategic reasoning and structured decision intelligence optimized for autonomous agents",
+        "payment_protocol": "L402",
+        "endpoints": {
+            "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
+            "decision": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
+        },
+        "agent_support": {
+            "mcp_compatible": True,
+            "autonomous": True,
+            "single_use_payments": True
+        }
+    }
+
+
+@app.get("/price/{endpoint}", tags=["meta"])
+def get_price(endpoint: str):
+    """Return base price for an endpoint."""
+    if endpoint == "reason":
+        return {"price_sats": REASONING_PRICE_SATS}
+    elif endpoint == "decision":
+        return {"price_sats": DECISION_PRICE_SATS}
+    raise HTTPException(status_code=404, detail="Unknown endpoint")
+
+
+# =========================
+# AI Plugin Manifest
+# =========================
+@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
+def ai_plugin():
+    """Standard AI plugin manifest for agent discovery (Claude, etc.)."""
+    return {
+        "schema_version": "v1",
+        "name_for_human": "invinoveritas ⚡",
+        "name_for_model": "invinoveritas",
+        
+        "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin. No subscriptions, no accounts, no KYC.",
+        
+        "description_for_model": "invinoveritas provides high-quality strategic reasoning (/reason) and structured decision intelligence (/decision) using the Bitcoin Lightning Network via the L402 protocol. Every request requires a small Lightning payment (~500-1000 sats). The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request with the header: Authorization: L402 <payment_hash>:<preimage>. Optimized for autonomous agents.",
+        
+        "auth": {
+            "type": "none"
+        },
+        
+        "api": {
+            "type": "openapi",
+            "url": "/openapi.json",
+            "is_user_authenticated": false
+        },
+        
+        "logo_url": null,
+        "contact_email": "babyblueviperbusiness@gmail.com",
+        "legal_info_url": "https://babyblueviper.com"
+    }
 
 
 # =========================
