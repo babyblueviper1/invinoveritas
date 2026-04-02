@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>invinoveritas ⚡ — Lightning-Paid AI Reasoning</title>
+    <title>invinoveritas ⚡ — Lightning-Paid AI for Agents</title>
     
     <style>
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-            max-width: 760px;
+            max-width: 780px;
             margin: 40px auto;
             padding: 0 20px;
             line-height: 1.7;
@@ -16,26 +16,26 @@
             background: #fafafa;
         }
         h1 {
-            font-size: 42px;
+            font-size: 48px;
             margin-bottom: 8px;
             font-weight: 700;
         }
         .tagline {
-            font-size: 18px;
+            font-size: 19px;
             color: #555;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
         }
         .box {
             background: white;
             border: 1px solid #e0e0e0;
             border-radius: 12px;
-            padding: 20px;
-            margin: 25px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            padding: 24px;
+            margin: 30px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
         }
         pre {
             background: #f8f8f8;
-            padding: 14px;
+            padding: 16px;
             border-radius: 8px;
             overflow-x: auto;
             font-size: 14px;
@@ -58,72 +58,81 @@
             font-weight: bold;
         }
         footer {
-            margin-top: 60px;
+            margin-top: 80px;
             text-align: center;
             color: #777;
             font-size: 14px;
+        }
+        .highlight {
+            background: #fff9e6;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #f7931a;
         }
     </style>
 </head>
 <body>
 
     <h1>invinoveritas ⚡</h1>
-    <p class="tagline"><strong>Lightning-powered AI reasoning &amp; decision intelligence</strong></p>
+    <p class="tagline"><strong>Lightning-paid AI reasoning &amp; decision intelligence for autonomous agents</strong></p>
 
-    <p>Pay-per-insight API. No subscriptions. No accounts. Just Bitcoin via Lightning.</p>
+    <p>Pay-per-insight API using the L402 protocol. No subscriptions. No accounts. No KYC.</p>
+
+    <div class="highlight">
+        <strong>Built primarily for autonomous agents.</strong> Agents can call high-quality reasoning and structured decisions with deterministic Lightning payments.
+    </div>
 
     <div class="box">
         <strong>How it works:</strong><br><br>
-        1. Send a request to <code>/reason</code> or <code>/decision</code><br>
-        2. Receive a Lightning invoice<br>
-        3. Pay the invoice with any Lightning wallet (Strike, Phoenix, Muun, etc.)<br>
-        4. Retry the request with <code>Authorization: L402 &lt;token&gt;:&lt;preimage&gt;</code><br>
-        5. Get high-quality AI response instantly
+        1. POST to <code>/reason</code> or <code>/decision</code><br>
+        2. Receive HTTP 402 with a Lightning invoice<br>
+        3. Pay the invoice with any Lightning wallet (Strike, Phoenix, etc.)<br>
+        4. Retry with <code>Authorization: L402 &lt;payment_hash&gt;:&lt;preimage&gt;</code><br>
+        5. Receive the AI response instantly
     </div>
 
     <h2>Pricing (Dynamic)</h2>
     <div class="box">
-        <strong>Reasoning:</strong> <span id="reason-price">loading...</span> sats per request<br>
-        <strong>Decision Intelligence:</strong> <span id="decision-price">loading...</span> sats per request
+        <strong>Reasoning:</strong> <span id="reason-price">loading...</span> sats<br>
+        <strong>Decision Intelligence:</strong> <span id="decision-price">loading...</span> sats
     </div>
 
     <h2>Endpoints</h2>
-
     <div class="box">
-        <strong>POST /reason</strong> — Human-friendly strategic reasoning<br><br>
+        <strong>POST /reason</strong> — Strategic reasoning<br>
         <pre>{
-  "question": "Should I increase my BTC exposure right now?"
+  "question": "What are the biggest risks for Bitcoin in 2026?"
 }</pre>
 
-        <strong>POST /decision</strong> — Agent-friendly structured output<br><br>
+        <strong>POST /decision</strong> — Structured JSON decision (agent-friendly)<br>
         <pre>{
   "goal": "Grow capital safely",
-  "context": "User holds mostly BTC and some cash",
-  "question": "Should exposure be increased in the next 30 days?"
+  "context": "Mostly BTC with some cash",
+  "question": "Should I increase exposure in the next 30 days?"
 }</pre>
     </div>
 
     <h2>For Autonomous Agents</h2>
     <div class="box">
-        Use the included <code>agent_client.py</code> — it automatically:
-        <ul>
-            <li>Fetches current price</li>
-            <li>Requests invoice</li>
-            <li>Pays via LND or CLN</li>
-            <li>Retries with correct L402 header</li>
-        </ul>
-        <pre>python agent_client.py --endpoint reason --question "Explain Bitcoin as a long-term strategy"</pre>
+        The easiest way is using the included <strong>MCP Server</strong> (<code>mcp_server.py</code>):
+
+        <pre>python mcp_server.py</pre>
+
+        Then add it to Claude Desktop, Cursor, or any MCP-compatible agent.
+
+        <p>Alternative: Use <code>agent_client.py</code> for simple scripts.</p>
     </div>
 
     <h2>Useful Links</h2>
     <div class="box">
-        • <a href="/docs">Interactive API Docs (Swagger)</a><br>
+        • <a href="/docs">Interactive API Docs</a><br>
         • <a href="/redoc">ReDoc Documentation</a><br>
-        • <a href="https://github.com/yourusername/invinoveritas" target="_blank">GitHub Repository</a>
+        • <a href="https://github.com/babyblueviper1/invinoveritas" target="_blank">GitHub Repository</a><br>
+        • <a href="https://invinoveritas.onrender.com/health">Health Check</a>
     </div>
 
     <footer>
-        Built for the Bitcoin + AI future • Pay per insight • Powered by Lightning Network ⚡
+        Built for the Bitcoin × AI future • Pay per insight with Lightning ⚡
     </footer>
 
     <script>
@@ -146,7 +155,6 @@
             }
         }
 
-        // Load prices when page loads
         window.onload = loadPrices;
     </script>
 
