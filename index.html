@@ -41,6 +41,7 @@
             font-size: 14px;
             border: 1px solid #eee;
             white-space: pre-wrap;
+            word-break: break-all;
         }
         code {
             background: #f0f0f0;
@@ -53,16 +54,6 @@
         }
         a:hover {
             text-decoration: underline;
-        }
-        .lightning {
-            color: #f7931a;
-            font-weight: bold;
-        }
-        footer {
-            margin-top: 80px;
-            text-align: center;
-            color: #777;
-            font-size: 14px;
         }
         .highlight {
             background: #fff9e6;
@@ -136,18 +127,34 @@
 
     <h2>Try It (Test Reasoning)</h2>
     <div class="box">
-        <p>Ask a question and test the Lightning paywall flow.</p>
+        <p>Ask a question and test the full Lightning paywall flow.</p>
 
         <input 
             id="question-input"
             type="text"
-            placeholder="e.g. Should I increase BTC exposure right now?"
+            placeholder="e.g. What are the biggest risks for Bitcoin in 2026?"
             style="width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ddd;"
         />
 
-        <button onclick="testReason()">Test Reasoning ⚡</button>
+        <button onclick="requestInvoice()">Get Lightning Invoice ⚡</button>
 
-        <pre id="output">Output will appear here...</pre>
+        <div id="invoice-area" style="display: none; margin-top: 20px;">
+            <p><strong>Invoice Generated:</strong></p>
+            <pre id="invoice-display" style="word-break: break-all; font-size: 13px;"></pre>
+            
+            <p style="margin-top: 20px;"><strong>After paying with Strike or any Lightning wallet, paste the preimage:</strong></p>
+            
+            <input 
+                id="preimage-input"
+                type="text"
+                placeholder="Paste preimage here"
+                style="width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ddd;"
+            />
+
+            <button onclick="retryWithPreimage()" style="background: #0066cc;">Get Reasoning Now</button>
+        </div>
+
+        <pre id="output" style="margin-top: 20px; display: none;">Output will appear here...</pre>
     </div>
 
     <h2>For Autonomous Agents</h2>
@@ -174,6 +181,9 @@
     </footer>
 
     <script>
+        let currentPaymentHash = "";
+        let currentInvoice = "";
+
         async function loadPrices() {
             try {
                 const [reasonRes, decisionRes] = await Promise.all([
@@ -188,22 +198,21 @@
                 document.getElementById('decision-price').innerText = decision.price_sats || '—';
             } catch (e) {
                 console.error("Could not load prices", e);
-                document.getElementById('reason-price').innerText = 'unavailable';
-                document.getElementById('decision-price').innerText = 'unavailable';
             }
         }
 
-        window.onload = loadPrices;
-
-        async function testReason() {
+        async function requestInvoice() {
             const question = document.getElementById('question-input').value.trim();
             const output = document.getElementById('output');
+            const invoiceArea = document.getElementById('invoice-area');
 
             if (!question) {
+                output.style.display = "block";
                 output.innerText = "Please enter a question.";
                 return;
             }
 
+            output.style.display = "block";
             output.innerText = "Requesting Lightning invoice...";
 
             try {
@@ -216,24 +225,66 @@
                 const data = await res.json();
 
                 if (res.status === 402) {
-                    output.innerHTML = `
-⚡ <strong>Payment Required</strong><br><br>
-Amount: <strong>${data.detail.amount_sats || '—'} sats</strong><br><br>
-Invoice:<br>
-<code style="word-break: break-all;">${data.detail.invoice}</code><br><br>
-👉 Pay this invoice with Strike or any Lightning wallet, then retry via CLI or MCP client.
-                    `;
-                } else if (res.status === 200) {
-                    output.innerText = data.answer || JSON.stringify(data, null, 2);
+                    currentPaymentHash = data.detail.payment_hash;
+                    currentInvoice = data.detail.invoice;
+
+                    document.getElementById('invoice-display').innerText = currentInvoice;
+                    invoiceArea.style.display = "block";
+                    output.innerText = "Invoice generated! Pay it, then paste the preimage below.";
                 } else {
-                    output.innerText = `Error: ${data.detail || res.status}`;
+                    output.innerText = JSON.stringify(data, null, 2);
                 }
 
             } catch (err) {
                 console.error(err);
-                output.innerText = "Error calling the API. Check console for details.";
+                output.innerText = "Error calling the API.";
             }
         }
+
+        async function retryWithPreimage() {
+            const preimage = document.getElementById('preimage-input').value.trim();
+            const output = document.getElementById('output');
+
+            if (!preimage) {
+                output.innerText = "Please paste the preimage from your Lightning wallet.";
+                return;
+            }
+
+            if (!currentPaymentHash) {
+                output.innerText = "No active invoice. Please request a new one first.";
+                return;
+            }
+
+            output.innerText = "Verifying payment and requesting reasoning...";
+
+            try {
+                const res = await fetch('/reason', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `L402 ${currentPaymentHash}:${preimage}`
+                    },
+                    body: JSON.stringify({ 
+                        question: document.getElementById('question-input').value.trim() 
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.status === 200) {
+                    output.innerText = data.answer || JSON.stringify(data, null, 2);
+                } else {
+                    output.innerText = `Error: ${data.detail || res.statusText}`;
+                }
+
+            } catch (err) {
+                console.error(err);
+                output.innerText = "Error retrying request.";
+            }
+        }
+
+        // Load prices when page loads
+        window.onload = loadPrices;
     </script>
 
 </body>
