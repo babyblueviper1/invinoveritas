@@ -5,6 +5,7 @@ Exposes /reason and /decision as MCP tools for autonomous agents.
 Handles the full L402 Lightning payment flow transparently.
 
 The calling agent (Claude, Cursor, etc.) only sees the final AI response.
+No manual payment handling required.
 """
 
 import os
@@ -188,4 +189,36 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         elif name == "decision":
             for field in ("goal", "context", "question"):
                 if not arguments.get(field, "").strip():
-                    raise ValueError(f
+                    raise ValueError(f"'{field}' is required for decision tool.")
+
+            result = _call_with_l402("decision", {
+                "goal": arguments["goal"],
+                "context": arguments["context"],
+                "question": arguments["question"]
+            })
+
+            decision_result = result.get("result", result)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps(decision_result, indent=2)
+            )]
+
+        else:
+            raise ValueError(f"Unknown tool: {name}")
+
+    except Exception as e:
+        error_msg = f"Error using invinoveritas {name} tool: {str(e)}"
+        print(error_msg)
+        return [types.TextContent(type="text", text=error_msg)]
+
+
+# =========================
+# Entrypoint
+# =========================
+async def main():
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
