@@ -1,8 +1,10 @@
 """
-invinoveritas MCP Server
-Exposes /reason and /decision as MCP tools.
-Handles the full L402 payment flow transparently.
-The calling agent just sees the final AI response.
+invinoveritas MCP Client
+
+Exposes /reason and /decision as MCP tools for autonomous agents.
+Handles the full L402 Lightning payment flow transparently.
+
+The calling agent (Claude, Cursor, etc.) only sees the final AI response.
 """
 
 import os
@@ -18,7 +20,7 @@ from mcp import types
 # =========================
 # Configuration
 # =========================
-API_BASE = os.getenv("API_BASE", "https://your-api.onrender.com").rstrip("/")
+API_BASE = os.getenv("API_BASE", "https://invinoveritas.onrender.com").rstrip("/")
 LND_DIR = os.getenv("LND_DIR")
 CLN_RPC_PATH = os.getenv("CLN_RPC_PATH")
 
@@ -37,7 +39,7 @@ except ImportError:
 # Lightning Payment Helpers
 # =========================
 def _pay_invoice(bolt11: str) -> str:
-    """Pay a bolt11 invoice. Returns the preimage as hex string."""
+    """Pay a bolt11 invoice using LND or CLN. Returns preimage as hex."""
     if LND_DIR and LNDClient:
         try:
             lnd = LNDClient(LND_DIR)
@@ -58,43 +60,42 @@ def _pay_invoice(bolt11: str) -> str:
 
 
 def _parse_l402_header(www_auth: str) -> tuple[str, str]:
-    """Extract payment_hash (token) and bolt11 invoice from L402 WWW-Authenticate header."""
+    """Extract token (payment_hash) and bolt11 from WWW-Authenticate header."""
     if "L402" not in www_auth:
         raise ValueError(f"Invalid L402 header: {www_auth}")
 
     try:
-        # More robust parsing
-        token_part = www_auth.split('token="')[1].split('"')[0]
-        invoice_part = www_auth.split('invoice="')[1].split('"')[0]
-        return token_part, invoice_part
+        token = www_auth.split('token="')[1].split('"')[0]
+        invoice = www_auth.split('invoice="')[1].split('"')[0]
+        return token, invoice
     except (IndexError, AttributeError):
         raise ValueError(f"Failed to parse L402 header: {www_auth}")
 
 
 def _call_with_l402(endpoint: str, payload: dict) -> dict:
     """
-    Handles the complete L402 payment flow:
+    Full L402 payment flow:
     1. First POST → expect 402 + invoice
     2. Pay the invoice
-    3. Retry POST with Authorization header
+    3. Retry with Authorization header
     """
     url = f"{API_BASE}/{endpoint}"
 
-    # Step 1: Initial request (expect 402)
+    # Step 1: Initial request
     try:
-        resp = requests.post(url, json=payload, timeout=15)
+        resp = requests.post(url, json=payload, timeout=15, headers={"User-Agent": "invinoveritas-mcp/1.0"})
     except requests.RequestException as e:
-        raise RuntimeError(f"Failed to contact API: {e}")
+        raise RuntimeError(f"Failed to reach API: {e}")
 
     if resp.status_code == 200:
-        return resp.json()  # Already paid (rare, but possible)
+        return resp.json()  # Already paid (rare)
 
     if resp.status_code != 402:
         try:
-            error_detail = resp.json()
+            error = resp.json()
         except Exception:
-            error_detail = resp.text
-        raise RuntimeError(f"Unexpected response {resp.status_code}: {error_detail}")
+            error = resp.text
+        raise RuntimeError(f"Unexpected response {resp.status_code}: {error}")
 
     # Step 2: Parse L402 header
     www_auth = resp.headers.get("WWW-Authenticate", "")
@@ -104,7 +105,7 @@ def _call_with_l402(endpoint: str, payload: dict) -> dict:
         raise RuntimeError(str(e))
 
     # Step 3: Pay the invoice
-    print(f"Paying invoice for {endpoint}...")  # Helpful log
+    print(f"→ Paying invoice for /{endpoint}...")
     preimage = _pay_invoice(bolt11)
 
     # Step 4: Retry with payment proof
@@ -122,7 +123,7 @@ def _call_with_l402(endpoint: str, payload: dict) -> dict:
         retry_resp.raise_for_status()
         return retry_resp.json()
     except requests.RequestException as e:
-        raise RuntimeError(f"Retry request failed: {e}")
+        raise RuntimeError(f"Retry after payment failed: {e}")
 
 
 # =========================
@@ -137,36 +138,36 @@ async def list_tools() -> list[types.Tool]:
         types.Tool(
             name="reason",
             description=(
-                "Pay-per-use strategic reasoning powered by invinoveritas. "
-                "Use when you need high-quality analysis or well-reasoned answers. "
-                "Payment (~500 sats) is handled automatically via Lightning (L402)."
+                "High-quality strategic reasoning powered by invinoveritas via Lightning payments. "
+                "Use when you need deep analysis, risk assessment, or well-reasoned strategic answers. "
+                "Payment is handled automatically (~500-700 sats)."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "The question or topic needing strategic reasoning.",
+                        "description": "The strategic question or topic you need analyzed."
                     }
                 },
-                "required": ["question"],
+                "required": ["question"]
             },
         ),
         types.Tool(
             name="decision",
             description=(
-                "Pay-per-use structured decision intelligence. "
-                "Returns clear recommendation with confidence and risk level. "
-                "Ideal for autonomous agents. Payment (~1000 sats) handled automatically."
+                "Structured decision intelligence optimized for autonomous agents. "
+                "Returns a clear recommendation with confidence score and risk level. "
+                "Payment is handled automatically (~1000 sats)."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "goal": {"type": "string", "description": "The overall objective."},
-                    "context": {"type": "string", "description": "Relevant background information."},
-                    "question": {"type": "string", "description": "The specific decision to make."},
+                    "goal": {"type": "string", "description": "The overall objective or desired outcome."},
+                    "context": {"type": "string", "description": "Relevant background context."},
+                    "question": {"type": "string", "description": "The specific decision question."}
                 },
-                "required": ["goal", "context", "question"],
+                "required": ["goal", "context", "question"]
             },
         ),
     ]
@@ -178,7 +179,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         if name == "reason":
             question = arguments.get("question", "").strip()
             if not question:
-                raise ValueError("'question' is required for the 'reason' tool.")
+                raise ValueError("'question' is required for reason tool.")
 
             result = _call_with_l402("reason", {"question": question})
             answer = result.get("answer") or json.dumps(result, indent=2)
@@ -187,36 +188,4 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         elif name == "decision":
             for field in ("goal", "context", "question"):
                 if not arguments.get(field, "").strip():
-                    raise ValueError(f"'{field}' is required for the 'decision' tool.")
-
-            result = _call_with_l402("decision", {
-                "goal": arguments["goal"],
-                "context": arguments["context"],
-                "question": arguments["question"],
-            })
-
-            decision_result = result.get("result", result)
-            return [types.TextContent(
-                type="text",
-                text=json.dumps(decision_result, indent=2)
-            )]
-
-        else:
-            raise ValueError(f"Unknown tool: {name}")
-
-    except Exception as e:
-        error_msg = f"Error calling {name} tool: {str(e)}"
-        print(error_msg)
-        return [types.TextContent(type="text", text=error_msg)]
-
-
-# =========================
-# Entrypoint
-# =========================
-async def main():
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+                    raise ValueError(f
