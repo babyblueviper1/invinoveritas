@@ -40,6 +40,7 @@
             overflow-x: auto;
             font-size: 14px;
             border: 1px solid #eee;
+            white-space: pre-wrap;
         }
         code {
             background: #f0f0f0;
@@ -68,6 +69,27 @@
             padding: 20px;
             border-radius: 10px;
             border-left: 5px solid #f7931a;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #f7931a;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #e68a00;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f8f8;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -110,6 +132,22 @@
   "context": "Mostly BTC with some cash",
   "question": "Should I increase exposure in the next 30 days?"
 }</pre>
+    </div>
+
+    <h2>Try It (Test Reasoning)</h2>
+    <div class="box">
+        <p>Ask a question and test the Lightning paywall flow.</p>
+
+        <input 
+            id="question-input"
+            type="text"
+            placeholder="e.g. Should I increase BTC exposure right now?"
+            style="width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ddd;"
+        />
+
+        <button onclick="testReason()">Test Reasoning ⚡</button>
+
+        <pre id="output">Output will appear here...</pre>
     </div>
 
     <h2>For Autonomous Agents</h2>
@@ -156,6 +194,46 @@
         }
 
         window.onload = loadPrices;
+
+        async function testReason() {
+            const question = document.getElementById('question-input').value.trim();
+            const output = document.getElementById('output');
+
+            if (!question) {
+                output.innerText = "Please enter a question.";
+                return;
+            }
+
+            output.innerText = "Requesting Lightning invoice...";
+
+            try {
+                const res = await fetch('/reason', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await res.json();
+
+                if (res.status === 402) {
+                    output.innerHTML = `
+⚡ <strong>Payment Required</strong><br><br>
+Amount: <strong>${data.detail.amount_sats || '—'} sats</strong><br><br>
+Invoice:<br>
+<code style="word-break: break-all;">${data.detail.invoice}</code><br><br>
+👉 Pay this invoice with Strike or any Lightning wallet, then retry via CLI or MCP client.
+                    `;
+                } else if (res.status === 200) {
+                    output.innerText = data.answer || JSON.stringify(data, null, 2);
+                } else {
+                    output.innerText = `Error: ${data.detail || res.status}`;
+                }
+
+            } catch (err) {
+                console.error(err);
+                output.innerText = "Error calling the API. Check console for details.";
+            }
+        }
     </script>
 
 </body>
