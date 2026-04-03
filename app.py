@@ -172,6 +172,43 @@ def health():
     }
 
 
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    """robots.txt to guide web crawlers"""
+    return """User-agent: *
+Allow: /
+
+# Allow search engines to crawl the site
+Sitemap: https://invinoveritas.onrender.com/sitemap.xml
+"""
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap():
+    """Basic sitemap for better SEO and discoverability"""
+    sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://invinoveritas.onrender.com/</loc>
+        <lastmod>2026-04-01</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>https://invinoveritas.onrender.com/docs</loc>
+        <lastmod>2026-04-01</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://invinoveritas.onrender.com/health</loc>
+        <lastmod>2026-04-01</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.6</priority>
+    </url>
+</urlset>"""
+    return Response(content=sitemap_content, media_type="application/xml")
+    
 @app.get("/tool", tags=["meta"])
 def tool_definition():
     """Tool definition for agent discovery."""
