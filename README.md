@@ -195,7 +195,3 @@ Built for the Bitcoin × AI future. ⚡
 - Health: `/health`
 
 ---
-
-Would you like any sections expanded, shortened, or changed?
-
-Or is this version good to push?
