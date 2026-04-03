@@ -265,7 +265,7 @@ def ai_plugin():
             "is_user_authenticated": False
         },
         
-        "logo_url": null,
+        "logo_url": None,
         "contact_email": "babyblueviperbusiness@gmail.com",
         "legal_info_url": "https://babyblueviper.com"
     }
