@@ -106,6 +106,7 @@ class DecisionResponse(BaseModel):
 # Meta Routes
 # =========================
 @app.get("/", response_class=HTMLResponse, tags=["meta"])
+@app.head("/", include_in_schema=False)
 def home():
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
