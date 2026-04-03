@@ -262,7 +262,7 @@ def ai_plugin():
         "api": {
             "type": "openapi",
             "url": "/openapi.json",
-            "is_user_authenticated": false
+            "is_user_authenticated": False
         },
         
         "logo_url": null,
