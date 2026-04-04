@@ -20,20 +20,32 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# Simple MCP Handler (No FastMCP, no session issues)
+# FastAPI App (create FIRST)
 # =========================
-from fastapi import Request
+app = FastAPI(
+    title="invinoveritas",
+    version="0.1.0",
+    description="Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.",
+    contact={
+        "name": "invinoveritas",
+        "email": "babyblueviperbusiness@gmail.com"
+    },
+    license_info={"name": "Apache 2.0"},
+)
 
-# Simple tool definitions for MCP discovery
+# Disable trailing slash redirects
+app.router.redirect_slashes = False
+
+# =========================
+# Simple MCP Handler (comes AFTER app is created)
+# =========================
 TOOLS = {
     "reason": {
         "name": "reason",
         "description": "Premium strategic reasoning using Lightning payment (L402).",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "question": {"type": "string", "description": "The question to reason about"}
-            },
+            "properties": {"question": {"type": "string", "description": "The question to reason about"}},
             "required": ["question"]
         }
     },
@@ -115,24 +127,6 @@ async def mcp_handler(request: Request):
         return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Tool not found"}}
 
     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
-
-
-# =========================
-# FastAPI App
-# =========================
-app = FastAPI(
-    title="invinoveritas",
-    version="0.1.0",
-    description="Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.",
-    contact={
-        "name": "invinoveritas",
-        "email": "babyblueviperbusiness@gmail.com"
-    },
-    license_info={"name": "Apache 2.0"},
-)
-
-# Disable trailing slash redirects
-app.router.redirect_slashes = False
 
 # =========================
 # Logging Setup
