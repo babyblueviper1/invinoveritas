@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration (Fixed for mcp-1.27.0)
+# MCP Integration (Fixed for current mcp/fastmcp versions)
 # =========================
-from mcp.server.fastmcp import FastMCP   # Official import
+from mcp.server.fastmcp import FastMCP
 from contextlib import asynccontextmanager
 
 # Create MCP server
@@ -34,8 +34,8 @@ async def reason(question: str) -> str:
     """Premium strategic reasoning using Lightning payment (L402)."""
     return (
         f"[⚡ L402 Payment Required] Strategic reasoning for: {question}\n\n"
-        "Use the REST endpoint POST /reason with header:\n"
-        "Authorization: L402 <payment_hash>:<preimage> for the full result."
+        "To get the full paid result, call the REST endpoint:\n"
+        "POST /reason with header Authorization: L402 <payment_hash>:<preimage>"
     )
 
 @mcp.tool()
@@ -43,15 +43,15 @@ async def decide(goal: str, context: str, question: str) -> dict:
     """Structured decision intelligence using Lightning payment (L402)."""
     return {
         "status": "payment_required",
-        "message": "Use REST endpoint /decision with L402 Authorization header.",
+        "message": "Use the REST endpoint /decision with L402 header for the full result.",
         "goal": goal,
-        "note": "MCP tool is a lightweight discovery stub. Full logic lives in the paid REST endpoints."
+        "note": "This is a lightweight MCP discovery tool. Full paid logic is in the REST endpoints."
     }
 
-# Create the Streamable HTTP ASGI app (this is the correct method now)
-mcp_app = mcp.streamable_http_app(path="/mcp")
+# Create the MCP ASGI app (NO 'path' argument here)
+mcp_app = mcp.http_app()
 
-# Safe lifespan handler
+# Safe lifespan (required for FastMCP + FastAPI mounting)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if hasattr(mcp_app, "lifespan_context"):
@@ -78,7 +78,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Mount the MCP handler at /mcp
+# Mount MCP at /mcp  ← this is what makes POST /mcp work
 app.mount("/mcp", mcp_app)
 
 # =========================
