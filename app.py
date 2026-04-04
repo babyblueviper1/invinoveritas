@@ -20,9 +20,13 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration
+# MCP Integration (updated import)
 # =========================
-from fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP   # Modern/recommended import
+except ImportError:
+    from fastmcp import FastMCP             # Fallback for older versions
+
 from contextlib import asynccontextmanager
 
 # Create MCP server
@@ -30,29 +34,31 @@ mcp = FastMCP("invinoveritas")
 
 @mcp.tool
 async def reason(question: str) -> str:
-    """Premium strategic reasoning using Lightning payment (L402)."""
-    # TODO: Integrate full L402 flow here if you want tools to handle payment automatically
-    # For now it returns a helpful message so clients know how to use it
-    return f"[Payment required via L402] Strategic reasoning for: {question}\n\nUse the REST endpoint /reason with L402 header for full result."
+    """Premium strategic reasoning (Lightning-paid via L402)."""
+    return f"[L402 Payment Required] Strategic reasoning for: {question}\n\nCall the REST endpoint /reason with proper L402 header for the full paid result."
 
 @mcp.tool
 async def decide(goal: str, context: str, question: str) -> dict:
-    """Structured decision intelligence using Lightning payment (L402)."""
+    """Structured decision intelligence (Lightning-paid via L402)."""
     return {
         "status": "payment_required",
-        "message": "Use the REST endpoint /decision with L402 header for full structured decision.",
-        "goal": goal,
-        "context_preview": context[:100] + "..." if len(context) > 100 else context
+        "message": "Use REST endpoint /decision with L402 Authorization header for full result.",
+        "goal": goal
     }
 
-# Create the MCP ASGI app (streamable-http)
+# Create MCP ASGI app for streamable-http transport
 mcp_app = mcp.http_app(path="/mcp")
 
-# Lifespan (to support FastMCP background tasks if any)
+# Lifespan handler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with mcp_app.lifespan_context(app) if hasattr(mcp_app, "lifespan_context") else mcp_app.lifespan(app):
-        yield
+    # FastMCP may have its own lifespan
+    if hasattr(mcp_app, "lifespan_context"):
+        async with mcp_app.lifespan_context(app):
+            yield
+    else:
+        async with mcp_app.lifespan(app) if hasattr(mcp_app, "lifespan") else lifespan:
+            yield
 
 # =========================
 # FastAPI App
@@ -60,19 +66,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="invinoveritas",
     version="0.1.0",
-    description=(
-        "Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.\n\n"
-        "Pay-per-insight API optimized for autonomous agents."
-    ),
+    description="Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.",
     contact={
         "name": "invinoveritas",
         "email": "babyblueviperbusiness@gmail.com"
     },
     license_info={"name": "MIT"},
-    lifespan=lifespan,   # Important for MCP
+    lifespan=lifespan,
 )
 
-# Mount MCP at /mcp
+# Mount the MCP handler at /mcp
 app.mount("/mcp", mcp_app)
 
 # =========================
@@ -86,7 +89,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (updated for /mcp)
+# MCP Server Card (endpoint fixed to /mcp)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -103,7 +106,7 @@ SERVER_CARD = {
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/mcp"          # ← Updated
+            "endpoint": "/mcp"   # ← Important: matches the mount
         }
     ],
     "capabilities": {
@@ -114,29 +117,26 @@ SERVER_CARD = {
     "authentication": {
         "required": True,
         "schemes": ["L402"],
-        "notes": "Pay-per-use via Lightning (L402). Send a POST request to receive a 402 response with a bolt11 invoice. Pay the invoice, then retry with header: Authorization: L402 <payment_hash>:<preimage>"
+        "notes": "Pay-per-use via Lightning (L402)."
     }
 }
 
-# Try to override with file if it exists
+# Load server card from file if present
 card_path = Path(".well-known/mcp/server-card.json")
 try:
     if card_path.exists():
         with open(card_path, "r", encoding="utf-8") as f:
             SERVER_CARD = json.load(f)
         logger.info(f"✅ Server card loaded from file: {card_path}")
-    else:
-        logger.info("Using hardcoded server card (file not found)")
 except Exception as e:
-    logger.warning(f"Could not load server-card.json, using hardcoded version. Error: {e}")
+    logger.warning(f"Could not load server-card.json: {e}")
 
 # =========================
-# MCP Server Card Endpoint
+# Server Card Endpoint
 # =========================
 @app.get("/.well-known/mcp/server-card.json", include_in_schema=False)
 @app.head("/.well-known/mcp/server-card.json", include_in_schema=False)
 async def get_server_card():
-    """Return MCP Server Card - supports both GET and HEAD"""
     return JSONResponse(content=SERVER_CARD)
 
 # =========================
