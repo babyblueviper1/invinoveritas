@@ -19,6 +19,40 @@ import json
 from pathlib import Path
 from typing import Dict, Set
 
+# =========================
+# MCP Integration
+# =========================
+from fastmcp import FastMCP
+from contextlib import asynccontextmanager
+
+# Create MCP server
+mcp = FastMCP("invinoveritas")
+
+@mcp.tool
+async def reason(question: str) -> str:
+    """Premium strategic reasoning using Lightning payment (L402)."""
+    # TODO: Integrate full L402 flow here if you want tools to handle payment automatically
+    # For now it returns a helpful message so clients know how to use it
+    return f"[Payment required via L402] Strategic reasoning for: {question}\n\nUse the REST endpoint /reason with L402 header for full result."
+
+@mcp.tool
+async def decide(goal: str, context: str, question: str) -> dict:
+    """Structured decision intelligence using Lightning payment (L402)."""
+    return {
+        "status": "payment_required",
+        "message": "Use the REST endpoint /decision with L402 header for full structured decision.",
+        "goal": goal,
+        "context_preview": context[:100] + "..." if len(context) > 100 else context
+    }
+
+# Create the MCP ASGI app (streamable-http)
+mcp_app = mcp.http_app(path="/mcp")
+
+# Lifespan (to support FastMCP background tasks if any)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with mcp_app.lifespan_context(app) if hasattr(mcp_app, "lifespan_context") else mcp_app.lifespan(app):
+        yield
 
 # =========================
 # FastAPI App
@@ -35,10 +69,14 @@ app = FastAPI(
         "email": "babyblueviperbusiness@gmail.com"
     },
     license_info={"name": "MIT"},
+    lifespan=lifespan,   # Important for MCP
 )
 
+# Mount MCP at /mcp
+app.mount("/mcp", mcp_app)
+
 # =========================
-# Logging Setup (Simple but useful)
+# Logging Setup
 # =========================
 logging.basicConfig(
     level=logging.INFO,
@@ -48,12 +86,12 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card - Clean & Polished Version
+# MCP Server Card (updated for /mcp)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
     "version": "1.0",
-    "protocolVersion": "2025-06-18",          # More commonly used stable version
+    "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
         "version": "1.0.0",
@@ -65,7 +103,7 @@ SERVER_CARD = {
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/"
+            "endpoint": "/mcp"          # ← Updated
         }
     ],
     "capabilities": {
@@ -80,7 +118,7 @@ SERVER_CARD = {
     }
 }
 
-# Try to override with file if it exists (good for local dev)
+# Try to override with file if it exists
 card_path = Path(".well-known/mcp/server-card.json")
 try:
     if card_path.exists():
@@ -101,16 +139,14 @@ async def get_server_card():
     """Return MCP Server Card - supports both GET and HEAD"""
     return JSONResponse(content=SERVER_CARD)
 
-
 # =========================
 # State
 # =========================
 last_request_time: Dict[str, float] = defaultdict(lambda: 0.0)
 used_payments: Set[str] = set()
 
-
 # =========================
-# Helpers
+# Helpers (unchanged)
 # =========================
 def detect_caller(request: Request) -> str:
     ua = request.headers.get("user-agent", "").lower()
@@ -118,10 +154,8 @@ def detect_caller(request: Request) -> str:
         return "agent"
     return "browser"
 
-
 def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
-
 
 def calculate_price(endpoint: str, text: str, caller: str) -> int:
     base = REASONING_PRICE_SATS if endpoint == "reason" else DECISION_PRICE_SATS
@@ -129,7 +163,6 @@ def calculate_price(endpoint: str, text: str, caller: str) -> int:
     multiplier = AGENT_PRICE_MULTIPLIER if caller == "agent" and ENABLE_AGENT_MULTIPLIER else 1.0
     price = int((base + length_bonus) * multiplier)
     return max(price, MIN_PRICE_SATS)
-
 
 # =========================
 # Models (unchanged)
