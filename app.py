@@ -48,16 +48,16 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (Hardcoded + optional file override)
+# MCP Server Card - Clean & Polished Version
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
     "version": "1.0",
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-06-18",          # More commonly used stable version
     "serverInfo": {
         "name": "invinoveritas",
         "version": "1.0.0",
-        "description": "Lightning-paid reasoning and decision intelligence for autonomous agents. Pay-per-insight via L402 (Bitcoin Lightning). No accounts, no subscriptions.",
+        "description": "Lightning-paid AI reasoning and decision intelligence using L402 (Bitcoin Lightning). Pay-per-insight, no accounts, no subscriptions.",
         "homepage": "https://invinoveritas.onrender.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas"
     },
@@ -76,7 +76,7 @@ SERVER_CARD = {
     "authentication": {
         "required": True,
         "schemes": ["L402"],
-        "notes": "Uses the L402 protocol. POST to an endpoint to receive an HTTP 402 with a bolt11 Lightning invoice. Pay it, then retry with: Authorization: L402 <payment_hash>:<preimage>"
+        "notes": "Pay-per-use via Lightning (L402). Send a POST request to receive a 402 response with a bolt11 invoice. Pay the invoice, then retry with header: Authorization: L402 <payment_hash>:<preimage>"
     }
 }
 
