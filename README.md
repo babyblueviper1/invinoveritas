@@ -3,6 +3,7 @@
 [![smithery badge](https://smithery.ai/badge/babyblueviper1/invinoveritas)](https://smithery.ai/servers/babyblueviper1/invinoveritas)
 [![Glama card](YOUR_GLAMA_CARD_BADGE_URL)](YOUR_GLAMA_LINK)
 [![Glama score](YOUR_GLAMA_SCORE_BADGE_URL)](YOUR_GLAMA_LINK)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
 **Lightning-paid reasoning and decision intelligence for autonomous agents**
 
