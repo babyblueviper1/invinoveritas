@@ -3,48 +3,49 @@
 **Lightning-paid reasoning and decision intelligence for autonomous agents.**
 
 Pay per insight. No subscriptions. No accounts. No KYC.  
-Atomic intelligence purchases over Bitcoin Lightning via the L402 protocol. ⚡
+Atomic intelligence purchases over Bitcoin Lightning using the **L402 protocol**. ⚡
 
 ---
 
-## Install
+## Installation
 
 ```bash
-# Sync only
+# Sync client only (lightweight)
 pip install invinoveritas
 
-# With async support (recommended for agent frameworks)
-pip install invinoveritas[async]
+# With async support (recommended for agents and async frameworks)
+pip install "invinoveritas[async]"
 ```
 
 ---
 
 ## Quickstart
 
-### Sync
+### Synchronous
 
 ```python
 from invinoveritas_sdk import InvinoClient, PaymentRequired
 
 client = InvinoClient()
 
-# Step 1 — first call returns a Lightning invoice
 try:
     result = client.reason("What are the biggest risks for Bitcoin in 2026?")
 except PaymentRequired as e:
-    print(f"Invoice: {e.invoice}")       # pay this with any Lightning wallet
-    print(f"Amount:  {e.amount_sats} sats")
+    print(f"Pay this invoice → {e.invoice}")
+    print(f"Amount: {e.amount_sats} sats")
+    print(f"Payment hash: {e.payment_hash}")
 
-    # Step 2 — retry with payment credentials
+    # After paying with any Lightning wallet
     result = client.reason(
         "What are the biggest risks for Bitcoin in 2026?",
         payment_hash=e.payment_hash,
-        preimage="your_preimage_here",   # returned by your wallet after payment
+        preimage="preimage_from_wallet_here",
     )
-    print(result.answer)
+
+print(result.answer)
 ```
 
-### Async
+### Asynchronous
 
 ```python
 import asyncio
@@ -55,10 +56,11 @@ async def main():
         try:
             result = await client.reason("What are the biggest risks for Bitcoin in 2026?")
         except PaymentRequired as e:
+            # Pay the invoice...
             result = await client.reason(
                 "What are the biggest risks for Bitcoin in 2026?",
                 payment_hash=e.payment_hash,
-                preimage="your_preimage_here",
+                preimage="preimage_from_wallet_here",
             )
             print(result.answer)
 
@@ -67,191 +69,150 @@ asyncio.run(main())
 
 ---
 
-## Tools
+## Core Tools
 
-### `reason` — Strategic reasoning
+### `reason()` — Deep strategic reasoning
 
 ```python
 result = client.reason(
-    question="Should I migrate my infrastructure to the cloud?",
-    payment_hash="...",
-    preimage="...",
+    question="Should we expand into the European market in 2026?",
+    payment_hash=...,
+    preimage=...
 )
 
-print(result.answer)        # full reasoning response
-print(result.payment_hash)  # hash used for this request
+print(result.answer)
 ```
 
-**Pricing:** from 500 sats (base) · up to ~800 sats with agent multiplier
+**Base price:** ~500 sats
 
 ---
 
-### `decide` — Structured decision intelligence
+### `decide()` — Structured decision intelligence
 
 ```python
 result = client.decide(
-    goal="Reduce infrastructure costs by 30%",
-    question="Should we migrate to serverless?",
-    context="Current stack: Python/FastAPI on Render, ~10k req/day",  # optional
-    payment_hash="...",
-    preimage="...",
+    goal="Grow capital safely while managing risk",
+    question="Should I increase BTC exposure now?",
+    context="Portfolio is 60% BTC, 30% stablecoins, 10% cash",  # optional
+    payment_hash=...,
+    preimage=...
 )
 
-print(result.decision)    # recommended course of action
-print(result.confidence)  # float 0.0–1.0
-print(result.reasoning)   # explanation
-print(result.risk_level)  # "low" | "medium" | "high"
+print(result.decision)      # "Increase BTC exposure slightly"
+print(result.confidence)    # 0.78
+print(result.reasoning)
+print(result.risk_level)    # "low" | "medium" | "high"
 ```
 
-**Pricing:** from 1000 sats (base) · up to ~1400 sats with agent multiplier
+**Base price:** ~1000 sats
 
 ---
 
-## Payment flow
+## Payment Flow (L402)
 
-The L402 protocol is a two-step challenge/response over HTTP:
+1. Call any method without payment → server returns **402 Payment Required** + Lightning invoice.
+2. Pay the invoice using any Lightning wallet.
+3. Retry the **same** call, passing `payment_hash` and `preimage`.
 
-```
-1. Call any tool (no auth header)
-      → server returns 402 + bolt11 invoice
+The SDK makes this simple: `PaymentRequired` exception carries everything you need.
 
-2. Pay the invoice with any Lightning wallet
-      → wallet returns payment_hash + preimage
-
-3. Retry the exact same call with:
-      Authorization: L402 <payment_hash>:<preimage>
-      → server verifies and returns the result
-```
-
-The SDK handles all of this automatically — `PaymentRequired` carries
-everything you need, and passing `payment_hash` + `preimage` back into
-the same method constructs the header for you.
-
-**Each invoice is single-use.** Replaying a used payment hash returns a
-`PaymentError`.
+> **Note:** Each invoice is **single-use**. Reusing a payment hash returns `PaymentError`.
 
 ---
 
-## Agent framework examples
+## Utility Methods
 
-### LangChain tool
+```python
+# Free health + pricing check
+health = client.check_health()
+
+# Current price for a tool
+price = client.get_price("reason")      # returns int (sats)
+price = client.get_price("decision")
+```
+
+---
+
+## Agent Framework Integration Examples
+
+### LangChain Tool
 
 ```python
 from langchain.tools import tool
 from invinoveritas_sdk import AsyncInvinoClient, PaymentRequired
 
 @tool
-async def reason_tool(question: str, payment_hash: str, preimage: str) -> str:
-    """Call invinoveritas for strategic reasoning. Requires a paid Lightning invoice."""
+async def invino_reason(question: str, payment_hash: str = None, preimage: str = None) -> str:
+    """Get strategic reasoning powered by Lightning payments."""
     async with AsyncInvinoClient() as client:
-        result = await client.reason(question, payment_hash=payment_hash, preimage=preimage)
-        return result.answer
+        try:
+            result = await client.reason(question, payment_hash=payment_hash, preimage=preimage)
+            return result.answer
+        except PaymentRequired as e:
+            raise ValueError(f"Payment required. Invoice: {e.invoice}")
 ```
 
-### AutoGen tool
+### Get Invoice First (Useful for Orchestration)
 
 ```python
-from autogen import tool
-from invinoveritas_sdk import AsyncInvinoClient
-
-@tool
-async def invino_decide(goal: str, question: str, payment_hash: str, preimage: str) -> dict:
-    async with AsyncInvinoClient() as client:
-        result = await client.decide(goal, question, payment_hash=payment_hash, preimage=preimage)
-        return {
-            "decision": result.decision,
-            "confidence": result.confidence,
-            "risk_level": result.risk_level,
-        }
-```
-
-### Get the invoice first (agent orchestration pattern)
-
-```python
-from invinoveritas_sdk import InvinoClient, PaymentRequired
-
 client = InvinoClient()
-question = "Which cloud provider should we use for our ML workloads?"
+question = "What are the biggest risks for Bitcoin in 2026?"
 
-# Phase 1: fetch invoice (agent triggers payment flow)
 try:
-    client.reason(question)
+    result = client.reason(question)
 except PaymentRequired as e:
+    # Send invoice to user / payment service
     invoice = e.invoice
     payment_hash = e.payment_hash
-    amount_sats = e.amount_sats
-    # hand off invoice to wallet/payment orchestrator...
-
-# Phase 2: after payment confirmed, complete the call
-result = client.reason(question, payment_hash=payment_hash, preimage=received_preimage)
-print(result.answer)
-```
-
----
-
-## Utility methods
-
-```python
-# Check service health and current pricing (free)
-health = client.check_health()
-print(health["pricing"])
-
-# Get current base price for a specific endpoint
-price = client.get_price("reason")    # → int (sats)
-price = client.get_price("decision")  # → int (sats)
-```
-
----
-
-## Local development
-
-```python
-# Point at a local server
-client = InvinoClient(base_url="http://localhost:8000")
-
-# Or with async
-async with AsyncInvinoClient(base_url="http://localhost:8000") as client:
-    ...
+    amount = e.amount_sats
+    # ... wait for payment confirmation ...
+    result = client.reason(question, payment_hash=payment_hash, preimage=received_preimage)
 ```
 
 ---
 
 ## Exceptions
 
-| Exception | When raised |
-|---|---|
-| `PaymentRequired` | 402 — no payment provided. Carries `.invoice`, `.payment_hash`, `.amount_sats` |
-| `PaymentError` | 401/403 — bad preimage, expired, or already used invoice |
-| `InvinoError` | 429 — rate limited |
-| `ServiceError` | 5xx or unexpected response |
+| Exception          | Trigger                              | Attributes |
+|--------------------|--------------------------------------|----------|
+| `PaymentRequired`  | 402 - No valid payment provided     | `.invoice`, `.payment_hash`, `.amount_sats` |
+| `PaymentError`     | 401 / 403 - Invalid or used payment | - |
+| `InvinoError`      | Rate limiting (429)                 | - |
+| `ServiceError`     | Server errors (5xx) or malformed responses | - |
 
 All exceptions inherit from `InvinoError`.
 
 ---
 
-## MCP endpoint
+## Local Development
 
-If you're using an MCP-compatible client (Claude Desktop, Cursor), point it
-directly at the MCP endpoint — no SDK needed:
-
-```
-https://invinoveritas.onrender.com/mcp
+```python
+client = InvinoClient(base_url="http://localhost:8000")
 ```
 
-The MCP server exposes the same `reason` and `decide` tools with full L402
-payment handling built in.
+Same for `AsyncInvinoClient`.
+
+---
+
+## MCP Support
+
+If you're using Claude Desktop, Cursor, or any MCP-compatible client, you can connect directly without the SDK:
+
+**MCP Endpoint:** `https://invinoveritas.onrender.com/mcp`
 
 ---
 
 ## Links
 
 - **Live API:** https://invinoveritas.onrender.com
-- **MCP endpoint:** https://invinoveritas.onrender.com/mcp
-- **Health / pricing:** https://invinoveritas.onrender.com/health
+- **Health & Pricing:** https://invinoveritas.onrender.com/health
+- **MCP Endpoint:** https://invinoveritas.onrender.com/mcp
 - **GitHub:** https://github.com/babyblueviper1/invinoveritas
 
 ---
 
 ## License
 
-Apache 2.0
+Apache-2.0
+
+---
