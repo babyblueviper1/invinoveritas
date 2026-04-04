@@ -28,7 +28,6 @@ from invinoveritas_sdk import (
 FAKE_INVOICE = "lnbc500n1fake_invoice_for_testing"
 FAKE_PAYMENT_HASH = "abc123def456abc123def456abc123def456abc123def456abc123def456abc1"
 FAKE_PREIMAGE = "preimage123preimage123preimage123preimage123preimage123preimage1"
-FAKE_MACAROON = "eyJmYWtlIjoidG9rZW4ifQ=="
 
 REASON_402_RESPONSE = {
     "detail": {
@@ -75,14 +74,14 @@ HEALTH_RESPONSE = {
 }
 
 
-def make_mock_response(status_code: int, json_data: dict, headers: dict = None):
+def make_mock_response(status_code: int, json_data: dict):
     """Create a mock requests.Response object."""
     mock = MagicMock()
     mock.status_code = status_code
     mock.ok = status_code < 400
     mock.json.return_value = json_data
     mock.text = str(json_data)
-    mock.headers = headers or {}
+    mock.headers = {}
     return mock
 
 
@@ -138,11 +137,9 @@ class TestReasonSync:
                 preimage=FAKE_PREIMAGE,
             )
 
-        call_kwargs = mock_post.call_args
-        headers = call_kwargs[1].get("headers", {}) or call_kwargs[0][2] if len(call_kwargs[0]) > 2 else {}
-        # Check via the actual request args
         _, kwargs = mock_post.call_args
-        assert kwargs["headers"]["Authorization"] == f"L402 {FAKE_PAYMENT_HASH}:{FAKE_PREIMAGE}"
+        headers = kwargs.get("headers", {})
+        assert headers.get("Authorization") == f"L402 {FAKE_PAYMENT_HASH}:{FAKE_PREIMAGE}"
 
     def test_reason_raises_payment_error_on_403(self):
         """403 response raises PaymentError (replay or invalid preimage)."""
@@ -387,6 +384,21 @@ class TestReasonAsync:
             assert client._client is not None
         assert client._client is None
 
+    async def test_async_client_can_be_used_without_context_manager(self):
+        """Manual start()/close() workflow works correctly."""
+        client = AsyncInvinoClient()
+        await client.start()
+        try:
+            with patch.object(client._client, "post", return_value=make_async_mock_response(200, REASON_SUCCESS_RESPONSE)):
+                result = await client.reason(
+                    "test question",
+                    payment_hash=FAKE_PAYMENT_HASH,
+                    preimage=FAKE_PREIMAGE,
+                )
+            assert isinstance(result, ReasoningResult)
+        finally:
+            await client.close()
+
     async def test_async_health_check(self):
         """Async check_health returns parsed dict."""
         async with AsyncInvinoClient() as client:
@@ -396,7 +408,7 @@ class TestReasonAsync:
 
 
 # ---------------------------------------------------------------------------
-# Two-step flow integration (mocked end-to-end)
+# Two-step L402 flow integration (mocked end-to-end)
 # ---------------------------------------------------------------------------
 
 class TestTwoStepFlow:
@@ -419,15 +431,12 @@ class TestTwoStepFlow:
         payment_required = exc_info.value
         assert payment_required.invoice == FAKE_INVOICE
 
-        # Step 2 — (payment happens externally, we get preimage back)
-        received_preimage = FAKE_PREIMAGE
-
         # Step 3 — retry with credentials
         with patch.object(client._session, "post", return_value=make_mock_response(200, REASON_SUCCESS_RESPONSE)):
             result = client.reason(
                 question,
                 payment_hash=payment_required.payment_hash,
-                preimage=received_preimage,
+                preimage=FAKE_PREIMAGE,
             )
 
         assert isinstance(result, ReasoningResult)
