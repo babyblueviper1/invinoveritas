@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration (Working version for fastmcp 3.x + mcp 1.27)
+# MCP Integration (Final working version)
 # =========================
-from fastmcp import FastMCP   # or from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from contextlib import asynccontextmanager
 
 # Create MCP server
@@ -48,10 +48,10 @@ async def decide(goal: str, context: str, question: str) -> dict:
         "note": "MCP tool is a discovery stub. Full paid logic lives in the REST endpoints."
     }
 
-# Create the MCP ASGI app with path (this is the key that works now)
-mcp_app = mcp.http_app(path="/mcp")
+# Create MCP ASGI app (path="/" inside the sub-app)
+mcp_app = mcp.http_app(path="/")
 
-# Lifespan - required when mounting
+# Lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if hasattr(mcp_app, "lifespan"):
@@ -75,8 +75,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Mount the MCP app (this makes /mcp respond to JSON-RPC)
-app.mount("/mcp", mcp_app)
+# Disable trailing slash redirects globally (this + mount with /mcp/ fixes the 307)
+app.router.redirect_slashes = False
+
+# Mount with trailing slash
+app.mount("/mcp/", mcp_app)   # ← Important: trailing slash here
 
 # =========================
 # Logging Setup
@@ -106,7 +109,7 @@ SERVER_CARD = {
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/mcp"   # ← Important: matches the mount
+            "endpoint": "/mcp/"
         }
     ],
     "capabilities": {
