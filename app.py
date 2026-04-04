@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration (Correct for mcp-1.27 + fastmcp-3.2)
+# MCP Integration (Working version for fastmcp 3.x + mcp 1.27)
 # =========================
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP   # or from mcp.server.fastmcp import FastMCP
 from contextlib import asynccontextmanager
 
 # Create MCP server
@@ -48,10 +48,10 @@ async def decide(goal: str, context: str, question: str) -> dict:
         "note": "MCP tool is a discovery stub. Full paid logic lives in the REST endpoints."
     }
 
-# Create the MCP ASGI app (NO path argument here!)
-mcp_app = mcp.http_app()
+# Create the MCP ASGI app with path (this is the key that works now)
+mcp_app = mcp.http_app(path="/mcp")
 
-# Lifespan - critical for FastMCP to work properly
+# Lifespan - required when mounting
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if hasattr(mcp_app, "lifespan"):
@@ -72,10 +72,10 @@ app = FastAPI(
         "email": "babyblueviperbusiness@gmail.com"
     },
     license_info={"name": "MIT"},
-    lifespan=lifespan,          # ← Important
+    lifespan=lifespan,
 )
 
-# Mount MCP at /mcp  ← this makes POST /mcp respond to initialize/listTools/callTool
+# Mount the MCP app (this makes /mcp respond to JSON-RPC)
 app.mount("/mcp", mcp_app)
 
 # =========================
