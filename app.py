@@ -67,7 +67,7 @@ TOOLS = {
 @app.post("/mcp")
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
-    """Simple MCP JSON-RPC handler"""
+    """Full MCP JSON-RPC handler with L402 payment verification and execution"""
     try:
         body = await request.json()
     except Exception:
@@ -97,37 +97,135 @@ async def mcp_handler(request: Request):
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
         arguments = body.get("params", {}).get("arguments", {})
+        auth = request.headers.get("Authorization")
 
+        caller = detect_caller(request)
+
+        # ====================== REASON TOOL ======================
         if tool_name == "reason":
             question = arguments.get("question", "")
-            return {
-                "jsonrpc": "2.0",
-                "id": rpc_id,
-                "result": {
-                    "content": [{
-                        "type": "text",
-                        "text": f"[⚡ L402 Payment Required] Strategic reasoning for: {question}\n\nUse POST /reason with L402 header for full result."
-                    }]
-                }
-            }
+            if not question:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
 
+            price = calculate_price("reason", question, caller)
+
+            # === No payment yet → issue invoice ===
+            if not auth or not auth.startswith("L402 "):
+                invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
+
+                if "error" in invoice_data:
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Invoice creation failed"}}
+
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {
+                        "code": 402,
+                        "message": "Payment Required",
+                        "data": {
+                            "payment_hash": invoice_data["payment_hash"],
+                            "invoice": invoice_data["invoice"],
+                            "amount_sats": price
+                        }
+                    }
+                }
+
+            # === Payment provided → verify and execute ===
+            try:
+                _, creds = auth.split(" ", 1)
+                payment_hash, preimage = creds.split(":", 1)
+            except Exception:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Invalid L402 format"}}
+
+            if payment_hash in used_payments:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
+
+            if not check_payment(payment_hash):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment not settled"}}
+
+            if not verify_preimage(payment_hash, preimage):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid preimage"}}
+
+            used_payments.add(payment_hash)
+
+            try:
+                result = premium_reasoning(question)
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "result": {
+                        "content": [{"type": "text", "text": result}]
+                    }
+                }
+            except Exception as e:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": f"Reasoning failed: {str(e)}"}}
+
+        # ====================== DECIDE TOOL ======================
         elif tool_name == "decide":
             goal = arguments.get("goal", "")
-            return {
-                "jsonrpc": "2.0",
-                "id": rpc_id,
-                "result": {
-                    "content": [{
-                        "type": "text",
-                        "text": f"[⚡ L402 Payment Required] Decision for goal: {goal}\n\nUse POST /decision with L402 header."
-                    }]
+            context = arguments.get("context", "")
+            question = arguments.get("question", "")
+
+            if not goal or not question:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
+
+            text = f"{goal} {context} {question}"
+            price = calculate_price("decision", text, caller)
+
+            if not auth or not auth.startswith("L402 "):
+                invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
+
+                if "error" in invoice_data:
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Invoice creation failed"}}
+
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {
+                        "code": 402,
+                        "message": "Payment Required",
+                        "data": {
+                            "payment_hash": invoice_data["payment_hash"],
+                            "invoice": invoice_data["invoice"],
+                            "amount_sats": price
+                        }
+                    }
                 }
-            }
+
+            # Payment verification
+            try:
+                _, creds = auth.split(" ", 1)
+                payment_hash, preimage = creds.split(":", 1)
+            except Exception:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Invalid L402 format"}}
+
+            if payment_hash in used_payments:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
+
+            if not check_payment(payment_hash):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment not settled"}}
+
+            if not verify_preimage(payment_hash, preimage):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid preimage"}}
+
+            used_payments.add(payment_hash)
+
+            try:
+                result_json = structured_decision(goal, context, question)
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "result": {
+                        "content": [{"type": "text", "text": json.dumps(result_json, indent=2)}]
+                    }
+                }
+            except Exception as e:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": f"Decision failed: {str(e)}"}}
 
         return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Tool not found"}}
 
     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
-
+    
 # =========================
 # Logging Setup
 # =========================
@@ -139,7 +237,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (endpoint fixed to /mcp)
+# MCP Server Card (Upgraded for L402 + MCP Tools)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -156,7 +254,7 @@ SERVER_CARD = {
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/mcp/"
+            "endpoint": "/mcp"
         }
     ],
     "capabilities": {
@@ -167,19 +265,28 @@ SERVER_CARD = {
     "authentication": {
         "required": True,
         "schemes": ["L402"],
-        "notes": "Pay-per-use via Lightning (L402)."
+        "notes": "Every tool call requires a Lightning payment via L402. First callTool returns a 402 with bolt11 invoice. Pay the invoice, then retry the exact same callTool with header: Authorization: L402 <payment_hash>:<preimage>"
+    },
+    "pricing": {
+        "currency": "sats",
+        "reason_base": REASONING_PRICE_SATS,
+        "decision_base": DECISION_PRICE_SATS,
+        "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+        "minimum": MIN_PRICE_SATS
     }
 }
 
-# Load server card from file if present
+# Try to override with file if it exists (good for local dev)
 card_path = Path(".well-known/mcp/server-card.json")
 try:
     if card_path.exists():
         with open(card_path, "r", encoding="utf-8") as f:
             SERVER_CARD = json.load(f)
         logger.info(f"✅ Server card loaded from file: {card_path}")
+    else:
+        logger.info("Using hardcoded server card (file not found)")
 except Exception as e:
-    logger.warning(f"Could not load server-card.json: {e}")
+    logger.warning(f"Could not load server-card.json, using hardcoded version. Error: {e}")
 
 # =========================
 # Server Card Endpoint
@@ -187,6 +294,7 @@ except Exception as e:
 @app.get("/.well-known/mcp/server-card.json", include_in_schema=False)
 @app.head("/.well-known/mcp/server-card.json", include_in_schema=False)
 async def get_server_card():
+    """Return MCP Server Card"""
     return JSONResponse(content=SERVER_CARD)
 
 # =========================
