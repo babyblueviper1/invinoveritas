@@ -239,6 +239,14 @@ def get_price(endpoint: str):
         return {"price_sats": DECISION_PRICE_SATS}
     raise HTTPException(status_code=404, detail="Unknown endpoint")
 
+@app.route('/llms.txt')
+def llms():
+    return send_from_directory('.', 'llms.txt', mimetype='text/plain')
+
+@app.route('/.well-known/mcp/server-card.json')
+def server_card():
+    return send_from_directory('.well-known/mcp', 'server-card.json', mimetype='application/json')
+
 
 # =========================
 # AI Plugin Manifest
