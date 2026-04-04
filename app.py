@@ -15,6 +15,7 @@ import os
 import time
 import logging
 from collections import defaultdict
+import json
 
 # =========================
 # Logging Setup (Simple but useful)
@@ -26,16 +27,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger("invinoveritas")
 
+logger = logging.getLogger(__name__)
+# Load server card at startup
+SERVER_CARD = None
+card_path = Path(".well-known/mcp/server-card.json")
 
-# Load the server card once when the app starts (best for performance)
 try:
-    SERVER_CARD_PATH = Path(".well-known/mcp/server-card.json")
-    with open(SERVER_CARD_PATH, "r", encoding="utf-8") as f:
-        SERVER_CARD = json.load(f)
-    print(f"✅ Loaded server card from {SERVER_CARD_PATH}")
+    if card_path.exists():
+        with open(card_path, "r", encoding="utf-8") as f:
+            SERVER_CARD = json.load(f)
+        logger.info("✅ Server card loaded successfully from file")
+    else:
+        logger.warning(f"⚠️  server-card.json not found at {card_path.absolute()}")
 except Exception as e:
-    print(f"⚠️  Failed to load server-card.json: {e}")
-    SERVER_CARD = None
+    logger.error(f"Error loading server-card.json: {e}")
 
 # =========================
 # FastAPI App
@@ -257,8 +262,39 @@ def llms():
 @app.get("/.well-known/mcp/server-card.json", include_in_schema=False)
 async def get_server_card():
     if SERVER_CARD is None:
-        raise HTTPException(status_code=500, detail="Server card not found")
-    
+        # Fallback - so the endpoint never fails completely
+        logger.info("Using fallback server card")
+        fallback_card = {
+            "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
+            "version": "1.0",
+            "protocolVersion": "2025-11-25",
+            "serverInfo": {
+                "name": "invinoveritas",
+                "version": "1.0.0",
+                "description": "Lightning-paid reasoning and decision intelligence for autonomous agents. Pay-per-insight via L402 (Bitcoin Lightning). No accounts, no subscriptions.",
+                "homepage": "https://invinoveritas.onrender.com",
+                "repository": "https://github.com/babyblueviper1/invinoveritas"
+            },
+            "transports": [
+                {
+                    "type": "streamable-http",
+                    "url": "https://invinoveritas.onrender.com",
+                    "endpoint": "/"
+                }
+            ],
+            "capabilities": {
+                "tools": True,
+                "resources": False,
+                "prompts": False
+            },
+            "authentication": {
+                "required": True,
+                "schemes": ["L402"],
+                "notes": "Uses the L402 protocol. POST to an endpoint to receive an HTTP 402 with a bolt11 Lightning invoice. Pay it, then retry with: Authorization: L402 <payment_hash>:<preimage>"
+            }
+        }
+        return JSONResponse(content=fallback_card)
+
     return JSONResponse(content=SERVER_CARD)
 
 
