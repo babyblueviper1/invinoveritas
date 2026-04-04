@@ -50,12 +50,12 @@ SERVER_CARD = {
         }
     ],
     "capabilities": {
-        "tools": true,
-        "resources": false,
-        "prompts": false
+        "tools": True,      # ← Fixed: True (capital T)
+        "resources": False, # ← Fixed: False (capital F)
+        "prompts": False    # ← Fixed: False (capital F)
     },
     "authentication": {
-        "required": true,
+        "required": True,   # ← Fixed: True (capital T)
         "schemes": ["L402"],
         "notes": "Uses the L402 protocol. POST to an endpoint to receive an HTTP 402 with a bolt11 Lightning invoice. Pay it, then retry with: Authorization: L402 <payment_hash>:<preimage>"
     }
