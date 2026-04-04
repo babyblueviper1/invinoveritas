@@ -1,5 +1,7 @@
 # ⚡ invinoveritas
 
+[![smithery badge](https://smithery.ai/badge/babyblueviper1/invinoveritas)](https://smithery.ai/servers/babyblueviper1/invinoveritas)
+
 **Lightning-paid reasoning and decision intelligence for autonomous agents**
 
 Pay-per-insight API using the **L402 protocol** (Bitcoin Lightning).  
