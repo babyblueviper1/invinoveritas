@@ -13,7 +13,7 @@
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/mcp/"
+            "endpoint": "/mcp"
         }
     ],
     "capabilities": {
@@ -24,6 +24,13 @@
     "authentication": {
         "required": True,
         "schemes": ["L402"],
-        "notes": "Pay-per-use via Lightning (L402)."
+        "notes": "Every tool call requires a Lightning payment via L402. First callTool returns a 402 with bolt11 invoice. Pay the invoice, then retry the exact same callTool with header: Authorization: L402 <payment_hash>:<preimage>"
+    },
+    "pricing": {
+        "currency": "sats",
+        "reason_base": REASONING_PRICE_SATS,
+        "decision_base": DECISION_PRICE_SATS,
+        "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+        "minimum": MIN_PRICE_SATS
     }
 }
