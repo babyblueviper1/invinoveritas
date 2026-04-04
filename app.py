@@ -20,13 +20,13 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration (Final working version)
+# MCP Integration (Stateless - Recommended for Render)
 # =========================
 from fastmcp import FastMCP
 from contextlib import asynccontextmanager
 
-# Create MCP server
-mcp = FastMCP("invinoveritas")
+# Create MCP server in stateless mode (no session ID hassle)
+mcp = FastMCP("invinoveritas", stateless_http=True)
 
 # === TOOLS ===
 @mcp.tool()
@@ -48,7 +48,7 @@ async def decide(goal: str, context: str, question: str) -> dict:
         "note": "MCP tool is a discovery stub. Full paid logic lives in the REST endpoints."
     }
 
-# Create MCP ASGI app (path="/" inside the sub-app)
+# Create the MCP ASGI app
 mcp_app = mcp.http_app(path="/")
 
 # Lifespan
@@ -75,11 +75,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Disable trailing slash redirects globally (this + mount with /mcp/ fixes the 307)
+# Disable trailing slash redirects (prevents 307 issues)
 app.router.redirect_slashes = False
 
-# Mount with trailing slash
-app.mount("/mcp/", mcp_app)   # ← Important: trailing slash here
+# Mount the MCP app
+app.mount("/mcp/", mcp_app)
+app.mount("/mcp", mcp_app)   # fallback without trailing slash
 
 # =========================
 # Logging Setup
