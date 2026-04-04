@@ -20,45 +20,102 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration (Stateless mode for Render)
+# Simple MCP Handler (No FastMCP, no session issues)
 # =========================
-from fastmcp import FastMCP
-from contextlib import asynccontextmanager
+from fastapi import Request
 
-# Create MCP server (NO stateless_http here anymore)
-mcp = FastMCP("invinoveritas")
-
-# === TOOLS ===
-@mcp.tool()
-async def reason(question: str) -> str:
-    """Premium strategic reasoning using Lightning payment (L402)."""
-    return (
-        f"[⚡ L402 Payment Required] Strategic reasoning for: {question}\n\n"
-        "To get the full paid result, use the REST endpoint:\n"
-        "POST /reason with header: Authorization: L402 <payment_hash>:<preimage>"
-    )
-
-@mcp.tool()
-async def decide(goal: str, context: str, question: str) -> dict:
-    """Structured decision intelligence using Lightning payment (L402)."""
-    return {
-        "status": "payment_required",
-        "message": "Use the REST endpoint /decision with L402 Authorization header for the full result.",
-        "goal": goal,
-        "note": "MCP tool is a discovery stub. Full paid logic lives in the REST endpoints."
+# Simple tool definitions for MCP discovery
+TOOLS = {
+    "reason": {
+        "name": "reason",
+        "description": "Premium strategic reasoning using Lightning payment (L402).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "The question to reason about"}
+            },
+            "required": ["question"]
+        }
+    },
+    "decide": {
+        "name": "decide",
+        "description": "Structured decision intelligence using Lightning payment (L402).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "goal": {"type": "string"},
+                "context": {"type": "string"},
+                "question": {"type": "string"}
+            },
+            "required": ["goal", "question"]
+        }
     }
+}
 
-# Create the MCP ASGI app with stateless mode (this is the correct place now)
-mcp_app = mcp.http_app(path="/", stateless_http=True)
+@app.post("/mcp")
+@app.post("/mcp/")
+async def mcp_handler(request: Request):
+    """Simple MCP JSON-RPC handler"""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
 
-# Lifespan
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    if hasattr(mcp_app, "lifespan"):
-        async with mcp_app.lifespan(app):
-            yield
-    else:
-        yield
+    method = body.get("method")
+    rpc_id = body.get("id")
+
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {"tools": {"listChanged": True}},
+                "serverInfo": {"name": "invinoveritas", "version": "1.0.0"}
+            }
+        }
+
+    elif method == "listTools":
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {"tools": list(TOOLS.values())}
+        }
+
+    elif method == "callTool":
+        tool_name = body.get("params", {}).get("name")
+        arguments = body.get("params", {}).get("arguments", {})
+
+        if tool_name == "reason":
+            question = arguments.get("question", "")
+            return {
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "result": {
+                    "content": [{
+                        "type": "text",
+                        "text": f"[⚡ L402 Payment Required] Strategic reasoning for: {question}\n\nUse POST /reason with L402 header for full result."
+                    }]
+                }
+            }
+
+        elif tool_name == "decide":
+            goal = arguments.get("goal", "")
+            return {
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "result": {
+                    "content": [{
+                        "type": "text",
+                        "text": f"[⚡ L402 Payment Required] Decision for goal: {goal}\n\nUse POST /decision with L402 header."
+                    }]
+                }
+            }
+
+        return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Tool not found"}}
+
+    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
+
 
 # =========================
 # FastAPI App
@@ -72,15 +129,10 @@ app = FastAPI(
         "email": "babyblueviperbusiness@gmail.com"
     },
     license_info={"name": "Apache 2.0"},
-    lifespan=lifespan,
 )
 
-# Disable trailing slash redirects (prevents 307 issues)
+# Disable trailing slash redirects
 app.router.redirect_slashes = False
-
-# Mount the MCP app (both with and without trailing slash for compatibility)
-app.mount("/mcp/", mcp_app)
-app.mount("/mcp", mcp_app)   # fallback
 
 # =========================
 # Logging Setup
