@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
 from pydantic import BaseModel
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
@@ -26,6 +26,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger("invinoveritas")
 
+
+# Load the server card once when the app starts (best for performance)
+try:
+    SERVER_CARD_PATH = Path(".well-known/mcp/server-card.json")
+    with open(SERVER_CARD_PATH, "r", encoding="utf-8") as f:
+        SERVER_CARD = json.load(f)
+    print(f"✅ Loaded server card from {SERVER_CARD_PATH}")
+except Exception as e:
+    print(f"⚠️  Failed to load server-card.json: {e}")
+    SERVER_CARD = None
 
 # =========================
 # FastAPI App
@@ -243,9 +253,13 @@ def get_price(endpoint: str):
 def llms():
     return FileResponse('llms.txt', media_type='text/plain')
 
-@app.get('/.well-known/mcp/server-card.json')
-def server_card():
-    return FileResponse('.well-known/mcp/server-card.json', media_type='application/json')
+
+@app.get("/.well-known/mcp/server-card.json", include_in_schema=False)
+async def get_server_card():
+    if SERVER_CARD is None:
+        raise HTTPException(status_code=500, detail="Server card not found")
+    
+    return JSONResponse(content=SERVER_CARD)
 
 
 # =========================
