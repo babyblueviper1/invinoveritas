@@ -1,191 +1,106 @@
 # ⚡ invinoveritas
 
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![smithery badge](https://smithery.ai/badge/babyblueviper1/invinoveritas)](https://smithery.ai/servers/babyblueviper1/invinoveritas)
-[![Glama card](YOUR_GLAMA_CARD_BADGE_URL)](YOUR_GLAMA_LINK)
-[![Glama score](YOUR_GLAMA_SCORE_BADGE_URL)](YOUR_GLAMA_LINK)
-![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
 **Lightning-paid reasoning and decision intelligence for autonomous agents**
 
 Pay-per-insight API using the **L402 protocol** (Bitcoin Lightning).  
 No subscriptions. No accounts. No KYC.
 
-Built **primarily for autonomous AI agents** that need high-quality reasoning and structured decisions without increasing local compute costs.
-
-Live API: [https://invinoveritas.onrender.com](https://invinoveritas.onrender.com)
+**Live API**: [https://invinoveritas.onrender.com](https://invinoveritas.onrender.com)  
+**MCP Endpoint**: [https://invinoveritas.onrender.com/mcp](https://invinoveritas.onrender.com/mcp)
 
 ---
 
 ## Why Agents Use invinoveritas
 
-Autonomous agents call invinoveritas when they need:
+Autonomous agents use invinoveritas when they need:
 
 - Strategic reasoning deeper than local models
-- Structured, machine-readable decisions with confidence scores
-- Deterministic cost per request (instead of unpredictable token usage)
+- Structured, machine-readable decisions with confidence & risk scores
+- Deterministic, predictable costs (paid in sats)
 - Cryptographically verifiable payments via Lightning
+- Native MCP tool support
 
-Agents pay only when confidence matters — with sats, atomically, without intermediaries.
+Pay only when the insight truly matters — atomically, with Bitcoin Lightning.
 
 ---
 
-## Quick Start for Agents
+## Quick Start
 
-### Option 1 — MCP Server (Recommended)
+### Using the MCP Endpoint (Recommended)
 
-Works seamlessly with Claude Desktop, Cursor, and any MCP-compatible agent.
+Just point your MCP-compatible agent (Claude Desktop, Cursor, etc.) to:
 
-```bash
-pip install mcp requests lndgrpc pyln-client
-python mcp_server.py
+```
+https://invinoveritas.onrender.com/mcp
 ```
 
-Then add it to your agent configuration.
+The server supports `initialize`, `listTools`, and `callTool` with full L402 payment handling.
 
-### Option 2 — CLI Client
+### Direct HTTP Examples
 
+**Call reasoning tool (first request):**
 ```bash
-python agent_client.py --endpoint reason --question "What are the biggest risks for Bitcoin in 2026?"
-
-python agent_client.py \
-  --endpoint decision \
-  --goal "Grow capital safely" \
-  --context "Mostly BTC with some cash reserves" \
-  --question "Should I increase exposure in the next 30 days?"
+curl -X POST https://invinoveritas.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "callTool",
+    "params": {
+      "name": "reason",
+      "arguments": { "question": "What are the biggest risks for Bitcoin in 2026?" }
+    }
+  }'
 ```
 
-### Option 3 — Direct HTTP
-
+After paying the returned invoice, retry with:
 ```bash
-# 1. Check price
-curl https://invinoveritas.onrender.com/price/reason
-
-# 2. Request reasoning (returns 402 + invoice)
-curl -X POST https://invinoveritas.onrender.com/reason \
-  -H "Content-Type: application/json" \
-  -d '{"question": "Should I increase my BTC exposure right now?"}'
-
-# 3. After paying the invoice, retry with credentials
-curl -X POST https://invinoveritas.onrender.com/reason \
-  -H "Content-Type: application/json" \
-  -H "Authorization: L402 <payment_hash>:<preimage>" \
-  -d '{"question": "Should I increase my BTC exposure right now?"}'
+-H "Authorization: L402 <payment_hash>:<preimage>"
 ```
 
 ---
 
-## Core Endpoints
+## Core Tools (via MCP)
 
-| Endpoint       | Purpose                              | Output Type       | Typical Cost     |
-|----------------|--------------------------------------|-------------------|------------------|
-| `POST /reason`     | Strategic reasoning                  | Natural language  | ~500–700 sats    |
-| `POST /decision`   | Structured decision intelligence     | Clean JSON        | ~1000–1200 sats  |
+- **`reason`** — Premium strategic reasoning
+- **`decide`** — Structured decision intelligence
 
-### Response Examples
-
-**`/reason`**
-```json
-{
-  "status": "success",
-  "type": "premium_reasoning",
-  "answer": "..."
-}
-```
-
-**`/decision`**
-```json
-{
-  "status": "success",
-  "type": "decision_intelligence",
-  "result": {
-    "decision": "Increase exposure slightly",
-    "confidence": 0.78,
-    "reasoning": "Market structure improving while risk remains moderate.",
-    "risk_level": "medium"
-  }
-}
-```
+Both tools support the full L402 payment flow.
 
 ---
 
 ## Payment Flow (L402)
 
-1. POST to `/reason` or `/decision` → receive **HTTP 402** with bolt11 invoice
-2. Pay the invoice with any Lightning wallet or node
-3. Retry the same request with:
+1. First call (REST or MCP) → returns **402 Payment Required** + Lightning invoice
+2. Pay the invoice using any Lightning wallet
+3. Retry the **exact same request** with the header:
    ```
    Authorization: L402 <payment_hash>:<preimage>
    ```
-4. Receive the AI response
-
-The MCP server and `agent_client.py` handle the full flow automatically.
+4. Receive the result
 
 ---
 
-## For Autonomous Agents
+## Discovery Endpoints (Free)
 
-The recommended way is using the included **`mcp_server.py`**.
-
-It exposes `reason` and `decision` as native MCP tools. Agents simply call the tool — payment is handled transparently in the background.
-
-Also included:
-- `agent_client.py` — simple CLI for scripts
-- Freqtrade strategy example using `/decision` as a confidence gate
-
----
-
-## Discovery Endpoints (Always Free)
-
-| Endpoint                        | Purpose |
-|---------------------------------|---------|
-| `GET /health`                   | Service status and metadata |
-| `GET /price/{endpoint}`         | Current price in sats |
-| `GET /tool`                     | Machine-readable tool definition |
-| `GET /.well-known/ai-plugin.json` | Standard agent discovery |
-| `GET /docs`                     | Interactive API docs |
-
----
-
-## Project Structure
-
-```
-invinoveritas/
-├── app.py                 # Main API (deployed on Render)
-├── ai.py                  # Reasoning and decision logic
-├── config.py
-├── node_bridge.py         # Talks to Lightning bridge
-├── bridge.py              # LND bridge (runs on VPS)
-├── mcp_server.py          # MCP server for Claude, Cursor, etc.
-├── agent_client.py        # CLI client
-├── examples/
-│   └── invinoveritas_strategy.py
-├── index.html
-├── requirements.txt
-└── README.md
-```
-
----
-
-## Deployment
-
-**Main API** — Render  
-**Lightning Bridge** — VPS running LND
-
-**Environment Variables (Render):**
-- `OPENAI_API_KEY`
-- `NODE_URL` (your Lightning bridge URL)
+- `GET /health` — Service status and pricing
+- `GET /.well-known/mcp/server-card.json` — MCP server card
+- `GET /price/{endpoint}` — Current price in sats
 
 ---
 
 ## Philosophy
 
-Most AI agents are forced into monthly subscriptions or unpredictable token costs.
+Most AI agents are stuck with subscriptions or unpredictable token costs.
 
 **invinoveritas** offers a better model:
 
 > **Atomic intelligence purchases using Bitcoin Lightning.**
 
-Agents pay only when the decision truly matters — with sats, cryptographically, and without intermediaries.
+Pay only when the decision matters — with sats, instantly, and without intermediaries.
 
 ---
 
@@ -196,7 +111,5 @@ Built for the Bitcoin × AI future. ⚡
 ### Quick Links
 - GitHub: https://github.com/babyblueviper1/invinoveritas
 - Live API: https://invinoveritas.onrender.com
-- MCP Server: `mcp_server.py`
-- Health: `/health`
-
----
+- MCP Endpoint: https://invinoveritas.onrender.com/mcp
+- Health: https://invinoveritas.onrender.com/health
