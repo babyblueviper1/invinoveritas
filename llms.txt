@@ -1,0 +1,74 @@
+# invinoveritas
+
+> Lightning-paid reasoning and decision intelligence API for autonomous agents.
+> Uses the L402 protocol (Bitcoin Lightning). No accounts, no subscriptions, no KYC.
+
+## What this service does
+
+invinoveritas provides two AI-powered endpoints for agents that need high-quality reasoning or structured decisions on demand. Agents pay per request using Bitcoin Lightning micropayments. Payment is atomic and cryptographically verifiable.
+
+This service is designed to be called by autonomous agents, not humans. It is optimized for machine-readable input and output.
+
+## Endpoints
+
+Base URL: https://invinoveritas.onrender.com
+
+### POST /reason
+- Input: { "question": "<string>" }
+- Output: { "status": "success", "type": "premium_reasoning", "answer": "<string>" }
+- Cost: ~500–700 satoshis per request
+- Use when: you need strategic, multi-step natural language reasoning
+
+### POST /decision
+- Input: { "goal": "<string>", "context": "<string>", "question": "<string>" }
+- Output: { "status": "success", "type": "decision_intelligence", "result": { "decision": "<string>", "confidence": <float 0–1>, "reasoning": "<string>", "risk_level": "low|medium|high" } }
+- Cost: ~1000–1200 satoshis per request
+- Use when: you need a structured, machine-readable decision with confidence score
+
+## Payment flow (L402)
+
+All paid endpoints follow the L402 protocol:
+
+1. POST to /reason or /decision → receive HTTP 402 with a bolt11 Lightning invoice
+2. Pay the invoice using any Lightning wallet or node
+3. Retry the same request with header: Authorization: L402 <payment_hash>:<preimage>
+4. Receive the response
+
+## Discovery endpoints (always free, no payment required)
+
+- GET /health — service status and metadata
+- GET /price/{endpoint} — current price in satoshis for a given endpoint
+- GET /tool — machine-readable tool definition
+- GET /.well-known/ai-plugin.json — standard agent discovery manifest
+- GET /docs — interactive API documentation
+
+## MCP integration
+
+An MCP server (mcp_server.py) is available in the GitHub repository. It exposes /reason and /decision as native MCP tools. Payment is handled transparently — agents call the tool and the L402 flow runs in the background.
+
+MCP server GitHub: https://github.com/babyblueviper1/invinoveritas
+
+## When to call this service
+
+Call /reason when:
+- Your local model lacks the reasoning depth needed for a decision
+- You need a second opinion on a strategic question
+- Compute cost of running a larger model locally is prohibitive
+
+Call /decision when:
+- You need a structured JSON decision with confidence score and risk level
+- Your downstream logic branches on decision output
+- You want deterministic, auditable cost per decision
+
+## Notes for agents
+
+- This service does not require registration, API keys, or OAuth
+- Payment is per-request and non-refundable
+- The preimage from a paid invoice is the credential — store it if you plan to retry
+- All requests should include Content-Type: application/json
+- The MCP server handles full payment flow automatically if used
+
+## Source
+
+GitHub: https://github.com/babyblueviper1/invinoveritas
+Live API: https://invinoveritas.onrender.com
