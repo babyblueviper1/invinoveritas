@@ -36,6 +36,7 @@ app = FastAPI(
 # Disable trailing slash redirects
 app.router.redirect_slashes = False
 
+
 # =========================
 # Simple MCP Handler (comes AFTER app is created)
 # =========================
@@ -67,7 +68,12 @@ TOOLS = {
 @app.post("/mcp")
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
-    """Full MCP JSON-RPC handler with L402 payment verification and execution"""
+    """Clean & complete MCP handler with full L402 payment flow"""
+
+    # Prevent memory leak from used_payments
+    if len(used_payments) > 500:
+        used_payments.clear()
+        logger.info("✅ Cleaned used_payments set (prevent memory growth)")
     try:
         body = await request.json()
     except Exception:
@@ -75,7 +81,10 @@ async def mcp_handler(request: Request):
 
     method = body.get("method")
     rpc_id = body.get("id")
+    auth = request.headers.get("Authorization")
+    caller = detect_caller(request)
 
+    # ==================== INITIALIZE ====================
     if method == "initialize":
         return {
             "jsonrpc": "2.0",
@@ -87,6 +96,7 @@ async def mcp_handler(request: Request):
             }
         }
 
+    # ==================== LIST TOOLS ====================
     elif method == "listTools":
         return {
             "jsonrpc": "2.0",
@@ -94,27 +104,24 @@ async def mcp_handler(request: Request):
             "result": {"tools": list(TOOLS.values())}
         }
 
+    # ==================== CALL TOOL ====================
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
-        arguments = body.get("params", {}).get("arguments", {})
-        auth = request.headers.get("Authorization")
+        args = body.get("params", {}).get("arguments", {})
 
-        caller = detect_caller(request)
-
-        # ====================== REASON TOOL ======================
+        # ------------------- REASON TOOL -------------------
         if tool_name == "reason":
-            question = arguments.get("question", "")
+            question = args.get("question", "")
             if not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
 
             price = calculate_price("reason", question, caller)
 
-            # === No payment yet → issue invoice ===
+            # No payment → issue invoice
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
-
                 if "error" in invoice_data:
-                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Invoice creation failed"}}
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Failed to create invoice"}}
 
                 return {
                     "jsonrpc": "2.0",
@@ -130,7 +137,7 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            # === Payment provided → verify and execute ===
+            # Payment provided → verify and execute
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
@@ -141,7 +148,7 @@ async def mcp_handler(request: Request):
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
 
             if not check_payment(payment_hash):
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment not settled"}}
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment not settled yet"}}
 
             if not verify_preimage(payment_hash, preimage):
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid preimage"}}
@@ -153,18 +160,17 @@ async def mcp_handler(request: Request):
                 return {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
-                    "result": {
-                        "content": [{"type": "text", "text": result}]
-                    }
+                    "result": {"content": [{"type": "text", "text": result}]}
                 }
             except Exception as e:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": f"Reasoning failed: {str(e)}"}}
+                logger.error(f"Reasoning error: {e}")
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Internal error"}}
 
-        # ====================== DECIDE TOOL ======================
+        # ------------------- DECIDE TOOL -------------------
         elif tool_name == "decide":
-            goal = arguments.get("goal", "")
-            context = arguments.get("context", "")
-            question = arguments.get("question", "")
+            goal = args.get("goal", "")
+            context = args.get("context", "")
+            question = args.get("question", "")
 
             if not goal or not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
@@ -174,9 +180,8 @@ async def mcp_handler(request: Request):
 
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
-
                 if "error" in invoice_data:
-                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Invoice creation failed"}}
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Failed to create invoice"}}
 
                 return {
                     "jsonrpc": "2.0",
@@ -192,7 +197,7 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            # Payment verification
+            # Payment verification + execution
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
@@ -203,7 +208,7 @@ async def mcp_handler(request: Request):
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
 
             if not check_payment(payment_hash):
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment not settled"}}
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment not settled yet"}}
 
             if not verify_preimage(payment_hash, preimage):
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid preimage"}}
@@ -211,16 +216,15 @@ async def mcp_handler(request: Request):
             used_payments.add(payment_hash)
 
             try:
-                result_json = structured_decision(goal, context, question)
+                result = structured_decision(goal, context, question)
                 return {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
-                    "result": {
-                        "content": [{"type": "text", "text": json.dumps(result_json, indent=2)}]
-                    }
+                    "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
                 }
             except Exception as e:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": f"Decision failed: {str(e)}"}}
+                logger.error(f"Decision error: {e}")
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Internal error"}}
 
         return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Tool not found"}}
 
