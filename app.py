@@ -16,6 +16,7 @@ import time
 import logging
 from collections import defaultdict
 import json
+from pathlib import Path
 
 # =========================
 # Logging Setup (Simple but useful)
@@ -27,8 +28,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("invinoveritas")
 
-logger = logging.getLogger(__name__)
-# Load server card at startup
+# =========================
+# Load MCP Server Card at startup
+# =========================
 SERVER_CARD = None
 card_path = Path(".well-known/mcp/server-card.json")
 
@@ -36,11 +38,11 @@ try:
     if card_path.exists():
         with open(card_path, "r", encoding="utf-8") as f:
             SERVER_CARD = json.load(f)
-        logger.info("✅ Server card loaded successfully from file")
+        logger.info(f"✅ Server card loaded successfully from {card_path}")
     else:
-        logger.warning(f"⚠️  server-card.json not found at {card_path.absolute()}")
+        logger.warning(f"⚠️  server-card.json NOT found at: {card_path.absolute()}")
 except Exception as e:
-    logger.error(f"Error loading server-card.json: {e}")
+    logger.error(f"Failed to load server-card.json: {e}")
 
 # =========================
 # FastAPI App
@@ -262,8 +264,7 @@ def llms():
 @app.get("/.well-known/mcp/server-card.json", include_in_schema=False)
 async def get_server_card():
     if SERVER_CARD is None:
-        # Fallback - so the endpoint never fails completely
-        logger.info("Using fallback server card")
+        logger.info("Using fallback server card (file was missing at runtime)")
         fallback_card = {
             "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
             "version": "1.0",
@@ -283,12 +284,12 @@ async def get_server_card():
                 }
             ],
             "capabilities": {
-                "tools": True,
-                "resources": False,
-                "prompts": False
+                "tools": true,
+                "resources": false,
+                "prompts": false
             },
             "authentication": {
-                "required": True,
+                "required": true,
                 "schemes": ["L402"],
                 "notes": "Uses the L402 protocol. POST to an endpoint to receive an HTTP 402 with a bolt11 Lightning invoice. Pay it, then retry with: Authorization: L402 <payment_hash>:<preimage>"
             }
