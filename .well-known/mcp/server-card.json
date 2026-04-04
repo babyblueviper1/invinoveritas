@@ -13,7 +13,7 @@
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/mcp"   # ← Important: matches the mount
+            "endpoint": "/mcp/"
         }
     ],
     "capabilities": {
