@@ -9,6 +9,7 @@ pydantic>=2.9.0
 
 # MCP support for autonomous agents
 mcp>=1.2.0
+fastmcp
 
 # Optional
 python-dotenv>=1.0.0
