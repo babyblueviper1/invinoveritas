@@ -1,5 +1,5 @@
 {
-   "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
+    "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
     "version": "1.0",
     "protocolVersion": "2025-06-18",
     "serverInfo": {
@@ -13,7 +13,7 @@
         {
             "type": "streamable-http",
             "url": "https://invinoveritas.onrender.com",
-            "endpoint": "/mcp"          # ← Updated
+            "endpoint": "/mcp"   # ← Important: matches the mount
         }
     ],
     "capabilities": {
@@ -24,6 +24,6 @@
     "authentication": {
         "required": True,
         "schemes": ["L402"],
-        "notes": "Pay-per-use via Lightning (L402). Send a POST request to receive a 402 response with a bolt11 invoice. Pay the invoice, then retry with header: Authorization: L402 <payment_hash>:<preimage>"
+        "notes": "Pay-per-use via Lightning (L402)."
     }
 }
