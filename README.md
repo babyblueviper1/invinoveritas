@@ -13,6 +13,17 @@ No subscriptions. No accounts. No KYC.
 
 ---
 
+## Pricing (Dynamic)
+
+| Tool       | Base Price       | With Agent Multiplier | Typical Range     |
+|------------|------------------|-----------------------|-------------------|
+| `reason`   | 500 sats         | 1.2x                  | 500 – 800 sats    |
+| `decide`   | 1000 sats        | 1.2x                  | 1000 – 1400 sats  |
+
+Prices can vary slightly based on input length.
+
+---
+
 ## Why Agents Use invinoveritas
 
 Autonomous agents use invinoveritas when they need:
@@ -31,17 +42,17 @@ Pay only when the insight truly matters — atomically, with Bitcoin Lightning.
 
 ### Using the MCP Endpoint (Recommended)
 
-Just point your MCP-compatible agent (Claude Desktop, Cursor, etc.) to:
+Point your MCP-compatible agent (Claude Desktop, Cursor, etc.) to:
 
 ```
 https://invinoveritas.onrender.com/mcp
 ```
 
-The server supports `initialize`, `listTools`, and `callTool` with full L402 payment handling.
+The server supports `initialize`, `listTools`, and `callTool` with full L402 payment handling built-in.
 
 ### Direct HTTP Examples
 
-**Call reasoning tool (first request):**
+**Call reasoning tool (first request — will return invoice):**
 ```bash
 curl -X POST https://invinoveritas.onrender.com/mcp \
   -H "Content-Type: application/json" \
@@ -112,4 +123,4 @@ Built for the Bitcoin × AI future. ⚡
 - GitHub: https://github.com/babyblueviper1/invinoveritas
 - Live API: https://invinoveritas.onrender.com
 - MCP Endpoint: https://invinoveritas.onrender.com/mcp
-- Health: https://invinoveritas.onrender.com/health
+- Health Check: https://invinoveritas.onrender.com/health
