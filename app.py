@@ -20,13 +20,13 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration (Stateless - Recommended for Render)
+# MCP Integration (Stateless mode for Render)
 # =========================
 from fastmcp import FastMCP
 from contextlib import asynccontextmanager
 
-# Create MCP server in stateless mode (no session ID hassle)
-mcp = FastMCP("invinoveritas", stateless_http=True)
+# Create MCP server (NO stateless_http here anymore)
+mcp = FastMCP("invinoveritas")
 
 # === TOOLS ===
 @mcp.tool()
@@ -48,8 +48,8 @@ async def decide(goal: str, context: str, question: str) -> dict:
         "note": "MCP tool is a discovery stub. Full paid logic lives in the REST endpoints."
     }
 
-# Create the MCP ASGI app
-mcp_app = mcp.http_app(path="/")
+# Create the MCP ASGI app with stateless mode (this is the correct place now)
+mcp_app = mcp.http_app(path="/", stateless_http=True)
 
 # Lifespan
 @asynccontextmanager
@@ -71,16 +71,16 @@ app = FastAPI(
         "name": "invinoveritas",
         "email": "babyblueviperbusiness@gmail.com"
     },
-    license_info={"name": "MIT"},
+    license_info={"name": "Apache 2.0"},
     lifespan=lifespan,
 )
 
 # Disable trailing slash redirects (prevents 307 issues)
 app.router.redirect_slashes = False
 
-# Mount the MCP app
+# Mount the MCP app (both with and without trailing slash for compatibility)
 app.mount("/mcp/", mcp_app)
-app.mount("/mcp", mcp_app)   # fallback without trailing slash
+app.mount("/mcp", mcp_app)   # fallback
 
 # =========================
 # Logging Setup
