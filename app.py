@@ -20,26 +20,22 @@ from pathlib import Path
 from typing import Dict, Set
 
 # =========================
-# MCP Integration
+# MCP Integration (Fixed for mcp-1.27.0)
 # =========================
-try:
-    from mcp.server.fastmcp import FastMCP   # Preferred modern import
-except ImportError:
-    from fastmcp import FastMCP              # Fallback
-
+from mcp.server.fastmcp import FastMCP   # Official import
 from contextlib import asynccontextmanager
 
 # Create MCP server
 mcp = FastMCP("invinoveritas")
 
-# === TOOLS - Note the () after .tool ===
+# === TOOLS ===
 @mcp.tool()
 async def reason(question: str) -> str:
     """Premium strategic reasoning using Lightning payment (L402)."""
     return (
-        f"[L402 Payment Required ⚡] Strategic reasoning for: {question}\n\n"
-        "To get the full paid result, use the REST endpoint:\n"
-        "POST /reason with Authorization: L402 <payment_hash>:<preimage>"
+        f"[⚡ L402 Payment Required] Strategic reasoning for: {question}\n\n"
+        "Use the REST endpoint POST /reason with header:\n"
+        "Authorization: L402 <payment_hash>:<preimage> for the full result."
     )
 
 @mcp.tool()
@@ -47,15 +43,15 @@ async def decide(goal: str, context: str, question: str) -> dict:
     """Structured decision intelligence using Lightning payment (L402)."""
     return {
         "status": "payment_required",
-        "message": "Use the REST endpoint /decision with L402 header for the full structured decision.",
+        "message": "Use REST endpoint /decision with L402 Authorization header.",
         "goal": goal,
-        "note": "This MCP tool is a discovery stub. Payment happens on the REST layer."
+        "note": "MCP tool is a lightweight discovery stub. Full logic lives in the paid REST endpoints."
     }
 
-# Create the MCP ASGI app for streamable-http
-mcp_app = mcp.http_app(path="/mcp")
+# Create the Streamable HTTP ASGI app (this is the correct method now)
+mcp_app = mcp.streamable_http_app(path="/mcp")
 
-# Lifespan (safe for FastMCP)
+# Safe lifespan handler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if hasattr(mcp_app, "lifespan_context"):
@@ -82,7 +78,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Mount MCP handler
+# Mount the MCP handler at /mcp
 app.mount("/mcp", mcp_app)
 
 # =========================
