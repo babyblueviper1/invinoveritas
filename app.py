@@ -17,6 +17,25 @@ import logging
 from collections import defaultdict
 import json
 from pathlib import Path
+from typing import Dict, Set
+
+
+# =========================
+# FastAPI App
+# =========================
+app = FastAPI(
+    title="invinoveritas",
+    version="0.1.0",
+    description=(
+        "Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.\n\n"
+        "Pay-per-insight API optimized for autonomous agents."
+    ),
+    contact={
+        "name": "invinoveritas",
+        "email": "babyblueviperbusiness@gmail.com"
+    },
+    license_info={"name": "MIT"},
+)
 
 # =========================
 # Logging Setup (Simple but useful)
@@ -82,29 +101,12 @@ async def get_server_card():
     """Return MCP Server Card - supports both GET and HEAD"""
     return JSONResponse(content=SERVER_CARD)
 
-# =========================
-# FastAPI App
-# =========================
-app = FastAPI(
-    title="invinoveritas",
-    version="0.1.0",
-    description=(
-        "Lightning-Paid AI Reasoning & Decision Intelligence using the L402 protocol.\n\n"
-        "Pay-per-insight API optimized for autonomous agents."
-    ),
-    contact={
-        "name": "invinoveritas",
-        "email": "babyblueviperbusiness@gmail.com"
-    },
-    license_info={"name": "MIT"},
-)
-
 
 # =========================
 # State
 # =========================
-last_request_time: dict[str, float] = defaultdict(lambda: 0.0)
-used_payments: set[str] = set()
+last_request_time: Dict[str, float] = defaultdict(lambda: 0.0)
+used_payments: Set[str] = set()
 
 
 # =========================
