@@ -90,19 +90,28 @@
     <h1>invinoveritas ⚡</h1>
     <p class="tagline"><strong>Lightning-paid AI reasoning &amp; decision intelligence for autonomous agents</strong></p>
 
-    <p>Pay-per-insight API using the L402 protocol. No subscriptions. No accounts. No KYC.</p>
+    <p>Pay-per-insight API using the <strong>L402 protocol</strong>. No subscriptions. No accounts. No KYC.</p>
 
     <div class="highlight">
-        <strong>Built primarily for autonomous agents.</strong> Agents can call high-quality reasoning and structured decisions with deterministic Lightning payments.
+        <strong>Now with native MCP support!</strong> 
+        Agents can directly use <code>https://invinoveritas.onrender.com/mcp</code> for seamless integration with Claude Desktop, Cursor, and other MCP clients.
     </div>
 
     <div class="box">
-        <strong>How it works:</strong><br><br>
-        1. POST to <code>/reason</code> or <code>/decision</code><br>
+        <strong>Recommended for Agents:</strong><br><br>
+        Use the <strong>MCP Endpoint</strong>:<br>
+        <code>https://invinoveritas.onrender.com/mcp</code><br><br>
+        It supports <code>initialize</code>, <code>listTools</code>, and <code>callTool</code> with full Lightning payment handling built-in.
+    </div>
+
+    <div class="box">
+        <strong>How it works (L402):</strong><br><br>
+        1. Call <code>/reason</code>, <code>/decision</code>, or MCP <code>callTool</code><br>
         2. Receive HTTP 402 with a Lightning invoice<br>
-        3. Pay the invoice with any Lightning wallet (Strike, Phoenix, etc.)<br>
-        4. Retry with <code>Authorization: L402 &lt;payment_hash&gt;:&lt;preimage&gt;</code><br>
-        5. Receive the AI response instantly
+        3. Pay the invoice with any Lightning wallet<br>
+        4. Retry the exact same request with:<br>
+           <code>Authorization: L402 &lt;payment_hash&gt;:&lt;preimage&gt;</code><br>
+        5. Receive the AI response
     </div>
 
     <h2>Pricing (Dynamic)</h2>
@@ -111,19 +120,10 @@
         <strong>Decision Intelligence:</strong> <span id="decision-price">loading...</span> sats
     </div>
 
-    <h2>Endpoints</h2>
+    <h2>Available Tools (MCP)</h2>
     <div class="box">
-        <strong>POST /reason</strong> — Strategic reasoning<br>
-        <pre>{
-  "question": "What are the biggest risks for Bitcoin in 2026?"
-}</pre>
-
-        <strong>POST /decision</strong> — Structured JSON decision (agent-friendly)<br>
-        <pre>{
-  "goal": "Grow capital safely",
-  "context": "Mostly BTC with some cash",
-  "question": "Should I increase exposure in the next 30 days?"
-}</pre>
+        <strong>reason</strong> — Premium strategic reasoning<br>
+        <strong>decide</strong> — Structured decision intelligence (JSON output with confidence &amp; risk level)
     </div>
 
     <h2>Try It (Test Reasoning)</h2>
@@ -143,7 +143,7 @@
             <p><strong>Invoice Generated:</strong></p>
             <pre id="invoice-display" style="word-break: break-all; font-size: 13px;"></pre>
             
-            <p style="margin-top: 20px;"><strong>After paying with Strike or any Lightning wallet, paste the preimage:</strong></p>
+            <p style="margin-top: 20px;"><strong>After paying, paste the preimage:</strong></p>
             
             <input 
                 id="preimage-input"
@@ -160,21 +160,17 @@
 
     <h2>For Autonomous Agents</h2>
     <div class="box">
-        The easiest way is using the included <strong>MCP Server</strong> (<code>mcp_server.py</code>):
-
-        <pre>python mcp_server.py</pre>
-
-        Then add it to Claude Desktop, Cursor, or any MCP-compatible agent.
-
-        <p>Alternative: Use <code>agent_client.py</code> for simple scripts.</p>
+        The easiest and most modern way is using the <strong>native MCP endpoint</strong>:<br><br>
+        <strong>https://invinoveritas.onrender.com/mcp</strong><br><br>
+        It works directly with Claude Desktop, Cursor, Windsurf, and any MCP-compatible agent.
     </div>
 
     <h2>Useful Links</h2>
     <div class="box">
+        • <a href="/mcp" target="_blank">MCP Endpoint</a><br>
         • <a href="/docs">Interactive API Docs</a><br>
-        • <a href="/redoc">ReDoc Documentation</a><br>
-        • <a href="https://github.com/babyblueviper1/invinoveritas" target="_blank">GitHub Repository</a><br>
-        • <a href="https://invinoveritas.onrender.com/health">Health Check</a>
+        • <a href="/health">Health Check</a><br>
+        • <a href="https://github.com/babyblueviper1/invinoveritas" target="_blank">GitHub Repository</a>
     </div>
 
     <footer>
@@ -226,12 +222,12 @@
                 const data = await res.json();
 
                 if (res.status === 402) {
-                    currentPaymentHash = data.detail.payment_hash;
-                    currentInvoice = data.detail.invoice;
+                    currentPaymentHash = data.detail.payment_hash || data.payment_hash;
+                    currentInvoice = data.detail.invoice || data.invoice;
 
                     document.getElementById('invoice-display').innerText = currentInvoice;
                     invoiceArea.style.display = "block";
-                    output.innerText = "Invoice generated! Pay it, then paste the preimage below.";
+                    output.innerText = "Invoice generated! Pay it with any Lightning wallet, then paste the preimage below.";
                 } else {
                     output.innerText = JSON.stringify(data, null, 2);
                 }
