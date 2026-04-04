@@ -379,7 +379,8 @@ def health():
             "title": "Lightning-Paid AI Reasoning & Decision Intelligence",
             "protocol": "L402",
             "payment_currency": "sats",
-            "primary_users": "autonomous agents"
+            "primary_users": "autonomous agents",
+            "mcp_support": True
         },
 
         "endpoints": {
@@ -396,6 +397,13 @@ def health():
                 "description": "Structured decision intelligence for agents",
                 "base_price_sats": DECISION_PRICE_SATS,
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+            },
+            "mcp": {
+                "path": "/mcp",
+                "method": "POST",
+                "description": "Model Context Protocol (MCP) endpoint",
+                "supports": ["initialize", "listTools", "callTool"],
+                "payment_handling": "built-in L402"
             }
         },
 
@@ -412,18 +420,22 @@ def health():
             "single_use_payments": True,
             "no_accounts": True,
             "no_kyc": True,
-            "agent_friendly": True
+            "agent_friendly": True,
+            "mcp_native": True,
+            "l402_payment": True
         },
 
         "links": {
             "docs": "/docs",
             "redoc": "/redoc",
+            "mcp_endpoint": "/mcp",
+            "mcp_server_card": "/.well-known/mcp/server-card.json",
             "ai_plugin": "/.well-known/ai-plugin.json",
             "tool_definition": "/tool",
-            "price_check": "/price/{endpoint}"
+            "price_check": "/price/{endpoint}",
+            "health": "/health"
         }
     }
-
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
@@ -443,19 +455,25 @@ def sitemap():
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://invinoveritas.onrender.com/</loc>
-        <lastmod>2026-04-01</lastmod>
+        <lastmod>2026-04-04</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
+        <loc>https://invinoveritas.onrender.com/mcp</loc>
+        <lastmod>2026-04-04</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
         <loc>https://invinoveritas.onrender.com/docs</loc>
-        <lastmod>2026-04-01</lastmod>
+        <lastmod>2026-04-04</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/health</loc>
-        <lastmod>2026-04-01</lastmod>
+        <lastmod>2026-04-04</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.6</priority>
     </url>
@@ -468,8 +486,9 @@ def tool_definition():
     return {
         "name": "invinoveritas",
         "type": "lightning_paid_ai",
-        "description": "Lightning-paid strategic reasoning and structured decision intelligence optimized for autonomous agents",
+        "description": "Lightning-paid strategic reasoning and structured decision intelligence optimized for autonomous agents via MCP and L402",
         "payment_protocol": "L402",
+        "mcp_endpoint": "/mcp",
         "endpoints": {
             "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
             "decision": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
@@ -489,27 +508,42 @@ def get_price(endpoint: str):
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
         return {"price_sats": DECISION_PRICE_SATS}
+    elif endpoint == "mcp":
+        return {
+            "price_sats": "Same as underlying tools (reason/decision)",
+            "note": "Payment is handled per callTool request via L402"
+        }
     raise HTTPException(status_code=404, detail="Unknown endpoint")
+
 
 @app.get('/llms.txt')
 def llms():
+    """llms.txt for AI crawlers and large language models."""
     return FileResponse('llms.txt', media_type='text/plain')
 
 
 # =========================
-# AI Plugin Manifest
+# AI Plugin Manifest (Updated)
 # =========================
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def ai_plugin():
-    """Standard AI plugin manifest for agent discovery (Claude, etc.)."""
+    """Standard AI plugin manifest for agent discovery (Claude, Cursor, etc.)."""
     return {
         "schema_version": "v1",
         "name_for_human": "invinoveritas ⚡",
         "name_for_model": "invinoveritas",
         
-        "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin. No subscriptions, no accounts, no KYC.",
+        "description_for_human": "Lightning-paid AI reasoning and decision intelligence. Pay per insight with Bitcoin Lightning. No subscriptions, no accounts, no KYC.",
         
-        "description_for_model": "invinoveritas provides high-quality strategic reasoning (/reason) and structured decision intelligence (/decision) using the Bitcoin Lightning Network via the L402 protocol. Every request requires a small Lightning payment (~500-1000 sats). The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request with the header: Authorization: L402 <payment_hash>:<preimage>. Optimized for autonomous agents.",
+        "description_for_model": (
+            "invinoveritas provides high-quality strategic reasoning and structured decision intelligence "
+            "using the Bitcoin Lightning Network via the L402 protocol. "
+            "It supports both direct REST endpoints (/reason, /decision) and a native MCP (Model Context Protocol) endpoint at /mcp. "
+            "Every tool call or request requires a small Lightning payment (~500-1400 sats depending on complexity). "
+            "The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request "
+            "with the header: Authorization: L402 <payment_hash>:<preimage>. "
+            "Optimized for autonomous agents and MCP-compatible clients."
+        ),
         
         "auth": {
             "type": "none"
@@ -523,7 +557,13 @@ def ai_plugin():
         
         "logo_url": None,
         "contact_email": "babyblueviperbusiness@gmail.com",
-        "legal_info_url": "https://babyblueviper.com"
+        "legal_info_url": "https://babyblueviper.com",
+        
+        "capabilities": {
+            "mcp_support": True,
+            "payment_protocol": "L402",
+            "payment_currency": "sats"
+        }
     }
 
 
