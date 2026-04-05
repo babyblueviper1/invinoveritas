@@ -350,17 +350,20 @@ SERVER_CARD = {
     }
 }
 
-# Try to override with external file (useful for local development)
+# Try to override with external file
 card_path = Path(".well-known/mcp/server-card.json")
 if card_path.exists():
     try:
         with open(card_path, "r", encoding="utf-8") as f:
             SERVER_CARD = json.load(f)
         logger.info(f"✅ Loaded server-card.json from {card_path}")
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ Invalid JSON in server-card.json: {e}")
+        logger.warning("Using hardcoded SERVER_CARD instead.")
     except Exception as e:
-        logger.warning(f"Could not load server-card.json (invalid JSON). Using hardcoded version. Error: {e}")
+        logger.warning(f"Could not load server-card.json. Using hardcoded version. Error: {e}")
 else:
-    logger.info("Using hardcoded SERVER_CARD (file not found)")
+    logger.info("server-card.json not found — using hardcoded version.")
 
 # =========================
 # Server Card Endpoint
@@ -443,59 +446,69 @@ def payment_guide():
     """Step-by-step payment guide for developers and autonomous agents using L402."""
     return {
         "title": "How to Pay for invinoveritas (L402 Protocol)",
-        "description": "invinoveritas uses the L402 protocol for atomic Lightning payments. "
-                       "The payment flow is a simple two-step challenge-response.",
+        "description": "invinoveritas uses the L402 protocol for atomic Lightning micropayments. "
+                       "Payment is a simple two-step challenge-response process.",
         
         "steps": [
             {
                 "step": 1,
                 "title": "Make your first request",
-                "action": "Send a POST request to /reason, /decision, or /mcp",
-                "response": "Server returns HTTP 402 Payment Required with a Lightning invoice"
+                "action": "POST to /reason, /decision, or /mcp",
+                "response": "Server returns HTTP 402 Payment Required + Lightning invoice"
             },
             {
                 "step": 2,
                 "title": "Pay the invoice",
-                "action": "Pay the bolt11 invoice using any Lightning wallet or tool",
+                "action": "Pay the bolt11 invoice with any Lightning wallet or tool",
                 "options": {
                     "recommended_wallets": ["Phoenix", "Breez", "Alby", "Wallet of Satoshi", "Muun"],
-                    "node_cli": "lncli payinvoice <bolt11_invoice>",
-                    "agent_friendly": "lnget (Lightning Labs) — https://github.com/lightninglabs/lightning-agent-tools",
-                    "sdk": "invinoveritas Python SDK (handles the full flow automatically)"
+                    "cli": "lncli payinvoice <bolt11_invoice>",
+                    "agent_tools": "lnget (Lightning Labs) — automatic L402 handling",
+                    "python_sdk": "invinoveritas SDK (recommended)"
                 },
-                "result": "You receive a payment_hash and preimage"
+                "result": "You receive payment_hash and preimage"
             },
             {
                 "step": 3,
-                "title": "Retry with payment proof",
-                "action": "Repeat the exact same request with the Authorization header",
+                "title": "Retry with proof",
+                "action": "Repeat the exact same request with Authorization header",
                 "header": "Authorization: L402 <payment_hash>:<preimage>",
-                "result": "Server verifies the payment and returns your result"
+                "result": "Server verifies payment and returns the result"
             }
         ],
 
         "for_autonomous_agents": {
-            "easiest_path": "Use the MCP endpoint at /mcp — payment handling is built-in",
-            "recommended_tool": "lnget by Lightning Labs (automatic L402 negotiation)",
-            "python_sdk": "AsyncInvinoClient handles PaymentRequired → pay → retry automatically",
-            "note": "Single-use payments with replay protection"
+            "easiest_option": "Use the MCP endpoint (/mcp) — payment flow is built-in",
+            "recommended_agent_tool": "lnget by Lightning Labs",
+            "python_options": [
+                "AsyncInvinoClient (simple manual flow)",
+                "InvinoCallbackHandler + L402Client (automatic payment handling for LangChain)"
+            ],
+            "note": "Single-use payments with full replay protection"
+        },
+
+        "advanced_integrations": {
+            "langchain": "Use InvinoCallbackHandler for automatic payment + retry in LangChain agents",
+            "providers": "LNDProvider (connect to your own node) or CustomProvider (your own pay function)",
+            "l402_client": "L402Client class handles 402 → pay → retry transparently"
         },
 
         "pricing": {
             "reason": "~500 sats base",
             "decide": "~1000 sats base",
-            "note": "Final price may vary slightly based on input length and complexity"
+            "agent_multiplier": "1.2x when used from autonomous agents",
+            "note": "Final price may vary slightly based on input length"
         },
 
         "links": {
             "health": "/health",
             "prices": "/prices",
+            "guide": "/guide",
+            "mcp": "/mcp",
             "sdk": "https://pypi.org/project/invinoveritas/",
-            "github": "https://github.com/babyblueviper1/invinoveritas",
-            "mcp_endpoint": "/mcp"
+            "github": "https://github.com/babyblueviper1/invinoveritas"
         }
     }
-
 
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
