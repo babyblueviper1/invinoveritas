@@ -38,7 +38,9 @@ app.router.redirect_slashes = False
 
 
 
-
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("favicon.ico", media_type="image/x-icon")
 
 # =========================
 # Simple MCP Handler (comes AFTER app is created)
