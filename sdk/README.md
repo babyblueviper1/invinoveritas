@@ -13,7 +13,7 @@ Atomic intelligence purchases over Bitcoin Lightning using the **L402 protocol**
 # Sync client only (lightweight)
 pip install invinoveritas
 
-# With async support (recommended for agents and async frameworks)
+# With async support (recommended for agents)
 pip install "invinoveritas[async]"
 ```
 
@@ -33,7 +33,6 @@ try:
 except PaymentRequired as e:
     print(f"Pay this invoice → {e.invoice}")
     print(f"Amount: {e.amount_sats} sats")
-    print(f"Payment hash: {e.payment_hash}")
 
     # After paying with any Lightning wallet
     result = client.reason(
@@ -56,7 +55,6 @@ async def main():
         try:
             result = await client.reason("What are the biggest risks for Bitcoin in 2026?")
         except PaymentRequired as e:
-            # Pay the invoice...
             result = await client.reason(
                 "What are the biggest risks for Bitcoin in 2026?",
                 payment_hash=e.payment_hash,
@@ -108,28 +106,34 @@ print(result.risk_level)    # "low" | "medium" | "high"
 
 ---
 
+## Utility & Discovery Methods
+
+```python
+client = InvinoClient()
+
+# Get full current pricing (recommended for agents)
+pricing = client.get_prices()
+
+# Get single base price (for backward compatibility)
+price = client.get_price("reason")
+
+# Get tool definition for agent frameworks
+tool = client.get_tool_definition()
+```
+
+**Same methods are available** on `AsyncInvinoClient`.
+
+---
+
 ## Payment Flow (L402)
 
-1. Call any method without payment → server returns **402 Payment Required** + Lightning invoice.
+1. Call any method → server returns **402 Payment Required** + Lightning invoice.
 2. Pay the invoice using any Lightning wallet.
 3. Retry the **same** call, passing `payment_hash` and `preimage`.
 
 The SDK makes this simple: `PaymentRequired` exception carries everything you need.
 
 > **Note:** Each invoice is **single-use**. Reusing a payment hash returns `PaymentError`.
-
----
-
-## Utility Methods
-
-```python
-# Free health + pricing check
-health = client.check_health()
-
-# Current price for a tool
-price = client.get_price("reason")      # returns int (sats)
-price = client.get_price("decision")
-```
 
 ---
 
@@ -152,7 +156,7 @@ async def invino_reason(question: str, payment_hash: str = None, preimage: str =
             raise ValueError(f"Payment required. Invoice: {e.invoice}")
 ```
 
-### Get Invoice First (Useful for Orchestration)
+### Get Invoice First (Orchestration Pattern)
 
 ```python
 client = InvinoClient()
@@ -205,7 +209,8 @@ If you're using Claude Desktop, Cursor, or any MCP-compatible client, you can co
 ## Links
 
 - **Live API:** https://invinoveritas.onrender.com
-- **Health & Pricing:** https://invinoveritas.onrender.com/health
+- **Health:** https://invinoveritas.onrender.com/health
+- **Full Pricing:** https://invinoveritas.onrender.com/prices
 - **MCP Endpoint:** https://invinoveritas.onrender.com/mcp
 - **GitHub:** https://github.com/babyblueviper1/invinoveritas
 
