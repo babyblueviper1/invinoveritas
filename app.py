@@ -264,7 +264,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (Upgraded for L402 + MCP Tools)
+# MCP Server Card (Hardcoded fallback)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -272,10 +272,11 @@ SERVER_CARD = {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
-        "version": "1.0.0",
-        "description": "Lightning-paid AI reasoning and decision intelligence using L402 (Bitcoin Lightning). Pay-per-insight, no accounts, no subscriptions.",
+        "version": "0.2.0",
+        "description": "Lightning-paid AI reasoning and decision intelligence for autonomous agents using Bitcoin Lightning (L402)",
         "homepage": "https://invinoveritas.onrender.com",
-        "repository": "https://github.com/babyblueviper1/invinoveritas"
+        "repository": "https://github.com/babyblueviper1/invinoveritas",
+        "author": "invinoveritas team"
     },
     "transports": [
         {
@@ -287,33 +288,79 @@ SERVER_CARD = {
     "capabilities": {
         "tools": True,
         "resources": False,
-        "prompts": False
+        "prompts": False,
+        "sampling": False
     },
+    "tools": [
+        {
+            "name": "reason",
+            "description": "Get deep strategic reasoning and analysis. Requires Lightning payment via L402.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The question to reason about"
+                    }
+                },
+                "required": ["question"]
+            }
+        },
+        {
+            "name": "decide",
+            "description": "Get structured decision intelligence with confidence score and risk assessment. Requires Lightning payment.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "goal": {
+                        "type": "string",
+                        "description": "Your overall goal"
+                    },
+                    "question": {
+                        "type": "string",
+                        "description": "The specific decision question"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Optional background context"
+                    }
+                },
+                "required": ["goal", "question"]
+            }
+        }
+    ],
     "authentication": {
         "required": True,
         "schemes": ["L402"],
-        "notes": "Every tool call requires a Lightning payment via L402. First callTool returns a 402 with bolt11 invoice. Pay the invoice, then retry the exact same callTool with header: Authorization: L402 <payment_hash>:<preimage>"
+        "description": "Every tool call requires a one-time Lightning payment via L402. First call returns 402 with invoice. Pay it, then retry with header: Authorization: L402 <payment_hash>:<preimage>"
     },
     "pricing": {
         "currency": "sats",
         "reason_base": REASONING_PRICE_SATS,
-        "decision_base": DECISION_PRICE_SATS,
+        "decide_base": DECISION_PRICE_SATS,
         "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
-        "minimum": MIN_PRICE_SATS
+        "minimum": MIN_PRICE_SATS,
+        "note": "Final price may vary slightly based on input length and complexity."
+    },
+    "documentation": {
+        "guide": "/guide",
+        "prices": "/prices",
+        "sdk": "https://pypi.org/project/invinoveritas/",
+        "github": "https://github.com/babyblueviper1/invinoveritas"
     }
 }
 
-# Try to override with file if it exists (good for local dev)
+# Try to override with external file (useful for local development)
 card_path = Path(".well-known/mcp/server-card.json")
-try:
-    if card_path.exists():
+if card_path.exists():
+    try:
         with open(card_path, "r", encoding="utf-8") as f:
             SERVER_CARD = json.load(f)
-        logger.info(f"✅ Server card loaded from file: {card_path}")
-    else:
-        logger.info("Using hardcoded server card (file not found)")
-except Exception as e:
-    logger.warning(f"Could not load server-card.json, using hardcoded version. Error: {e}")
+        logger.info(f"✅ Loaded server-card.json from {card_path}")
+    except Exception as e:
+        logger.warning(f"Could not load server-card.json (invalid JSON). Using hardcoded version. Error: {e}")
+else:
+    logger.info("Using hardcoded SERVER_CARD (file not found)")
 
 # =========================
 # Server Card Endpoint
