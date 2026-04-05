@@ -10,21 +10,45 @@ Atomic intelligence purchases over Bitcoin Lightning using the **L402 protocol**
 ## Installation
 
 ```bash
-# Sync client only (lightweight)
+# Core (sync client)
 pip install invinoveritas
 
 # With async support (recommended for agents)
 pip install "invinoveritas[async]"
+
+# With LangChain autonomous payment handler
+pip install "invinoveritas[langchain]"
+```
+
+---
+
+## What's new in v0.2.0
+
+**Autonomous LangChain payments.** Agents can now call invinoveritas tools with zero human intervention — the `InvinoCallbackHandler` intercepts tool calls, pays Lightning invoices automatically via your LND node, and retries. The agent never sees the payment.
+
+```python
+from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
+from invinoveritas.providers import LNDProvider
+
+handler = InvinoCallbackHandler(
+    provider=LNDProvider(
+        macaroon_path="/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+        cert_path="/root/.lnd/tls.cert"
+    )
+)
+
+tools = create_invinoveritas_tools(handler)
+result = agent.run("Should I increase my BTC exposure in 2026?", callbacks=[handler])
 ```
 
 ---
 
 ## Quickstart
 
-### Synchronous
+### Sync (manual payment flow)
 
 ```python
-from invinoveritas_sdk import InvinoClient, PaymentRequired
+from invinoveritas import InvinoClient, PaymentRequired
 
 client = InvinoClient()
 
@@ -34,7 +58,6 @@ except PaymentRequired as e:
     print(f"Pay this invoice → {e.invoice}")
     print(f"Amount: {e.amount_sats} sats")
 
-    # After paying with any Lightning wallet
     result = client.reason(
         "What are the biggest risks for Bitcoin in 2026?",
         payment_hash=e.payment_hash,
@@ -44,11 +67,11 @@ except PaymentRequired as e:
 print(result.answer)
 ```
 
-### Asynchronous
+### Async
 
 ```python
 import asyncio
-from invinoveritas_sdk import AsyncInvinoClient, PaymentRequired
+from invinoveritas import AsyncInvinoClient, PaymentRequired
 
 async def main():
     async with AsyncInvinoClient() as client:
@@ -77,7 +100,6 @@ result = client.reason(
     payment_hash=...,
     preimage=...
 )
-
 print(result.answer)
 ```
 
@@ -91,100 +113,145 @@ print(result.answer)
 result = client.decide(
     goal="Grow capital safely while managing risk",
     question="Should I increase BTC exposure now?",
-    context="Portfolio is 60% BTC, 30% stablecoins, 10% cash",  # optional
+    context="Portfolio is 60% BTC, 30% stablecoins, 10% cash",
     payment_hash=...,
     preimage=...
 )
 
-print(result.decision)      # "Increase BTC exposure slightly"
-print(result.confidence)    # 0.78
+print(result.decision)    # "Increase BTC exposure slightly"
+print(result.confidence)  # 0.78
 print(result.reasoning)
-print(result.risk_level)    # "low" | "medium" | "high"
+print(result.risk_level)  # "low" | "medium" | "high"
 ```
 
 **Base price:** ~1000 sats
 
 ---
 
-## Utility & Discovery Methods
+## Autonomous Agent Integration (v0.2.0)
 
-```python
-client = InvinoClient()
+### LangChain — fully autonomous payments
 
-# Get full current pricing (recommended for agents)
-pricing = client.get_prices()
-
-# Get single base price (for backward compatibility)
-price = client.get_price("reason")
-
-# Get tool definition for agent frameworks
-tool = client.get_tool_definition()
+```bash
+pip install "invinoveritas[langchain]"
 ```
 
-**Same methods are available** on `AsyncInvinoClient`.
+```python
+from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
+from invinoveritas.providers import LNDProvider
+from langchain.agents import initialize_agent
+
+handler = InvinoCallbackHandler(
+    provider=LNDProvider(
+        macaroon_path="/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+        cert_path="/root/.lnd/tls.cert"
+    ),
+    budget_sats=10000  # optional spend cap per run
+)
+
+tools = create_invinoveritas_tools(handler)
+agent = initialize_agent(tools=tools, ...)
+result = agent.run("Should I increase my BTC exposure in 2026?")
+print(f"Total spent: {handler.total_spent_sats} sats")
+```
+
+### AutoGen
+
+```python
+from invinoveritas.langchain import InvinoAutoGenTool
+from invinoveritas.providers import LNDProvider
+
+tool = InvinoAutoGenTool(
+    provider=LNDProvider(
+        macaroon_path="/root/.lnd/...",
+        cert_path="/root/.lnd/tls.cert"
+    )
+)
+
+result = await tool.reason("What are Bitcoin's biggest risks in 2026?")
+result = await tool.decide(
+    goal="Grow capital safely",
+    question="Should I increase BTC exposure?"
+)
+```
+
+### Bring your own wallet
+
+```python
+async def my_pay(invoice: str) -> str:
+    result = await my_wallet.pay(invoice)
+    return result.preimage
+
+handler = InvinoCallbackHandler(pay_invoice=my_pay)
+```
+
+### lnget (CLI agents)
+
+[lnget](https://github.com/lightninglabs/lightning-agent-tools) handles L402 automatically at the CLI level:
+
+```bash
+lnget POST https://invinoveritas.onrender.com/reason \
+  '{"question": "What are the biggest risks for Bitcoin in 2026?"}'
+```
 
 ---
 
 ## Payment Flow (L402)
 
-1. Call any method → server returns **402 Payment Required** + Lightning invoice.
-2. Pay the invoice using any Lightning wallet.
-3. Retry the **same** call, passing `payment_hash` and `preimage`.
+1. Call any method → server returns **402 Payment Required** + Lightning invoice
+2. Pay the invoice using any Lightning wallet
+3. Retry the same call with `payment_hash` and `preimage`
 
-The SDK makes this simple: `PaymentRequired` exception carries everything you need.
+The SDK handles this automatically in autonomous mode. In manual mode, `PaymentRequired` carries everything you need.
 
-> **Note:** Each invoice is **single-use**. Reusing a payment hash returns `PaymentError`.
+> Each invoice is **single-use**. Reusing a payment hash returns `PaymentError`.
 
 ---
 
-## Agent Framework Integration Examples
+## Providers (v0.2.0)
 
-### LangChain Tool
-
-```python
-from langchain.tools import tool
-from invinoveritas_sdk import AsyncInvinoClient, PaymentRequired
-
-@tool
-async def invino_reason(question: str, payment_hash: str = None, preimage: str = None) -> str:
-    """Get strategic reasoning powered by Lightning payments."""
-    async with AsyncInvinoClient() as client:
-        try:
-            result = await client.reason(question, payment_hash=payment_hash, preimage=preimage)
-            return result.answer
-        except PaymentRequired as e:
-            raise ValueError(f"Payment required. Invoice: {e.invoice}")
-```
-
-### Get Invoice First (Orchestration Pattern)
-
-```python
-client = InvinoClient()
-question = "What are the biggest risks for Bitcoin in 2026?"
-
-try:
-    result = client.reason(question)
-except PaymentRequired as e:
-    # Send invoice to user / payment service
-    invoice = e.invoice
-    payment_hash = e.payment_hash
-    amount = e.amount_sats
-    # ... wait for payment confirmation ...
-    result = client.reason(question, payment_hash=payment_hash, preimage=received_preimage)
-```
+| Provider | Install | Description |
+|---|---|---|
+| `LNDProvider` | built-in | Pay via local LND node using lncli |
+| `NWCProvider` | `invinoveritas[nwc]` | Nostr Wallet Connect (v0.3.0) |
+| `CustomProvider` | built-in | Bring any async pay function |
 
 ---
 
 ## Exceptions
 
-| Exception          | Trigger                              | Attributes |
-|--------------------|--------------------------------------|----------|
-| `PaymentRequired`  | 402 - No valid payment provided     | `.invoice`, `.payment_hash`, `.amount_sats` |
-| `PaymentError`     | 401 / 403 - Invalid or used payment | - |
-| `InvinoError`      | Rate limiting (429)                 | - |
-| `ServiceError`     | Server errors (5xx) or malformed responses | - |
+| Exception | Trigger | Attributes |
+|---|---|---|
+| `PaymentRequired` | 402 — no valid payment | `.invoice`, `.payment_hash`, `.amount_sats` |
+| `PaymentError` | 401/403 — invalid or used payment | — |
+| `InvinoError` | 429 — rate limited | — |
+| `ServiceError` | 5xx or malformed response | — |
 
 All exceptions inherit from `InvinoError`.
+
+---
+
+## Utility Methods
+
+```python
+client = InvinoClient()
+
+health = client.check_health()      # full health + pricing dict
+price  = client.get_price("reason") # int sats
+```
+
+---
+
+## MCP Support
+
+Connect directly without the SDK using any MCP-compatible client (Claude Desktop, Cursor):
+
+```
+https://invinoveritas.onrender.com/mcp
+```
+
+Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io):
+`io.github.babyblueviper1/invinoveritas`
 
 ---
 
@@ -192,26 +259,19 @@ All exceptions inherit from `InvinoError`.
 
 ```python
 client = InvinoClient(base_url="http://localhost:8000")
+async with AsyncInvinoClient(base_url="http://localhost:8000") as client:
+    ...
 ```
-
-Same for `AsyncInvinoClient`.
-
----
-
-## MCP Support
-
-If you're using Claude Desktop, Cursor, or any MCP-compatible client, you can connect directly without the SDK:
-
-**MCP Endpoint:** `https://invinoveritas.onrender.com/mcp`
 
 ---
 
 ## Links
 
 - **Live API:** https://invinoveritas.onrender.com
-- **Health:** https://invinoveritas.onrender.com/health
-- **Full Pricing:** https://invinoveritas.onrender.com/prices
+- **Health + Pricing:** https://invinoveritas.onrender.com/health
+- **Payment Guide:** https://invinoveritas.onrender.com/guide
 - **MCP Endpoint:** https://invinoveritas.onrender.com/mcp
+- **PyPI:** https://pypi.org/project/invinoveritas/
 - **GitHub:** https://github.com/babyblueviper1/invinoveritas
 
 ---
@@ -219,5 +279,3 @@ If you're using Claude Desktop, Cursor, or any MCP-compatible client, you can co
 ## License
 
 Apache-2.0
-
----
