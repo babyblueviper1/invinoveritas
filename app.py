@@ -69,8 +69,6 @@ TOOLS = {
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
     """Clean & complete MCP handler with full L402 payment flow"""
-
-    # Prevent memory leak from used_payments
     if len(used_payments) > 500:
         used_payments.clear()
         logger.info("✅ Cleaned used_payments set (prevent memory growth)")
@@ -78,11 +76,29 @@ async def mcp_handler(request: Request):
         body = await request.json()
     except Exception:
         return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
-
     method = body.get("method")
     rpc_id = body.get("id")
     auth = request.headers.get("Authorization")
     caller = detect_caller(request)
+    # ... rest of handler ...
+
+
+@app.get("/mcp", tags=["meta"])
+@app.get("/mcp/", include_in_schema=False)
+async def mcp_info():
+    """MCP endpoint info for crawlers and browsers."""
+    return {
+        "name": "invinoveritas",
+        "description": "Lightning-paid reasoning and decision intelligence via MCP",
+        "mcp_endpoint": "POST /mcp",
+        "protocol": "MCP + L402",
+        "tools": ["reason", "decide"],
+        "pricing": {
+            "reason": f"{REASONING_PRICE_SATS} sats",
+            "decide": f"{DECISION_PRICE_SATS} sats",
+        },
+        "server_card": "/.well-known/mcp/server-card.json",
+    }
 
     # ==================== INITIALIZE ====================
     if method == "initialize":
