@@ -37,6 +37,9 @@ app = FastAPI(
 app.router.redirect_slashes = False
 
 
+
+
+
 # =========================
 # Simple MCP Handler (comes AFTER app is created)
 # =========================
@@ -65,12 +68,29 @@ TOOLS = {
     }
 }
 
+
+@app.get("/mcp", tags=["meta"])
+@app.get("/mcp/", include_in_schema=False)
+async def mcp_info():
+    """MCP endpoint info for crawlers and browsers."""
+    return {
+        "name": "invinoveritas",
+        "description": "Lightning-paid reasoning and decision intelligence via MCP",
+        "mcp_endpoint": "POST /mcp",
+        "protocol": "MCP + L402",
+        "tools": ["reason", "decide"],
+        "pricing": {
+            "reason": f"{REASONING_PRICE_SATS} sats",
+            "decide": f"{DECISION_PRICE_SATS} sats",
+        },
+        "server_card": "/.well-known/mcp/server-card.json",
+    }
+
+
 @app.post("/mcp")
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
     """Clean & complete MCP handler with full L402 payment flow"""
-
-    # Prevent memory leak from used_payments
     if len(used_payments) > 500:
         used_payments.clear()
         logger.info("✅ Cleaned used_payments set (prevent memory growth)")
@@ -78,7 +98,6 @@ async def mcp_handler(request: Request):
         body = await request.json()
     except Exception:
         return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
-
     method = body.get("method")
     rpc_id = body.get("id")
     auth = request.headers.get("Authorization")
@@ -357,13 +376,43 @@ class DecisionResponse(BaseModel):
 # =========================
 # Meta Routes
 # =========================
+
 @app.get("/", response_class=HTMLResponse, tags=["meta"])
 @app.head("/", include_in_schema=False)
 def home():
+    """Simple landing page."""
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
     return "<h1>invinoveritas API is running ⚡</h1>"
+
+
+@app.get("/prices", tags=["meta"])
+def get_all_prices():
+    """Return detailed current pricing for all tools — optimized for agents and frontends."""
+    return {
+        "currency": "sats",
+        "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
+        "agent_multiplier": AGENT_PRICE_MULTIPLIER,
+        "minimum_price_sats": MIN_PRICE_SATS,
+        "prices": {
+            "reason": {
+                "base": REASONING_PRICE_SATS,
+                "agent": int(REASONING_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
+                "description": "Premium strategic reasoning",
+                "note": "Deep analysis and long-context reasoning"
+            },
+            "decide": {
+                "base": DECISION_PRICE_SATS,
+                "agent": int(DECISION_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
+                "description": "Structured decision intelligence",
+                "note": "Goal-oriented recommendations with confidence scoring"
+            }
+        },
+        "note": "Final price may vary slightly based on input length and complexity. "
+                "Dynamic pricing and agent multiplier apply during high load or agent usage.",
+        "last_updated": int(time.time())
+    }
 
 
 @app.get("/health", tags=["meta"])
@@ -391,7 +440,7 @@ def health():
                 "base_price_sats": REASONING_PRICE_SATS,
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
             },
-            "decision": {
+            "decide": {
                 "path": "/decision",
                 "method": "POST",
                 "description": "Structured decision intelligence for agents",
@@ -411,7 +460,8 @@ def health():
             "currency": "sats",
             "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
             "agent_multiplier": AGENT_PRICE_MULTIPLIER,
-            "minimum_price_sats": MIN_PRICE_SATS
+            "minimum_price_sats": MIN_PRICE_SATS,
+            "full_pricing_endpoint": "/prices"          # Consistent link
         },
 
         "features": {
@@ -432,10 +482,11 @@ def health():
             "mcp_server_card": "/.well-known/mcp/server-card.json",
             "ai_plugin": "/.well-known/ai-plugin.json",
             "tool_definition": "/tool",
-            "price_check": "/price/{endpoint}",
+            "prices": "/prices",           # Updated
             "health": "/health"
         }
     }
+
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
@@ -443,7 +494,6 @@ def robots_txt():
     return """User-agent: *
 Allow: /
 
-# Allow search engines to crawl the site
 Sitemap: https://invinoveritas.onrender.com/sitemap.xml
 """
 
@@ -455,34 +505,41 @@ def sitemap():
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://invinoveritas.onrender.com/</loc>
-        <lastmod>2026-04-04</lastmod>
+        <lastmod>2026-04-05</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/mcp</loc>
-        <lastmod>2026-04-04</lastmod>
+        <lastmod>2026-04-05</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.9</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/docs</loc>
-        <lastmod>2026-04-04</lastmod>
+        <lastmod>2026-04-05</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/health</loc>
-        <lastmod>2026-04-04</lastmod>
+        <lastmod>2026-04-05</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.6</priority>
     </url>
+    <url>
+        <loc>https://invinoveritas.onrender.com/prices</loc>
+        <lastmod>2026-04-05</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.7</priority>
+    </url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
-    
+
+
 @app.get("/tool", tags=["meta"])
 def tool_definition():
-    """Tool definition for agent discovery."""
+    """Tool definition for agent discovery (MCP / LangChain / etc.)."""
     return {
         "name": "invinoveritas",
         "type": "lightning_paid_ai",
@@ -491,7 +548,7 @@ def tool_definition():
         "mcp_endpoint": "/mcp",
         "endpoints": {
             "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
-            "decision": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
+            "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
         },
         "agent_support": {
             "mcp_compatible": True,
@@ -503,7 +560,7 @@ def tool_definition():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return base price for an endpoint."""
+    """Return base price for a specific endpoint (kept for backward compatibility)."""
     if endpoint == "reason":
         return {"price_sats": REASONING_PRICE_SATS}
     elif endpoint == "decision":
@@ -519,7 +576,9 @@ def get_price(endpoint: str):
 @app.get('/llms.txt')
 def llms():
     """llms.txt for AI crawlers and large language models."""
-    return FileResponse('llms.txt', media_type='text/plain')
+    if os.path.exists("llms.txt"):
+        return FileResponse('llms.txt', media_type='text/plain')
+    return "invinoveritas - Lightning-paid AI reasoning and decision intelligence."
 
 
 # =========================

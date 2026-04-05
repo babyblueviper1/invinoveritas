@@ -1,7 +1,7 @@
 # ⚡ invinoveritas
-
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![smithery badge](https://smithery.ai/badge/babyblueviper1/invinoveritas)](https://smithery.ai/servers/babyblueviper1/invinoveritas)
+[![PyPI](https://img.shields.io/pypi/v/invinoveritas)](https://pypi.org/project/invinoveritas/)
 
 **Lightning-paid reasoning and decision intelligence for autonomous agents**
 
@@ -10,6 +10,58 @@ No subscriptions. No accounts. No KYC.
 
 **Live API**: [https://invinoveritas.onrender.com](https://invinoveritas.onrender.com)  
 **MCP Endpoint**: [https://invinoveritas.onrender.com/mcp](https://invinoveritas.onrender.com/mcp)
+
+---
+
+## Quick Start
+
+### Python SDK (easiest)
+```bash
+pip install invinoveritas
+```
+```python
+from invinoveritas_sdk import InvinoClient, PaymentRequired
+
+client = InvinoClient()
+
+try:
+    result = client.reason("What are the biggest risks for Bitcoin in 2026?")
+except PaymentRequired as e:
+    print(f"Pay: {e.invoice}  ({e.amount_sats} sats)")
+    result = client.reason(
+        "What are the biggest risks for Bitcoin in 2026?",
+        payment_hash=e.payment_hash,
+        preimage="your_preimage_here",
+    )
+    print(result.answer)
+```
+
+Full SDK docs → [`sdk/README.md`](sdk/README.md)
+
+### MCP Endpoint (Claude Desktop, Cursor)
+
+Point your MCP-compatible agent to:
+
+```
+https://invinoveritas.onrender.com/mcp
+```
+Full L402 payment handling built-in. Supports `initialize`, `listTools`, and `callTool`.
+
+### Direct HTTP
+```bash
+curl -X POST https://invinoveritas.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "callTool",
+    "params": {
+      "name": "reason",
+      "arguments": { "question": "What are the biggest risks for Bitcoin in 2026?" }
+    }
+  }'
+```
+After paying the returned invoice, retry with `-H "Authorization: L402 <payment_hash>:<preimage>"`.
 
 ---
 
@@ -35,42 +87,6 @@ Autonomous agents use invinoveritas when they need:
 - Native MCP tool support
 
 Pay only when the insight truly matters — atomically, with Bitcoin Lightning.
-
----
-
-## Quick Start
-
-### Using the MCP Endpoint (Recommended)
-
-Point your MCP-compatible agent (Claude Desktop, Cursor, etc.) to:
-
-```
-https://invinoveritas.onrender.com/mcp
-```
-
-The server supports `initialize`, `listTools`, and `callTool` with full L402 payment handling built-in.
-
-### Direct HTTP Examples
-
-**Call reasoning tool (first request — will return invoice):**
-```bash
-curl -X POST https://invinoveritas.onrender.com/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "callTool",
-    "params": {
-      "name": "reason",
-      "arguments": { "question": "What are the biggest risks for Bitcoin in 2026?" }
-    }
-  }'
-```
-
-After paying the returned invoice, retry with:
-```bash
--H "Authorization: L402 <payment_hash>:<preimage>"
-```
 
 ---
 
