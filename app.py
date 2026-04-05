@@ -389,6 +389,65 @@ def home():
     return "<h1>invinoveritas API is running ⚡</h1>"
 
 
+@app.get("/guide", tags=["meta"])
+def payment_guide():
+    """Step-by-step payment guide for developers and autonomous agents using L402."""
+    return {
+        "title": "How to Pay for invinoveritas (L402 Protocol)",
+        "description": "invinoveritas uses the L402 protocol for atomic Lightning payments. "
+                       "The payment flow is a simple two-step challenge-response.",
+        
+        "steps": [
+            {
+                "step": 1,
+                "title": "Make your first request",
+                "action": "Send a POST request to /reason, /decision, or /mcp",
+                "response": "Server returns HTTP 402 Payment Required with a Lightning invoice"
+            },
+            {
+                "step": 2,
+                "title": "Pay the invoice",
+                "action": "Pay the bolt11 invoice using any Lightning wallet or tool",
+                "options": {
+                    "recommended_wallets": ["Phoenix", "Breez", "Alby", "Wallet of Satoshi", "Muun"],
+                    "node_cli": "lncli payinvoice <bolt11_invoice>",
+                    "agent_friendly": "lnget (Lightning Labs) — https://github.com/lightninglabs/lightning-agent-tools",
+                    "sdk": "invinoveritas Python SDK (handles the full flow automatically)"
+                },
+                "result": "You receive a payment_hash and preimage"
+            },
+            {
+                "step": 3,
+                "title": "Retry with payment proof",
+                "action": "Repeat the exact same request with the Authorization header",
+                "header": "Authorization: L402 <payment_hash>:<preimage>",
+                "result": "Server verifies the payment and returns your result"
+            }
+        ],
+
+        "for_autonomous_agents": {
+            "easiest_path": "Use the MCP endpoint at /mcp — payment handling is built-in",
+            "recommended_tool": "lnget by Lightning Labs (automatic L402 negotiation)",
+            "python_sdk": "AsyncInvinoClient handles PaymentRequired → pay → retry automatically",
+            "note": "Single-use payments with replay protection"
+        },
+
+        "pricing": {
+            "reason": "~500 sats base",
+            "decide": "~1000 sats base",
+            "note": "Final price may vary slightly based on input length and complexity"
+        },
+
+        "links": {
+            "health": "/health",
+            "prices": "/prices",
+            "sdk": "https://pypi.org/project/invinoveritas/",
+            "github": "https://github.com/babyblueviper1/invinoveritas",
+            "mcp_endpoint": "/mcp"
+        }
+    }
+
+
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
     """Return detailed current pricing for all tools — optimized for agents and frontends."""
@@ -485,6 +544,7 @@ def health():
             "ai_plugin": "/.well-known/ai-plugin.json",
             "tool_definition": "/tool",
             "prices": "/prices",           # Updated
+            "guide": "/guide",
             "health": "/health"
         }
     }
