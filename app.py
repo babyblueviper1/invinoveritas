@@ -73,6 +73,8 @@ TOOLS = {
 
 @app.get("/mcp", tags=["meta"])
 @app.get("/mcp/", include_in_schema=False)
+@app.head("/mcp", include_in_schema=False)
+@app.head("/mcp/", include_in_schema=False)
 async def mcp_info():
     """MCP endpoint info for crawlers and browsers."""
     return {
