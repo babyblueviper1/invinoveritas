@@ -65,23 +65,6 @@ TOOLS = {
     }
 }
 
-@app.post("/mcp")
-@app.post("/mcp/")
-async def mcp_handler(request: Request):
-    """Clean & complete MCP handler with full L402 payment flow"""
-    if len(used_payments) > 500:
-        used_payments.clear()
-        logger.info("✅ Cleaned used_payments set (prevent memory growth)")
-    try:
-        body = await request.json()
-    except Exception:
-        return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
-    method = body.get("method")
-    rpc_id = body.get("id")
-    auth = request.headers.get("Authorization")
-    caller = detect_caller(request)
-    # ... rest of handler ...
-
 
 @app.get("/mcp", tags=["meta"])
 @app.get("/mcp/", include_in_schema=False)
@@ -99,6 +82,23 @@ async def mcp_info():
         },
         "server_card": "/.well-known/mcp/server-card.json",
     }
+
+
+@app.post("/mcp")
+@app.post("/mcp/")
+async def mcp_handler(request: Request):
+    """Clean & complete MCP handler with full L402 payment flow"""
+    if len(used_payments) > 500:
+        used_payments.clear()
+        logger.info("✅ Cleaned used_payments set (prevent memory growth)")
+    try:
+        body = await request.json()
+    except Exception:
+        return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
+    method = body.get("method")
+    rpc_id = body.get("id")
+    auth = request.headers.get("Authorization")
+    caller = detect_caller(request)
 
     # ==================== INITIALIZE ====================
     if method == "initialize":
