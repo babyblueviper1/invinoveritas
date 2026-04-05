@@ -4,15 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invinoveritas"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lightning-paid reasoning and decision intelligence for autonomous agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 authors = [{ name = "invinoveritas", email = "babyblueviperbusiness@gmail.com" }]
-
-keywords = ["lightning", "bitcoin", "l402", "ai", "agents", "reasoning", "mcp"]
-
+keywords = ["lightning", "bitcoin", "l402", "ai", "agents", "mcp", "reasoning", "langchain"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -22,19 +20,23 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-
-dependencies = ["requests>=2.28.0"]
+dependencies = ["requests>=2.28", "httpx>=0.25"]
 
 [project.optional-dependencies]
-async = ["httpx>=0.25.0"]
+async = ["httpx>=0.25"]
+langchain = ["langchain-core>=0.1.0", "langchain>=0.1.0", "pydantic>=2.0"]
+lnd = []
+lnd-grpc = ["grpcio>=1.50", "grpcio-tools>=1.50"]
+nwc = ["pynostr>=0.6.0"]
 dev = [
-    "httpx>=0.25.0",
-    "pytest>=8.0",
+    "httpx>=0.25",
+    "pytest>=7",
     "pytest-asyncio>=0.23",
+    "langchain-core>=0.1.0",
+    "langchain>=0.1.0",
+    "pydantic>=2.0"
 ]
 
 [project.urls]
@@ -44,7 +46,4 @@ Repository = "https://github.com/babyblueviper1/invinoveritas"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["invinoveritas_sdk*"]
-
-[tool.setuptools.dynamic]
-version = {attr = "invinoveritas_sdk.__version__"}   # optional: if you want to manage version in code
+include = ["invinoveritas*"]
