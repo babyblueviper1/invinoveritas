@@ -18,14 +18,25 @@ pip install "invinoveritas[async]"
 
 # With LangChain autonomous payment handler
 pip install "invinoveritas[langchain]"
+
+# With NWC wallet support (Alby, Zeus, Mutiny — no node required)
+pip install "invinoveritas[nwc]"
 ```
 
 ---
 
-## What's new in v0.2.0
+## What's new in v0.3.1
 
-**Autonomous LangChain payments.** Agents can now call invinoveritas tools with zero human intervention — the `InvinoCallbackHandler` intercepts tool calls, pays Lightning invoices automatically via your LND node, and retries. The agent never sees the payment.
+**NWC provider ships.** Any NIP-47 compatible wallet (Alby, Zeus, Mutiny) can now pay Lightning invoices autonomously — no LND node required.
+```python
+from invinoveritas.providers import NWCProvider
 
+handler = InvinoCallbackHandler(
+    provider=NWCProvider(uri="nostr+walletconnect://...")
+)
+```
+
+**Autonomous LangChain payments** (v0.2.0+). Agents pay automatically via LND — zero human intervention.
 ```python
 from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
 from invinoveritas.providers import LNDProvider
@@ -208,14 +219,32 @@ The SDK handles this automatically in autonomous mode. In manual mode, `PaymentR
 
 ---
 
-## Providers (v0.2.0)
+## Providers (v0.3.1)
 
 | Provider | Install | Description |
 |---|---|---|
 | `LNDProvider` | built-in | Pay via local LND node using lncli |
-| `NWCProvider` | `invinoveritas[nwc]` | Nostr Wallet Connect (v0.3.0) |
+| `NWCProvider` | `invinoveritas[nwc]` | Any NIP-47 wallet — Alby, Zeus, Mutiny |
 | `CustomProvider` | built-in | Bring any async pay function |
 
+### NWC quickstart
+```bash
+pip install "invinoveritas[nwc]"
+```
+```python
+from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
+from invinoveritas.providers import NWCProvider
+
+# Get your URI from: https://app.getalby.com/apps/new
+handler = InvinoCallbackHandler(
+    provider=NWCProvider(
+        uri="nostr+walletconnect://...",
+    )
+)
+
+tools = create_invinoveritas_tools(handler)
+result = agent.run("Should I increase my BTC exposure in 2026?", callbacks=[handler])
+```
 ---
 
 ## Exceptions
