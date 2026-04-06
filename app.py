@@ -706,37 +706,46 @@ def payment_guide():
     """Step-by-step payment guide for developers and autonomous agents using L402."""
     return {
         "title": "How to Pay for invinoveritas (L402 Protocol)",
-        "description": "invinoveritas uses the L402 protocol for atomic Lightning micropayments. "
-                       "Payment is a simple two-step challenge-response process.",
+        "description": (
+            "invinoveritas uses the L402 protocol for atomic Lightning micropayments. "
+            "Payment is a simple two-step challenge-response process, or optionally via pre-funded credit accounts."
+        ),
         
         "steps": [
             {
                 "step": 1,
                 "title": "Make your first request",
                 "action": "POST to /reason, /decision, or /mcp",
-                "response": "Server returns HTTP 402 Payment Required + Lightning invoice"
+                "response": "Server returns HTTP 402 Payment Required + Lightning invoice (unless using pre-funded account)"
             },
             {
                 "step": 2,
-                "title": "Pay the invoice",
-                "action": "Pay the bolt11 invoice with any Lightning wallet or tool",
+                "title": "Pay the invoice or use credits",
+                "action": "Either pay the Bolt11 invoice, or use pre-funded account credits",
                 "options": {
-                    "recommended_wallets": ["Phoenix", "Breez", "Alby", "Wallet of Satoshi", "Muun", "Zeus"],
-                    "cli": "lncli payinvoice <bolt11_invoice>",
-                    "agent_tools": {
-                        "lnget": "Lightning Labs — automatic L402 handling via LND",
-                        "nwc": "NWCProvider — autonomous payments via nostr+walletconnect:// URI (Alby, Zeus, Mutiny)"
+                    "pay_invoice": {
+                        "recommended_wallets": ["Phoenix", "Breez", "Alby", "Wallet of Satoshi", "Muun", "Zeus"],
+                        "cli": "lncli payinvoice <bolt11_invoice>",
+                        "agent_tools": {
+                            "lnget": "Lightning Labs — automatic L402 handling via LND",
+                            "nwc": "NWCProvider — autonomous payments via nostr+walletconnect:// URI (Alby, Zeus, Mutiny)"
+                        },
+                        "python_sdk": "invinoveritas SDK (recommended)"
                     },
-                    "python_sdk": "invinoveritas SDK (recommended)"
+                    "pre_funded_account": {
+                        "register": "POST /accounts/register → pay initial invoice → receive api_key",
+                        "top_up": "POST /accounts/topup → pay invoice → credits added",
+                        "use": "Include your api_key in requests → balance debited automatically"
+                    }
                 },
-                "result": "You receive payment_hash and preimage"
+                "result": "You receive payment_hash and preimage (for invoices) or balance is debited (for credits)"
             },
             {
                 "step": 3,
                 "title": "Retry with proof",
-                "action": "Repeat the exact same request with Authorization header",
+                "action": "Repeat the exact same request with Authorization header (if using invoice flow)",
                 "header": "Authorization: L402 <payment_hash>:<preimage>",
-                "result": "Server verifies payment and returns the result"
+                "result": "Server verifies payment and returns the result (or debits from account if using credits)"
             }
         ],
 
@@ -747,22 +756,23 @@ def payment_guide():
                 "AsyncInvinoClient (simple manual flow)",
                 "InvinoCallbackHandler + LNDProvider (automatic via LND node)",
                 "InvinoCallbackHandler + NWCProvider (automatic via any NIP-47 wallet — no node required)",
-                "InvinoCallbackHandler + CustomProvider (bring your own pay function)"
+                "InvinoCallbackHandler + CustomProvider (bring your own pay function)",
+                "InvinoCallbackHandler + CreditProvider (use pre-funded credits instead of per-call invoices)"
             ],
-            "note": "Single-use payments with full replay protection"
+            "note": "Single-use payments with full replay protection, or pre-funded account usage"
         },
 
         "advanced_integrations": {
             "langchain": "Use InvinoCallbackHandler for automatic payment + retry in LangChain agents",
-            "providers": "LNDProvider (local node), NWCProvider (Alby/Zeus/Mutiny via NWC), or CustomProvider (your own pay function)",
-            "l402_client": "L402Client class handles 402 → pay → retry transparently"
+            "providers": "LNDProvider (local node), NWCProvider (Alby/Zeus/Mutiny via NWC), CustomProvider (your own pay function), CreditProvider (pre-funded account)",
+            "l402_client": "L402Client class handles 402 → pay → retry transparently, or debits from credits"
         },
 
         "pricing": {
             "reason": "~500 sats base",
             "decide": "~1000 sats base",
             "agent_multiplier": "1.2x when used from autonomous agents",
-            "note": "Final price may vary slightly based on input length"
+            "note": "Final price may vary slightly based on input length; credits are debited accordingly"
         },
 
         "links": {
@@ -770,11 +780,11 @@ def payment_guide():
             "prices": "/prices",
             "guide": "/guide",
             "mcp": "/mcp",
+            "accounts": "/accounts",
             "sdk": "https://pypi.org/project/invinoveritas/",
             "github": "https://github.com/babyblueviper1/invinoveritas"
         }
     }
-
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
     """Return detailed current pricing for all tools — optimized for agents and frontends."""
@@ -927,6 +937,18 @@ def sitemap():
         <lastmod>2026-04-05</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://invinoveritas.onrender.com/guide</loc>
+        <lastmod>2026-04-05</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+    </url>
+    <url>
+        <loc>https://invinoveritas.onrender.com/accounts</loc>
+        <lastmod>2026-04-05</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
     </url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
