@@ -106,6 +106,7 @@ async def mcp_handler(request: Request):
     rpc_id = body.get("id")
     auth = request.headers.get("Authorization")
     caller = detect_caller(request)
+    logger.info(f"MCP | method={method} | caller={caller} | ip={request.client.host}")
 
     # ==================== INITIALIZE ====================
     if method == "initialize":
@@ -131,6 +132,7 @@ async def mcp_handler(request: Request):
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
         args = body.get("params", {}).get("arguments", {})
+        logger.info(f"MCP callTool | tool={tool_name} | has_auth={bool(auth)} | caller={caller}")
 
         # ------------------- REASON TOOL -------------------
         if tool_name == "reason":
