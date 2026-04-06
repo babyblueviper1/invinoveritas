@@ -47,9 +47,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("invinoveritas")
 
-# State for old L402
-used_payments: Set[str] = set()
 last_request_time: Dict[str, float] = defaultdict(lambda: 0.0)
+
+# --- global trackers
+used_payments = set()
+agent_usage = defaultdict(lambda: {"calls": 0, "last_seen": 0, "total_sats": 0})  # per-agent metrics
 
 # =========================
 # Helpers
@@ -329,22 +331,67 @@ async def mcp_info():
 @app.post("/mcp")
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
-    """Updated MCP handler — supports BOTH L402 and new Bearer credit system"""
+    """MCP handler — supports L402 + Bearer credits, notifications, and per-agent metrics"""
+    
+    # --- memory cleanup
     if len(used_payments) > 500:
         used_payments.clear()
-
+    
+    # --- parse JSON safely
     try:
         body = await request.json()
     except Exception:
-        return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
+        return JSONResponse(
+            content={"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}},
+            status_code=400
+        )
 
     method = body.get("method")
     rpc_id = body.get("id")
+
+    # --- caller info
     info = detect_caller(request)
+    caller_ip = info["ip"]
+    caller_type = info["caller_type"]
+
+    # --- authorization
     auth = request.headers.get("authorization")
     has_bearer = auth is not None and auth.startswith("Bearer")
+    payment_header = auth.split(" ")[1] if has_bearer else None
+    payment_hash, preimage = (payment_header.split(":") + [None, None])[:2] if payment_header else (None, None)
 
-    logger.info(f"MCP | id={rpc_id} | method={method} | caller={info['caller_type']} | ip={info['ip']} | has_bearer={has_bearer}")
+    # --- identify notifications
+    is_notification = rpc_id is None
+    log_id = rpc_id if rpc_id is not None else "notification"
+
+    logger.info(
+        f"MCP | id={log_id} | method={method} | caller={caller_type} | "
+        f"ip={caller_ip} | has_bearer={has_bearer}"
+    )
+
+    # --- update per-agent metrics
+    agent_key = caller_ip if caller_type == "agent" else f"browser:{caller_ip}"
+    metrics = agent_usage[agent_key]
+    metrics["calls"] += 1
+    metrics["last_seen"] = int(time.time())
+    # optional: increment total sats spent if payment info present
+    if has_bearer:
+        metrics["total_sats"] += 0  # replace 0 with real sats if parsed from preimage
+
+    # --- handle notifications
+    if is_notification:
+        if method == "notifications/initialized":
+            logger.info(f"Received MCP notification: {method} from {caller_ip}")
+        return {"status": "ok"}
+
+    # --- validate method
+    supported_methods = ["initialize", "tools/list", "callTool", "ping"]
+    if method not in supported_methods:
+        logger.warning(f"Unknown MCP method: {method} | id={rpc_id} | caller={caller_type}")
+        return JSONResponse(
+            content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}},
+            status_code=400
+        )
 
     # Initialize, listTools, ping — unchanged
     if method == "initialize":
