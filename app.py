@@ -10,7 +10,7 @@ from config import (
     AGENT_PRICE_MULTIPLIER,
     MIN_PRICE_SATS,
     RATE_LIMIT_SECONDS,
-    NODE_URL,   # Make sure this exists in your config.py
+    NODE_URL,
 )
 import os
 import time
@@ -317,10 +317,9 @@ async def mcp_info():
 @app.post("/mcp")
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
-    """Clean & complete MCP handler with full L402 payment flow"""
+    """Updated MCP handler — supports BOTH L402 and new Bearer credit system"""
     if len(used_payments) > 500:
         used_payments.clear()
-        logger.info("✅ Cleaned used_payments set (prevent memory growth)")
 
     try:
         body = await request.json()
@@ -332,13 +331,12 @@ async def mcp_handler(request: Request):
     auth = request.headers.get("Authorization")
     caller = detect_caller(request)
 
-    logger.info(f"MCP | method={method} | caller={caller} | ip={request.client.host}")
+    logger.info(f"MCP | method={method} | caller={caller} | has_bearer={auth.startswith('Bearer ') if auth else False}")
 
-    # ==================== INITIALIZE ====================
+    # Initialize, listTools, ping — unchanged
     if method == "initialize":
         return {
-            "jsonrpc": "2.0",
-            "id": rpc_id,
+            "jsonrpc": "2.0", "id": rpc_id,
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
@@ -346,36 +344,50 @@ async def mcp_handler(request: Request):
             }
         }
 
-    # ==================== LIST TOOLS (support both old and new MCP spec) ====================
     elif method in ["listTools", "tools/list"]:
-        return {
-            "jsonrpc": "2.0",
-            "id": rpc_id,
-            "result": {"tools": list(TOOLS.values())}
-        }
+        return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": list(TOOLS.values())}}
 
     elif method == "ping":
-        return {
-            "jsonrpc": "2.0",
-            "id": rpc_id,
-            "result": {}
-        }
+        return {"jsonrpc": "2.0", "id": rpc_id, "result": {}}
 
     # ==================== CALL TOOL ====================
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
         args = body.get("params", {}).get("arguments", {})
-
         logger.info(f"MCP callTool | tool={tool_name} | has_auth={bool(auth)} | caller={caller}")
 
         # ------------------- REASON TOOL -------------------
-        if tool_name == "reason":
+     if tool_name == "reason":
             question = args.get("question", "")
             if not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
-
             price = calculate_price("reason", question, caller)
 
+            # NEW: Support Bearer token (credit system)
+            if auth and auth.startswith("Bearer "):
+                api_key = auth.split(" ", 1)[1].strip()
+                try:
+                    await verify_credit(api_key, "reason", price)
+                except HTTPException as e:
+                    if e.status_code == 402:
+                        return {"jsonrpc": "2.0", "id": rpc_id, "error": {
+                            "code": 402,
+                            "message": "Payment Required",
+                            "data": {"message": "Insufficient balance. Top up via /topup"}
+                        }}
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Invalid API key"}}
+
+                # Credit OK → run tool
+                try:
+                    result = premium_reasoning(question)
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "result": {"content": [{"type": "text", "text": result}]}
+                    }
+                except Exception as e:
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Internal error"}}
+                    
             # No payment provided → return 402 with invoice
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
@@ -430,12 +442,30 @@ async def mcp_handler(request: Request):
             goal = args.get("goal", "")
             context = args.get("context", "")
             question = args.get("question", "")
-
             if not goal or not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
-
             text = f"{goal} {context} {question}"
             price = calculate_price("decision", text, caller)
+
+            if auth and auth.startswith("Bearer "):
+                api_key = auth.split(" ", 1)[1].strip()
+                try:
+                    await verify_credit(api_key, "decide", price)
+                except HTTPException as e:
+                    if e.status_code == 402:
+                        return {"jsonrpc": "2.0", "id": rpc_id, "error": {
+                            "code": 402,
+                            "message": "Payment Required",
+                            "data": {"message": "Insufficient balance"}
+                        }}
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Invalid API key"}}
+
+                result = structured_decision(goal, context, question)
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+                }
 
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas decide - {caller}")
@@ -569,8 +599,8 @@ SERVER_CARD = {
     ],
     "authentication": {
         "required": True,
-        "schemes": ["L402"],
-        "description": "Every tool call requires a one-time Lightning payment via L402. First call returns 402 with invoice. Pay it, then retry with header: Authorization: L402 <payment_hash>:<preimage>"
+        "schemes": ["L402", "Bearer"],
+        "description": "Use Authorization: Bearer ivv_... (recommended for agents) or L402 <hash>:<preimage>"
     },
     "pricing": {
         "currency": "sats",
