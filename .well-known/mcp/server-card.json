@@ -71,10 +71,12 @@
         "reason_base": 500,
         "decide_base": 1000,
         "agent_multiplier": 1.2,
-        "note": "Prices may vary slightly based on input length. Dynamic pricing enabled."
+        "minimum": 50,
+        "note": "Final price may vary slightly based on input length and complexity."
     },
     "documentation": {
-        "guide": "https://invinoveritas.onrender.com/guide",
+        "guide": "/guide",
+        "prices": "/prices",
         "sdk": "https://pypi.org/project/invinoveritas/",
         "github": "https://github.com/babyblueviper1/invinoveritas"
     }
