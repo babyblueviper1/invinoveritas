@@ -286,6 +286,52 @@ class TestLangChainHandler:
         provider = LNDProvider(macaroon_path="/fake/admin.macaroon", cert_path="/fake/tls.cert")
         assert provider.host == "localhost:10009"
 
+        def test_nwc_provider_parses_uri(self):
+        try:
+            from invinoveritas.nwc import NWCUri
+        except ImportError:
+            pytest.skip("nwc extras not installed")
+        uri = "nostr+walletconnect://abc123def456abc123def456abc123def456abc123def456abc123def456abc1?relay=wss://relay.getalby.com/v1&secret=def456abc123def456abc123def456abc123def456abc123def456abc123def4"
+        parsed = NWCUri(uri)
+        assert parsed.wallet_pubkey == "abc123def456abc123def456abc123def456abc123def456abc123def456abc1"
+        assert parsed.relay == "wss://relay.getalby.com/v1"
+        assert parsed.secret == "def456abc123def456abc123def456abc123def456abc123def456abc123def4"
+
+    def test_nwc_provider_invalid_uri_raises(self):
+        try:
+            from invinoveritas.nwc import NWCUri
+        except ImportError:
+            pytest.skip("nwc extras not installed")
+        with pytest.raises(ValueError):
+            NWCUri("https://not-a-nwc-uri.com")
+
+    def test_nwc_provider_builds(self):
+        try:
+            from invinoveritas.providers import NWCProvider
+        except ImportError:
+            pytest.skip("nwc extras not installed")
+        provider = NWCProvider(
+            uri="nostr+walletconnect://abc123def456abc123def456abc123def456abc123def456abc123def456abc1?relay=wss://relay.getalby.com/v1&secret=def456abc123def456abc123def456abc123def456abc123def456abc123def4"
+        )
+        assert provider.is_available()
+
+    def test_nip44_encrypt_decrypt_roundtrip(self):
+        """NIP-44 encrypt/decrypt produces original plaintext."""
+        try:
+            from invinoveritas.nwc import NIP44, NostrKey
+            import coincurve
+        except ImportError:
+            pytest.skip("nwc extras not installed")
+        privkey_a = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        privkey_b = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        pubkey_b = NostrKey.privkey_to_pubkey(privkey_b)
+        plaintext = '{"method":"pay_invoice","params":{"invoice":"lnbc500n1test"}}'
+        encrypted = NIP44.encrypt(plaintext, privkey_a, pubkey_b)
+        pubkey_a = NostrKey.privkey_to_pubkey(privkey_a)
+        decrypted = NIP44.decrypt(encrypted, privkey_b, pubkey_a)
+        assert decrypted == plaintext
+    
+    
     @pytest.mark.asyncio
     async def test_l402_client_pays_and_retries(self):
         try:
