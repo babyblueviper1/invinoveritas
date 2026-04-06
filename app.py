@@ -98,17 +98,20 @@ async def mcp_handler(request: Request):
     if len(used_payments) > 500:
         used_payments.clear()
         logger.info("✅ Cleaned used_payments set (prevent memory growth)")
+
     try:
         body = await request.json()
     except Exception:
         return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
+
     method = body.get("method")
     rpc_id = body.get("id")
     auth = request.headers.get("Authorization")
     caller = detect_caller(request)
+
     logger.info(f"MCP | method={method} | caller={caller} | ip={request.client.host}")
 
-      # ==================== INITIALIZE ====================
+    # ==================== INITIALIZE ====================
     if method == "initialize":
         return {
             "jsonrpc": "2.0",
@@ -120,15 +123,8 @@ async def mcp_handler(request: Request):
             }
         }
 
-    # ==================== LIST TOOLS ====================
-    elif method == "listTools":
-        return {
-            "jsonrpc": "2.0",
-            "id": rpc_id,
-            "result": {"tools": list(TOOLS.values())}
-        }
-
-    elif method == "tools/list":
+    # ==================== LIST TOOLS (support both old and new MCP spec) ====================
+    elif method in ["listTools", "tools/list"]:
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -146,6 +142,7 @@ async def mcp_handler(request: Request):
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
         args = body.get("params", {}).get("arguments", {})
+
         logger.info(f"MCP callTool | tool={tool_name} | has_auth={bool(auth)} | caller={caller}")
 
         # ------------------- REASON TOOL -------------------
@@ -156,7 +153,7 @@ async def mcp_handler(request: Request):
 
             price = calculate_price("reason", question, caller)
 
-            # No payment → issue invoice
+            # No payment provided → return 402 with invoice
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
                 if "error" in invoice_data:
@@ -218,7 +215,7 @@ async def mcp_handler(request: Request):
             price = calculate_price("decision", text, caller)
 
             if not auth or not auth.startswith("L402 "):
-                invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
+                invoice_data = create_invoice(price, memo=f"invinoveritas decide - {caller}")
                 if "error" in invoice_data:
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Failed to create invoice"}}
 
@@ -265,8 +262,10 @@ async def mcp_handler(request: Request):
                 logger.error(f"Decision error: {e}")
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Internal error"}}
 
+        # Tool not found
         return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Tool not found"}}
 
+    # Method not found
     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
     
 # =========================
@@ -683,7 +682,7 @@ def tool_definition():
     return {
         "name": "invinoveritas",
         "type": "lightning_paid_ai",
-        "description": "Lightning-paid strategic reasoning and structured decision intelligence optimized for autonomous agents via MCP and L402",
+        "description": "Lightning-paid strategic reasoning and decision intelligence optimized for autonomous agents via MCP and L402",
         "payment_protocol": "L402",
         "mcp_endpoint": "/mcp",
         "endpoints": {
@@ -695,6 +694,52 @@ def tool_definition():
             "autonomous": True,
             "single_use_payments": True
         }
+    }
+
+
+# Better version for MCP compatibility (recommended to use this for /tool and also in your MCP handler)
+@app.get("/tool/mcp", tags=["meta"])
+def tool_definition_mcp():
+    """MCP-compatible tool definitions."""
+    return {
+        "tools": [
+            {
+                "name": "reason",
+                "description": "Get deep strategic reasoning and analysis. Requires Lightning payment via L402.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "question": {
+                            "type": "string",
+                            "description": "The question to reason about"
+                        }
+                    },
+                    "required": ["question"]
+                }
+            },
+            {
+                "name": "decide",
+                "description": "Get structured decision intelligence with confidence score and risk assessment. Requires Lightning payment.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "goal": {
+                            "type": "string",
+                            "description": "Your overall goal"
+                        },
+                        "question": {
+                            "type": "string",
+                            "description": "The specific decision question"
+                        },
+                        "context": {
+                            "type": "string",
+                            "description": "Optional background context"
+                        }
+                    },
+                    "required": ["goal", "question"]
+                }
+            }
+        ]
     }
 
 
