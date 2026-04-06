@@ -564,7 +564,7 @@ def health():
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "version": "0.1.0",
+        "version": "0.3.1",
         "timestamp": int(time.time()),
 
         "api": {
@@ -594,7 +594,7 @@ def health():
                 "path": "/mcp",
                 "method": "POST",
                 "description": "Model Context Protocol (MCP) endpoint",
-                "supports": ["initialize", "listTools", "callTool"],
+                "supports": ["initialize", "tools/list", "listTools", "callTool", "ping"],
                 "payment_handling": "built-in L402"
             }
         },
@@ -615,7 +615,13 @@ def health():
             "no_kyc": True,
             "agent_friendly": True,
             "mcp_native": True,
-            "l402_payment": True
+            "l402_payment": True,
+            "sdk": {
+                "pypi": "https://pypi.org/project/invinoveritas/",
+                "providers": ["LNDProvider", "NWCProvider", "CustomProvider"],
+                "langchain": True,
+                "autogen": True
+            },
         },
 
         "links": {
