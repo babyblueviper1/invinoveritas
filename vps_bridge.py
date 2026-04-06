@@ -97,7 +97,7 @@ async def register(req: RegisterRequest):
     c = conn.cursor()
     c.execute("""INSERT INTO accounts 
                  (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
-                 VALUES (?, 0, 3, ?, ?, ?)""",
+                 VALUES (?, 0, 0, ?, ?, ?)""",
               (api_key, now, now, req.label))
     conn.commit()
     conn.close()
