@@ -476,9 +476,12 @@ def payment_guide():
                 "title": "Pay the invoice",
                 "action": "Pay the bolt11 invoice with any Lightning wallet or tool",
                 "options": {
-                    "recommended_wallets": ["Phoenix", "Breez", "Alby", "Wallet of Satoshi", "Muun"],
+                    "recommended_wallets": ["Phoenix", "Breez", "Alby", "Wallet of Satoshi", "Muun", "Zeus"],
                     "cli": "lncli payinvoice <bolt11_invoice>",
-                    "agent_tools": "lnget (Lightning Labs) — automatic L402 handling",
+                    "agent_tools": {
+                        "lnget": "Lightning Labs — automatic L402 handling via LND",
+                        "nwc": "NWCProvider — autonomous payments via nostr+walletconnect:// URI (Alby, Zeus, Mutiny)"
+                    },
                     "python_sdk": "invinoveritas SDK (recommended)"
                 },
                 "result": "You receive payment_hash and preimage"
@@ -497,14 +500,16 @@ def payment_guide():
             "recommended_agent_tool": "lnget by Lightning Labs",
             "python_options": [
                 "AsyncInvinoClient (simple manual flow)",
-                "InvinoCallbackHandler + L402Client (automatic payment handling for LangChain)"
+                "InvinoCallbackHandler + LNDProvider (automatic via LND node)",
+                "InvinoCallbackHandler + NWCProvider (automatic via any NIP-47 wallet — no node required)",
+                "InvinoCallbackHandler + CustomProvider (bring your own pay function)"
             ],
             "note": "Single-use payments with full replay protection"
         },
 
         "advanced_integrations": {
             "langchain": "Use InvinoCallbackHandler for automatic payment + retry in LangChain agents",
-            "providers": "LNDProvider (connect to your own node) or CustomProvider (your own pay function)",
+            "providers": "LNDProvider (local node), NWCProvider (Alby/Zeus/Mutiny via NWC), or CustomProvider (your own pay function)",
             "l402_client": "L402Client class handles 402 → pay → retry transparently"
         },
 
