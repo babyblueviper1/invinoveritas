@@ -283,10 +283,13 @@ class TestLangChainHandler:
             from invinoveritas.providers import LNDProvider
         except ImportError:
             pytest.skip("providers not available")
-        provider = LNDProvider(macaroon_path="/fake/admin.macaroon", cert_path="/fake/tls.cert")
+        provider = LNDProvider(
+            macaroon_path="/fake/admin.macaroon",
+            cert_path="/fake/tls.cert"
+        )
         assert provider.host == "localhost:10009"
 
-        def test_nwc_provider_parses_uri(self):
+    def test_nwc_provider_parses_uri(self):
         try:
             from invinoveritas.nwc import NWCUri
         except ImportError:
@@ -311,7 +314,7 @@ class TestLangChainHandler:
         except ImportError:
             pytest.skip("nwc extras not installed")
         provider = NWCProvider(
-            uri="nostr+walletconnect://abc123def456abc123def456abc123def456abc123def456abc123def456abc1?relay=wss://relay.getalby.com/v1&secret=def456abc123def456abc123def456abc123def456abc123def456abc123def4"
+            uri="nostr+walletconnect://abc123def456abc123def456abc123def456abc123def456abc123def456abc1?relay=wss://relay.getalby.com/v1&secret=def456abc123def456abc123def456abc123def456abc123def456abc123def456abc123def4"
         )
         assert provider.is_available()
 
@@ -330,10 +333,10 @@ class TestLangChainHandler:
         pubkey_a = NostrKey.privkey_to_pubkey(privkey_a)
         decrypted = NIP44.decrypt(encrypted, privkey_b, pubkey_a)
         assert decrypted == plaintext
-    
-    
+
     @pytest.mark.asyncio
     async def test_l402_client_pays_and_retries(self):
+        """L402Client intercepts 402, pays, retries — agent sees only the result."""
         try:
             from invinoveritas.langchain import L402Client
             from invinoveritas.providers import CustomProvider
