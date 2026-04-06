@@ -39,15 +39,18 @@ except PaymentRequired as e:
     print(result.answer)
 ```
 
-### Python SDK — autonomous payments (v0.2.0)
+### Python SDK — autonomous payments (v0.3.1)
 
 Agents pay automatically. No human in the loop.
-
 ```bash
+# LND node
 pip install "invinoveritas[langchain]"
-```
 
+# Alby, Zeus, or any NWC wallet (no node required)
+pip install "invinoveritas[nwc]"
+```
 ```python
+# With LND
 from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
 from invinoveritas.providers import LNDProvider
 
@@ -56,6 +59,13 @@ handler = InvinoCallbackHandler(
         macaroon_path="/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
         cert_path="/root/.lnd/tls.cert"
     )
+)
+
+# With NWC (Alby, Zeus, Mutiny — no node required)
+from invinoveritas.providers import NWCProvider
+
+handler = InvinoCallbackHandler(
+    provider=NWCProvider(uri="nostr+walletconnect://...")
 )
 
 tools = create_invinoveritas_tools(handler)
@@ -71,7 +81,7 @@ Point your MCP-compatible agent to:
 ```
 https://invinoveritas.onrender.com/mcp
 ```
-Full L402 payment handling built-in. Supports `initialize`, `listTools`, and `callTool`.
+Full L402 payment handling built-in. Supports `initialize`, `tools/list`, and `callTool`.
 
 ### lnget (CLI agents)
 
