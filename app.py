@@ -108,7 +108,7 @@ async def mcp_handler(request: Request):
     caller = detect_caller(request)
     logger.info(f"MCP | method={method} | caller={caller} | ip={request.client.host}")
 
-    # ==================== INITIALIZE ====================
+      # ==================== INITIALIZE ====================
     if method == "initialize":
         return {
             "jsonrpc": "2.0",
@@ -126,6 +126,20 @@ async def mcp_handler(request: Request):
             "jsonrpc": "2.0",
             "id": rpc_id,
             "result": {"tools": list(TOOLS.values())}
+        }
+
+    elif method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {"tools": list(TOOLS.values())}
+        }
+
+    elif method == "ping":
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {}
         }
 
     # ==================== CALL TOOL ====================
