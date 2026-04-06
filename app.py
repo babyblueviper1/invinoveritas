@@ -340,10 +340,11 @@ async def mcp_handler(request: Request):
 
     method = body.get("method")
     rpc_id = body.get("id")
-    auth = request.headers.get("Authorization")
     info = detect_caller(request)
+    auth = request.headers.get("authorization")
+    has_bearer = auth is not None and auth.startswith("Bearer")
 
-    logger.info(f"MCP | method={method} | caller={info['caller_type']} | ip={info['ip']} | has_bearer={has_bearer}")
+    logger.info(f"MCP | id={rpc_id} | method={method} | caller={info['caller_type']} | ip={info['ip']} | has_bearer={has_bearer}")
 
     # Initialize, listTools, ping — unchanged
     if method == "initialize":
