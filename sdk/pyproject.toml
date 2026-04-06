@@ -46,4 +46,4 @@ Repository = "https://github.com/babyblueviper1/invinoveritas"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["invinoveritas_sdk*"]
+include = ["invinoveritas*"]
