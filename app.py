@@ -10,7 +10,7 @@ from config import (
     AGENT_PRICE_MULTIPLIER,
     MIN_PRICE_SATS,
     RATE_LIMIT_SECONDS,
-    VPS_BRIDGE_URL,   # Make sure this exists in your config.py
+    NODE_URL,   # Make sure this exists in your config.py
 )
 import os
 import time
@@ -75,7 +75,7 @@ async def verify_credit(api_key: str, tool: str, price_sats: int):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
-                f"{VPS_BRIDGE_URL}/accounts/verify",
+                f"{NODE_URL}/accounts/verify",
                 json={"api_key": api_key, "tool": tool, "price_sats": price_sats}
             )
             if resp.status_code == 200:
@@ -97,7 +97,7 @@ async def register_account(label: Optional[str] = None):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             payload = {"label": label} if label else {}
-            resp = await client.post(f"{VPS_BRIDGE_URL}/accounts/register", json=payload)
+            resp = await client.post(f"{NODE_URL}/accounts/register", json=payload)
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Registration service unavailable: {str(e)}")
@@ -107,7 +107,7 @@ async def topup_account(data: dict):
     """Request top-up invoice for your account"""
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(f"{VPS_BRIDGE_URL}/accounts/topup", json=data)
+            resp = await client.post(f"{NODE_URL}/accounts/topup", json=data)
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Top-up service unavailable: {str(e)}")
@@ -117,7 +117,7 @@ async def get_balance(api_key: str):
     """Check your balance and free calls"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{VPS_BRIDGE_URL}/accounts/balance?api_key={api_key}")
+            resp = await client.get(f"{NODE_URL}/accounts/balance?api_key={api_key}")
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Balance service unavailable: {str(e)}")
