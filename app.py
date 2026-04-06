@@ -54,11 +54,11 @@ last_request_time: Dict[str, float] = defaultdict(lambda: 0.0)
 # =========================
 # Helpers
 # =========================
-def detect_caller(request: Request) -> str:
+def detect_caller(request: Request) -> dict:
     ua = request.headers.get("user-agent", "").lower()
-    if any(x in ua for x in ["python", "curl", "node", "httpclient", "invinoveritas", "claude", "cursor"]):
-        return "agent"
-    return "browser"
+    caller_type = "agent" if any(x in ua for x in ["python", "curl", "node", "httpclient", "invinoveritas", "claude", "cursor"]) else "browser"
+    client_ip = request.client.host  # capture source IP
+    return {"caller_type": caller_type, "ip": client_ip}
 
 def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
@@ -341,9 +341,9 @@ async def mcp_handler(request: Request):
     method = body.get("method")
     rpc_id = body.get("id")
     auth = request.headers.get("Authorization")
-    caller = detect_caller(request)
+    info = detect_caller(request)
 
-    logger.info(f"MCP | method={method} | caller={caller} | has_bearer={auth.startswith('Bearer ') if auth else False}")
+    logger.info(f"MCP | method={method} | caller={info['caller_type']} | ip={info['ip']} | has_bearer={has_bearer}")
 
     # Initialize, listTools, ping — unchanged
     if method == "initialize":
