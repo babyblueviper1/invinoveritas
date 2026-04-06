@@ -336,7 +336,8 @@ async def mcp_handler(request: Request):
     # Initialize, listTools, ping — unchanged
     if method == "initialize":
         return {
-            "jsonrpc": "2.0", "id": rpc_id,
+            "jsonrpc": "2.0", 
+            "id": rpc_id,
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
@@ -357,10 +358,11 @@ async def mcp_handler(request: Request):
         logger.info(f"MCP callTool | tool={tool_name} | has_auth={bool(auth)} | caller={caller}")
 
         # ------------------- REASON TOOL -------------------
-     if tool_name == "reason":
+        if tool_name == "reason":
             question = args.get("question", "")
             if not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
+
             price = calculate_price("reason", question, caller)
 
             # NEW: Support Bearer token (credit system)
@@ -387,7 +389,7 @@ async def mcp_handler(request: Request):
                     }
                 except Exception as e:
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Internal error"}}
-                    
+
             # No payment provided → return 402 with invoice
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
@@ -408,7 +410,7 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            # Payment provided → verify and execute
+            # Payment provided → verify and execute (L402)
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
@@ -444,6 +446,7 @@ async def mcp_handler(request: Request):
             question = args.get("question", "")
             if not goal or not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
+
             text = f"{goal} {context} {question}"
             price = calculate_price("decision", text, caller)
 
@@ -467,6 +470,7 @@ async def mcp_handler(request: Request):
                     "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
                 }
 
+            # No payment provided → return 402 with invoice
             if not auth or not auth.startswith("L402 "):
                 invoice_data = create_invoice(price, memo=f"invinoveritas decide - {caller}")
                 if "error" in invoice_data:
@@ -486,7 +490,7 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            # Payment verification + execution
+            # Payment verification + execution (L402)
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
