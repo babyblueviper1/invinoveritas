@@ -71,19 +71,31 @@ def calculate_price(endpoint: str, text: str, caller: str) -> int:
     return max(price, MIN_PRICE_SATS)
 
 async def verify_credit(api_key: str, tool: str, price_sats: int):
-    """Call VPS bridge for credit check/debit"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 f"{NODE_URL}/accounts/verify",
-                json={"api_key": api_key, "tool": tool, "price_sats": price_sats}
+                json={
+                    "api_key": api_key,
+                    "tool": tool,
+                    "price_sats": price_sats
+                }
             )
+
+            # 🔥 ADD THIS
+            print("VERIFY STATUS:", resp.status_code)
+            print("VERIFY BODY:", resp.text)
+
             if resp.status_code == 200:
                 return resp.json()
+
             elif resp.status_code == 402:
                 raise HTTPException(402, detail=resp.json().get("detail", "Insufficient balance"))
+
             else:
-                raise HTTPException(401, "Invalid or expired API key")
+                # 🔥 RETURN REAL ERROR
+                raise HTTPException(resp.status_code, detail=resp.text)
+
     except httpx.RequestError as e:
         logger.error(f"Bridge connection error: {e}")
         raise HTTPException(503, "Payment system temporarily unavailable")
