@@ -90,19 +90,53 @@ def run_lncli(args: list, timeout: int = 12) -> Dict[str, Any]:
 # =========================
 @app.post("/accounts/register")
 async def register(req: RegisterRequest):
+    try:
+        data = run_lncli([
+            "addinvoice",
+            "--amt", "1000",
+            "--memo", "invinoveritas account creation"
+        ])
+
+        return {
+            "invoice": data["payment_request"],
+            "payment_hash": data.get("r_hash"),
+            "amount_sats": 1000,
+            "message": "Pay this invoice to create your API key"
+        }
+
+    except Exception as e:
+        raise HTTPException(500, f"Failed to create invoice: {str(e)}")
+
+@app.post("/accounts/register/confirm")
+async def confirm_register(req: SettleTopupRequest):
+    # verify preimage
+    if not verify_preimage_logic(req.payment_hash, req.preimage):
+        raise HTTPException(403, "Invalid preimage")
+
+    # check payment settled
+    if not check_payment_logic(req.payment_hash):
+        raise HTTPException(402, "Payment not yet settled")
+
+    # create account
     api_key = f"ivv_{secrets.token_urlsafe(24)}"
     now = int(time.time())
-    
+
     conn = get_db()
     c = conn.cursor()
+
     c.execute("""INSERT INTO accounts 
-                 (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
-                 VALUES (?, 0, 0, ?, ?, ?)""",
-              (api_key, now, now, req.label))
+        (api_key, balance_sats, free_calls_remaining, created_at, last_used)
+        VALUES (?, 0, 0, ?, ?)""",
+        (api_key, now, now)
+    )
+
     conn.commit()
     conn.close()
-    
-    return {"api_key": api_key, "free_calls_remaining": 3, "message": "Account created — 3 free calls ready!"}
+
+    return {
+        "api_key": api_key,
+        "message": "Account created successfully"
+    }
 
 @app.post("/accounts/topup")
 async def topup(req: TopupRequest):
@@ -206,23 +240,7 @@ async def verify_account(req: VerifyRequest):
         conn.close()
         raise HTTPException(401, "Invalid API key")
     
-    balance, free = row
-    
-    # Free call?
-    if free > 0:
-        c.execute("""UPDATE accounts 
-                     SET free_calls_remaining = free_calls_remaining - 1,
-                         last_used = ?,
-                         total_calls = total_calls + 1
-                     WHERE api_key = ?""", (now, req.api_key))
-        conn.commit()
-        conn.close()
-        return {
-            "allowed": True,
-            "used_free_call": True,
-            "free_remaining": free - 1,
-            "balance_sats": balance
-        }
+    balance = row[0]
     
     # Paid call
     if balance < req.price_sats:
