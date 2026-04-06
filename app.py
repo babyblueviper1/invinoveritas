@@ -540,7 +540,7 @@ SERVER_CARD = {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
-        "version": "0.2.0",
+        "version": "0.3.1",
         "description": "Lightning-paid AI reasoning and decision intelligence for autonomous agents using Bitcoin Lightning (L402)",
         "homepage": "https://invinoveritas.onrender.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
