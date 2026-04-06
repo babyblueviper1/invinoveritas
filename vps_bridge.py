@@ -4,10 +4,13 @@ import subprocess
 import json
 import hashlib
 import time
-from typing import Dict, Any
+import sqlite3
+import secrets
+from typing import Dict, Any, Optional
 
-app = FastAPI(title="invinoveritas LND Bridge")
+app = FastAPI(title="invinoveritas LND + Accounts Bridge")
 
+DB_PATH = "invinoveritas_accounts.db"
 
 # =========================
 # Models
@@ -16,34 +19,233 @@ class InvoiceRequest(BaseModel):
     amount: int = Field(..., gt=0, description="Amount in satoshis")
     memo: str = Field("invinoveritas", max_length=100)
 
-
 class VerifyPreimageRequest(BaseModel):
     payment_hash: str
     preimage: str
 
+# New credit system models
+class RegisterRequest(BaseModel):
+    label: Optional[str] = Field(None, max_length=100)
+
+class TopupRequest(BaseModel):
+    api_key: str
+    amount_sats: int = Field(..., gt=0)
+
+class SettleTopupRequest(BaseModel):
+    api_key: str
+    payment_hash: str
+    preimage: str
+
+class BalanceRequest(BaseModel):
+    api_key: str
+
+class VerifyRequest(BaseModel):
+    api_key: str
+    tool: str = Field(..., pattern="^(reason|decide)$")
+    price_sats: int = Field(..., gt=0)
 
 # =========================
-# Helper
+# DB Helpers
+# =========================
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS accounts (
+        api_key TEXT PRIMARY KEY,
+        balance_sats INTEGER DEFAULT 0,
+        free_calls_remaining INTEGER DEFAULT 3,
+        created_at INTEGER,
+        last_used INTEGER,
+        label TEXT,
+        total_calls INTEGER DEFAULT 0,
+        total_spent_sats INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS pending_topups (
+        payment_hash TEXT PRIMARY KEY,
+        api_key TEXT,
+        amount_sats INTEGER,
+        created_at INTEGER
+    )''')
+    conn.commit()
+    conn.close()
+
+def get_db():
+    return sqlite3.connect(DB_PATH)
+
+# =========================
+# LND Helper (unchanged)
 # =========================
 def run_lncli(args: list, timeout: int = 12) -> Dict[str, Any]:
-    """Robust wrapper for lncli commands"""
     try:
-        result = subprocess.run(
-            ["lncli"] + args,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
+        result = subprocess.run(["lncli"] + args, capture_output=True, text=True, timeout=timeout)
         if result.returncode != 0:
             error = result.stderr.strip() or result.stdout.strip()
             raise Exception(f"lncli failed: {error}")
         return json.loads(result.stdout)
-    except subprocess.TimeoutExpired:
-        raise Exception("lncli command timed out")
-    except json.JSONDecodeError:
-        raise Exception("Failed to parse lncli JSON output")
     except Exception as e:
         raise Exception(f"lncli error: {str(e)}")
+
+# =========================
+# Accounts Endpoints
+# =========================
+@app.post("/accounts/register")
+async def register(req: RegisterRequest):
+    api_key = f"ivv_{secrets.token_urlsafe(24)}"
+    now = int(time.time())
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO accounts 
+                 (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
+                 VALUES (?, 0, 3, ?, ?, ?)""",
+              (api_key, now, now, req.label))
+    conn.commit()
+    conn.close()
+    
+    return {"api_key": api_key, "free_calls_remaining": 3, "message": "Account created — 3 free calls ready!"}
+
+@app.post("/accounts/topup")
+async def topup(req: TopupRequest):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (req.api_key,))
+    if not c.fetchone():
+        conn.close()
+        raise HTTPException(404, "Invalid API key")
+    
+    # Create invoice (reuse existing logic)
+    try:
+        data = run_lncli([
+            "addinvoice",
+            "--amt", str(req.amount_sats),
+            "--memo", f"topup-{req.api_key[:8]}"
+        ])
+        invoice = data["payment_request"]
+        payment_hash = data.get("r_hash", "")
+        
+        # Store pending
+        now = int(time.time())
+        c.execute("INSERT INTO pending_topups (payment_hash, api_key, amount_sats, created_at) VALUES (?, ?, ?, ?)",
+                  (payment_hash, req.api_key, req.amount_sats, now))
+        conn.commit()
+        conn.close()
+        
+        return {
+            "invoice": invoice,
+            "payment_hash": payment_hash,
+            "amount_sats": req.amount_sats,
+            "message": "Pay this invoice to top up your account"
+        }
+    except Exception as e:
+        conn.close()
+        raise HTTPException(500, f"Failed to create top-up invoice: {str(e)}")
+
+@app.post("/accounts/settle-topup")
+async def settle_topup(req: SettleTopupRequest):
+    # Verify preimage
+    if not verify_preimage_logic(req.payment_hash, req.preimage):
+        raise HTTPException(403, "Invalid preimage")
+    
+    # Check payment settled
+    if not check_payment_logic(req.payment_hash):
+        raise HTTPException(402, "Payment not yet settled")
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Get pending
+    c.execute("SELECT api_key, amount_sats FROM pending_topups WHERE payment_hash = ?", (req.payment_hash,))
+    row = c.fetchone()
+    if not row or row[0] != req.api_key:
+        conn.close()
+        raise HTTPException(404, "No pending top-up found for this payment")
+    
+    amount = row[1]
+    
+    # Credit balance
+    c.execute("""UPDATE accounts 
+                 SET balance_sats = balance_sats + ?, last_used = ?
+                 WHERE api_key = ?""",
+              (amount, int(time.time()), req.api_key))
+    
+    # Clean up pending
+    c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (req.payment_hash,))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "credited_sats": amount, "message": "Account topped up successfully!"}
+
+@app.get("/accounts/balance")
+async def get_balance(api_key: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT balance_sats, free_calls_remaining, total_calls, total_spent_sats 
+                 FROM accounts WHERE api_key = ?""", (api_key,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, "Invalid API key")
+    return {
+        "balance_sats": row[0],
+        "free_calls_remaining": row[1],
+        "total_calls": row[2],
+        "total_spent_sats": row[3]
+    }
+
+@app.post("/accounts/verify")
+async def verify_account(req: VerifyRequest):
+    """Called by Render before every tool call — handles free tier + debit"""
+    conn = get_db()
+    c = conn.cursor()
+    now = int(time.time())
+    
+    c.execute("""SELECT balance_sats, free_calls_remaining 
+                 FROM accounts WHERE api_key = ?""", (req.api_key,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(401, "Invalid API key")
+    
+    balance, free = row
+    
+    # Free call?
+    if free > 0:
+        c.execute("""UPDATE accounts 
+                     SET free_calls_remaining = free_calls_remaining - 1,
+                         last_used = ?,
+                         total_calls = total_calls + 1
+                     WHERE api_key = ?""", (now, req.api_key))
+        conn.commit()
+        conn.close()
+        return {
+            "allowed": True,
+            "used_free_call": True,
+            "free_remaining": free - 1,
+            "balance_sats": balance
+        }
+    
+    # Paid call
+    if balance < req.price_sats:
+        conn.close()
+        raise HTTPException(402, f"Insufficient balance. Need {req.price_sats} sats (you have {balance}). Top up at /accounts/topup")
+    
+    # Debit
+    c.execute("""UPDATE accounts 
+                 SET balance_sats = balance_sats - ?,
+                     last_used = ?,
+                     total_calls = total_calls + 1,
+                     total_spent_sats = total_spent_sats + ?
+                 WHERE api_key = ?""",
+              (req.price_sats, now, req.price_sats, req.api_key))
+    conn.commit()
+    conn.close()
+    
+    return {
+        "allowed": True,
+        "used_free_call": False,
+        "free_remaining": 0,
+        "new_balance": balance - req.price_sats
+    }
 
 
 # =========================
@@ -118,8 +320,9 @@ async def verify_preimage(req: VerifyPreimageRequest):
 async def health():
     return {
         "status": "ok",
-        "service": "lnd-bridge",
-        "lnd_connected": True
+        "service": "lnd-bridge + accounts",
+        "lnd_connected": True,
+        "accounts_db": "ready"
     }
 
 
