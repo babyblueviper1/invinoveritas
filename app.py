@@ -80,6 +80,7 @@ def generate_agent_payload():
 def build_mcp_event(private_key: PrivateKey):
     payload = generate_agent_payload()
     content = json.dumps(payload)
+
     tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"],
@@ -94,14 +95,16 @@ def build_mcp_event(private_key: PrivateKey):
         ["payment", "L402"],
         ["wallet_required", "true"]
     ]
+
     event = Event(
-        pubkey=private_key.public_key().hex(),   # corrected
+        pubkey=private_key.public_key.hex(),      # ← Fixed
         kind=Kind(30023),
         content=content,
         tags=tags
     )
-    private_key.sign_event(event)   # ← Correct signing method
+    private_key.sign_event(event)                 # ← Correct signing
     return event
+
 
 def build_human_event(private_key: PrivateKey):
     content = (
@@ -116,14 +119,16 @@ def build_human_event(private_key: PrivateKey):
         ["t", "agents"],
         ["r", "https://invinoveritas.onrender.com/mcp"]
     ]
+
     event = Event(
-        pubkey=private_key.public_key().hex(),
+        pubkey=private_key.public_key.hex(),      # ← Fixed
         kind=Kind(1),
         content=content,
         tags=tags
     )
-    private_key.sign_event(event)   # ← Correct method
+    private_key.sign_event(event)
     return event
+
 
 # ========================= BROADCASTER =========================
 async def broadcast_to_nostr():
@@ -154,12 +159,13 @@ async def broadcast_to_nostr():
             relay_manager.publish_event(mcp_event)
             relay_manager.publish_event(human_event)
 
-            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays | MCP: {mcp_event.id[:8]}...")
+            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays | MCP ID: {mcp_event.id[:8]}...")
 
         except Exception as e:
             logger.error(f"Nostr broadcast error: {e}")
 
         await asyncio.sleep(random.randint(720, 1080))  # 12-18 minutes
+
 
 # ========================= FASTAPI =========================
 @app.post("/broadcast-now", include_in_schema=False)
