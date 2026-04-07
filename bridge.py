@@ -136,7 +136,7 @@ def check_payment_logic(payment_hash: str) -> bool:
 # =========================
 # Accounts Endpoints
 # =========================
-@app.post("/accounts/register")
+@app.post("/register")
 async def register(req: RegisterRequest):
     try:
         data = safe_lncli([
@@ -155,13 +155,13 @@ async def register(req: RegisterRequest):
                 "usage": "These can be used on /reason, /decision, or through the MCP endpoint.",
                 "motivation": "Great way to test the quality before topping up your balance."
             },
-            "next_step": "After paying, call /accounts/register/confirm with the payment_hash and preimage to activate your account."
+            "next_step": "After paying the invoice, call POST /register/confirm with the payment_hash and preimage to activate your account."
         }
     except Exception as e:
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
 
 
-@app.post("/accounts/register/confirm")
+@app.post("/register/confirm")
 async def confirm_register(req: SettleTopupRequest):
     if not verify_preimage_logic(req.payment_hash, req.preimage):
         raise HTTPException(403, "Invalid preimage")
@@ -177,7 +177,7 @@ async def confirm_register(req: SettleTopupRequest):
         c = conn.cursor()
         c.execute("""INSERT INTO accounts 
                      (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
-                     VALUES (?, 0, 5, ?, ?, ?)""",   # ← 5 free calls
+                     VALUES (?, 0, 5, ?, ?, ?)""",
                   (api_key, now, now, req.label))
         conn.commit()
     finally:
@@ -185,12 +185,13 @@ async def confirm_register(req: SettleTopupRequest):
 
     return {
         "api_key": api_key,
-        "message": "Account created successfully. You received 5 free calls as a welcome bonus!",
-        "free_calls_granted": 5
+        "message": "Account created successfully!",
+        "welcome_bonus": "You now have 5 free tool calls as a welcome bonus.",
+        "free_calls_remaining": 5,
+        "next_steps": "Use your api_key with Authorization: Bearer <api_key> on /reason, /decision, or the MCP endpoint."
     }
 
-
-@app.post("/accounts/topup")
+@app.post("/topup", tags=["credit"])
 async def topup(req: TopupRequest):
     if not lnd_ready():
         raise HTTPException(503, "Lightning node syncing. Please try again shortly.")
@@ -202,7 +203,6 @@ async def topup(req: TopupRequest):
         if not c.fetchone():
             raise HTTPException(404, "Invalid API key")
 
-        # Create invoice
         data = safe_lncli([
             "addinvoice",
             "--amt", str(req.amount_sats),
@@ -211,7 +211,6 @@ async def topup(req: TopupRequest):
         invoice = data["payment_request"]
         payment_hash = data.get("r_hash", "")
 
-        # Store pending topup
         now = int(time.time())
         c.execute("""INSERT INTO pending_topups 
                      (payment_hash, api_key, amount_sats, created_at) 
@@ -229,7 +228,7 @@ async def topup(req: TopupRequest):
     }
 
 
-@app.post("/accounts/settle-topup")
+@app.post("/settle-topup", tags=["credit"])
 async def settle_topup(req: SettleTopupRequest):
     if not lnd_ready():
         raise HTTPException(503, "Lightning node syncing. Please try again shortly.")
@@ -251,14 +250,12 @@ async def settle_topup(req: SettleTopupRequest):
 
         amount = row[1]
 
-        # Credit balance
         c.execute("""UPDATE accounts 
                      SET balance_sats = balance_sats + ?,
                          last_used = ?
                      WHERE api_key = ?""",
                   (amount, int(time.time()), req.api_key))
 
-        # Clean up pending
         c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (req.payment_hash,))
         conn.commit()
     finally:
@@ -271,7 +268,7 @@ async def settle_topup(req: SettleTopupRequest):
     }
 
 
-@app.get("/accounts/balance")
+@app.get("/balance", tags=["credit"])
 async def get_balance(api_key: str):
     conn = get_db()
     try:
@@ -292,7 +289,7 @@ async def get_balance(api_key: str):
     }
 
 
-@app.post("/accounts/verify")
+@app.post("/verify", tags=["credit"])
 async def verify_account(req: VerifyRequest):
     conn = get_db()
     try:
@@ -308,7 +305,7 @@ async def verify_account(req: VerifyRequest):
         balance = row[0]
         free_calls = row[1]
 
-        # First try to use free call
+        # Use free call first
         if free_calls > 0:
             c.execute("""UPDATE accounts 
                          SET free_calls_remaining = free_calls_remaining - 1,
@@ -324,14 +321,13 @@ async def verify_account(req: VerifyRequest):
                 "new_balance": balance
             }
 
-        # No free calls left → charge balance
+        # Charge balance
         if balance < req.price_sats:
             raise HTTPException(
                 402, 
                 f"Insufficient balance and no free calls left. Need {req.price_sats} sats."
             )
 
-        # Debit balance
         c.execute("""UPDATE accounts 
                      SET balance_sats = balance_sats - ?,
                          last_used = ?,
