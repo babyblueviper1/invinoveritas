@@ -56,6 +56,12 @@ NOSTR_RELAYS = [
     "wss://nostr.bitcoiner.social"
 ]
 
+@app.post("/broadcast-now", include_in_schema=False)
+async def broadcast_now():
+    """Manual trigger for testing Nostr broadcast"""
+    asyncio.create_task(broadcast_to_nostr())
+    return {"status": "broadcast triggered", "message": "Check logs for Nostr activity"}
+
 async def broadcast_to_nostr():
     """Real signed Nostr broadcaster"""
     while True:
