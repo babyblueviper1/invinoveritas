@@ -91,9 +91,9 @@ def build_mcp_event(private_key: PrivateKey):
         kind=30023,
         content=content,
         tags=tags,
-        pub_key=private_key.public_key.hex()   # Important: pub_key
+        public_key=private_key.public_key.hex()   # ← Fixed: public_key
     )
-    private_key.sign_event(event)              # Correct signing method
+    event.sign(private_key)                       # Correct signing
     return event
 
 
@@ -108,9 +108,9 @@ def build_human_event(private_key: PrivateKey):
         kind=1,
         content=content,
         tags=tags,
-        pub_key=private_key.public_key.hex()
+        public_key=private_key.public_key.hex()   # ← Fixed
     )
-    private_key.sign_event(event)
+    event.sign(private_key)
     return event
 
 
