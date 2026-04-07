@@ -73,9 +73,10 @@ def generate_agent_payload():
         "version": "0.1"
     }
 
-def build_mcp_event(private_key):
+def build_mcp_event(private_key: PrivateKey):
     payload = generate_agent_payload()
     content = json.dumps(payload)
+
     tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
@@ -85,19 +86,33 @@ def build_mcp_event(private_key):
         ["server_card", payload["server_card"]],
         ["payment", "L402"],
     ]
-    event = Event(kind=30023, content=content, tags=tags)
+
+    event = Event(
+        kind=30023,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()   # ← This was missing
+    )
     event.sign(private_key)
     return event
 
-def build_human_event(private_key):
-    content = "Agents: discover invinoveritas MCP ⚡\nLightning-paid reasoning & decision intelligence."
+
+def build_human_event(private_key: PrivateKey):
+    content = "Agents: discover invinoveritas MCP ⚡ Lightning-paid reasoning & decision intelligence."
     tags = [
         ["t", "bitcoin"], ["t", "ai"], ["t", "nostr"], ["t", "agents"],
         ["r", "https://invinoveritas.onrender.com/mcp"]
     ]
-    event = Event(kind=1, content=content, tags=tags)
+
+    event = Event(
+        kind=1,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()
+    )
     event.sign(private_key)
     return event
+
 
 # ========================= BROADCASTER =========================
 async def broadcast_to_nostr():
@@ -131,6 +146,7 @@ async def broadcast_to_nostr():
             logger.error(f"Nostr broadcast error: {e}")
 
         await asyncio.sleep(random.randint(720, 1080))
+
 
 # ========================= FASTAPI =========================
 @app.post("/broadcast-now")
