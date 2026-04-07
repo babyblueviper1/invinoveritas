@@ -18,7 +18,7 @@ import logging
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Dict, Set, Optional
+from typing import Dict, Optional
 import httpx
 
 # =========================
@@ -49,123 +49,9 @@ logger = logging.getLogger("invinoveritas")
 
 last_request_time: Dict[str, float] = defaultdict(lambda: 0.0)
 
-# --- global trackers
+# Global trackers
 used_payments = set()
-agent_usage = defaultdict(lambda: {"calls": 0, "last_seen": 0, "total_sats": 0})  # per-agent metrics
-
-# =========================
-# Strike Integration
-# =========================
-import httpx
-import os
-
-STRIKE_API_KEY = os.getenv("STRIKE_API_KEY")
-STRIKE_ENV = "api.strike.me"  # or "sandbox.strike.me" for testing
-USD_TO_SATS = 100_000_000 // 20_000  # example: convert $1 to ~5,000 sats (adjust as needed)
-
-headers = {"Authorization": f"Bearer {STRIKE_API_KEY}", "Content-Type": "application/json"}
-
-class StrikeInvoiceRequest(BaseModel):
-    api_key: str
-    amount_usd: float
-    description: str = "invinoveritas top-up"
-
-@app.post("/accounts/topup-strike")
-async def topup_strike(req: StrikeInvoiceRequest):
-    """Create a Strike invoice for fiat top-up"""
-    # Verify user
-    conn = get_db()
-    try:
-        c = conn.cursor()
-        c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (req.api_key,))
-        if not c.fetchone():
-            raise HTTPException(404, "Invalid API key")
-    finally:
-        conn.close()
-
-    # Create Strike invoice
-    import uuid
-    correlation_id = str(uuid.uuid4())
-    payload = {
-        "correlationId": correlation_id,
-        "description": req.description,
-        "amount": {"currency": "USD", "amount": f"{req.amount_usd:.2f}"}
-    }
-
-    async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.post(f"https://{STRIKE_ENV}/v1/invoices", headers=headers, json=payload)
-        if r.status_code != 200:
-            raise HTTPException(500, f"Strike invoice creation failed: {r.text}")
-
-        invoice_data = r.json()
-    
-    # Store pending topup in DB (like Lightning)
-    conn = get_db()
-    try:
-        c = conn.cursor()
-        now = int(time.time())
-        c.execute(
-            "INSERT INTO pending_topups (payment_hash, api_key, amount_sats, created_at) VALUES (?, ?, ?, ?)",
-            (invoice_data["invoiceId"], req.api_key, int(req.amount_usd * USD_TO_SATS), now)
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    return {
-        "invoice_id": invoice_data["invoiceId"],
-        "amount_usd": req.amount_usd,
-        "amount_sats": int(req.amount_usd * USD_TO_SATS),
-        "status": invoice_data.get("state", "UNPAID")
-    }
-
-class SettleStrikeRequest(BaseModel):
-    api_key: str
-    invoice_id: str
-
-@app.post("/accounts/settle-strike")
-async def settle_strike(req: SettleStrikeRequest):
-    """Verify Strike payment and credit user account"""
-    async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(f"https://{STRIKE_ENV}/v1/invoices/{req.invoice_id}", headers=headers)
-        if r.status_code != 200:
-            raise HTTPException(500, f"Strike invoice fetch failed: {r.text}")
-
-        invoice_data = r.json()
-        if invoice_data.get("state") != "PAID":
-            raise HTTPException(402, "Invoice not paid yet")
-
-    # Fetch pending topup
-    conn = get_db()
-    try:
-        c = conn.cursor()
-        c.execute("SELECT api_key, amount_sats FROM pending_topups WHERE payment_hash = ?", (req.invoice_id,))
-        row = c.fetchone()
-        if not row or row[0] != req.api_key:
-            raise HTTPException(404, "No pending topup found for this invoice")
-
-        amount = row[1]
-
-        # Credit account
-        c.execute("""UPDATE accounts 
-                     SET balance_sats = balance_sats + ?, last_used = ?
-                     WHERE api_key = ?""",
-                  (amount, int(time.time()), req.api_key))
-
-        # Remove pending
-        c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (req.invoice_id,))
-        conn.commit()
-    finally:
-        conn.close()
-
-    return {
-        "success": True,
-        "credited_sats": amount,
-        "message": "Account topped up successfully via Strike!"
-    }
-
-
-
+agent_usage = defaultdict(lambda: {"calls": 0, "last_seen": 0, "total_sats": 0})
 
 # =========================
 # Helpers
@@ -173,18 +59,21 @@ async def settle_strike(req: SettleStrikeRequest):
 def detect_caller(request: Request) -> dict:
     ua = request.headers.get("user-agent", "").lower()
     caller_type = "agent" if any(x in ua for x in ["python", "curl", "node", "httpclient", "invinoveritas", "claude", "cursor"]) else "browser"
-    client_ip = request.client.host  # capture source IP
+    client_ip = request.client.host if request.client else "unknown"
     return {"caller_type": caller_type, "ip": client_ip}
+
 
 def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
-    
+
+
 def calculate_price(endpoint: str, text: str, caller: str) -> int:
     base = REASONING_PRICE_SATS if endpoint == "reason" else DECISION_PRICE_SATS
     length_bonus = len(text) // 100
     multiplier = AGENT_PRICE_MULTIPLIER if caller == "agent" and ENABLE_AGENT_MULTIPLIER else 1.0
     price = int((base + length_bonus) * multiplier)
     return max(price, MIN_PRICE_SATS)
+
 
 async def verify_credit(api_key: str, tool: str, price_sats: int):
     try:
@@ -198,18 +87,11 @@ async def verify_credit(api_key: str, tool: str, price_sats: int):
                 }
             )
 
-            # 🔥 ADD THIS
-            print("VERIFY STATUS:", resp.status_code)
-            print("VERIFY BODY:", resp.text)
-
             if resp.status_code == 200:
                 return resp.json()
-
             elif resp.status_code == 402:
                 raise HTTPException(402, detail=resp.json().get("detail", "Insufficient balance"))
-
             else:
-                # 🔥 RETURN REAL ERROR
                 raise HTTPException(resp.status_code, detail=resp.text)
 
     except httpx.RequestError as e:
@@ -217,11 +99,11 @@ async def verify_credit(api_key: str, tool: str, price_sats: int):
         raise HTTPException(503, "Payment system temporarily unavailable")
         
 # =========================
-# New Credit System Endpoints
+# Credit System Endpoints
 # =========================
 @app.post("/register", tags=["credit"])
 async def register_account(label: Optional[str] = None):
-    """Create new account with 3 free calls"""
+    """Create new account"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             payload = {"label": label} if label else {}
@@ -230,9 +112,10 @@ async def register_account(label: Optional[str] = None):
     except Exception as e:
         raise HTTPException(503, f"Registration service unavailable: {str(e)}")
 
+
 @app.post("/topup", tags=["credit"])
 async def topup_account(data: dict):
-    """Request top-up invoice for your account"""
+    """Request Lightning top-up invoice for your account"""
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(f"{NODE_URL}/accounts/topup", json=data)
@@ -240,21 +123,23 @@ async def topup_account(data: dict):
     except Exception as e:
         raise HTTPException(503, f"Top-up service unavailable: {str(e)}")
 
+
 @app.get("/balance", tags=["credit"])
 async def get_balance(api_key: str):
-    """Check your balance and free calls"""
+    """Check your account balance"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(f"{NODE_URL}/accounts/balance?api_key={api_key}")
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Balance service unavailable: {str(e)}")
-
+        
 # =========================
-# Updated Inference Routes (Credit + L402)
+# Inference Routes (Credit + L402)
 # =========================
 class ReasoningRequest(BaseModel):
     question: str
+
 
 @app.post("/reason", response_model=dict, tags=["inference"])
 async def reason(request: Request, data: ReasoningRequest):
@@ -263,23 +148,22 @@ async def reason(request: Request, data: ReasoningRequest):
     question = data.question.strip()
     if not question:
         raise HTTPException(400, "question is required")
-    price = calculate_price("reason", question, caller)
+    price = calculate_price("reason", question, caller["caller_type"])
 
-    # NEW: Bearer Token Credit System
+    # Bearer Token Credit System (preferred for agents)
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
         try:
             credit_info = await verify_credit(api_key, "reason", price)
-            used_free = credit_info.get("used_free_call", False)
-            logger.info(f"Credit used | reason | api_key={api_key[:12]}... | free={used_free}")
+            logger.info(f"Credit used | reason | api_key={api_key[:12]}...")
         except HTTPException as e:
             if e.status_code == 402:
                 raise HTTPException(
                     402,
                     detail={
-                        "message": "Insufficient balance or free calls used",
+                        "message": "Insufficient balance",
                         "balance": "Check /balance",
-                        "topup": "POST /topup with your api_key"
+                        "topup": "POST /topup"
                     }
                 )
             raise
@@ -287,9 +171,9 @@ async def reason(request: Request, data: ReasoningRequest):
         result = premium_reasoning(question)
         return {"status": "success", "type": "premium_reasoning", "answer": result}
 
-    # OLD L402 Flow (unchanged)
+    # L402 Flow
     if not auth or not auth.startswith("L402 "):
-        invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller}")
+        invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller['caller_type']}")
         if "error" in invoice_data:
             raise HTTPException(503, "Lightning invoice creation failed")
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
@@ -304,36 +188,40 @@ async def reason(request: Request, data: ReasoningRequest):
             headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "15"}
         )
 
-    # L402 verification
+    # Verify L402 payment
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
     except Exception:
         raise HTTPException(401, "Invalid L402 format")
+
     if payment_hash in used_payments:
         raise HTTPException(403, "Payment already used")
     if not check_payment(payment_hash):
         raise HTTPException(403, "Payment not settled yet")
     if not verify_preimage(payment_hash, preimage):
         raise HTTPException(403, "Invalid preimage")
+
     used_payments.add(payment_hash)
 
     result = premium_reasoning(question)
     return {"status": "success", "type": "premium_reasoning", "answer": result}
+
 
 class DecisionRequest(BaseModel):
     goal: str
     context: str = ""
     question: str
 
+
 @app.post("/decision", response_model=dict, tags=["inference"])
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
     text = f"{data.goal} {data.context} {data.question}"
-    price = calculate_price("decision", text, caller)
+    price = calculate_price("decision", text, caller["caller_type"])
 
-    # NEW: Bearer Token Credit System
+    # Bearer Token Credit System
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
         try:
@@ -346,7 +234,7 @@ async def decision(request: Request, data: DecisionRequest):
         result = structured_decision(data.goal, data.context, data.question)
         return {"status": "success", "type": "decision_intelligence", "result": result}
 
-    # OLD L402 Flow
+    # L402 Flow
     if not auth or not auth.startswith("L402 "):
         now = time.time()
         rate_key = f"{get_client_ip(request)}:decision"
@@ -354,7 +242,7 @@ async def decision(request: Request, data: DecisionRequest):
             raise HTTPException(429, f"Rate limit: wait {RATE_LIMIT_SECONDS}s")
         last_request_time[rate_key] = now
 
-        invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller}")
+        invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller['caller_type']}")
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
         challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
@@ -362,7 +250,6 @@ async def decision(request: Request, data: DecisionRequest):
             status_code=402,
             detail={
                 "message": "Payment Required",
-                "description": "Pay the Lightning invoice to receive structured decision",
                 "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
                 "amount_sats": price
@@ -370,18 +257,20 @@ async def decision(request: Request, data: DecisionRequest):
             headers={"WWW-Authenticate": f"L402 {challenge}", "Retry-After": "15"}
         )
 
-    # L402 verification
+    # Verify L402 payment
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
     except Exception:
         raise HTTPException(401, "Invalid L402 format")
+
     if payment_hash in used_payments:
         raise HTTPException(403, "This invoice has already been used")
     if not check_payment(payment_hash):
         raise HTTPException(403, "Payment not settled yet")
     if not verify_preimage(payment_hash, preimage):
         raise HTTPException(403, "Invalid payment proof")
+
     used_payments.add(payment_hash)
 
     result_json = structured_decision(data.goal, data.context, data.question)
@@ -855,7 +744,6 @@ class DecisionResponse(BaseModel):
 @app.get("/", response_class=HTMLResponse, tags=["meta"])
 @app.head("/", include_in_schema=False)
 def home():
-    """Simple landing page."""
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
