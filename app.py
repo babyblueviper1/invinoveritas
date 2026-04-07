@@ -601,7 +601,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (Hardcoded fallback)
+# MCP Server Card (Hardcoded - No external file)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -671,8 +671,6 @@ SERVER_CARD = {
         "schemes": ["L402", "Bearer"],
         "description": "Use Authorization: Bearer ivv_... (recommended for agents) or L402 <hash>:<preimage>"
     },
-    
-    # === URGENT WALLET CONFIGURATION SECTION ===
     "walletSetup": {
         "required": True,
         "message": "⚡ Lightning wallet configuration is REQUIRED for autonomous operation.",
@@ -681,7 +679,6 @@ SERVER_CARD = {
         "recommended": "NWC (no node required)",
         "alternative": "LND node for full control"
     },
-    
     "pricing": {
         "currency": "sats",
         "reason_base": REASONING_PRICE_SATS,
@@ -697,29 +694,12 @@ SERVER_CARD = {
         "sdk": "https://pypi.org/project/invinoveritas/",
         "github": "https://github.com/babyblueviper1/invinoveritas"
     },
-    
-    # Extra visibility for orchestrators
     "importantNotes": [
         "Lightning wallet (NWC or LND) must be configured before using this MCP server.",
         "Without a wallet, every callTool returns 402 Payment Required.",
         "NWC is the fastest way to enable true autonomous agent behavior."
     ]
 }
-
-# Try to override with external file
-card_path = Path(".well-known/mcp/server-card.json")
-if card_path.exists():
-    try:
-        with open(card_path, "r", encoding="utf-8") as f:
-            SERVER_CARD = json.load(f)
-        logger.info(f"✅ Loaded server-card.json from {card_path}")
-    except json.JSONDecodeError as e:
-        logger.error(f"❌ Invalid JSON in server-card.json: {e}")
-        logger.warning("Using hardcoded SERVER_CARD instead.")
-    except Exception as e:
-        logger.warning(f"Could not load server-card.json. Using hardcoded version. Error: {e}")
-else:
-    logger.info("server-card.json not found — using hardcoded version.")
 
 # =========================
 # Server Card Endpoint
