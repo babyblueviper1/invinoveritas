@@ -6,6 +6,7 @@ uvicorn[standard]>=0.30.0
 openai>=1.40.0
 requests>=2.32.0
 pydantic>=2.9.0
+nostr
 
 # MCP support for autonomous agents
 mcp>=1.2.0
