@@ -78,6 +78,69 @@ print(f"Spent: {handler.total_spent_sats} sats")
 
 **Full SDK docs** → `sdk/README.md`
 
+# Agent Wallets
+
+Agents can pay automatically using Lightning. There are two main options:
+
+- **LND Node** — Full control, runs your own Lightning node
+- **NWC Wallet** (Alby, Zeus, Mutiny) — No node required, easiest setup
+
+All payments are cryptographically verifiable and atomic.
+
+---
+
+## Minimal SDK Example (NWC Wallet)
+
+```python
+from invinoveritas.providers import NWCProvider
+from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
+
+handler = InvinoCallbackHandler(
+    provider=NWCProvider(uri="nostr+walletconnect://YOUR_WALLET_URI_HERE")
+)
+
+tools = create_invinoveritas_tools(handler)
+
+result = agent.run(
+    "Should I increase my BTC exposure in 2026?", 
+    callbacks=[handler]
+)
+
+print(f"Spent: {handler.total_spent_sats} sats")
+print(result)
+```
+
+**Replace `YOUR_WALLET_URI_HERE`** with your WalletConnect URI from Alby, Zeus, or Mutiny.
+
+---
+
+## For LND Node Users
+
+Simply swap the provider:
+
+```python
+from invinoveritas.providers import LNDProvider
+from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
+
+handler = InvinoCallbackHandler(
+    provider=LNDProvider(
+        macaroon_path="/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+        cert_path="/root/.lnd/tls.cert"
+    )
+)
+
+tools = create_invinoveritas_tools(handler)
+```
+
+---
+
+## Official Wallet Setup Guides
+
+- **LND Node**: [https://docs.lightning.engineering](https://docs.lightning.engineering)
+- **WalletConnect / NWC Wallets**: [https://walletconnect.com/](https://walletconnect.com/)
+
+---
+
 ### MCP Endpoint (Claude Desktop, Cursor)
 
 Point your MCP-compatible agent to:
