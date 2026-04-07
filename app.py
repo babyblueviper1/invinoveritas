@@ -123,7 +123,7 @@ async def wallet_status():
 
 
 # =========================
-# Credit System Endpoints
+# Credit System Endpoints (Proxy to Bridge)
 # =========================
 @app.post("/register", tags=["credit"])
 async def register_account(label: Optional[str] = None):
@@ -131,7 +131,7 @@ async def register_account(label: Optional[str] = None):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             payload = {"label": label} if label else {}
-            resp = await client.post(f"{NODE_URL}/accounts/register", json=payload)
+            resp = await client.post(f"{NODE_URL}/register", json=payload)   # ← changed
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Registration service unavailable: {str(e)}")
@@ -139,10 +139,10 @@ async def register_account(label: Optional[str] = None):
 
 @app.post("/topup", tags=["credit"])
 async def topup_account(data: dict):
-    """Request Lightning top-up invoice for your account"""
+    """Request Lightning top-up invoice"""
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(f"{NODE_URL}/accounts/topup", json=data)
+            resp = await client.post(f"{NODE_URL}/topup", json=data)   # ← changed
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Top-up service unavailable: {str(e)}")
@@ -153,10 +153,44 @@ async def get_balance(api_key: str):
     """Check your account balance"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{NODE_URL}/accounts/balance?api_key={api_key}")
+            resp = await client.get(f"{NODE_URL}/balance?api_key={api_key}")   # ← changed
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Balance service unavailable: {str(e)}")
+
+@app.post("/register/confirm", tags=["credit"])
+async def confirm_register(req: SettleTopupRequest):
+    """Confirm registration after payment"""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(f"{NODE_URL}/register/confirm", json=req.dict())
+            return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Confirmation service unavailable: {str(e)}")
+
+
+@app.post("/settle-topup", tags=["credit"])
+async def settle_topup_account(req: SettleTopupRequest):
+    """Settle a top-up payment"""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(f"{NODE_URL}/settle-topup", json=req.dict())
+            return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Top-up settlement unavailable: {str(e)}")
+
+
+@app.post("/verify", tags=["credit"])
+async def verify_account(req: VerifyRequest):
+    """Verify account for tool usage (consumes free calls or balance)"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(f"{NODE_URL}/verify", json=req.dict())
+            return resp.json()
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(503, f"Verification service unavailable: {str(e)}")
         
 # =========================
 # Inference Routes (Credit + L402)
