@@ -158,6 +158,9 @@ print(result)
 - **Agent-friendly** — Easy to integrate into decision loops
 - **Scalable** — Agents can dynamically decide when to escalate to invinoveritas
 
+
+This pattern is used in production agents to dynamically decide when to pay for higher-quality reasoning.
+
 ---
 
 ## Core Tools
