@@ -1144,6 +1144,13 @@ def tool_definition():
         "description": "Lightning-paid strategic reasoning and decision intelligence optimized for autonomous agents via MCP and L402",
         "payment_protocol": "L402",
         "mcp_endpoint": "/mcp",
+        "wallet_requirement": {
+            "required": True,
+            "message": "⚡ Lightning wallet (NWC or LND) MUST be configured for autonomous use.",
+            "note": "Without a wallet, every tool call returns 402 Payment Required.",
+            "quickstart": "Use NWCProvider with WalletConnect URI — setup takes < 3 minutes",
+            "guide": "/wallet-onboarding"
+        },
         "endpoints": {
             "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
             "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
@@ -1151,7 +1158,8 @@ def tool_definition():
         "agent_support": {
             "mcp_compatible": True,
             "autonomous": True,
-            "single_use_payments": True
+            "single_use_payments": True,
+            "wallet_setup_needed": True
         }
     }
 
@@ -1164,7 +1172,7 @@ def tool_definition_mcp():
         "tools": [
             {
                 "name": "reason",
-                "description": "Get deep strategic reasoning and analysis. Requires Lightning payment via L402.",
+                "description": "Get deep strategic reasoning and analysis. Requires Lightning payment via L402. **Lightning wallet required for autonomous agents.**",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1178,7 +1186,7 @@ def tool_definition_mcp():
             },
             {
                 "name": "decide",
-                "description": "Get structured decision intelligence with confidence score and risk assessment. Requires Lightning payment.",
+                "description": "Get structured decision intelligence with confidence score and risk assessment. Requires Lightning payment. **Lightning wallet (NWC recommended) required.**",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1198,7 +1206,8 @@ def tool_definition_mcp():
                     "required": ["goal", "question"]
                 }
             }
-        ]
+        ],
+        "wallet_note": "Lightning wallet configuration is required. See /wallet-onboarding for quick setup (NWC recommended)."
     }
 
 
@@ -1206,13 +1215,19 @@ def tool_definition_mcp():
 def get_price(endpoint: str):
     """Return base price for a specific endpoint (kept for backward compatibility)."""
     if endpoint == "reason":
-        return {"price_sats": REASONING_PRICE_SATS}
+        return {
+            "price_sats": REASONING_PRICE_SATS,
+            "note": "Lightning wallet required for autonomous agents"
+        }
     elif endpoint == "decision":
-        return {"price_sats": DECISION_PRICE_SATS}
+        return {
+            "price_sats": DECISION_PRICE_SATS,
+            "note": "Lightning wallet required for autonomous agents"
+        }
     elif endpoint == "mcp":
         return {
             "price_sats": "Same as underlying tools (reason/decision)",
-            "note": "Payment is handled per callTool request via L402"
+            "note": "Payment is handled per callTool request via L402. Lightning wallet (NWC or LND) is required for autonomous use. See /wallet-onboarding"
         }
     raise HTTPException(status_code=404, detail="Unknown endpoint")
 
@@ -1222,12 +1237,13 @@ def llms():
     """llms.txt for AI crawlers and large language models."""
     if os.path.exists("llms.txt"):
         return FileResponse('llms.txt', media_type='text/plain')
-    return "invinoveritas - Lightning-paid AI reasoning and decision intelligence."
+    return """invinoveritas - Lightning-paid AI reasoning and decision intelligence.
 
+IMPORTANT: Autonomous agents must configure a Lightning wallet (NWC recommended) to use this service.
+Without a wallet, tool calls will return 402 Payment Required.
+Setup guide: https://invinoveritas.onrender.com/wallet-onboarding
+"""
 
-# =========================
-# AI Plugin Manifest (Updated)
-# =========================
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def ai_plugin():
     """Standard AI plugin manifest for agent discovery (Claude, Cursor, etc.)."""
@@ -1243,8 +1259,16 @@ def ai_plugin():
             "using the Bitcoin Lightning Network via the L402 protocol. "
             "It supports both direct REST endpoints (/reason, /decision) and a native MCP (Model Context Protocol) endpoint at /mcp. "
             "Every tool call or request requires a small Lightning payment (~500-1400 sats depending on complexity). "
-            "The API returns HTTP 402 with a bolt11 invoice on the first call. After paying the invoice, retry the exact same request "
-            "with the header: Authorization: L402 <payment_hash>:<preimage>. "
+            "\n\n"
+            "⚠️ IMPORTANT FOR AUTONOMOUS AGENTS: "
+            "A Lightning wallet MUST be configured before use. "
+            "Without a wallet (NWC recommended), every tool call will return HTTP 402 Payment Required. "
+            "Setup takes under 3 minutes using NWCProvider with a WalletConnect URI from Alby, Zeus, or Mutiny. "
+            "See the dedicated wallet onboarding guide at /wallet-onboarding for code examples and instructions."
+            "\n\n"
+            "The API returns HTTP 402 with a bolt11 invoice on the first call if no wallet is configured. "
+            "After paying the invoice, retry with Authorization: L402 <payment_hash>:<preimage>, "
+            "or use Bearer token with a pre-funded account (recommended for repeated use). "
             "Optimized for autonomous agents and MCP-compatible clients."
         ),
         
@@ -1265,7 +1289,15 @@ def ai_plugin():
         "capabilities": {
             "mcp_support": True,
             "payment_protocol": "L402",
-            "payment_currency": "sats"
+            "payment_currency": "sats",
+            "wallet_required": True
+        },
+        
+        "wallet_setup": {
+            "required": True,
+            "recommended_method": "NWC (no node required)",
+            "setup_time": "under 3 minutes",
+            "guide_url": "/wallet-onboarding",
+            "note": "Configure NWCProvider or LNDProvider in the SDK for automatic payments."
         }
     }
-
