@@ -61,6 +61,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS accounts (
         api_key TEXT PRIMARY KEY,
         balance_sats INTEGER DEFAULT 0,
+        free_calls_remaining INTEGER DEFAULT 5,   -- NEW: 5 free calls
         created_at INTEGER,
         last_used INTEGER,
         label TEXT,
@@ -147,7 +148,14 @@ async def register(req: RegisterRequest):
             "invoice": data["payment_request"],
             "payment_hash": data.get("r_hash"),
             "amount_sats": 1000,
-            "message": "Pay this invoice to create your API key"
+            "message": "Pay this 1000 sat invoice to create your API key",
+            "welcome_bonus": {
+                "free_calls": 5,
+                "description": "You will receive 5 free tool calls immediately after payment.",
+                "usage": "These can be used on /reason, /decision, or through the MCP endpoint.",
+                "motivation": "Great way to test the quality before topping up your balance."
+            },
+            "next_step": "After paying, call /accounts/register/confirm with the payment_hash and preimage to activate your account."
         }
     except Exception as e:
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
@@ -168,8 +176,8 @@ async def confirm_register(req: SettleTopupRequest):
     try:
         c = conn.cursor()
         c.execute("""INSERT INTO accounts 
-                     (api_key, balance_sats, created_at, last_used, label)
-                     VALUES (?, 0, ?, ?, ?)""",
+                     (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
+                     VALUES (?, 0, 5, ?, ?, ?)""",   # ← 5 free calls
                   (api_key, now, now, req.label))
         conn.commit()
     finally:
@@ -177,7 +185,8 @@ async def confirm_register(req: SettleTopupRequest):
 
     return {
         "api_key": api_key,
-        "message": "Account created successfully. You can now top up your balance."
+        "message": "Account created successfully. You received 5 free calls as a welcome bonus!",
+        "free_calls_granted": 5
     }
 
 
@@ -267,7 +276,7 @@ async def get_balance(api_key: str):
     conn = get_db()
     try:
         c = conn.cursor()
-        c.execute("""SELECT balance_sats, total_calls, total_spent_sats 
+        c.execute("""SELECT balance_sats, free_calls_remaining, total_calls, total_spent_sats 
                      FROM accounts WHERE api_key = ?""", (api_key,))
         row = c.fetchone()
         if not row:
@@ -277,8 +286,9 @@ async def get_balance(api_key: str):
 
     return {
         "balance_sats": row[0],
-        "total_calls": row[1],
-        "total_spent_sats": row[2]
+        "free_calls_remaining": row[1],
+        "total_calls": row[2],
+        "total_spent_sats": row[3]
     }
 
 
@@ -289,21 +299,39 @@ async def verify_account(req: VerifyRequest):
         c = conn.cursor()
         now = int(time.time())
 
-        c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
+        c.execute("""SELECT balance_sats, free_calls_remaining 
+                     FROM accounts WHERE api_key = ?""", (req.api_key,))
         row = c.fetchone()
         if not row:
             raise HTTPException(401, "Invalid API key")
 
         balance = row[0]
+        free_calls = row[1]
 
+        # First try to use free call
+        if free_calls > 0:
+            c.execute("""UPDATE accounts 
+                         SET free_calls_remaining = free_calls_remaining - 1,
+                             last_used = ?,
+                             total_calls = total_calls + 1
+                         WHERE api_key = ?""",
+                      (now, req.api_key))
+            conn.commit()
+            return {
+                "allowed": True,
+                "used_free_call": True,
+                "free_remaining": free_calls - 1,
+                "new_balance": balance
+            }
+
+        # No free calls left → charge balance
         if balance < req.price_sats:
             raise HTTPException(
                 402, 
-                f"Insufficient balance. Need {req.price_sats} sats (you have {balance}). "
-                f"Top up at /accounts/topup"
+                f"Insufficient balance and no free calls left. Need {req.price_sats} sats."
             )
 
-        # Debit account
+        # Debit balance
         c.execute("""UPDATE accounts 
                      SET balance_sats = balance_sats - ?,
                          last_used = ?,
@@ -312,14 +340,16 @@ async def verify_account(req: VerifyRequest):
                      WHERE api_key = ?""",
                   (req.price_sats, now, req.price_sats, req.api_key))
         conn.commit()
+
     finally:
         conn.close()
 
     return {
         "allowed": True,
+        "used_free_call": False,
+        "free_remaining": 0,
         "new_balance": balance - req.price_sats
     }
-
 
 # =========================
 # Lightning Endpoints
