@@ -56,11 +56,10 @@ NOSTR_RELAYS = [
 ]
 
 async def broadcast_to_nostr():
-    """Smart Nostr broadcaster - rotates relays and announces every 12-18 minutes"""
+    """Real signed Nostr broadcaster"""
     while True:
         try:
-            # Randomize order of relays each time
-            relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))  # use 5-6 random relays
+            relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
 
             content = (
                 "invinoveritas MCP server is live ⚡\n"
@@ -82,29 +81,30 @@ async def broadcast_to_nostr():
                 private_key = PrivateKey.from_hex(NOSTR_PRIVATE_KEY)
                 event = Event(content=content, tags=tags, kind=31234)
                 event.sign(private_key.hex())
+                logger.info("Nostr event signed successfully")
             else:
                 event = Event(content=content, tags=tags, kind=31234)
+                logger.warning("Nostr event unsigned - set NOSTR_PRIVATE_KEY for better trust")
 
-            # Publish to randomized relays
-            for relay_url in relays_to_use:
-                try:
-                    logger.info(f"[Nostr Broadcast] Announced to {relay_url}")
-                    # TODO: Add real publishing code here later
-                except Exception as e:
-                    logger.warning(f"Failed to publish to {relay_url}: {e}")
+            # Publish
+            relay_manager = RelayManager()
+            for relay in relays_to_use:
+                relay_manager.add_relay(relay)
+
+            relay_manager.publish_event(event)
+            logger.info(f"✅ Nostr broadcast sent to {len(relays_to_use)} relays")
 
         except Exception as e:
-            logger.error(f"Nostr broadcaster error: {e}")
+            logger.error(f"Nostr broadcast failed: {e}")
 
-        # Random delay between 12 and 18 minutes to avoid patterns
+        # Random delay 12–18 minutes
         await asyncio.sleep(random.randint(720, 1080))
 
 
-# Start broadcaster on startup
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(broadcast_to_nostr())
-    logger.info("🚀 Nostr broadcaster started - announcing MCP server every 15 minutes")
+    logger.info("🚀 Signed Nostr broadcaster started")
 
 
 # =========================
