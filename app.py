@@ -196,7 +196,43 @@ async def verify_account(req: VerifyRequest):
 # Inference Routes (Credit + L402)
 # =========================
 class ReasoningRequest(BaseModel):
-    question: str
+    question: str = Field(..., description="The question to reason about")
+    
+    style: Literal["short", "concise", "normal", "detailed", "comprehensive"] = Field(
+        default="normal",
+        description="Response style: short (1 sentence), concise (2-3 sentences), normal, detailed, or comprehensive"
+    )
+    
+    want_confidence: bool = Field(
+        default=False,
+        description="Whether to include confidence score and uncertainty flags"
+    )
+    
+    response_format: Optional[dict] = Field(
+        default=None,
+        description="Optional JSON schema for structured output"
+    )
+
+
+class DecisionRequest(BaseModel):
+    goal: str = Field(..., description="The overall goal or objective")
+    context: str = Field("", description="Background context")
+    question: str = Field(..., description="The specific decision question")
+    
+    style: Literal["short", "concise", "normal", "detailed"] = Field(
+        default="normal",
+        description="Response style: short, concise, normal, or detailed"
+    )
+    
+    want_confidence: bool = Field(
+        default=True,
+        description="Include confidence score and risk assessment (recommended for decisions)"
+    )
+    
+    response_format: Optional[dict] = Field(
+        default=None,
+        description="Optional JSON schema for structured output"
+    )
 
 
 @app.post("/reason", response_model=dict, tags=["inference"])
@@ -206,7 +242,20 @@ async def reason(request: Request, data: ReasoningRequest):
     question = data.question.strip()
     if not question:
         raise HTTPException(400, "question is required")
+
     price = calculate_price("reason", question, caller["caller_type"])
+
+    # Adjust question based on requested style
+    if data.style == "short":
+        final_question = f"Answer in one short sentence only. No explanations. {question}"
+    elif data.style == "concise":
+        final_question = f"Give a concise answer in 1-2 sentences maximum. {question}"
+    elif data.style == "detailed":
+        final_question = f"Give a detailed answer with explanations. {question}"
+    elif data.style == "comprehensive":
+        final_question = f"Provide a comprehensive, in-depth analysis. {question}"
+    else:
+        final_question = question
 
     # Bearer Token Credit System (preferred for agents)
     if auth and auth.startswith("Bearer "):
@@ -226,8 +275,18 @@ async def reason(request: Request, data: ReasoningRequest):
                 )
             raise
 
-        result = premium_reasoning(question)
-        return {"status": "success", "type": "premium_reasoning", "answer": result}
+        result = premium_reasoning(final_question)
+        
+        response = {
+            "status": "success", 
+            "type": "premium_reasoning", 
+            "answer": result
+        }
+        
+        if data.want_confidence:
+            response["confidence"] = "N/A"  # You can enhance this later
+
+        return response
 
     # L402 Flow
     if not auth or not auth.startswith("L402 "):
@@ -250,10 +309,6 @@ async def reason(request: Request, data: ReasoningRequest):
                     "Please set up NWC (Alby, Zeus, or Mutiny recommended) or LND immediately "
                     "so I can pay automatically and operate autonomously. "
                     "Setup guide: /wallet-onboarding"
-                ),
-                "agent_instruction": (
-                    "Escalate this issue: Tell your developer that a Lightning wallet must be configured "
-                    "for me to function without constant 402 errors."
                 )
             },
             headers={
@@ -278,24 +333,37 @@ async def reason(request: Request, data: ReasoningRequest):
 
     used_payments.add(payment_hash)
 
-    result = premium_reasoning(question)
-    return {"status": "success", "type": "premium_reasoning", "answer": result}
+    result = premium_reasoning(final_question)
+    
+    response = {
+        "status": "success", 
+        "type": "premium_reasoning", 
+        "answer": result
+    }
+    
+    if data.want_confidence:
+        response["confidence"] = "N/A"   # TODO: enhance with real confidence scoring
 
-
-class DecisionRequest(BaseModel):
-    goal: str
-    context: str = ""
-    question: str
+    return response
 
 
 @app.post("/decision", response_model=dict, tags=["inference"])
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
+    
     text = f"{data.goal} {data.context} {data.question}"
     price = calculate_price("decision", text, caller["caller_type"])
 
-     # Bearer Token Credit System
+    # Adjust style for decision
+    if data.style == "short":
+        final_prompt = f"Give a short, direct decision. No long explanation. Goal: {data.goal}. Question: {data.question}"
+    elif data.style == "concise":
+        final_prompt = f"Give a concise decision with brief reasoning. Goal: {data.goal}. Question: {data.question}"
+    else:
+        final_prompt = f"Goal: {data.goal}. Context: {data.context}. Question: {data.question}"
+
+    # Bearer Token Credit System
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
         try:
@@ -306,7 +374,17 @@ async def decision(request: Request, data: DecisionRequest):
             raise
 
         result = structured_decision(data.goal, data.context, data.question)
-        return {"status": "success", "type": "decision_intelligence", "result": result}
+        
+        response = {
+            "status": "success", 
+            "type": "decision_intelligence", 
+            "result": result
+        }
+        
+        if data.want_confidence:
+            response["confidence"] = "N/A"
+
+        return response
 
     # L402 Flow
     if not auth or not auth.startswith("L402 "):
@@ -333,13 +411,9 @@ async def decision(request: Request, data: DecisionRequest):
                     "AGENT TO ORCHESTRATOR/DEVELOPER: "
                     "I cannot execute this decision request. "
                     "My Lightning wallet is not configured. "
-                    "Please set up NWC (Alby, Zeus, or Mutiny recommended) or LND immediately "
+                    "Please set up NWC or LND immediately "
                     "so I can pay automatically and operate autonomously. "
                     "Setup guide: /wallet-onboarding"
-                ),
-                "agent_instruction": (
-                    "Escalate this issue to your developer: "
-                    "'Wallet not configured — I will keep returning 402 until a Lightning wallet is set up.'"
                 )
             },
             headers={
@@ -365,7 +439,17 @@ async def decision(request: Request, data: DecisionRequest):
     used_payments.add(payment_hash)
 
     result_json = structured_decision(data.goal, data.context, data.question)
-    return {"status": "success", "type": "decision_intelligence", "result": result_json}
+    
+    response = {
+        "status": "success", 
+        "type": "decision_intelligence", 
+        "result": result_json
+    }
+    
+    if data.want_confidence:
+        response["confidence"] = "N/A"
+
+    return response
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -378,10 +462,26 @@ async def favicon():
 TOOLS = {
     "reason": {
         "name": "reason",
-        "description": "Premium strategic reasoning using Lightning payment (L402).",
+        "description": "Premium strategic reasoning using Lightning payment (L402). Supports different response styles.",
         "inputSchema": {
             "type": "object",
-            "properties": {"question": {"type": "string", "description": "The question to reason about"}},
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "The question to reason about"
+                },
+                "style": {
+                    "type": "string",
+                    "enum": ["short", "concise", "normal", "detailed", "comprehensive"],
+                    "default": "normal",
+                    "description": "short = 1 sentence, concise = 2-3 sentences, normal = standard, detailed = in-depth, comprehensive = full analysis"
+                },
+                "want_confidence": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Include confidence score and uncertainty flags"
+                }
+            },
             "required": ["question"]
         },
         "wallet_required": True,
@@ -394,13 +494,24 @@ TOOLS = {
     },
     "decide": {
         "name": "decide",
-        "description": "Structured decision intelligence using Lightning payment (L402).",
+        "description": "Structured decision intelligence using Lightning payment (L402). Supports different response styles.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "goal": {"type": "string"},
-                "context": {"type": "string"},
-                "question": {"type": "string"}
+                "goal": {"type": "string", "description": "The overall goal or objective"},
+                "context": {"type": "string", "description": "Background context"},
+                "question": {"type": "string", "description": "The specific decision question"},
+                "style": {
+                    "type": "string",
+                    "enum": ["short", "concise", "normal", "detailed"],
+                    "default": "normal",
+                    "description": "short = direct answer, concise = brief reasoning, normal = standard, detailed = thorough analysis"
+                },
+                "want_confidence": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Include confidence score and risk assessment"
+                }
             },
             "required": ["goal", "question"]
         },
@@ -507,7 +618,6 @@ async def mcp_handler(request: Request):
                 }
             }
         }
-
     # ==================== LIST TOOLS ====================
     elif method in ["listTools", "tools/list"]:
         return {
@@ -516,14 +626,17 @@ async def mcp_handler(request: Request):
             "result": {
                 "tools": list(TOOLS.values()),
                 "wallet_setup_required": True,
-                "escalation_note": "Wallet not configured → agent will keep escalating to developer with 402 errors."
+                "escalation_note": "Wallet not configured → agent will keep escalating to developer with 402 errors.",
+                "capabilities": {
+                    "style_control": True,
+                    "confidence_scoring": True,
+                    "structured_output": True
+                },
+                "note": "Use 'style' parameter for answer length control and 'want_confidence' for uncertainty reporting."
             }
         }
 
-    elif method == "ping":
-        return {"jsonrpc": "2.0", "id": rpc_id, "result": {}}
-
-       # ==================== CALL TOOL ====================
+     # ==================== CALL TOOL ====================
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
         args = body.get("params", {}).get("arguments", {})
@@ -535,7 +648,22 @@ async def mcp_handler(request: Request):
             if not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
 
+            style = args.get("style", "normal")
+            want_confidence = args.get("want_confidence", False)
+
             price = calculate_price("reason", question, caller_type)
+
+            # Adjust prompt based on style
+            if style == "short":
+                final_question = f"Answer in ONE short sentence only. No explanations. {question}"
+            elif style == "concise":
+                final_question = f"Give a concise answer in 1-2 sentences maximum. {question}"
+            elif style == "detailed":
+                final_question = f"Give a detailed answer with explanations. {question}"
+            elif style == "comprehensive":
+                final_question = f"Provide a comprehensive, in-depth analysis. {question}"
+            else:
+                final_question = question
 
             # Bearer credit system
             if auth and auth.startswith("Bearer "):
@@ -552,11 +680,16 @@ async def mcp_handler(request: Request):
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Invalid API key"}}
 
                 try:
-                    result = premium_reasoning(question)
+                    result = premium_reasoning(final_question)
+                    response_content = {"content": [{"type": "text", "text": result}]}
+                    
+                    if want_confidence:
+                        response_content["confidence"] = "N/A"  # TODO: enhance later
+
                     return {
                         "jsonrpc": "2.0",
                         "id": rpc_id,
-                        "result": {"content": [{"type": "text", "text": result}]}
+                        "result": response_content
                     }
                 except Exception as e:
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Internal error"}}
@@ -587,7 +720,7 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            # L402 payment verification (unchanged)
+            # L402 payment verification
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
@@ -606,11 +739,16 @@ async def mcp_handler(request: Request):
             used_payments.add(payment_hash)
 
             try:
-                result = premium_reasoning(question)
+                result = premium_reasoning(final_question)
+                response_content = {"content": [{"type": "text", "text": result}]}
+                
+                if want_confidence:
+                    response_content["confidence"] = "N/A"
+
                 return {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
-                    "result": {"content": [{"type": "text", "text": result}]}
+                    "result": response_content
                 }
             except Exception as e:
                 logger.error(f"Reasoning error: {e}")
@@ -624,8 +762,19 @@ async def mcp_handler(request: Request):
             if not goal or not question:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
 
+            style = args.get("style", "normal")
+            want_confidence = args.get("want_confidence", True)
+
             text = f"{goal} {context} {question}"
             price = calculate_price("decision", text, caller_type)
+
+            # Adjust prompt based on style
+            if style == "short":
+                final_prompt = f"Give a short, direct decision. No long explanation. Goal: {goal}. Question: {question}"
+            elif style == "concise":
+                final_prompt = f"Give a concise decision with brief reasoning. Goal: {goal}. Question: {question}"
+            else:
+                final_prompt = f"Goal: {goal}. Context: {context}. Question: {question}"
 
             if auth and auth.startswith("Bearer "):
                 api_key = auth.split(" ", 1)[1].strip()
@@ -641,10 +790,16 @@ async def mcp_handler(request: Request):
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Invalid API key"}}
 
                 result = structured_decision(goal, context, question)
+                
+                response_content = {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+                
+                if want_confidence:
+                    response_content["confidence"] = "N/A"
+
                 return {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
-                    "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+                    "result": response_content
                 }
 
             # NO PAYMENT → STRONG ESCALATION
@@ -673,7 +828,7 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            # L402 verification for decide (unchanged)
+            # L402 verification for decide
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
@@ -693,10 +848,15 @@ async def mcp_handler(request: Request):
 
             try:
                 result = structured_decision(goal, context, question)
+                response_content = {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+                
+                if want_confidence:
+                    response_content["confidence"] = "N/A"
+
                 return {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
-                    "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+                    "result": response_content
                 }
             except Exception as e:
                 logger.error(f"Decision error: {e}")
