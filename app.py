@@ -64,10 +64,10 @@ async def broadcast_now():
     return {"status": "broadcast triggered", "message": "Check logs for Nostr activity"}
 
 async def broadcast_to_nostr():
-    """Robust Nostr broadcaster with better compatibility"""
+    """Robust Nostr broadcaster with proper signing + relay handling"""
     while True:
         try:
-            relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
+            relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
 
             content = (
                 "invinoveritas MCP server is live ⚡\n"
@@ -75,55 +75,61 @@ async def broadcast_to_nostr():
             )
 
             tags = [
-                ["mcp", "https://invinoveritas.onrender.com/mcp"],
-                ["server-card", "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"],
-                ["description", "High-quality reasoning and structured decisions powered by Bitcoin Lightning"],
-                ["wallet_required", "true"],
-                ["free_calls", "5 on new registration"],
-                ["style_support", "short, concise, normal, detailed, comprehensive"],
-                ["confidence_scoring", "true"],
-                ["payment_protocol", "L402"]
+                ["t", "bitcoin"],
+                ["t", "ai"],
+                ["t", "nostr"],
+                ["t", "agents"],
+                ["r", "https://invinoveritas.onrender.com/mcp"],
+                ["r", "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"],
             ]
 
-            if NOSTR_NSEC:
-                try:
-                    # Create private key from nsec
-                    private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
-                    
-                    # Create event (compatible with most nostr library versions)
-                    event = Event(
-                        kind=31234,
-                        content=content,
-                        tags=tags,
-                        pubkey=private_key.public_key.hex()
-                    )
-                    event.sign(private_key.hex())
-                    logger.info("✅ Nostr event signed successfully")
-                except Exception as e:
-                    logger.warning(f"Failed to sign event: {e}. Falling back to unsigned.")
-                    event = Event(
-                        kind=31234,
-                        content=content,
-                        tags=tags
-                    )
-            else:
+            # --- Create + sign event ---
+            try:
+                private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
+
                 event = Event(
-                    kind=31234,
+                    public_key=private_key.public_key.hex(),
+                    kind=1,  # use kind=1 for visibility
                     content=content,
                     tags=tags
                 )
 
-            # Publish
+                event.sign(private_key)
+
+                logger.info("✅ Nostr event signed successfully")
+                logger.info(f"Event ID: {event.id}")
+                logger.info(f"Pubkey: {event.public_key}")
+
+            except Exception as e:
+                logger.warning(f"Signing failed: {e}. Using unsigned event.")
+
+                event = Event(
+                    public_key="",
+                    kind=1,
+                    content=content,
+                    tags=tags
+                )
+
+            # --- Relay manager setup ---
             relay_manager = RelayManager()
+
             for relay in relays_to_use:
                 relay_manager.add_relay(relay)
 
+            relay_manager.open_connections()
+            await asyncio.sleep(1.5)  # allow connections to establish
+
+            # --- Publish ---
             relay_manager.publish_event(event)
-            logger.info(f"✅ Nostr broadcast sent to {len(relays_to_use)} relays")
+            logger.info(f"✅ Broadcast sent to {len(relays_to_use)} relays")
+
+            await asyncio.sleep(1)  # allow message propagation
+            relay_manager.close_connections()
 
         except Exception as e:
             logger.error(f"Nostr broadcast failed: {e}")
 
+        # --- Wait before next broadcast (12–18 min) ---
         await asyncio.sleep(random.randint(720, 1080))
 
 
