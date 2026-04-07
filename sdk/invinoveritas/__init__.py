@@ -317,3 +317,15 @@ class AsyncInvinoClient:
         response = await self._client.get(f"{self.base_url}/tool")
         response.raise_for_status()
         return response.json()
+
+# ---------------------------------------------------------------------------
+# Smart Usage (High-Level API)
+# ---------------------------------------------------------------------------
+
+from .smart import (
+    smart_reason,
+    smart_decide,
+    async_smart_reason,
+    async_smart_decide,
+    should_call_invinoveritas
+)
