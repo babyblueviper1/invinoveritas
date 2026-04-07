@@ -7,54 +7,11 @@ import time
 import sqlite3
 import secrets
 from typing import Dict, Any, Optional
-import requests  # add at top
 
 app = FastAPI(title="invinoveritas LND + Accounts Bridge")
 
 DB_PATH = "invinoveritas_accounts.db"
 
-
-STRIKE_API_URL = "https://api.strike.me/v1"  # production endpoint
-STRIKE_API_KEY = "<YOUR_STRIKE_API_KEY>"    # your server key
-
-# =========================
-# Strike Helper Functions
-# =========================
-
-def create_strike_invoice(api_key: str, amount_usd: float, description: str) -> Dict[str, Any]:
-    """Create a Strike invoice in USD"""
-    correlation_id = secrets.token_hex(16)
-    payload = {
-        "correlationId": correlation_id,
-        "description": description,
-        "amount": {
-            "currency": "USD",
-            "amount": f"{amount_usd:.2f}"
-        }
-    }
-    headers = {
-        "Authorization": f"Bearer {STRIKE_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-
-    resp = requests.post(f"{STRIKE_API_URL}/invoices", json=payload, headers=headers)
-    if resp.status_code != 200:
-        return {"error": f"Strike API error: {resp.status_code} {resp.text}"}
-    return resp.json()
-
-def verify_strike_payment(invoice_id: str) -> bool:
-    """Check if a Strike invoice has been paid"""
-    headers = {"Authorization": f"Bearer {STRIKE_API_KEY}"}
-    resp = requests.get(f"{STRIKE_API_URL}/invoices/{invoice_id}", headers=headers)
-    if resp.status_code != 200:
-        return False
-    data = resp.json()
-    return data.get("state") == "PAID"
-
-def usd_to_sats(usd: float, rate: float = 50000.0) -> int:
-    """Convert USD to satoshis (default BTC price = $50k)"""
-    return int((usd / rate) * 100_000_000)
 
 # =========================
 # Models
@@ -63,30 +20,37 @@ class InvoiceRequest(BaseModel):
     amount: int = Field(..., gt=0, description="Amount in satoshis")
     memo: str = Field("invinoveritas", max_length=100)
 
+
 class VerifyPreimageRequest(BaseModel):
     payment_hash: str
     preimage: str
 
-# New credit system models
+
+# Account system models
 class RegisterRequest(BaseModel):
     label: Optional[str] = Field(None, max_length=100)
+
 
 class TopupRequest(BaseModel):
     api_key: str
     amount_sats: int = Field(..., gt=0)
+
 
 class SettleTopupRequest(BaseModel):
     api_key: str
     payment_hash: str
     preimage: str
 
+
 class BalanceRequest(BaseModel):
     api_key: str
+
 
 class VerifyRequest(BaseModel):
     api_key: str
     tool: str = Field(..., pattern="^(reason|decide)$")
     price_sats: int = Field(..., gt=0)
+
 
 # =========================
 # DB Helpers
@@ -97,7 +61,6 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS accounts (
         api_key TEXT PRIMARY KEY,
         balance_sats INTEGER DEFAULT 0,
-        free_calls_remaining INTEGER DEFAULT 3,
         created_at INTEGER,
         last_used INTEGER,
         label TEXT,
@@ -113,8 +76,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def get_db():
     return sqlite3.connect(DB_PATH)
+
 
 def lnd_ready():
     try:
@@ -123,8 +88,9 @@ def lnd_ready():
     except:
         return False
 
+
 # =========================
-# LND Helper (unchanged)
+# LND Helper
 # =========================
 def run_lncli(args: list, timeout: int = 12) -> Dict[str, Any]:
     try:
@@ -136,14 +102,34 @@ def run_lncli(args: list, timeout: int = 12) -> Dict[str, Any]:
     except Exception as e:
         raise Exception(f"lncli error: {str(e)}")
 
-# =========================
-# Lightning Helper
-# =========================
+
 def safe_lncli(args):
     """Run lncli only if LND is ready"""
     if not lnd_ready():
         raise HTTPException(503, "Lightning node syncing. Please try again shortly.")
     return run_lncli(args)
+
+
+# =========================
+# Lightning Payment Helpers
+# =========================
+def verify_preimage_logic(payment_hash: str, preimage: str) -> bool:
+    try:
+        ph = payment_hash.strip().lower()
+        pi = preimage.strip().lower()
+        computed_hash = hashlib.sha256(bytes.fromhex(pi)).hexdigest()
+        return computed_hash == ph
+    except:
+        return False
+
+
+def check_payment_logic(payment_hash: str) -> bool:
+    """Check if payment is settled"""
+    try:
+        data = run_lncli(["lookupinvoice", payment_hash], timeout=10)
+        return data.get("settled", False)
+    except:
+        return False
 
 
 # =========================
@@ -182,16 +168,16 @@ async def confirm_register(req: SettleTopupRequest):
     try:
         c = conn.cursor()
         c.execute("""INSERT INTO accounts 
-                     (api_key, balance_sats, free_calls_remaining, created_at, last_used)
-                     VALUES (?, 0, 0, ?, ?)""",
-                  (api_key, now, now))
+                     (api_key, balance_sats, created_at, last_used, label)
+                     VALUES (?, 0, ?, ?, ?)""",
+                  (api_key, now, now, req.label))
         conn.commit()
     finally:
         conn.close()
 
     return {
         "api_key": api_key,
-        "message": "Account created successfully"
+        "message": "Account created successfully. You can now top up your balance."
     }
 
 
@@ -216,9 +202,11 @@ async def topup(req: TopupRequest):
         invoice = data["payment_request"]
         payment_hash = data.get("r_hash", "")
 
-        # Store pending
+        # Store pending topup
         now = int(time.time())
-        c.execute("INSERT INTO pending_topups (payment_hash, api_key, amount_sats, created_at) VALUES (?, ?, ?, ?)",
+        c.execute("""INSERT INTO pending_topups 
+                     (payment_hash, api_key, amount_sats, created_at) 
+                     VALUES (?, ?, ?, ?)""",
                   (payment_hash, req.api_key, req.amount_sats, now))
         conn.commit()
     finally:
@@ -246,7 +234,8 @@ async def settle_topup(req: SettleTopupRequest):
     conn = get_db()
     try:
         c = conn.cursor()
-        c.execute("SELECT api_key, amount_sats FROM pending_topups WHERE payment_hash = ?", (req.payment_hash,))
+        c.execute("SELECT api_key, amount_sats FROM pending_topups WHERE payment_hash = ?", 
+                  (req.payment_hash,))
         row = c.fetchone()
         if not row or row[0] != req.api_key:
             raise HTTPException(404, "No pending top-up found for this payment")
@@ -255,7 +244,8 @@ async def settle_topup(req: SettleTopupRequest):
 
         # Credit balance
         c.execute("""UPDATE accounts 
-                     SET balance_sats = balance_sats + ?, last_used = ?
+                     SET balance_sats = balance_sats + ?,
+                         last_used = ?
                      WHERE api_key = ?""",
                   (amount, int(time.time()), req.api_key))
 
@@ -277,7 +267,7 @@ async def get_balance(api_key: str):
     conn = get_db()
     try:
         c = conn.cursor()
-        c.execute("""SELECT balance_sats, free_calls_remaining, total_calls, total_spent_sats 
+        c.execute("""SELECT balance_sats, total_calls, total_spent_sats 
                      FROM accounts WHERE api_key = ?""", (api_key,))
         row = c.fetchone()
         if not row:
@@ -287,9 +277,8 @@ async def get_balance(api_key: str):
 
     return {
         "balance_sats": row[0],
-        "free_calls_remaining": row[1],
-        "total_calls": row[2],
-        "total_spent_sats": row[3]
+        "total_calls": row[1],
+        "total_spent_sats": row[2]
     }
 
 
@@ -300,8 +289,7 @@ async def verify_account(req: VerifyRequest):
         c = conn.cursor()
         now = int(time.time())
 
-        c.execute("""SELECT balance_sats, free_calls_remaining 
-                     FROM accounts WHERE api_key = ?""", (req.api_key,))
+        c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
         row = c.fetchone()
         if not row:
             raise HTTPException(401, "Invalid API key")
@@ -309,7 +297,11 @@ async def verify_account(req: VerifyRequest):
         balance = row[0]
 
         if balance < req.price_sats:
-            raise HTTPException(402, f"Insufficient balance. Need {req.price_sats} sats (you have {balance}). Top up at /accounts/topup")
+            raise HTTPException(
+                402, 
+                f"Insufficient balance. Need {req.price_sats} sats (you have {balance}). "
+                f"Top up at /accounts/topup"
+            )
 
         # Debit account
         c.execute("""UPDATE accounts 
@@ -325,21 +317,16 @@ async def verify_account(req: VerifyRequest):
 
     return {
         "allowed": True,
-        "used_free_call": False,
-        "free_remaining": 0,
         "new_balance": balance - req.price_sats
     }
 
 
 # =========================
-# Endpoints
+# Lightning Endpoints
 # =========================
 @app.post("/create-invoice")
 async def create_invoice(req: InvoiceRequest):
     """Create a new Lightning invoice"""
-    if req.amount < 1:
-        raise HTTPException(400, "Amount must be at least 1 sat")
-
     try:
         data = run_lncli([
             "addinvoice",
@@ -356,47 +343,39 @@ async def create_invoice(req: InvoiceRequest):
 
 @app.get("/check-payment/{payment_hash}")
 async def check_payment(payment_hash: str):
-    """Robust payment check with retries and fallback"""
+    """Check if a payment has been settled"""
     if not payment_hash or len(payment_hash) != 64:
         raise HTTPException(400, "Invalid payment_hash format")
 
-    for attempt in range(8):  # Try up to 8 times (~15 seconds total)
+    for attempt in range(8):
         try:
-            # Primary check
             data = run_lncli(["lookupinvoice", payment_hash], timeout=10)
             if data.get("settled", False):
                 return {"paid": True, "state": "SETTLED"}
 
-            # Fallback: check recent invoices
+            # Fallback check
             list_data = run_lncli(["listinvoices", "--max_invoices", "100"], timeout=10)
             for inv in list_data.get("invoices", []):
                 if inv.get("r_hash") == payment_hash:
                     settled = inv.get("settled", False)
                     return {"paid": settled, "state": inv.get("state", "UNKNOWN")}
-
-        except Exception:
-            pass  # Continue retrying
+        except:
+            pass
 
         if attempt < 7:
-            time.sleep(1.8)  # Progressive wait
+            time.sleep(1.8)
 
-    # Final fallback
     return {"paid": False, "state": "NOT_SETTLED_YET"}
 
 
 @app.post("/verify-preimage")
 async def verify_preimage(req: VerifyPreimageRequest):
-    """Verify preimage matches payment_hash (critical for L402 security)"""
+    """Verify preimage matches payment_hash"""
     if not req.payment_hash or not req.preimage:
         raise HTTPException(400, "Missing payment_hash or preimage")
 
-    try:
-        ph = req.payment_hash.strip().lower()
-        pi = req.preimage.strip().lower()
-        computed_hash = hashlib.sha256(bytes.fromhex(pi)).hexdigest()
-        return {"valid": computed_hash == ph}
-    except Exception:
-        return {"valid": False}
+    valid = verify_preimage_logic(req.payment_hash, req.preimage)
+    return {"valid": valid}
 
 
 @app.get("/health")
@@ -411,4 +390,5 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+    init_db()  # Initialize DB on startup
     uvicorn.run(app, host="0.0.0.0", port=8081)
