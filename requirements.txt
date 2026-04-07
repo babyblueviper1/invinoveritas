@@ -7,6 +7,9 @@ openai>=1.40.0
 requests>=2.32.0
 pydantic>=2.9.0
 nostr
+nostr-sdk>=0.44.0
+python-dotenv          # if you want to use environment variables for NSEC
+asyncio
 
 # MCP support for autonomous agents
 mcp>=1.2.0
