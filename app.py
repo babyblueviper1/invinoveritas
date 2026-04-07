@@ -86,13 +86,14 @@ async def broadcast_to_nostr():
             ]
 
             if NOSTR_PRIVATE_KEY:
-                private_key = PrivateKey.from_hex(NOSTR_PRIVATE_KEY)
+                # Correct way to create PrivateKey from hex
+                private_key = PrivateKey(bytes.fromhex(NOSTR_PRIVATE_KEY))
                 event = Event(content=content, tags=tags, kind=31234)
                 event.sign(private_key.hex())
                 logger.info("Nostr event signed successfully")
             else:
                 event = Event(content=content, tags=tags, kind=31234)
-                logger.warning("Nostr event unsigned - set NOSTR_PRIVATE_KEY for better trust")
+                logger.warning("Nostr event unsigned - set NOSTR_PRIVATE_KEY for signed events")
 
             # Publish
             relay_manager = RelayManager()
@@ -105,7 +106,6 @@ async def broadcast_to_nostr():
         except Exception as e:
             logger.error(f"Nostr broadcast failed: {e}")
 
-        # Random delay 12–18 minutes
         await asyncio.sleep(random.randint(720, 1080))
 
 
