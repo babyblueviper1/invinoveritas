@@ -97,7 +97,7 @@ async def broadcast_to_nostr():
             logger.error(f"Nostr broadcaster error: {e}")
 
         # Random delay between 12 and 18 minutes to avoid patterns
-        await asyncio.sleep(random.randint(720, 1080)
+        await asyncio.sleep(random.randint(720, 1080))
 
 
 # Start broadcaster on startup
