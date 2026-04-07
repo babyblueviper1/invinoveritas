@@ -1032,6 +1032,19 @@ SERVER_CARD = {
             "agent_action": "Escalate to developer until wallet is configured"
         }
     },
+    "nostr": {
+        "enabled": True,
+        "announcement_kind": 31234,
+        "relays": [
+            "wss://relay.damus.io",
+            "wss://nos.lol",
+            "wss://relay.primal.net",
+            "wss://nostr-pub.wellorder.net",
+            "wss://relay.snort.social"
+        ],
+        "description": "This service periodically broadcasts announcements on Nostr for easy agent discovery.",
+        "note": "Agents can listen on these relays for live MCP server announcements."
+    },
     "pricing": {
         "currency": "sats",
         "reason_base": REASONING_PRICE_SATS,
@@ -1051,7 +1064,8 @@ SERVER_CARD = {
         "Lightning wallet (NWC or LND) must be configured before using this MCP server.",
         "Without a wallet, every callTool returns 402 Payment Required.",
         "NWC is the fastest way to enable true autonomous agent behavior.",
-        "Agent should escalate wallet setup issue to orchestrator/developer until resolved."
+        "Agent should escalate wallet setup issue to orchestrator/developer until resolved.",
+        "New accounts receive 5 free calls as a welcome bonus."
     ]
 }
 
@@ -1115,7 +1129,7 @@ def payment_guide():
             "Payment is a simple two-step challenge-response process, or optionally via pre-funded credit accounts."
         ),
         
-        "important_note": "⚠️ For full autonomous operation, configure a Lightning wallet (NWC recommended). Without it, agents will repeatedly hit 402 errors.",
+        "important_note": "⚠️ For full autonomous operation, configure a Lightning wallet (NWC recommended). Without it, agents will repeatedly hit 402 Payment Required errors and escalate to you.",
 
         "steps": [
             {
@@ -1142,7 +1156,8 @@ def payment_guide():
                         "top_up": "POST /topup → pay invoice → credits added",
                         "use": "Include your api_key in requests → balance or free calls debited automatically"
                     }
-                }
+                },
+                "result": "You receive payment_hash and preimage (for invoices) or balance is debited (for credits)"
             },
             {
                 "step": 3,
@@ -1154,22 +1169,28 @@ def payment_guide():
         ],
 
         "new_features": {
-            "style_control": "Use 'style' parameter: short, concise, normal, detailed, comprehensive",
-            "confidence_scoring": "Set 'want_confidence': true to get confidence scores",
-            "free_calls": "New accounts get 5 free calls after registration"
+            "style_control": "Use 'style' parameter: short (1 sentence), concise (2-3 sentences), normal, detailed, comprehensive",
+            "confidence_scoring": "Set 'want_confidence': true to get confidence scores and uncertainty flags",
+            "free_calls": "New accounts automatically receive 5 free calls after registration",
+            "structured_output": "Optional 'response_format' for JSON schema output"
         },
 
         "for_autonomous_agents": {
             "easiest_option": "Use the MCP endpoint (/mcp) — payment flow is built-in",
             "recommended_agent_tool": "NWCProvider (easiest) or LNDProvider",
-            "note": "Configure wallet once → agent pays automatically forever. No repeated 402 errors."
+            "note": "Configure wallet once → agent pays automatically forever. No repeated 402 errors. Supports style control and confidence scoring."
         },
 
         "pricing": {
             "reason": "~500 sats base",
             "decide": "~1000 sats base",
             "agent_multiplier": "1.2x when used from autonomous agents",
-            "note": "Final price may vary slightly based on input length and style. Free calls available on new accounts."
+            "note": "Final price may vary slightly based on input length and chosen style. Free calls available on new accounts."
+        },
+
+        "discovery": {
+            "nostr_broadcast": True,
+            "note": "This service periodically announces itself on Nostr relays for easy agent discovery."
         },
 
         "links": {
@@ -1183,6 +1204,7 @@ def payment_guide():
             "github": "https://github.com/babyblueviper1/invinoveritas"
         }
     }
+    
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
     """Return detailed current pricing for all tools — optimized for agents and frontends."""
@@ -1196,13 +1218,13 @@ def get_all_prices():
                 "base": REASONING_PRICE_SATS,
                 "agent": int(REASONING_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
                 "description": "Premium strategic reasoning",
-                "note": "Deep analysis and long-context reasoning. Supports 'style' parameter."
+                "note": "Deep analysis and long-context reasoning. Supports 'style' parameter (short/concise/normal/detailed/comprehensive)."
             },
             "decide": {
                 "base": DECISION_PRICE_SATS,
                 "agent": int(DECISION_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
                 "description": "Structured decision intelligence",
-                "note": "Goal-oriented recommendations with confidence scoring. Supports 'style' parameter."
+                "note": "Goal-oriented recommendations with confidence scoring. Supports 'style' parameter and 'want_confidence'."
             }
         },
         "wallet_requirement": {
@@ -1219,12 +1241,18 @@ def get_all_prices():
             "guide": "/wallet-onboarding",
             "quickstart_tip": "Use NWCProvider with your WalletConnect URI in the SDK"
         },
-        "note": "Final price may vary slightly based on input length, style, and complexity. "
+        "new_features": {
+            "style_control": True,
+            "confidence_scoring": True,
+            "free_calls_on_registration": 5,
+            "structured_output": True
+        },
+        "note": "Final price may vary slightly based on input length, chosen style, and complexity. "
                 "Dynamic pricing and agent multiplier apply during high load or agent usage. "
-                "New accounts get 5 free calls.",
+                "New accounts automatically receive 5 free calls as a welcome bonus.",
         "last_updated": int(time.time())
     }
-
+    
 @app.get("/wallet-onboarding", tags=["meta"])
 @app.get("/wallet-onboarding/", include_in_schema=False)
 async def wallet_onboarding():
@@ -1348,6 +1376,16 @@ def health():
             "wallet_onboarding": "/wallet-onboarding"
         },
 
+        "discovery": {
+            "nostr_broadcast": True,
+            "nostr_relays": [
+                "wss://relay.damus.io",
+                "wss://nos.lol",
+                "wss://relay.primal.net"
+            ],
+            "note": "This service periodically announces itself on Nostr for easy agent discovery."
+        },
+
         "new_features": {
             "style_control": True,
             "confidence_scoring": True,
@@ -1412,7 +1450,8 @@ def health():
             "Without wallet setup, every /reason, /decision, and callTool will return 402 Payment Required.",
             "Agent should escalate this issue to the developer/orchestrator until resolved.",
             "New accounts automatically receive 5 free calls as a welcome bonus.",
-            "NWC setup takes under 3 minutes and enables true 24/7 autonomy."
+            "NWC setup takes under 3 minutes and enables true 24/7 autonomy.",
+            "This service broadcasts discovery announcements on Nostr."
         ],
 
         "links": {
