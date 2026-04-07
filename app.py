@@ -877,6 +877,14 @@ def get_all_prices():
                 "note": "Goal-oriented recommendations with confidence scoring"
             }
         },
+        "wallet_requirement": {
+            "required": True,
+            "message": "⚡ Lightning wallet configuration is REQUIRED for autonomous agents",
+            "note": "Without a configured wallet (NWC recommended), every tool call will return 402 Payment Required.",
+            "recommended": "NWC (Alby, Zeus, Mutiny) — setup takes under 3 minutes",
+            "guide": "/wallet-onboarding",
+            "quickstart_tip": "Use NWCProvider with your WalletConnect URI in the SDK"
+        },
         "note": "Final price may vary slightly based on input length and complexity. "
                 "Dynamic pricing and agent multiplier apply during high load or agent usage.",
         "last_updated": int(time.time())
