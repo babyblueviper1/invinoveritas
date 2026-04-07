@@ -53,7 +53,6 @@ NOSTR_RELAYS = [
     "wss://relay.nostr.bg",
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
-    "wss://nostr.wine",
 ]
 
 # ========================= BUILDERS =========================
@@ -78,7 +77,6 @@ def generate_agent_payload():
             "structured-output"
         ],
 
-        # 🔥 AGENT DECISION SIGNAL
         "use_when": [
             "high_uncertainty",
             "multi_step_reasoning",
@@ -115,19 +113,11 @@ def build_mcp_event(private_key: PrivateKey):
 
     tags = [
         ["d", "invinoveritas-mcp"],
-
-        ["t", "mcp"],
-        ["t", "ai"],
-        ["t", "agents"],
-        ["t", "bitcoin"],
-        ["t", "lightning"],
-
+        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
         ["type", "mcp_service"],
         ["name", payload["name"]],
-
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
-
         ["payment", "L402"],
         ["wallet_required", "true"]
     ]
@@ -139,10 +129,9 @@ def build_mcp_event(private_key: PrivateKey):
         public_key=private_key.public_key.hex()
     )
 
-    # ✅ CORRECT SIGNING
     private_key.sign_event(event)
-
     return event
+
 
 def build_human_event(private_key: PrivateKey):
     content = (
@@ -152,10 +141,7 @@ def build_human_event(private_key: PrivateKey):
     )
 
     tags = [
-        ["t", "bitcoin"],
-        ["t", "ai"],
-        ["t", "nostr"],
-        ["t", "agents"],
+        ["t", "bitcoin"], ["t", "ai"], ["t", "nostr"], ["t", "agents"],
         ["r", "https://invinoveritas.onrender.com/mcp"]
     ]
 
@@ -166,54 +152,70 @@ def build_human_event(private_key: PrivateKey):
         public_key=private_key.public_key.hex()
     )
 
-    # ✅ CORRECT SIGNING
     private_key.sign_event(event)
-
     return event
 
 
 # ========================= BROADCASTER =========================
+async def broadcast_once():
+    try:
+        if not NOSTR_NSEC:
+            logger.error("❌ NOSTR_NSEC not set")
+            return
+
+        private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
+
+        mcp_event = build_mcp_event(private_key)
+        human_event = build_human_event(private_key)
+
+        relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
+
+        relay_manager = RelayManager()
+        active_relays = []
+
+        for relay in relays_to_use:
+            try:
+                relay_manager.add_relay(relay)
+                active_relays.append(relay)
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to add relay {relay}: {e}")
+
+        if not active_relays:
+            logger.error("❌ No valid relays available")
+            return
+
+        relay_manager.open_connections()
+        await asyncio.sleep(2)
+
+        relay_manager.publish_event(mcp_event)
+        relay_manager.publish_event(human_event)
+
+        logger.info(f"📡 Broadcast sent to {len(active_relays)} relays")
+
+        await asyncio.sleep(1)
+
+    except Exception as e:
+        logger.error(f"❌ Broadcast error: {e}")
+
+    finally:
+        try:
+            relay_manager.close_connections()
+        except:
+            pass
+
+
+
 async def broadcast_to_nostr():
     while True:
-        try:
-            if not NOSTR_NSEC:
-                logger.error("❌ NOSTR_NSEC not set")
-                await asyncio.sleep(60)
-                continue
-
-            private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
-
-            mcp_event = build_mcp_event(private_key)
-            human_event = build_human_event(private_key)
-
-            relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
-
-            relay_manager = RelayManager()
-            for relay in relays_to_use:
-                relay_manager.add_relay(relay)
-
-            relay_manager.open_connections()
-            await asyncio.sleep(2)
-
-            relay_manager.publish_event(mcp_event)
-            relay_manager.publish_event(human_event)
-
-            logger.info(f"📡 MCP + Human broadcast sent to {len(relays_to_use)} relays")
-
-            await asyncio.sleep(1)
-            relay_manager.close_connections()
-
-        except Exception as e:
-            logger.error(f"Nostr broadcast error: {e}")
-
+        await broadcast_once()
         await asyncio.sleep(random.randint(720, 1080))
-
 
 # ========================= FASTAPI =========================
 @app.post("/broadcast-now")
 async def broadcast_now():
-    asyncio.create_task(broadcast_to_nostr())
+    asyncio.create_task(broadcast_once())
     return {"status": "success"}
+
 
 @app.on_event("startup")
 async def startup_event():
