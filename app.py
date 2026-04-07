@@ -23,7 +23,7 @@ from typing import Dict, Optional, Literal
 import httpx
 import asyncio
 from nostr.event import Event
-from nostr.key import PrivateKe
+from nostr.key import PrivateKey
 
 # =========================
 # FastAPI App
