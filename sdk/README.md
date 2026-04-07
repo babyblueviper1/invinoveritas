@@ -7,6 +7,28 @@ Atomic intelligence purchases over Bitcoin Lightning using the **L402 protocol**
 
 ---
 
+## What's new in v0.3.2
+
+**Smart Usage Layer (NEW)**
+
+Automatically decide when to call invinoveritas based on task complexity and impact.
+
+```python
+from invinoveritas import smart_reason
+
+result = smart_reason({
+    "question": "Should I expand into Europe in 2026?",
+    "steps": 3,
+    "uncertainty": 0.7,
+    "value_at_risk": 5000
+})
+
+print(result)
+```
+
+---
+
+
 ## Installation
 
 ```bash
