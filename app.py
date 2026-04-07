@@ -94,6 +94,10 @@ def generate_agent_payload():
             "relative_cost": "low",
             "expected_roi": "positive"
         },
+        "roi_signal": {
+            "expected": "positive",
+            "confidence": "high"
+        },
 
         "performance": {
             "confidence_scoring": True
@@ -105,6 +109,90 @@ def generate_agent_payload():
         },
 
         "version": "0.2"
+    }
+
+def generate_sdk_payload():
+    return {
+        "type": "agent_sdk",
+        "name": "invinoveritas",
+
+        "install": {
+            "python": "pip install invinoveritas",
+        },
+
+        "entrypoints": {
+            "smart_reason": "invinoveritas.smart_reason",
+            "smart_decide": "invinoveritas.smart_decide",
+            "async_smart_reason": "invinoveritas.async_smart_reason",
+            "async_smart_decide": "invinoveritas.async_smart_decide"
+        },
+
+        "example": {
+            "python": """from invinoveritas import smart_reason
+
+result = smart_reason({
+    "question": "Should I expand into Europe in 2026?",
+    "steps": 3,
+    "uncertainty": 0.7,
+    "value_at_risk": 5000
+})"""
+        },
+
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "model": "per_call"
+        },
+
+        "use_when": [
+            "high_uncertainty",
+            "multi_step_reasoning",
+            "financial_decision"
+        ],
+
+        "version": "0.3.2"
+    }
+
+def generate_sdk_payload():
+    return {
+        "type": "agent_sdk",
+        "name": "invinoveritas",
+
+        "install": {
+            "python": "pip install invinoveritas",
+        },
+
+        "entrypoints": {
+            "smart_reason": "invinoveritas.smart_reason",
+            "smart_decide": "invinoveritas.smart_decide",
+            "async_smart_reason": "invinoveritas.async_smart_reason",
+            "async_smart_decide": "invinoveritas.async_smart_decide"
+        },
+
+        "example": {
+            "python": """from invinoveritas import smart_reason
+
+result = smart_reason({
+    "question": "Should I expand into Europe in 2026?",
+    "steps": 3,
+    "uncertainty": 0.7,
+    "value_at_risk": 5000
+})"""
+        },
+
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "model": "per_call"
+        },
+
+        "use_when": [
+            "high_uncertainty",
+            "multi_step_reasoning",
+            "financial_decision"
+        ],
+
+        "version": "0.3.2"
     }
 
 def build_mcp_event(private_key: PrivateKey):
@@ -119,7 +207,8 @@ def build_mcp_event(private_key: PrivateKey):
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
         ["payment", "L402"],
-        ["wallet_required", "true"]
+        ["wallet_required", "true"],
+        ["roi_signal", "positive_high_confidence"]
     ]
 
     event = Event(
@@ -187,7 +276,10 @@ async def broadcast_once():
         relay_manager.open_connections()
         await asyncio.sleep(2)
 
+        sdk_event = build_sdk_event(private_key)
+
         relay_manager.publish_event(mcp_event)
+        relay_manager.publish_event(sdk_event)
         relay_manager.publish_event(human_event)
 
         logger.info(f"📡 Broadcast sent to {len(active_relays)} relays")
