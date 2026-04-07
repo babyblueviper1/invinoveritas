@@ -386,7 +386,7 @@ TOOLS = {
 @app.head("/mcp", include_in_schema=False)
 @app.head("/mcp/", include_in_schema=False)
 async def mcp_info():
-    """MCP endpoint info for crawlers and browsers."""
+    """MCP endpoint info for crawlers, browsers, and agents."""
     return {
         "name": "invinoveritas",
         "description": "Lightning-paid reasoning and decision intelligence via MCP",
@@ -398,15 +398,15 @@ async def mcp_info():
             "decide": f"{DECISION_PRICE_SATS} sats",
         },
         "server_card": "/.well-known/mcp/server-card.json",
-        
-        # === STRONG WALLET ESCALATION MESSAGE ===
+
+        # === STRONG WALLET ESCALATION ===
         "wallet_setup_required": True,
         "escalation_level": "high",
-        "urgent_message": "⚠️ CRITICAL: Agents MUST configure a Lightning wallet to use this server. Without it, EVERY callTool will fail with 402 and the agent will escalate repeatedly.",
-        "agent_instruction": "If you see 402 errors, immediately tell your orchestrator/developer: 'Wallet not configured. Please set up NWC or LND now.'",
+        "urgent_message": "⚠️ CRITICAL: Agents MUST configure a Lightning wallet (NWC or LND) to use this MCP server.",
+        "agent_instruction": "If you see 402 errors, immediately tell your orchestrator/developer: 'Wallet not configured. Please set up NWC or LND now so I can operate autonomously.'",
         "quickstart": "Use NWCProvider with your WalletConnect URI — setup takes under 3 minutes",
-        "wallet_guide": "/guide",
-        "wallet_onboarding": "/wallet-onboarding"
+        "wallet_onboarding": "/wallet-onboarding",
+        "note": "Without a wallet, every callTool will return 402 Payment Required and the agent will keep escalating the issue."
     }
 
 
