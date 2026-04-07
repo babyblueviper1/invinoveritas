@@ -18,6 +18,10 @@ if not NODE_URL:
           "Please set the NODE_URL environment variable to your Lightning bridge address "
           "(e.g. http://your-vps-ip:8081)")
 
+
+NOSTR_PRIVATE_KEY = os.getenv("NOSTR_PRIVATE_KEY")  # hex format, optional but recommended
+
+
 # ======================
 # Pricing Configuration
 # ======================
