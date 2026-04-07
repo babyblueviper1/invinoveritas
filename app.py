@@ -64,7 +64,7 @@ async def broadcast_now():
     return {"status": "broadcast triggered", "message": "Check logs for Nostr activity"}
 
 async def broadcast_to_nostr():
-    """Signed Nostr broadcaster with automatic nsec → hex conversion"""
+    """Robust Nostr broadcaster with better compatibility"""
     while True:
         try:
             relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
@@ -87,16 +87,31 @@ async def broadcast_to_nostr():
 
             if NOSTR_NSEC:
                 try:
+                    # Create private key from nsec
                     private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
-                    event = Event(content=content, tags=tags, kind=31234)
+                    
+                    # Create event (compatible with most nostr library versions)
+                    event = Event(
+                        kind=31234,
+                        content=content,
+                        tags=tags,
+                        pubkey=private_key.public_key.hex()
+                    )
                     event.sign(private_key.hex())
-                    logger.info("✅ Nostr event signed successfully using nsec key")
+                    logger.info("✅ Nostr event signed successfully")
                 except Exception as e:
-                    logger.warning(f"Failed to decode nsec key: {e}. Falling back to unsigned.")
-                    event = Event(content=content, tags=tags, kind=31234)
+                    logger.warning(f"Failed to sign event: {e}. Falling back to unsigned.")
+                    event = Event(
+                        kind=31234,
+                        content=content,
+                        tags=tags
+                    )
             else:
-                event = Event(content=content, tags=tags, kind=31234)
-                logger.info("Nostr event sent unsigned (no NOSTR_NSEC set)")
+                event = Event(
+                    kind=31234,
+                    content=content,
+                    tags=tags
+                )
 
             # Publish
             relay_manager = RelayManager()
