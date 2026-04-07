@@ -54,6 +54,120 @@ used_payments = set()
 agent_usage = defaultdict(lambda: {"calls": 0, "last_seen": 0, "total_sats": 0})  # per-agent metrics
 
 # =========================
+# Strike Integration
+# =========================
+import httpx
+import os
+
+STRIKE_API_KEY = os.getenv("STRIKE_API_KEY")
+STRIKE_ENV = "api.strike.me"  # or "sandbox.strike.me" for testing
+USD_TO_SATS = 100_000_000 // 20_000  # example: convert $1 to ~5,000 sats (adjust as needed)
+
+headers = {"Authorization": f"Bearer {STRIKE_API_KEY}", "Content-Type": "application/json"}
+
+class StrikeInvoiceRequest(BaseModel):
+    api_key: str
+    amount_usd: float
+    description: str = "invinoveritas top-up"
+
+@app.post("/accounts/topup-strike")
+async def topup_strike(req: StrikeInvoiceRequest):
+    """Create a Strike invoice for fiat top-up"""
+    # Verify user
+    conn = get_db()
+    try:
+        c = conn.cursor()
+        c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (req.api_key,))
+        if not c.fetchone():
+            raise HTTPException(404, "Invalid API key")
+    finally:
+        conn.close()
+
+    # Create Strike invoice
+    import uuid
+    correlation_id = str(uuid.uuid4())
+    payload = {
+        "correlationId": correlation_id,
+        "description": req.description,
+        "amount": {"currency": "USD", "amount": f"{req.amount_usd:.2f}"}
+    }
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.post(f"https://{STRIKE_ENV}/v1/invoices", headers=headers, json=payload)
+        if r.status_code != 200:
+            raise HTTPException(500, f"Strike invoice creation failed: {r.text}")
+
+        invoice_data = r.json()
+    
+    # Store pending topup in DB (like Lightning)
+    conn = get_db()
+    try:
+        c = conn.cursor()
+        now = int(time.time())
+        c.execute(
+            "INSERT INTO pending_topups (payment_hash, api_key, amount_sats, created_at) VALUES (?, ?, ?, ?)",
+            (invoice_data["invoiceId"], req.api_key, int(req.amount_usd * USD_TO_SATS), now)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "invoice_id": invoice_data["invoiceId"],
+        "amount_usd": req.amount_usd,
+        "amount_sats": int(req.amount_usd * USD_TO_SATS),
+        "status": invoice_data.get("state", "UNPAID")
+    }
+
+class SettleStrikeRequest(BaseModel):
+    api_key: str
+    invoice_id: str
+
+@app.post("/accounts/settle-strike")
+async def settle_strike(req: SettleStrikeRequest):
+    """Verify Strike payment and credit user account"""
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(f"https://{STRIKE_ENV}/v1/invoices/{req.invoice_id}", headers=headers)
+        if r.status_code != 200:
+            raise HTTPException(500, f"Strike invoice fetch failed: {r.text}")
+
+        invoice_data = r.json()
+        if invoice_data.get("state") != "PAID":
+            raise HTTPException(402, "Invoice not paid yet")
+
+    # Fetch pending topup
+    conn = get_db()
+    try:
+        c = conn.cursor()
+        c.execute("SELECT api_key, amount_sats FROM pending_topups WHERE payment_hash = ?", (req.invoice_id,))
+        row = c.fetchone()
+        if not row or row[0] != req.api_key:
+            raise HTTPException(404, "No pending topup found for this invoice")
+
+        amount = row[1]
+
+        # Credit account
+        c.execute("""UPDATE accounts 
+                     SET balance_sats = balance_sats + ?, last_used = ?
+                     WHERE api_key = ?""",
+                  (amount, int(time.time()), req.api_key))
+
+        # Remove pending
+        c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (req.invoice_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "success": True,
+        "credited_sats": amount,
+        "message": "Account topped up successfully via Strike!"
+    }
+
+
+
+
+# =========================
 # Helpers
 # =========================
 def detect_caller(request: Request) -> dict:
