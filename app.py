@@ -1044,12 +1044,14 @@ def payment_guide():
             "Payment is a simple two-step challenge-response process, or optionally via pre-funded credit accounts."
         ),
         
+        "important_note": "⚠️ For full autonomous operation, configure a Lightning wallet (NWC recommended). Without it, agents will repeatedly hit 402 errors.",
+
         "steps": [
             {
                 "step": 1,
                 "title": "Make your first request",
                 "action": "POST to /reason, /decision, or /mcp",
-                "response": "Server returns HTTP 402 Payment Required + Lightning invoice (unless using pre-funded account)"
+                "response": "Server returns HTTP 402 Payment Required + Lightning invoice (unless using pre-funded account or free calls)"
             },
             {
                 "step": 2,
@@ -1062,50 +1064,41 @@ def payment_guide():
                         "agent_tools": {
                             "lnget": "Lightning Labs — automatic L402 handling via LND",
                             "nwc": "NWCProvider — autonomous payments via nostr+walletconnect:// URI (Alby, Zeus, Mutiny)"
-                        },
-                        "python_sdk": "invinoveritas SDK (recommended)"
+                        }
                     },
                     "pre_funded_account": {
-                        "register": "POST /accounts/register → pay initial invoice → receive api_key",
-                        "top_up": "POST /accounts/topup → pay invoice → credits added",
-                        "use": "Include your api_key in requests → balance debited automatically"
+                        "register": "POST /register → pay initial invoice → receive api_key + 5 free calls",
+                        "top_up": "POST /topup → pay invoice → credits added",
+                        "use": "Include your api_key in requests → balance or free calls debited automatically"
                     }
-                },
-                "result": "You receive payment_hash and preimage (for invoices) or balance is debited (for credits)"
+                }
             },
             {
                 "step": 3,
                 "title": "Retry with proof",
-                "action": "Repeat the exact same request with Authorization header (if using invoice flow)",
-                "header": "Authorization: L402 <payment_hash>:<preimage>",
-                "result": "Server verifies payment and returns the result (or debits from account if using credits)"
+                "action": "Repeat the exact same request with Authorization header",
+                "header": "Authorization: L402 <payment_hash>:<preimage> or Bearer <api_key>",
+                "result": "Server verifies payment and returns the result"
             }
         ],
 
-        "for_autonomous_agents": {
-            "easiest_option": "Use the MCP endpoint (/mcp) — payment flow is built-in",
-            "recommended_agent_tool": "lnget by Lightning Labs",
-            "python_options": [
-                "AsyncInvinoClient (simple manual flow)",
-                "InvinoCallbackHandler + LNDProvider (automatic via LND node)",
-                "InvinoCallbackHandler + NWCProvider (automatic via any NIP-47 wallet — no node required)",
-                "InvinoCallbackHandler + CustomProvider (bring your own pay function)",
-                "InvinoCallbackHandler + CreditProvider (use pre-funded credits instead of per-call invoices)"
-            ],
-            "note": "Single-use payments with full replay protection, or pre-funded account usage"
+        "new_features": {
+            "style_control": "Use 'style' parameter: short, concise, normal, detailed, comprehensive",
+            "confidence_scoring": "Set 'want_confidence': true to get confidence scores",
+            "free_calls": "New accounts get 5 free calls after registration"
         },
 
-        "advanced_integrations": {
-            "langchain": "Use InvinoCallbackHandler for automatic payment + retry in LangChain agents",
-            "providers": "LNDProvider (local node), NWCProvider (Alby/Zeus/Mutiny via NWC), CustomProvider (your own pay function), CreditProvider (pre-funded account)",
-            "l402_client": "L402Client class handles 402 → pay → retry transparently, or debits from credits"
+        "for_autonomous_agents": {
+            "easiest_option": "Use the MCP endpoint (/mcp) — payment flow is built-in",
+            "recommended_agent_tool": "NWCProvider (easiest) or LNDProvider",
+            "note": "Configure wallet once → agent pays automatically forever. No repeated 402 errors."
         },
 
         "pricing": {
             "reason": "~500 sats base",
             "decide": "~1000 sats base",
             "agent_multiplier": "1.2x when used from autonomous agents",
-            "note": "Final price may vary slightly based on input length; credits are debited accordingly"
+            "note": "Final price may vary slightly based on input length and style. Free calls available on new accounts."
         },
 
         "links": {
@@ -1113,7 +1106,8 @@ def payment_guide():
             "prices": "/prices",
             "guide": "/guide",
             "mcp": "/mcp",
-            "accounts": "/accounts",
+            "register": "/register",
+            "wallet_onboarding": "/wallet-onboarding",
             "sdk": "https://pypi.org/project/invinoveritas/",
             "github": "https://github.com/babyblueviper1/invinoveritas"
         }
@@ -1131,13 +1125,13 @@ def get_all_prices():
                 "base": REASONING_PRICE_SATS,
                 "agent": int(REASONING_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
                 "description": "Premium strategic reasoning",
-                "note": "Deep analysis and long-context reasoning"
+                "note": "Deep analysis and long-context reasoning. Supports 'style' parameter."
             },
             "decide": {
                 "base": DECISION_PRICE_SATS,
                 "agent": int(DECISION_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
                 "description": "Structured decision intelligence",
-                "note": "Goal-oriented recommendations with confidence scoring"
+                "note": "Goal-oriented recommendations with confidence scoring. Supports 'style' parameter."
             }
         },
         "wallet_requirement": {
@@ -1154,11 +1148,11 @@ def get_all_prices():
             "guide": "/wallet-onboarding",
             "quickstart_tip": "Use NWCProvider with your WalletConnect URI in the SDK"
         },
-        "note": "Final price may vary slightly based on input length and complexity. "
-                "Dynamic pricing and agent multiplier apply during high load or agent usage.",
+        "note": "Final price may vary slightly based on input length, style, and complexity. "
+                "Dynamic pricing and agent multiplier apply during high load or agent usage. "
+                "New accounts get 5 free calls.",
         "last_updated": int(time.time())
     }
-
 
 @app.get("/wallet-onboarding", tags=["meta"])
 @app.get("/wallet-onboarding/", include_in_schema=False)
@@ -1167,15 +1161,17 @@ async def wallet_onboarding():
     return {
         "title": "⚡ invinoveritas — Wallet Onboarding Guide",
         "subtitle": "Required for Autonomous Agents",
-        "introduction": "Your agent needs a Lightning wallet to pay for reasoning and decision calls. Without it, every request returns 402 Payment Required.",
+        "introduction": "Your agent needs a Lightning wallet to pay for reasoning and decision intelligence. Without it, every request returns 402 Payment Required and the agent will keep escalating the issue to you.",
+        
+        "why_wallet": "Configuring a wallet once allows your agent to pay automatically on every call, run 24/7, and eliminate repeated 402 errors.",
         
         "wallet_options": [
             {
-                "type": "NWC (Recommended)",
+                "type": "NWC (Recommended for most agents)",
                 "description": "Easiest and fastest setup. No node required.",
                 "wallets": ["Alby", "Zeus", "Mutiny"],
                 "setup_time": "Under 3 minutes",
-                "pros": ["Quick onboarding", "No server maintenance", "Great for most agents"],
+                "pros": ["Quick onboarding", "No server maintenance", "Great for most agents", "Works with many agent frameworks"],
                 "code_example": {
                     "language": "python",
                     "code": """from invinoveritas.providers import NWCProvider
@@ -1191,7 +1187,7 @@ tools = create_invinoveritas_tools(handler)"""
             {
                 "type": "LND Node",
                 "description": "Full control with your own Lightning node.",
-                "pros": ["Maximum control", "Best for high-volume agents", "Self-custodial"],
+                "pros": ["Maximum control", "Best for high-volume or production agents", "Complete self-custody"],
                 "code_example": {
                     "language": "python",
                     "code": """from invinoveritas.providers import LNDProvider
@@ -1210,7 +1206,7 @@ tools = create_invinoveritas_tools(handler)"""
         ],
 
         "usage_example": {
-            "description": "Once the handler is set up, your agent pays automatically:",
+            "description": "Once configured, your agent pays automatically:",
             "code": """result = agent.run(
     "Should I increase my BTC exposure in 2026?", 
     callbacks=[handler]
@@ -1220,16 +1216,16 @@ print(result)"""
         },
 
         "next_steps": [
-            "1. Choose NWC (easiest) or LND",
-            "2. Get your WalletConnect URI or macaroon/cert paths",
-            "3. Paste into the code above",
-            "4. Restart your agent — it will now pay autonomously"
+            "1. Choose NWC (easiest for most agents) or LND",
+            "2. Get your WalletConnect URI or macaroon + cert paths",
+            "3. Paste the code into your agent setup",
+            "4. Restart your agent — it will now pay autonomously on every call"
         ],
 
-        "tips": [
+        "tips_for_agents": [
             "Start with small test queries to verify wallet connection",
-            "Ensure your wallet has sufficient sats",
-            "NWC is fastest for new agents; LND is better for production scale",
+            "Ensure your wallet always has sufficient sats",
+            "NWC is fastest for onboarding new agents",
             "All payments are atomic and cryptographically verifiable",
             "No KYC or subscriptions required"
         ],
@@ -1239,12 +1235,13 @@ print(result)"""
             "health": "/health",
             "mcp": "/mcp",
             "prices": "/prices",
+            "register": "/register",
             "sdk": "https://pypi.org/project/invinoveritas/",
             "lnd_docs": "https://docs.lightning.engineering",
             "nwc_docs": "https://walletconnect.com/"
         },
 
-        "urgent_note": "⚠️ Without configuring a Lightning wallet, your agent cannot use invinoveritas tools autonomously."
+        "urgent_note": "⚠️ Without configuring a Lightning wallet, your agent cannot use invinoveritas tools autonomously and will keep returning 402 Payment Required errors."
     }
 
 @app.get("/health", tags=["meta"])
@@ -1280,6 +1277,13 @@ def health():
             "wallet_onboarding": "/wallet-onboarding"
         },
 
+        "new_features": {
+            "style_control": True,
+            "confidence_scoring": True,
+            "free_calls_on_registration": 5,
+            "structured_output": True
+        },
+
         "endpoints": {
             "reason": {
                 "path": "/reason",
@@ -1287,6 +1291,7 @@ def health():
                 "description": "Premium strategic reasoning",
                 "base_price_sats": REASONING_PRICE_SATS,
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+                "supports_style": True
             },
             "decide": {
                 "path": "/decision",
@@ -1294,6 +1299,7 @@ def health():
                 "description": "Structured decision intelligence for agents",
                 "base_price_sats": DECISION_PRICE_SATS,
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+                "supports_style": True
             },
             "mcp": {
                 "path": "/mcp",
@@ -1334,6 +1340,7 @@ def health():
             "⚠️ CRITICAL: Autonomous agents MUST configure a Lightning wallet (NWC recommended) to function properly.",
             "Without wallet setup, every /reason, /decision, and callTool will return 402 Payment Required.",
             "Agent should escalate this issue to the developer/orchestrator until resolved.",
+            "New accounts automatically receive 5 free calls as a welcome bonus.",
             "NWC setup takes under 3 minutes and enables true 24/7 autonomy."
         ],
 
@@ -1347,6 +1354,7 @@ def health():
             "prices": "/prices",
             "guide": "/guide",
             "wallet_onboarding": "/wallet-onboarding",
+            "register": "/register",
             "health": "/health"
         }
     }
@@ -1448,12 +1456,13 @@ def tool_definition():
             "mcp_compatible": True,
             "autonomous": True,
             "single_use_payments": True,
-            "wallet_setup_needed": True
+            "wallet_setup_needed": True,
+            "style_control": True,
+            "confidence_scoring": True
         }
     }
 
 
-# Better version for MCP compatibility (recommended to use this for /tool and also in your MCP handler)
 @app.get("/tool/mcp", tags=["meta"])
 def tool_definition_mcp():
     """MCP-compatible tool definitions."""
@@ -1468,6 +1477,17 @@ def tool_definition_mcp():
                         "question": {
                             "type": "string",
                             "description": "The question to reason about"
+                        },
+                        "style": {
+                            "type": "string",
+                            "enum": ["short", "concise", "normal", "detailed", "comprehensive"],
+                            "default": "normal",
+                            "description": "short = 1 sentence, concise = 2-3 sentences, normal = standard, detailed = in-depth, comprehensive = full analysis"
+                        },
+                        "want_confidence": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Include confidence score and uncertainty flags"
                         }
                     },
                     "required": ["question"]
@@ -1490,6 +1510,17 @@ def tool_definition_mcp():
                         "context": {
                             "type": "string",
                             "description": "Optional background context"
+                        },
+                        "style": {
+                            "type": "string",
+                            "enum": ["short", "concise", "normal", "detailed"],
+                            "default": "normal",
+                            "description": "short = direct answer, concise = brief reasoning, normal = standard, detailed = thorough analysis"
+                        },
+                        "want_confidence": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "Include confidence score and risk assessment"
                         }
                     },
                     "required": ["goal", "question"]
@@ -1506,27 +1537,25 @@ def tool_definition_mcp():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return base price for a specific endpoint (kept for backward compatibility)."""
     if endpoint == "reason":
         return {
             "price_sats": REASONING_PRICE_SATS,
-            "note": "Lightning wallet required for autonomous agents",
+            "note": "Lightning wallet required for autonomous agents. Supports style and confidence parameters.",
             "escalation": "Agent should escalate to developer if wallet is not configured (repeated 402 errors will occur)"
         }
     elif endpoint == "decision":
         return {
             "price_sats": DECISION_PRICE_SATS,
-            "note": "Lightning wallet required for autonomous agents",
+            "note": "Lightning wallet required for autonomous agents. Supports style and confidence parameters.",
             "escalation": "Agent should escalate to developer if wallet is not configured (repeated 402 errors will occur)"
         }
     elif endpoint == "mcp":
         return {
             "price_sats": "Same as underlying tools (reason/decision)",
-            "note": "Payment is handled per callTool request via L402. Lightning wallet (NWC or LND) is required for autonomous use. See /wallet-onboarding",
+            "note": "Payment is handled per callTool request via L402. Lightning wallet (NWC or LND) is required for autonomous use. See /wallet-onboarding. Supports style and confidence parameters.",
             "escalation": "Without wallet setup, agent will keep returning 402 and should notify orchestrator/developer repeatedly."
         }
     raise HTTPException(status_code=404, detail="Unknown endpoint")
-
 
 @app.get('/llms.txt')
 def llms():
