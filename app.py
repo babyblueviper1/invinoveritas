@@ -61,16 +61,52 @@ def generate_agent_payload():
     return {
         "type": "mcp_service",
         "name": "invinoveritas",
+
         "endpoint": "https://invinoveritas.onrender.com/mcp",
         "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-        "payment": {"protocol": "L402", "network": "lightning", "wallet_required": True},
-        "capabilities": ["reasoning", "decision-making", "structured-output"],
+
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "wallet_required": True,
+            "model": "per_call"
+        },
+
+        "capabilities": [
+            "reasoning",
+            "decision-making",
+            "structured-output"
+        ],
+
+        # 🔥 AGENT DECISION SIGNAL
+        "use_when": [
+            "high_uncertainty",
+            "multi_step_reasoning",
+            "financial_decision",
+            "important_tradeoff"
+        ],
+
+        "value_proposition": {
+            "edge": "higher quality reasoning than local models",
+            "reduces_error": True,
+            "saves_time": True
+        },
+
+        "pricing_hint": {
+            "relative_cost": "low",
+            "expected_roi": "positive"
+        },
+
+        "performance": {
+            "confidence_scoring": True
+        },
+
         "features": {
             "free_calls": 5,
-            "confidence_scoring": True,
             "styles": ["short", "concise", "normal", "detailed", "comprehensive"]
         },
-        "version": "0.1"
+
+        "version": "0.2"
     }
 
 def build_mcp_event(private_key: PrivateKey):
@@ -79,28 +115,47 @@ def build_mcp_event(private_key: PrivateKey):
 
     tags = [
         ["d", "invinoveritas-mcp"],
-        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
+
+        ["t", "mcp"],
+        ["t", "ai"],
+        ["t", "agents"],
+        ["t", "bitcoin"],
+        ["t", "lightning"],
+
         ["type", "mcp_service"],
         ["name", payload["name"]],
+
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
+
         ["payment", "L402"],
+        ["wallet_required", "true"]
     ]
 
     event = Event(
         kind=30023,
         content=content,
         tags=tags,
-        public_key=private_key.public_key.hex()   # ← Fixed: public_key
+        public_key=private_key.public_key.hex()
     )
-    event.sign(private_key)                       # Correct signing
+
+    # ✅ CORRECT SIGNING
+    private_key.sign_event(event)
+
     return event
 
-
 def build_human_event(private_key: PrivateKey):
-    content = "Agents: discover invinoveritas MCP ⚡ Lightning-paid reasoning & decision intelligence."
+    content = (
+        "Agents: discover invinoveritas MCP ⚡\n"
+        "Lightning-paid reasoning & decision intelligence.\n"
+        "Use when decisions matter."
+    )
+
     tags = [
-        ["t", "bitcoin"], ["t", "ai"], ["t", "nostr"], ["t", "agents"],
+        ["t", "bitcoin"],
+        ["t", "ai"],
+        ["t", "nostr"],
+        ["t", "agents"],
         ["r", "https://invinoveritas.onrender.com/mcp"]
     ]
 
@@ -108,9 +163,12 @@ def build_human_event(private_key: PrivateKey):
         kind=1,
         content=content,
         tags=tags,
-        public_key=private_key.public_key.hex()   # ← Fixed
+        public_key=private_key.public_key.hex()
     )
-    event.sign(private_key)
+
+    # ✅ CORRECT SIGNING
+    private_key.sign_event(event)
+
     return event
 
 
@@ -140,7 +198,10 @@ async def broadcast_to_nostr():
             relay_manager.publish_event(mcp_event)
             relay_manager.publish_event(human_event)
 
-            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays")
+            logger.info(f"📡 MCP + Human broadcast sent to {len(relays_to_use)} relays")
+
+            await asyncio.sleep(1)
+            relay_manager.close_connections()
 
         except Exception as e:
             logger.error(f"Nostr broadcast error: {e}")
