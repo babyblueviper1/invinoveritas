@@ -89,7 +89,7 @@ async def verify_credit(api_key: str, tool: str, price_sats: int):
 
             if resp.status_code == 200:
                 return resp.json()
-            elif resp.status_code == :
+            elif resp.status_code == 402:
                 raise HTTPException(402, detail=resp.json().get("detail", "Insufficient balance"))
             else:
                 raise HTTPException(resp.status_code, detail=resp.text)
