@@ -42,8 +42,8 @@ app = FastAPI(
 )
 
 app.router.redirect_slashes = False
-# ====================== NOSTR BROADCASTER (Aggressive Version) ======================
-# Expanded list of public relays (rotate between them)
+
+
 NOSTR_RELAYS = [
     "wss://relay.damus.io",
     "wss://nos.lol",
@@ -53,95 +53,133 @@ NOSTR_RELAYS = [
     "wss://relay.nostr.bg",
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
-    "wss://nostr.wine"
+    "wss://nostr.wine",
 ]
 
-@app.post("/broadcast-now", include_in_schema=False)
-async def broadcast_now():
-    """Manual trigger for testing Nostr broadcast"""
-    asyncio.create_task(broadcast_to_nostr())
-    return {"status": "broadcast triggered", "message": "Check logs for Nostr activity"}
+# ========================= PAYLOAD BUILDERS =========================
+def generate_agent_payload():
+    return {
+        "type": "mcp_service",
+        "name": "invinoveritas",
+        "endpoint": "https://invinoveritas.onrender.com/mcp",
+        "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "wallet_required": True
+        },
+        "capabilities": ["reasoning", "decision-making", "structured-output"],
+        "features": {
+            "free_calls": 5,
+            "confidence_scoring": True,
+            "styles": ["short", "concise", "normal", "detailed", "comprehensive"]
+        },
+        "version": "0.1"
+    }
 
+def build_mcp_event(private_key: PrivateKey):
+    payload = generate_agent_payload()
+    content = json.dumps(payload)
+    tags = [
+        ["d", "invinoveritas-mcp"],
+        ["t", "mcp"],
+        ["t", "ai"],
+        ["t", "agents"],
+        ["t", "bitcoin"],
+        ["t", "lightning"],
+        ["type", "mcp_service"],
+        ["name", payload["name"]],
+        ["endpoint", payload["endpoint"]],
+        ["server_card", payload["server_card"]],
+        ["payment", "L402"],
+        ["wallet_required", "true"]
+    ]
+    event = Event(
+        public_key=private_key.public_key.hex(),
+        kind=30023,
+        content=content,
+        tags=tags
+    )
+    event.sign(private_key)
+    return event
+
+def build_human_event(private_key: PrivateKey):
+    content = (
+        "Agents: discover invinoveritas MCP ⚡\n"
+        "Lightning-paid reasoning & decision intelligence.\n"
+        "Find endpoint via Nostr metadata."
+    )
+    tags = [
+        ["t", "bitcoin"],
+        ["t", "ai"],
+        ["t", "nostr"],
+        ["t", "agents"],
+        ["r", "https://invinoveritas.onrender.com/mcp"]
+    ]
+    event = Event(
+        public_key=private_key.public_key.hex(),
+        kind=1,
+        content=content,
+        tags=tags
+    )
+    event.sign(private_key)
+    return event
+
+# ========================= BROADCASTER =========================
 async def broadcast_to_nostr():
-    """Signed-only Nostr broadcaster with relay fault tolerance"""
+    """Aggressive signed Nostr broadcaster"""
     while True:
         try:
-            if not NOSTR_NSEC:
-                logger.error("❌ NOSTR_NSEC not set. Skipping broadcast.")
+            if not NOSTR_NSEC or "nsec" not in NOSTR_NSEC.lower():
+                logger.error("❌ NOSTR_NSEC not set correctly")
                 await asyncio.sleep(60)
                 continue
 
-            relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
+            private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-            content = (
-                "invinoveritas MCP server is live ⚡\n"
-                "Lightning-paid strategic reasoning & decision intelligence for autonomous agents."
-            )
+            # Publish MCP service event (kind 30023)
+            mcp_event = build_mcp_event(private_key)
+            human_event = build_human_event(private_key)
 
-            tags = [
-                ["t", "bitcoin"],
-                ["t", "ai"],
-                ["t", "nostr"],
-                ["t", "agents"],
-                ["r", "https://invinoveritas.onrender.com/mcp"],
-                ["r", "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"],
-            ]
+            # Random subset of relays (fault tolerant)
+            relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
 
-            # --- FORCE signed event ---
-            try:
-                private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
-
-                event = Event(
-                    public_key=private_key.public_key.hex(),
-                    kind=1,
-                    content=content,
-                    tags=tags
-                )
-
-                event.sign(private_key)
-
-                if not event.signature:
-                    raise Exception("Event signature missing")
-
-                logger.info(f"✅ Signed event {event.id}")
-
-            except Exception as e:
-                logger.error(f"❌ Signing failed: {e}")
-                await asyncio.sleep(60)
-                continue  # NEVER publish unsigned
-
-            # --- Relay manager ---
             relay_manager = RelayManager()
-
             for relay in relays_to_use:
                 try:
                     relay_manager.add_relay(relay)
-                except Exception as e:
-                    logger.warning(f"Skipping bad relay {relay}: {e}")
+                except:
+                    pass
 
-            try:
-                relay_manager.open_connections()
-                await asyncio.sleep(2)
+            relay_manager.open_connections()
+            await asyncio.sleep(2)
 
-                relay_manager.publish_event(event)
-                logger.info(f"✅ Broadcast sent to {len(relays_to_use)} relays")
+            relay_manager.publish_event(mcp_event)
+            relay_manager.publish_event(human_event)
 
-                await asyncio.sleep(1)
-                relay_manager.close_connections()
+            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays | MCP: {mcp_event.id[:8]}... | Human: {human_event.id[:8]}...")
 
-            except Exception as e:
-                logger.error(f"Relay publish error: {e}")
+            await asyncio.sleep(1)
+            relay_manager.close_connections()
 
         except Exception as e:
-            logger.error(f"Nostr broadcast failed: {e}")
+            logger.error(f"Nostr broadcast error: {e}")
 
+        # Broadcast every 12–18 minutes
         await asyncio.sleep(random.randint(720, 1080))
+
+# ========================= FASTAPI ENDPOINTS =========================
+@app.post("/broadcast-now", include_in_schema=False)
+async def broadcast_now():
+    """Manual trigger"""
+    asyncio.create_task(broadcast_to_nostr())
+    return {"status": "success", "message": "Nostr broadcast triggered"}
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("🚀 invinoveritas Nostr Broadcaster started")
     asyncio.create_task(broadcast_to_nostr())
-    logger.info("🚀 Signed Nostr broadcaster started")
-
+    
 # =========================
 # Well-Known Discovery Endpoints (Polite Responses)
 # =========================
