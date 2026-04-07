@@ -100,6 +100,65 @@ asyncio.run(main())
 ```
 
 ---
+Here's a clean, professional Markdown version of your code snippet:
+
+---
+
+### ⚡ Smart Usage Guide: When to Call invinoveritas
+
+```python
+from invinoveritas import InvinoClient
+
+client = InvinoClient()
+
+def should_call_invinoveritas(task: dict) -> bool:
+    """
+    Intelligent decision: Should we use invinoveritas for this task?
+    """
+    return any([
+        task.get("steps", 1) > 2,                    # Complex multi-step task
+        task.get("uncertainty", 0) > 0.6,            # High uncertainty
+        task.get("value_at_risk", 0) > 100,          # High-stakes decision
+        task.get("requires_reasoning", False),       # Explicitly needs deep reasoning
+        len(task.get("question", "")) > 200          # Long/complex question
+    ])
+
+def enhanced_reasoning(task: dict):
+    """
+    Smart wrapper: Use invinoveritas only when it adds real value,
+    otherwise fall back to local/fast model.
+    """
+    if should_call_invinoveritas(task):
+        print("🔥 Using invinoveritas for deep reasoning...")
+        return client.reason(task["question"])
+    
+    print("⚡ Using local/fast model (simple task)")
+    return {"answer": "fallback or local model response"}
+```
+
+### Usage Example
+
+```python
+task = {
+    "question": "Should we increase our Bitcoin allocation in 2026 given current macro conditions?",
+    "steps": 4,
+    "uncertainty": 0.75,
+    "value_at_risk": 250,
+    "requires_reasoning": True
+}
+
+result = enhanced_reasoning(task)
+print(result)
+```
+
+### Why This Pattern is Smart
+
+- **Cost efficient** — Only pays for Lightning when the task actually benefits from deep reasoning
+- **Fast fallback** — Simple questions stay quick and cheap
+- **Agent-friendly** — Easy to integrate into decision loops
+- **Scalable** — Agents can dynamically decide when to escalate to invinoveritas
+
+---
 
 ## Core Tools
 
