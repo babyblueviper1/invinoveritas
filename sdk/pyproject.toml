@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invinoveritas"
-version = "0.3.1"
+version = "0.3.2"
 description = "Lightning-paid reasoning and decision intelligence for autonomous agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
