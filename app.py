@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Dict, Optional, Literal
 import httpx
 import asyncio
+import random
 from nostr.event import Event
 from nostr.key import PrivateKey
 from nostr.relay_manager import RelayManager
