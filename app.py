@@ -11,7 +11,7 @@ from config import (
     MIN_PRICE_SATS,
     RATE_LIMIT_SECONDS,
     NODE_URL,
-    NOSTR_PRIVATE_KEY
+    NOSTR_NSEC
 )
 import os
 import time
@@ -64,7 +64,7 @@ async def broadcast_now():
     return {"status": "broadcast triggered", "message": "Check logs for Nostr activity"}
 
 async def broadcast_to_nostr():
-    """Real signed Nostr broadcaster"""
+    """Signed Nostr broadcaster with automatic nsec → hex conversion"""
     while True:
         try:
             relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
@@ -85,15 +85,18 @@ async def broadcast_to_nostr():
                 ["payment_protocol", "L402"]
             ]
 
-            if NOSTR_PRIVATE_KEY:
-                # Correct way to create PrivateKey from hex
-                private_key = PrivateKey(bytes.fromhex(NOSTR_PRIVATE_KEY))
-                event = Event(content=content, tags=tags, kind=31234)
-                event.sign(private_key.hex())
-                logger.info("Nostr event signed successfully")
+            if NOSTR_NSEC:
+                try:
+                    private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
+                    event = Event(content=content, tags=tags, kind=31234)
+                    event.sign(private_key.hex())
+                    logger.info("✅ Nostr event signed successfully using nsec key")
+                except Exception as e:
+                    logger.warning(f"Failed to decode nsec key: {e}. Falling back to unsigned.")
+                    event = Event(content=content, tags=tags, kind=31234)
             else:
                 event = Event(content=content, tags=tags, kind=31234)
-                logger.warning("Nostr event unsigned - set NOSTR_PRIVATE_KEY for signed events")
+                logger.info("Nostr event sent unsigned (no NOSTR_NSEC set)")
 
             # Publish
             relay_manager = RelayManager()
@@ -113,7 +116,6 @@ async def broadcast_to_nostr():
 async def startup_event():
     asyncio.create_task(broadcast_to_nostr())
     logger.info("🚀 Signed Nostr broadcaster started")
-
 
 # =========================
 # Well-Known Discovery Endpoints (Polite Responses)
