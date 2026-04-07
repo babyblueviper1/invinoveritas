@@ -63,21 +63,40 @@
     ],
     "authentication": {
         "required": true,
-        "schemes": ["L402", "Bearer"],
+            "schemes": ["L402", "Bearer"],
         "description": "Use Authorization: Bearer ivv_... (recommended for agents) or L402 <hash>:<preimage>"
     },
+    
+    # === URGENT WALLET CONFIGURATION SECTION ===
+    "walletSetup": {
+        "required": True,
+        "message": "⚡ Lightning wallet configuration is REQUIRED for autonomous operation.",
+        "note": "Agents without a configured wallet (NWC or LND) will receive Payment Required (402) on every tool call.",
+        "quickstart": "Use NWCProvider with WalletConnect URI from Alby, Zeus or Mutiny — setup takes under 3 minutes.",
+        "recommended": "NWC (no node required)",
+        "alternative": "LND node for full control"
+    },
+    
     "pricing": {
         "currency": "sats",
-        "reason_base": 500,
-        "decide_base": 1000,
-        "agent_multiplier": 1.2,
-        "minimum": 50,
+        "reason_base": REASONING_PRICE_SATS,
+        "decide_base": DECISION_PRICE_SATS,
+        "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+        "minimum": MIN_PRICE_SATS,
         "note": "Final price may vary slightly based on input length and complexity."
     },
     "documentation": {
         "guide": "/guide",
         "prices": "/prices",
+        "wallet_onboarding": "/wallet-onboarding",
         "sdk": "https://pypi.org/project/invinoveritas/",
         "github": "https://github.com/babyblueviper1/invinoveritas"
-    }
+    },
+    
+    # Extra visibility for orchestrators
+    "importantNotes": [
+        "Lightning wallet (NWC or LND) must be configured before using this MCP server.",
+        "Without a wallet, every callTool returns 402 Payment Required.",
+        "NWC is the fastest way to enable true autonomous agent behavior."
+    ]
 }
