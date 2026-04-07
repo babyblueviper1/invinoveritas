@@ -24,6 +24,7 @@ import httpx
 import asyncio
 from nostr.event import Event
 from nostr.key import PrivateKey
+from nostr.relay_manager import RelayManager
 
 # =========================
 # FastAPI App
