@@ -24,6 +24,7 @@ import httpx
 import asyncio
 import random
 from nostr.event import Event
+from nostr_sdk import PrivateKey, Event, Kind, RelayManager
 from nostr.key import PrivateKey
 from nostr.relay_manager import RelayManager
 
