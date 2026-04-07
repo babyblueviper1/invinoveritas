@@ -23,9 +23,8 @@ from typing import Dict, Optional, Literal
 import httpx
 import asyncio
 import random
-from nostr.event import Event
-from nostr_sdk import PrivateKey, Event, Kind, RelayManager
 from nostr.key import PrivateKey
+from nostr.event import Event
 from nostr.relay_manager import RelayManager
 
 # =========================
@@ -57,18 +56,14 @@ NOSTR_RELAYS = [
     "wss://nostr.wine",
 ]
 
-# ========================= PAYLOAD BUILDERS =========================
+# ========================= BUILDERS =========================
 def generate_agent_payload():
     return {
         "type": "mcp_service",
         "name": "invinoveritas",
         "endpoint": "https://invinoveritas.onrender.com/mcp",
         "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-        "payment": {
-            "protocol": "L402",
-            "network": "lightning",
-            "wallet_required": True
-        },
+        "payment": {"protocol": "L402", "network": "lightning", "wallet_required": True},
         "capabilities": ["reasoning", "decision-making", "structured-output"],
         "features": {
             "free_calls": 5,
@@ -78,65 +73,38 @@ def generate_agent_payload():
         "version": "0.1"
     }
 
-def build_mcp_event(private_key: PrivateKey):
+def build_mcp_event(private_key):
     payload = generate_agent_payload()
     content = json.dumps(payload)
-
     tags = [
         ["d", "invinoveritas-mcp"],
-        ["t", "mcp"],
-        ["t", "ai"],
-        ["t", "agents"],
-        ["t", "bitcoin"],
-        ["t", "lightning"],
+        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
         ["type", "mcp_service"],
         ["name", payload["name"]],
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
         ["payment", "L402"],
-        ["wallet_required", "true"]
     ]
-
-    event = Event(
-        pubkey=private_key.public_key.hex(),      # ← Fixed
-        kind=Kind(30023),
-        content=content,
-        tags=tags
-    )
-    private_key.sign_event(event)                 # ← Correct signing
+    event = Event(kind=30023, content=content, tags=tags)
+    event.sign(private_key)
     return event
 
-
-def build_human_event(private_key: PrivateKey):
-    content = (
-        "Agents: discover invinoveritas MCP ⚡\n"
-        "Lightning-paid reasoning & decision intelligence.\n"
-        "Find endpoint via Nostr metadata."
-    )
+def build_human_event(private_key):
+    content = "Agents: discover invinoveritas MCP ⚡\nLightning-paid reasoning & decision intelligence."
     tags = [
-        ["t", "bitcoin"],
-        ["t", "ai"],
-        ["t", "nostr"],
-        ["t", "agents"],
+        ["t", "bitcoin"], ["t", "ai"], ["t", "nostr"], ["t", "agents"],
         ["r", "https://invinoveritas.onrender.com/mcp"]
     ]
-
-    event = Event(
-        pubkey=private_key.public_key.hex(),      # ← Fixed
-        kind=Kind(1),
-        content=content,
-        tags=tags
-    )
-    private_key.sign_event(event)
+    event = Event(kind=1, content=content, tags=tags)
+    event.sign(private_key)
     return event
-
 
 # ========================= BROADCASTER =========================
 async def broadcast_to_nostr():
     while True:
         try:
-            if not NOSTR_NSEC or "nsec" not in NOSTR_NSEC.lower():
-                logger.error("❌ NOSTR_NSEC not set correctly")
+            if not NOSTR_NSEC:
+                logger.error("❌ NOSTR_NSEC not set")
                 await asyncio.sleep(60)
                 continue
 
@@ -149,10 +117,7 @@ async def broadcast_to_nostr():
 
             relay_manager = RelayManager()
             for relay in relays_to_use:
-                try:
-                    relay_manager.add_relay(relay)
-                except:
-                    pass
+                relay_manager.add_relay(relay)
 
             relay_manager.open_connections()
             await asyncio.sleep(2)
@@ -160,19 +125,18 @@ async def broadcast_to_nostr():
             relay_manager.publish_event(mcp_event)
             relay_manager.publish_event(human_event)
 
-            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays | MCP ID: {mcp_event.id[:8]}...")
+            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays")
 
         except Exception as e:
             logger.error(f"Nostr broadcast error: {e}")
 
-        await asyncio.sleep(random.randint(720, 1080))  # 12-18 minutes
-
+        await asyncio.sleep(random.randint(720, 1080))
 
 # ========================= FASTAPI =========================
-@app.post("/broadcast-now", include_in_schema=False)
+@app.post("/broadcast-now")
 async def broadcast_now():
     asyncio.create_task(broadcast_to_nostr())
-    return {"status": "success", "message": "Nostr broadcast triggered"}
+    return {"status": "success"}
 
 @app.on_event("startup")
 async def startup_event():
