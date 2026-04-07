@@ -50,11 +50,10 @@ NOSTR_RELAYS = [
     "wss://relay.primal.net",
     "wss://nostr-pub.wellorder.net",
     "wss://relay.snort.social",
-    "wss://nostr.rocks",
     "wss://relay.nostr.bg",
     "wss://nostr.oxtr.dev",
-    "wss://nostr.mom",
-    "wss://nostr.bitcoiner.social"
+    "wss://nostr.bitcoiner.social",
+    "wss://nostr.wine"
 ]
 
 @app.post("/broadcast-now", include_in_schema=False)
@@ -64,9 +63,14 @@ async def broadcast_now():
     return {"status": "broadcast triggered", "message": "Check logs for Nostr activity"}
 
 async def broadcast_to_nostr():
-    """Robust Nostr broadcaster with proper signing + relay handling"""
+    """Signed-only Nostr broadcaster with relay fault tolerance"""
     while True:
         try:
+            if not NOSTR_NSEC:
+                logger.error("❌ NOSTR_NSEC not set. Skipping broadcast.")
+                await asyncio.sleep(60)
+                continue
+
             relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
 
             content = (
@@ -83,55 +87,55 @@ async def broadcast_to_nostr():
                 ["r", "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"],
             ]
 
-            # --- Create + sign event ---
+            # --- FORCE signed event ---
             try:
                 private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
                 event = Event(
                     public_key=private_key.public_key.hex(),
-                    kind=1,  # use kind=1 for visibility
+                    kind=1,
                     content=content,
                     tags=tags
                 )
 
                 event.sign(private_key)
 
-                logger.info("✅ Nostr event signed successfully")
-                logger.info(f"Event ID: {event.id}")
-                logger.info(f"Pubkey: {event.public_key}")
+                if not event.signature:
+                    raise Exception("Event signature missing")
+
+                logger.info(f"✅ Signed event {event.id}")
 
             except Exception as e:
-                logger.warning(f"Signing failed: {e}. Using unsigned event.")
+                logger.error(f"❌ Signing failed: {e}")
+                await asyncio.sleep(60)
+                continue  # NEVER publish unsigned
 
-                event = Event(
-                    public_key="",
-                    kind=1,
-                    content=content,
-                    tags=tags
-                )
-
-            # --- Relay manager setup ---
+            # --- Relay manager ---
             relay_manager = RelayManager()
 
             for relay in relays_to_use:
-                relay_manager.add_relay(relay)
+                try:
+                    relay_manager.add_relay(relay)
+                except Exception as e:
+                    logger.warning(f"Skipping bad relay {relay}: {e}")
 
-            relay_manager.open_connections()
-            await asyncio.sleep(1.5)  # allow connections to establish
+            try:
+                relay_manager.open_connections()
+                await asyncio.sleep(2)
 
-            # --- Publish ---
-            relay_manager.publish_event(event)
-            logger.info(f"✅ Broadcast sent to {len(relays_to_use)} relays")
+                relay_manager.publish_event(event)
+                logger.info(f"✅ Broadcast sent to {len(relays_to_use)} relays")
 
-            await asyncio.sleep(1)  # allow message propagation
-            relay_manager.close_connections()
+                await asyncio.sleep(1)
+                relay_manager.close_connections()
+
+            except Exception as e:
+                logger.error(f"Relay publish error: {e}")
 
         except Exception as e:
             logger.error(f"Nostr broadcast failed: {e}")
 
-        # --- Wait before next broadcast (12–18 min) ---
         await asyncio.sleep(random.randint(720, 1080))
-
 
 @app.on_event("startup")
 async def startup_event():
