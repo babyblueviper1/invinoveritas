@@ -95,12 +95,12 @@ def build_mcp_event(private_key: PrivateKey):
         ["wallet_required", "true"]
     ]
     event = Event(
-        public_key=private_key.public_key.hex(),
-        kind=30023,
+        pubkey=private_key.public_key().hex(),   # corrected
+        kind=Kind(30023),
         content=content,
         tags=tags
     )
-    event.sign(private_key)
+    private_key.sign_event(event)   # ← Correct signing method
     return event
 
 def build_human_event(private_key: PrivateKey):
@@ -117,17 +117,16 @@ def build_human_event(private_key: PrivateKey):
         ["r", "https://invinoveritas.onrender.com/mcp"]
     ]
     event = Event(
-        public_key=private_key.public_key.hex(),
-        kind=1,
+        pubkey=private_key.public_key().hex(),
+        kind=Kind(1),
         content=content,
         tags=tags
     )
-    event.sign(private_key)
+    private_key.sign_event(event)   # ← Correct method
     return event
 
 # ========================= BROADCASTER =========================
 async def broadcast_to_nostr():
-    """Aggressive signed Nostr broadcaster"""
     while True:
         try:
             if not NOSTR_NSEC or "nsec" not in NOSTR_NSEC.lower():
@@ -137,11 +136,9 @@ async def broadcast_to_nostr():
 
             private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-            # Publish MCP service event (kind 30023)
             mcp_event = build_mcp_event(private_key)
             human_event = build_human_event(private_key)
 
-            # Random subset of relays (fault tolerant)
             relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))
 
             relay_manager = RelayManager()
@@ -157,21 +154,16 @@ async def broadcast_to_nostr():
             relay_manager.publish_event(mcp_event)
             relay_manager.publish_event(human_event)
 
-            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays | MCP: {mcp_event.id[:8]}... | Human: {human_event.id[:8]}...")
-
-            await asyncio.sleep(1)
-            relay_manager.close_connections()
+            logger.info(f"📡 Broadcast sent to {len(relays_to_use)} relays | MCP: {mcp_event.id[:8]}...")
 
         except Exception as e:
             logger.error(f"Nostr broadcast error: {e}")
 
-        # Broadcast every 12–18 minutes
-        await asyncio.sleep(random.randint(720, 1080))
+        await asyncio.sleep(random.randint(720, 1080))  # 12-18 minutes
 
-# ========================= FASTAPI ENDPOINTS =========================
+# ========================= FASTAPI =========================
 @app.post("/broadcast-now", include_in_schema=False)
 async def broadcast_now():
-    """Manual trigger"""
     asyncio.create_task(broadcast_to_nostr())
     return {"status": "success", "message": "Nostr broadcast triggered"}
 
