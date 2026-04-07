@@ -7,10 +7,54 @@ import time
 import sqlite3
 import secrets
 from typing import Dict, Any, Optional
+import requests  # add at top
 
 app = FastAPI(title="invinoveritas LND + Accounts Bridge")
 
 DB_PATH = "invinoveritas_accounts.db"
+
+
+STRIKE_API_URL = "https://api.strike.me/v1"  # production endpoint
+STRIKE_API_KEY = "<YOUR_STRIKE_API_KEY>"    # your server key
+
+# =========================
+# Strike Helper Functions
+# =========================
+
+def create_strike_invoice(api_key: str, amount_usd: float, description: str) -> Dict[str, Any]:
+    """Create a Strike invoice in USD"""
+    correlation_id = secrets.token_hex(16)
+    payload = {
+        "correlationId": correlation_id,
+        "description": description,
+        "amount": {
+            "currency": "USD",
+            "amount": f"{amount_usd:.2f}"
+        }
+    }
+    headers = {
+        "Authorization": f"Bearer {STRIKE_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    resp = requests.post(f"{STRIKE_API_URL}/invoices", json=payload, headers=headers)
+    if resp.status_code != 200:
+        return {"error": f"Strike API error: {resp.status_code} {resp.text}"}
+    return resp.json()
+
+def verify_strike_payment(invoice_id: str) -> bool:
+    """Check if a Strike invoice has been paid"""
+    headers = {"Authorization": f"Bearer {STRIKE_API_KEY}"}
+    resp = requests.get(f"{STRIKE_API_URL}/invoices/{invoice_id}", headers=headers)
+    if resp.status_code != 200:
+        return False
+    data = resp.json()
+    return data.get("state") == "PAID"
+
+def usd_to_sats(usd: float, rate: float = 50000.0) -> int:
+    """Convert USD to satoshis (default BTC price = $50k)"""
+    return int((usd / rate) * 100_000_000)
 
 # =========================
 # Models
