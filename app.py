@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
 from config import (
@@ -18,7 +18,7 @@ import logging
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Literal
 import httpx
 
 # =========================
