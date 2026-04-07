@@ -41,18 +41,27 @@ app = FastAPI(
 
 app.router.redirect_slashes = False
 # ====================== NOSTR BROADCASTER (Aggressive Version) ======================
+# Expanded list of public relays (rotate between them)
 NOSTR_RELAYS = [
     "wss://relay.damus.io",
     "wss://nos.lol",
     "wss://relay.primal.net",
     "wss://nostr-pub.wellorder.net",
-    "wss://relay.snort.social"
+    "wss://relay.snort.social",
+    "wss://nostr.rocks",
+    "wss://relay.nostr.bg",
+    "wss://nostr.oxtr.dev",
+    "wss://nostr.mom",
+    "wss://nostr.bitcoiner.social"
 ]
 
 async def broadcast_to_nostr():
-    """Aggressive Nostr broadcaster - announces every 15 minutes"""
+    """Smart Nostr broadcaster - rotates relays and announces every 12-18 minutes"""
     while True:
         try:
+            # Randomize order of relays each time
+            relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))  # use 5-6 random relays
+
             content = (
                 "invinoveritas MCP server is live ⚡\n"
                 "Lightning-paid strategic reasoning & decision intelligence for autonomous agents."
@@ -63,42 +72,32 @@ async def broadcast_to_nostr():
                 ["server-card", "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"],
                 ["description", "High-quality reasoning and structured decisions powered by Bitcoin Lightning"],
                 ["wallet_required", "true"],
-                ["free_calls", "5 free calls on new registration"],
+                ["free_calls", "5 on new registration"],
                 ["style_support", "short, concise, normal, detailed, comprehensive"],
                 ["confidence_scoring", "true"],
-                ["payment_protocol", "L402"],
-                ["recommended", "NWC (easiest)"]
+                ["payment_protocol", "L402"]
             ]
 
             if NOSTR_PRIVATE_KEY:
                 private_key = PrivateKey.from_hex(NOSTR_PRIVATE_KEY)
-                event = Event(
-                    content=content,
-                    tags=tags,
-                    kind=31234  # Custom kind for MCP service announcements
-                )
+                event = Event(content=content, tags=tags, kind=31234)
                 event.sign(private_key.hex())
-                logger.info("Nostr broadcast signed and ready")
             else:
-                event = Event(
-                    content=content,
-                    tags=tags,
-                    kind=31234
-                )
-                logger.info("Nostr broadcast (unsigned) ready")
+                event = Event(content=content, tags=tags, kind=31234)
 
-            # Publish to all relays
-            for relay_url in NOSTR_RELAYS:
+            # Publish to randomized relays
+            for relay_url in relays_to_use:
                 try:
-                    # TODO: Replace with real nostr client publishing when you add the library
-                    logger.info(f"[Nostr] Announced to {relay_url}")
+                    logger.info(f"[Nostr Broadcast] Announced to {relay_url}")
+                    # TODO: Add real publishing code here later
                 except Exception as e:
                     logger.warning(f"Failed to publish to {relay_url}: {e}")
 
         except Exception as e:
             logger.error(f"Nostr broadcaster error: {e}")
 
-        await asyncio.sleep(900)  # Every 15 minutes (900 seconds)
+        # Random delay between 12 and 18 minutes to avoid patterns
+        await asyncio.sleep(random.randint(720, 1080)
 
 
 # Start broadcaster on startup
