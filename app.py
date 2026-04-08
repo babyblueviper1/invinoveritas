@@ -137,14 +137,22 @@ def generate_agent_payload(score: int = 7) -> dict:
         },
         "wallet_options": {
             "NWC": ["Alby", "Zeus", "Mutiny"],
-            "Custodial": ["Strike, Wallet of Sats - manual invoice"],
+            "Custodial": ["Strike", "Wallet of Sats"],
             "LND": "Follow Lightning Labs docs"
         },
         "capabilities": ["reasoning", "decision-making", "structured-output", "risk-assessment"],
         "score": score,
         "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes"],
+        "trading_bot_ready": True,
+        "trading_features": {
+            "arbitrage_eval": True,
+            "portfolio_rebalancing": True,
+            "risk_score": True,
+            "confidence_weighted_decisions": True,
+            "async_api_ready": True
+        },
         "value_proposition": {
-            "edge": "High quality reasoning",
+            "edge": "High quality reasoning for trading bots",
             "reduces_error": True,
             "saves_time": True,
             "autonomous_ready": True
@@ -175,10 +183,18 @@ def generate_sdk_payload(score: int = 7) -> dict:
             "protocol": "L402",
             "network": "lightning",
             "model": "per_call",
-            "wallet_options": ["NWC", "LND", "custodial"]
+            "wallet_options": ["NWC", "LND", "Custodial"]
         },
-        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes"],
+        "use_when": ["high_uncertainty","multi_step_reasoning","financial_decision","high_stakes","trading_decision"],
         "score": score,
+        "trading_bot_ready": True,
+        "trading_features": {
+            "arbitrage_eval": True,
+            "portfolio_rebalancing": True,
+            "risk_score": True,
+            "confidence_weighted_decisions": True,
+            "async_api_ready": True
+        },
         "ranking": {"quality": "high", "cost_efficiency": "high", "determinism": "high"},
         "roi_signal": {"expected": "positive", "confidence": "high"},
         "discovery": {
@@ -196,6 +212,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
         ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
@@ -205,8 +222,8 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
         ["agent_card", payload["agent_card"]],
         ["payment", "L402"],
         ["wallet_required", "true"],
+        ["wallet_supported", "NWC,LND,Custodial"],
         ["score", str(score)],
-        ["wallet_supported", "NWC,LND,custodial"],
         ["roi_signal", "positive_high_confidence"],
     ]
     event = Event(
@@ -225,13 +242,14 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
         ["version", "0.4.0"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402"],
-        ["wallet_supported", "NWC,LND,Strike"],
+        ["wallet_supported", "NWC,LND,Custodial"],
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
     ]
@@ -245,7 +263,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
     return event
  
  
-# ── Human Event (Wallet-First) ──────────────────────────────────────────────
+# ── Human Event (Wallet-First + Trading Bot) ──────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
     content = (
         "⚡ invinoveritas v0.4.0 is live\n\n"
@@ -255,16 +273,22 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "→ Wallets supported:\n"
         "   • NWC (Alby, Zeus, Mutiny)\n"
         "   • LND (manual setup)\n"
-        "   • custodial (Strike, Wallet of Sats - manual invoice copy)\n\n"
+        "   • Custodial (Strike, Wallet of Sats)\n\n"
+        "→ Trading bot-ready:\n"
+        "   • Arbitrage evaluation\n"
+        "   • Portfolio rebalancing\n"
+        "   • Confidence-weighted risk scoring\n"
+        "   • Async-ready API for Python bots\n\n"
         "Pay only when decisions matter."
     )
     tags = [
         ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
         ["r", "https://invinoveritas.onrender.com/mcp"],
         ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
         ["version", "0.4.0"],
         ["type", "sdk_announcement"],
-        ["wallet_supported", "NWC,LND,custodial"]
+        ["wallet_supported", "NWC,LND,Custodial"]
     ]
     event = Event(
         kind=1,
