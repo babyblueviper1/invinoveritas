@@ -1,6 +1,7 @@
 from nostr_listener import run_listener
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from collections import deque
 from node_bridge import create_invoice, check_payment, verify_preimage
@@ -81,25 +82,79 @@ BROADCAST_INTERVAL_MAX = 1080      # 18 min
 ANNOUNCEMENTS: list[dict] = []
 
 def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement from Nostr broadcaster to RSS feed"""
+    """Add announcement and broadcast to both RSS and SSE clients"""
     announcement = {
         "title": title,
         "description": description,
         "link": link or "https://invinoveritas.onrender.com/discover",
         "pubDate": datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"),
-        "guid": f"https://invinoveritas.onrender.com/announce/{int(time.time())}"
+        "guid": f"https://invinoveritas.onrender.com/announce/{int(time.time())}",
+        "timestamp": int(time.time())
     }
     
-    ANNOUNCEMENTS.insert(0, announcement)  # newest first
-    
-    # Keep only last 5
+    ANNOUNCEMENTS.insert(0, announcement)
     if len(ANNOUNCEMENTS) > 5:
         ANNOUNCEMENTS.pop()
     
-    logger.info(f"📢 RSS announcement added: {title}")
+    logger.info(f"📢 Announcement added: {title}")
+    
+    # Push to all connected SSE clients
+    for queue in active_sse_clients[:]:   # copy to avoid modification during iteration
+        try:
+            queue.put_nowait(announcement)
+        except Exception:
+            # Clean up dead queues if needed
+            if queue in active_sse_clients:
+                active_sse_clients.remove(queue)
+    
     return announcement
 
+# Store of active SSE clients
+active_sse_clients: list[asyncio.Queue] = []
 
+async def sse_event_generator():
+    """Generator that pushes announcements to all connected SSE clients"""
+    queue: asyncio.Queue = asyncio.Queue()
+    active_sse_clients.append(queue)
+    
+    try:
+        while True:
+            # Wait for new announcement
+            announcement = await queue.get()
+            
+            # Format as SSE
+            data = {
+                "type": "announcement",
+                "title": announcement["title"],
+                "description": announcement["description"],
+                "link": announcement.get("link"),
+                "timestamp": announcement.get("timestamp", int(time.time()))
+            }
+            
+            yield f"data: {json.dumps(data)}\n\n"
+            
+    except asyncio.CancelledError:
+        pass
+    finally:
+        if queue in active_sse_clients:
+            active_sse_clients.remove(queue)
+
+
+@app.get("/events", tags=["meta"])
+@app.get("/sse", tags=["meta"])
+async def sse_discovery_hub(request: Request):
+    """SSE endpoint for real-time MCP server announcements.
+    Agents can connect here to receive live updates from Nostr broadcasts."""
+    return StreamingResponse(
+        sse_event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 # ── Relay health tracker ──────────────────────────────────────────────────────
 @dataclass
@@ -2828,10 +2883,16 @@ async def discover_page():
             <p>Optimized for high-frequency decisions, arbitrage, portfolio rebalancing, and risk assessment.</p>
             <p><strong>Recommended:</strong> NWC (Alby / Zeus / Mutiny) + pre-funded account for lowest latency.</p>
         </div>
+        <div class="card">
+            <h2>Real-time Updates</h2>
+            <p>Connect to our live SSE feed to receive instant announcements:</p>
+            <pre>https://invinoveritas.onrender.com/events</pre>
+            <p><small>Perfect for autonomous agents that want to react to new features or updates immediately.</small></p>
+        </div>
 
         <div class="card">
-            <h2>Stay Updated</h2>
-            <p>Follow our announcements via RSS feed:</p>
+            <h2>RSS</h2>
+            <p>You can also follow our announcements via RSS feed:</p>
             <p>
                 <a href="/rss" target="_blank">📡 RSS Feed</a> 
                 <small>(https://invinoveritas.onrender.com/rss)</small>
