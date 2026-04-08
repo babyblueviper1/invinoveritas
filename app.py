@@ -82,6 +82,8 @@ BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
 ANNOUNCEMENTS_FILE = Path("/tmp/invinoveritas_announcements.json")
 ANNOUNCEMENTS: list[dict] = []
+active_ws_clients: list[WebSocket] = []
+active_sse_clients: list[asyncio.Queue] = []
 
 def load_announcements():
     """Load announcements from disk on startup"""
@@ -111,55 +113,56 @@ def save_announcements():
 active_ws_clients: list[WebSocket] = []
 
 
+# ========================= WEBSOCKET =========================
 @app.websocket("/ws")
 @app.websocket("/ws/announcements")
 async def websocket_announcements(websocket: WebSocket):
-    """Simple WebSocket for real-time announcements"""
     await websocket.accept()
     active_ws_clients.append(websocket)
-    
     try:
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas real-time announcements.",
-            "note": "You will receive updates when new Nostr announcements are published."
+            "message": "Connected to invinoveritas real-time announcements."
         })
-
-        # Keep connection alive
         while True:
             data = await websocket.receive_text()
             if data.lower() == "ping":
                 await websocket.send_json({"type": "pong", "timestamp": int(time.time())})
-
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WS error: {e}")
     finally:
         if websocket in active_ws_clients:
             active_ws_clients.remove(websocket)
 
-# Helper function to broadcast (call this from your Nostr broadcaster)
+# ========================= BROADCAST HELPER =========================
 async def broadcast_via_websocket(title: str, description: str, link: str = None):
-    """Broadcast announcement to all connected WebSocket clients"""
     message = {
         "type": "announcement",
         "title": title,
         "description": description,
-        "link": link or "https://invinoveritas.onrender.com/discover",
+        "link": link or "https://invinoveritas.onrender.com",
         "timestamp": int(time.time())
     }
-    
+    # WebSocket
     dead = []
     for ws in active_ws_clients:
         try:
             await ws.send_json(message)
-        except Exception:
+        except:
             dead.append(ws)
-    
     for d in dead:
         if d in active_ws_clients:
             active_ws_clients.remove(d)
+
+    # SSE
+    for queue in list(active_sse_clients):
+        try:
+            queue.put_nowait(message)
+        except:
+            if queue in active_sse_clients:
+                active_sse_clients.remove(queue)
 
 
 
@@ -252,7 +255,6 @@ async def sse_test_page():
 async def sse_event_generator():
     queue: asyncio.Queue = asyncio.Queue(maxsize=20)
     active_sse_clients.append(queue)
-    
     try:
         while True:
             try:
@@ -266,14 +268,12 @@ async def sse_event_generator():
                 }
                 yield f"data: {json.dumps(data)}\n\n"
             except asyncio.TimeoutError:
-                yield ": keep-alive\n\n"   # prevents timeout
-                continue
+                yield ": keep-alive\n\n"
     except asyncio.CancelledError:
         pass
     finally:
         if queue in active_sse_clients:
             active_sse_clients.remove(queue)
-
 
 @app.get("/events", tags=["meta"])
 @app.get("/sse", tags=["meta"])
@@ -283,14 +283,16 @@ async def sse_discovery_hub(request: Request):
     """SSE endpoint for real-time announcements from Nostr broadcasts"""
     
     if request.method == "HEAD":
-        return Response(
-            status_code=200,
-            headers={
-                "Content-Type": "text/event-stream",
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-            }
-        )
+        return Response(status_code=200, headers={"Content-Type": "text/event-stream"})
+    return StreamingResponse(
+        sse_event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
 
     return StreamingResponse(
         sse_event_generator(),
