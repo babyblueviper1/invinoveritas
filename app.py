@@ -204,11 +204,25 @@ async def sse_event_generator():
             active_sse_clients.remove(queue)
 
 
+# ── SSE Endpoint with HEAD support ───────────────────────────────────────────
 @app.get("/events", tags=["meta"])
 @app.get("/sse", tags=["meta"])
+@app.head("/events", tags=["meta"])
+@app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time MCP server announcements.
-    Agents can connect here to receive live updates from Nostr broadcasts."""
+    """SSE endpoint for real-time MCP server announcements"""
+    if request.method == "HEAD":
+        # Fast response for HEAD requests (used by monitors and agents)
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
+
+    # Normal GET → streaming response
     return StreamingResponse(
         sse_event_generator(),
         media_type="text/event-stream",
@@ -216,7 +230,6 @@ async def sse_discovery_hub(request: Request):
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
         }
     )
 
@@ -3105,11 +3118,25 @@ async def discover_page():
 @app.get("/rss", tags=["meta"])
 @app.get("/feed", tags=["meta"])
 @app.get("/announce.xml", tags=["meta"])
-async def rss_feed():
-    """RSS feed that automatically mirrors the last 5 Nostr kind 31234 announcements"""
+@app.head("/rss", tags=["meta"])
+@app.head("/feed", tags=["meta"])
+@app.head("/announce.xml", tags=["meta"])
+async def rss_feed(request: Request):
+    """RSS feed that mirrors the last 5 Nostr announcements"""
     
+    # Handle HEAD requests (used by crawlers and monitoring tools)
+    if request.method == "HEAD":
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": "application/rss+xml",
+                "Cache-Control": "no-cache",
+            }
+        )
+
+    # Generate RSS content for GET requests
     items = ""
-    for ann in ANNOUNCEMENTS:
+    for ann in ANNOUNCEMENTS[:5]:   # explicitly limit to 5
         items += f"""
         <item>
             <title>{ann['title']}</title>
@@ -3129,8 +3156,17 @@ async def rss_feed():
         <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
         <atom:link href="https://invinoveritas.onrender.com/rss" rel="self" type="application/rss+xml" />
         
-        {items if items else "<item><title>No announcements yet</title><description>Check back soon for updates!</description></item>"}
+        {items if items else """
+        <item>
+            <title>No announcements yet</title>
+            <description>Check back soon for updates from invinoveritas!</description>
+            <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
+        </item>"""}
     </channel>
 </rss>"""
 
-    return Response(content=rss_content, media_type="application/rss+xml")
+    return Response(
+        content=rss_content.strip(),
+        media_type="application/rss+xml",
+        headers={"Cache-Control": "no-cache"}
+    )
