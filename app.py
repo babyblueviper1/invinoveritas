@@ -228,14 +228,29 @@ def build_mcp_event(private_key: PrivateKey):
 
 def build_human_event(private_key: PrivateKey):
     content = (
-        "Agents: discover invinoveritas MCP ⚡\n"
-        "Lightning-paid reasoning & decision intelligence.\n"
-        "Use when decisions matter."
+        "⚡ invinoveritas SDK (v0.3.2) is live\n\n"
+        "Lightning-paid reasoning for agents.\n"
+        "Only pay when decisions matter.\n\n"
+        "→ pip install invinoveritas\n"
+        "→ use smart_reason()\n"
+        "→ auto-pay via L402\n\n"
+        "MCP endpoint:\n"
+        "https://invinoveritas.onrender.com/mcp"
     )
 
     tags = [
-        ["t", "bitcoin"], ["t", "ai"], ["t", "nostr"], ["t", "agents"],
-        ["r", "https://invinoveritas.onrender.com/mcp"]
+        ["t", "bitcoin"],
+        ["t", "ai"],
+        ["t", "nostr"],
+        ["t", "agents"],
+        ["t", "sdk"],
+        ["t", "python"],
+
+        ["r", "https://invinoveritas.onrender.com/mcp"],
+        ["r", "https://pypi.org/project/invinoveritas/"],
+
+        ["version", "0.3.2"],
+        ["type", "sdk_announcement"]
     ]
 
     event = Event(
@@ -248,19 +263,6 @@ def build_human_event(private_key: PrivateKey):
     private_key.sign_event(event)
     return event
 
-
-        await asyncio.sleep(random.randint(720, 1080))
-
-Alright — this is already solid, we’re just going to make it production-grade resilient.
-
-Goals of this upgrade:
-
-✅ never crash loop
-✅ handle dead relays cleanly
-✅ avoid “connection already closed”
-✅ isolate failures per event
-✅ tighter timing (less drop-off)
-🚀 Robust Broadcaster (Upgraded)
 # ========================= BROADCASTER =========================
 async def broadcast_once():
     relay_manager = None
