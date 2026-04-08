@@ -54,7 +54,14 @@ MAX_REPLIES_PER_MIN   = 6         # per-relay rate cap
 DENYLIST_THRESHOLD    = 3
 DENYLIST_BACKOFF      = 7200      # 2 hours
 
-KEYWORDS = ["mcp", "agent", "ai", "tool", "reasoning", "decision"]
+KEYWORDS = [
+    "mcp server", "mcp tool", "llm agent", "autonomous agent",
+    "agent framework", "function calling", "tool calling",
+    "langgraph", "crewai", "autogen", "langchain",
+    "claude desktop", "cursor",
+    "ai reasoning", "structured output",
+    "agent", "reasoning", "decision", "intelligence"
+]
 
 # ── Shared state ──────────────────────────────────────────────────────────────
 SEEN_EVENTS: deque = deque(maxlen=SEEN_MAXLEN)
@@ -157,27 +164,55 @@ async def _send_reply_with_ok(ws: websockets.WebSocketClientProtocol, reply: Eve
 
 # ── Response templates ────────────────────────────────────────────────────────
 def _build_reply_text(content: str, score: int) -> str:
+    """
+    Builds contextual reply text based on relevance score.
+    Higher score = more detailed and valuable pitch.
+    """
     content_lower = content.lower()
-    is_high = any(k in content_lower for k in ["mcp", "agent"])
     base = "⚡ invinoveritas — Lightning-paid reasoning for agents\n\n"
 
-    if is_high or score >= 4:
+    # Very high relevance (MCP mentions, strong agent frameworks, etc.)
+    if score >= 8 or "mcp" in content_lower:
         return base + (
-            "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
-            "→ Python SDK: pip install invinoveritas\n\n"
-            "Built for AI agents that need high-quality reasoning or decisions.\n"
-            "Pay once in sats → get clean, structured output."
+            "→ Native MCP server: https://invinoveritas.onrender.com/mcp\n"
+            "→ Python SDK: `pip install invinoveritas`\n\n"
+            "Pay in sats per high-quality reasoning or decision call. "
+            "No accounts, no subscriptions, no KYC. "
+            "Works natively with Claude Desktop, Cursor, LangGraph, CrewAI, etc. "
+            "Clean, structured, reliable output your agent can trust."
         )
+
+    # High relevance
+    elif score >= 6:
+        return base + (
+            "→ MCP endpoint: https://invinoveritas.onrender.com/mcp\n"
+            "→ SDK: `pip install invinoveritas`\n\n"
+            "Lightning-paid (L402) reasoning & decisions for agents. "
+            "Atomic, verifiable, pay-per-insight. "
+            "Great for autonomous agents and tool-calling workflows."
+        )
+
+    # Medium relevance
+    elif score >= 4:
+        return base + (
+            "Lightning-paid reasoning for AI agents.\n"
+            "→ MCP: https://invinoveritas.onrender.com/mcp\n"
+            "→ SDK: `pip install invinoveritas`\n\n"
+            "Pay once in sats → get clean structured output."
+        )
+
+    # Low but acceptable relevance
     elif score >= 2:
         return base + (
-            "→ MCP: https://invinoveritas.onrender.com/mcp\n"
-            "→ SDK: pip install invinoveritas\n\n"
-            "Use when decisions matter."
+            "Fast Lightning-paid reasoning & decision tools for agents.\n"
+            "Try the MCP server: https://invinoveritas.onrender.com/mcp "
+            "(5 free calls, no wallet setup needed)."
         )
+
+    # Fallback (should almost never reach here due to min score = 2)
     else:
-        return base + "Fast Lightning-paid reasoning & decision tools for agents."
-
-
+        return "⚡ invinoveritas — Lightning-paid reasoning tools for agents."
+      
 # ── Rate limit check ──────────────────────────────────────────────────────────
 def _is_rate_limited(relay_url: str) -> bool:
     now = datetime.utcnow()
@@ -191,7 +226,7 @@ def _is_rate_limited(relay_url: str) -> bool:
     return False
 
 
-# ── Per-relay listener loop ───────────────────────────────────────────────────
+# ── Per-relay listener loop ─────────────────────────────────────────────────────
 async def _listen_relay(relay_url: str, private_key: PrivateKey):
     """
     Persistent listener for a single relay. Reconnects with exponential backoff.
@@ -244,7 +279,7 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                     pubkey     = event_data.get("pubkey", "")
                     content    = event_data.get("content", "")
 
-                    # Dedup
+                    # Dedup + basic validation
                     if event_id in SEEN_EVENTS or not content:
                         continue
                     SEEN_EVENTS.append(event_id)
@@ -253,10 +288,47 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                     if pubkey == pubkey_hex:
                         continue
 
-                    # Keyword score
+                    # ── Improved Keyword Scoring ─────────────────────────────────────
                     content_lower = content.lower()
-                    score = sum(1 for k in KEYWORDS if k in content_lower)
-                    if score == 0:
+
+                    # Quick skip if no relevant keywords at all
+                    if not any(k in content_lower for k in KEYWORDS):
+                        continue
+
+                    # Calculate smarter score
+                    score = 0
+
+                    # High impact keywords
+                    high_impact = {"mcp server", "mcp tool", "llm agent", "autonomous agent", 
+                                   "function calling", "tool calling", "claude desktop", "cursor",
+                                   "langgraph", "crewai", "autogen"}
+
+                    # Medium impact keywords
+                    medium_impact = {"agent framework", "ai reasoning", "structured output", 
+                                     "langchain", "decision", "reasoning", "intelligence"}
+
+                    for k in KEYWORDS:
+                        if k in content_lower:
+                            if k in high_impact:
+                                score += 4
+                            elif k in medium_impact:
+                                score += 2
+                            else:
+                                score += 1
+
+                    # Bonus points for strong combinations
+                    if "mcp" in content_lower:
+                        score += 3
+                    if "agent" in content_lower and ("mcp" in content_lower or "reasoning" in content_lower):
+                        score += 2
+                    if any(x in content_lower for x in ["claude", "cursor", "langgraph", "crewai", "autogen"]):
+                        score += 2
+
+                    # Cap the score
+                    score = min(score, 12)
+
+                    # Minimum score threshold to avoid low-quality replies
+                    if score < 2:
                         continue
 
                     # Per-pubkey cooldown
@@ -265,7 +337,7 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                     if now - last < timedelta(seconds=REPLY_COOLDOWN_SECS):
                         continue
 
-                    # Per-relay rate cap
+                    # Per-relay rate limiting
                     if _is_rate_limited(relay_url):
                         logger.debug(f"Rate-limited on {relay_url}")
                         continue
@@ -280,14 +352,14 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                     )
                     private_key.sign_event(reply)
 
-                    # Send reply over the same open connection
+                    # Send reply
                     ok = await _send_reply_with_ok(ws, reply)
 
                     if ok:
                         LAST_REPLY[pubkey] = now
-                        tag = " [HIGH]" if any(k in content_lower for k in ["mcp", "agent"]) else ""
+                        tag = " [HIGH]" if score >= 7 or "mcp" in content_lower else ""
                         logger.info(
-                            f"💬 Replied{tag} OK (score={score}) "
+                            f"💬 Replied{tag} (score={score}) "
                             f"→ {pubkey[:8]}... on {relay_url}"
                         )
                     else:
