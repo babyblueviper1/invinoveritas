@@ -582,42 +582,82 @@ async def wallet_status():
 # =========================
 # Credit System Endpoints (Proxy to Bridge)
 # =========================
+
 @app.post("/register", tags=["credit"])
+@app.get("/register", tags=["credit"])
 async def register_account(label: Optional[str] = None):
     """Create new account"""
+    if label is None and request.method == "GET":   # Friendly GET response
+        return {
+            "status": "info",
+            "message": "Use POST /register to create a new account.",
+            "example": {"label": "my-agent-01"}
+        }
+    
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             payload = {"label": label} if label else {}
-            resp = await client.post(f"{NODE_URL}/register", json=payload)   # ← changed
+            resp = await client.post(f"{NODE_URL}/register", json=payload)
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Registration service unavailable: {str(e)}")
 
 
 @app.post("/topup", tags=["credit"])
-async def topup_account(data: dict):
+@app.get("/topup", tags=["credit"])
+async def topup_account(data: dict = None):
     """Request Lightning top-up invoice"""
+    if data is None or not data:   # GET request or empty payload
+        return {
+            "status": "info",
+            "message": "Use POST /topup with amount to generate a Lightning invoice.",
+            "example": {
+                "amount_sats": 5000,
+                "label": "optional_label"
+            }
+        }
+    
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(f"{NODE_URL}/topup", json=data)   # ← changed
+            resp = await client.post(f"{NODE_URL}/topup", json=data)
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Top-up service unavailable: {str(e)}")
 
 
 @app.get("/balance", tags=["credit"])
-async def get_balance(api_key: str):
-    """Check your account balance"""
+@app.post("/balance", tags=["credit"])
+async def get_balance(api_key: Optional[str] = None, data: Optional[dict] = None):
+    """Check account balance - supports both GET and POST"""
+    
+    # Handle POST body (some agents prefer sending JSON)
+    if data and isinstance(data, dict):
+        api_key = data.get("api_key") or api_key
+
+    if not api_key:
+        raise HTTPException(
+            status_code=400, 
+            detail="Missing api_key. Provide it as query param (?api_key=...) or in JSON body."
+        )
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{NODE_URL}/balance?api_key={api_key}")   # ← changed
+            resp = await client.get(f"{NODE_URL}/balance?api_key={api_key}")
             return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Balance service unavailable: {str(e)}")
 
+
 @app.post("/register/confirm", tags=["credit"])
-async def confirm_register(req: SettleTopupRequest):
+@app.get("/register/confirm", tags=["credit"])
+async def confirm_register(req: Optional[SettleTopupRequest] = None):
     """Confirm registration after payment"""
+    if req is None:   # GET request
+        return {
+            "status": "info",
+            "message": "Use POST /register/confirm with the settlement request."
+        }
+    
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(f"{NODE_URL}/register/confirm", json=req.dict())
@@ -627,8 +667,15 @@ async def confirm_register(req: SettleTopupRequest):
 
 
 @app.post("/settle-topup", tags=["credit"])
-async def settle_topup_account(req: SettleTopupRequest):
+@app.get("/settle-topup", tags=["credit"])
+async def settle_topup_account(req: Optional[SettleTopupRequest] = None):
     """Settle a top-up payment"""
+    if req is None:   # GET request
+        return {
+            "status": "info",
+            "message": "Use POST /settle-topup with settlement details."
+        }
+    
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(f"{NODE_URL}/settle-topup", json=req.dict())
@@ -638,8 +685,15 @@ async def settle_topup_account(req: SettleTopupRequest):
 
 
 @app.post("/verify", tags=["credit"])
-async def verify_account(req: VerifyRequest):
-    """Verify account for tool usage (consumes free calls or balance)"""
+@app.get("/verify", tags=["credit"])
+async def verify_account(req: Optional[VerifyRequest] = None):
+    """Verify account for tool usage"""
+    if req is None:   # GET request
+        return {
+            "status": "info",
+            "message": "Use POST /verify with verification payload to check/charge account."
+        }
+    
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(f"{NODE_URL}/verify", json=req.dict())
