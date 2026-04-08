@@ -146,10 +146,14 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
 
 
 def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement and broadcast to RSS + SSE/WebSocket"""
-    # Truncate long descriptions for RSS friendliness
-    if len(description) > 300:
-        description = description[:297] + "..."
+    """Add announcement with basic deduplication"""
+    # Skip if we already have this exact title in the last 5
+    if any(ann["title"] == title for ann in ANNOUNCEMENTS[:3]):
+        logger.debug(f"Announcement skipped (duplicate): {title}")
+        return None
+
+    if len(description) > 280:
+        description = description[:277] + "..."
 
     announcement = {
         "title": title,
@@ -166,8 +170,8 @@ def add_announcement(title: str, description: str, link: str = None):
     
     logger.info(f"📢 RSS announcement added: {title}")
     
-    # Push to SSE/WebSocket clients
-    for queue in active_sse_clients[:]:
+    # Push to SSE/WebSocket
+    for queue in list(active_sse_clients):
         try:
             queue.put_nowait(announcement)
         except Exception:
@@ -588,7 +592,7 @@ async def _publish_to_relay(
                     if attempt == 0:
                         logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
                     
-                    # === Trigger announcement for relevant kinds (only once per event) ===
+                    # === Trigger announcement ONLY ONCE per unique event ===
                     if event.kind in [31234, 31990, 30078] and not published:
                         content_lower = (event.content or "").lower()
                         
@@ -597,14 +601,14 @@ async def _publish_to_relay(
                             description = "High-quality Lightning-paid reasoning and decision intelligence via MCP. Trading bot optimized."
                         elif event.kind == 30078 or "sdk" in content_lower:
                             title = "invinoveritas Python SDK Update"
-                            description = "New SDK version with improved A2A support and real-time features."
+                            description = "Improved SDK with A2A support and real-time features."
                         else:
                             title = "invinoveritas Update"
-                            description = event.content[:200] + "..." if len(event.content) > 200 else event.content
+                            description = (event.content or "New update")[:250]
 
                         link = "https://invinoveritas.onrender.com/discover"
 
-                        # Broadcast to WebSocket + add to RSS
+                        # Broadcast once via WebSocket + add to RSS
                         await broadcast_via_websocket(
                             title=title,
                             description=description,
