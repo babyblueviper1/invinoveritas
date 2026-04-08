@@ -54,7 +54,11 @@ NOSTR_RELAYS = [
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
 ]
-
+# Optional: Blacklist of currently flaky relays (update as needed)
+BAD_RELAYS = {
+    "wss://relay.nostr.bg",
+    # Add more if they keep failing
+}
 
 # ========================= BUILDERS =========================
 def generate_agent_payload():
@@ -273,14 +277,15 @@ async def broadcast_once():
     try:
         private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-        mcp_event = build_mcp_event(private_key)
-        sdk_event = build_sdk_event(private_key)
-        human_event = build_human_event(private_key)
+        events = [
+            build_mcp_event(private_key),
+            build_sdk_event(private_key),
+            build_human_event(private_key)
+        ]
 
-        events = [mcp_event, sdk_event, human_event]
-
-        # Use up to 6-7 good relays. You can make this configurable.
-        relays_to_use = random.sample(NOSTR_RELAYS, k=min(7, len(NOSTR_RELAYS)))
+        # Filter out known bad relays and pick up to 7
+        good_relays = [r for r in NOSTR_RELAYS if r not in BAD_RELAYS]
+        relays_to_use = random.sample(good_relays, k=min(7, len(good_relays)))
 
         success_count = 0
         total_attempts = len(relays_to_use) * len(events)
@@ -289,62 +294,58 @@ async def broadcast_once():
             relay_success = 0
             relay_manager = None
 
-            for connect_attempt in range(2):  # allow one reconnect per relay
-                try:
-                    relay_manager = RelayManager()
-                    relay_manager.add_relay(relay_url)
+            try:
+                relay_manager = RelayManager()
+                relay_manager.add_relay(relay_url)
 
-                    relay_manager.open_connections()
-                    await asyncio.sleep(1.0 if connect_attempt == 0 else 1.5)
+                relay_manager.open_connections()
+                await asyncio.sleep(1.1)   # stable connection time
 
-                    for event in events:
-                        retries = 3
-                        delay = 1.0
-                        published = False
+                for event in events:
+                    retries = 3
+                    delay = 1.0
+                    published = False
 
-                        for attempt in range(retries):
-                            try:
-                                relay_manager.publish_event(event)
-                                success_count += 1
-                                relay_success += 1
-                                logger.info(f"✅ Published kind={event.kind} → {relay_url}")
-                                published = True
-                                break
-
-                            except Exception as e:
-                                err = str(e).lower()
-                                if any(x in err for x in ["closed", "sock", "none", "connection"]):
-                                    logger.warning(f"⚠️ Connection issue on {relay_url}, retrying...")
-                                elif "504" in err or "gateway time-out" in err:
-                                    logger.warning(f"⚠️ Relay {relay_url} timed out (504)")
-                                elif "name or service not known" in err:
-                                    logger.warning(f"⚠️ DNS error on {relay_url}")
-                                else:
-                                    logger.warning(f"⚠️ Publish attempt {attempt+1} failed on {relay_url}: {e}")
-
-                                if attempt < retries - 1:
-                                    await asyncio.sleep(delay)
-                                    delay *= 1.8
-
-                        if not published:
-                            logger.error(f"❌ Failed kind={event.kind} to {relay_url} after retries")
-
-                    if relay_success > 0:
-                        logger.info(f"📤 Sent {relay_success} events to {relay_url}")
-                    break  # success, no need for reconnect
-
-                except Exception as e:
-                    logger.warning(f"⚠️ Relay {relay_url} connect attempt {connect_attempt+1} failed: {e}")
-                    if connect_attempt == 0:
-                        await asyncio.sleep(1.5)
-                    else:
-                        logger.error(f"❌ Relay {relay_url} completely failed")
-                finally:
-                    if relay_manager:
+                    for attempt in range(retries):
                         try:
-                            relay_manager.close_connections()
-                        except:
-                            pass
+                            relay_manager.publish_event(event)
+                            success_count += 1
+                            relay_success += 1
+                            # Reduced logging noise — only log once per event type per relay
+                            if attempt == 0:
+                                logger.info(f"✅ Published kind={event.kind} → {relay_url}")
+                            published = True
+                            break
+
+                        except Exception as publish_err:
+                            err_str = str(publish_err).lower()
+                            if "504" in err_str or "gateway time-out" in err_str:
+                                logger.warning(f"⚠️ 504 timeout on {relay_url} - skipping")
+                                break
+                            elif any(x in err_str for x in ["closed", "sock", "none", "lost", "name or service"]):
+                                logger.debug(f"Connection hiccup on {relay_url} (attempt {attempt+1})")
+                            else:
+                                logger.warning(f"Publish attempt {attempt+1} failed on {relay_url}: {publish_err}")
+
+                            if attempt < retries - 1:
+                                await asyncio.sleep(delay)
+                                delay *= 1.8
+
+                    if not published:
+                        logger.debug(f"Failed kind={event.kind} to {relay_url} after retries")
+
+                if relay_success > 0:
+                    logger.info(f"📤 Sent {relay_success} events to {relay_url}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ Relay {relay_url} failed: {e}")
+            finally:
+                # Gentle cleanup
+                if relay_manager:
+                    try:
+                        relay_manager.close_connections()
+                    except:
+                        pass
 
         if success_count == 0:
             logger.error("❌ All relay publishes failed")
@@ -353,15 +354,23 @@ async def broadcast_once():
                        f"across {len(relays_to_use)} relays")
 
     except Exception as e:
-        logger.error(f"❌ Broadcast error: {e}")
+        logger.error(f"❌ Critical broadcast error: {e}")
 
 
 async def broadcast_loop():
     while True:
-        await broadcast_once()
-        wait_seconds = random.randint(720, 1080)  # 12-18 minutes
+        try:
+            await broadcast_once()
+        except Exception as e:
+            logger.error(f"Broadcast loop error: {e}")
+
+        wait_seconds = random.randint(720, 1080)
         logger.info(f"⏳ Next broadcast in {wait_seconds}s")
-        await asyncio.sleep(wait_seconds)
+        try:
+            await asyncio.sleep(wait_seconds)
+        except asyncio.CancelledError:
+            logger.info("Broadcast loop cancelled on shutdown")
+            break
 
 # ========================= FASTAPI =========================
 @app.post("/broadcast-now")
