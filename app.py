@@ -80,8 +80,31 @@ DENYLIST_BACKOFF_SECONDS = 7200    # 2 hours
 BROADCAST_INTERVAL_MIN = 720       # 12 min
 BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
+ANNOUNCEMENTS_FILE = Path("/tmp/invinoveritas_announcements.json")
 ANNOUNCEMENTS: list[dict] = []
 
+def load_announcements():
+    """Load announcements from disk on startup"""
+    global ANNOUNCEMENTS
+    if ANNOUNCEMENTS_FILE.exists():
+        try:
+            with open(ANNOUNCEMENTS_FILE, "r", encoding="utf-8") as f:
+                ANNOUNCEMENTS = json.load(f)
+            logger.info(f"✅ Loaded {len(ANNOUNCEMENTS)} announcements from disk")
+        except Exception as e:
+            logger.error(f"Failed to load announcements file: {e}")
+            ANNOUNCEMENTS = []
+    else:
+        logger.info("No previous announcements file found - starting fresh")
+        ANNOUNCEMENTS = []
+
+def save_announcements():
+    """Save announcements to disk"""
+    try:
+        with open(ANNOUNCEMENTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(ANNOUNCEMENTS, f, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save announcements: {e}")
 
 
 # Simple list of active WebSocket connections
@@ -141,7 +164,7 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
 
 
 def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement with deduplication"""
+    """Add announcement, save to disk, and broadcast via SSE/WebSocket"""
     if len(description) > 280:
         description = description[:277] + "..."
 
@@ -153,51 +176,97 @@ def add_announcement(title: str, description: str, link: str = None):
         "guid": f"https://invinoveritas.onrender.com/announce/{int(time.time())}",
         "timestamp": int(time.time())
     }
-    
-    # Simple deduplication: don't add exact same title within last 10 minutes
-    if any(ann["title"] == title for ann in ANNOUNCEMENTS):
+
+    # Avoid duplicates
+    if any(ann.get("title") == title for ann in ANNOUNCEMENTS):
         logger.debug(f"Announcement skipped (duplicate title): {title}")
         return None
 
     ANNOUNCEMENTS.insert(0, announcement)
     if len(ANNOUNCEMENTS) > 5:
         ANNOUNCEMENTS.pop()
-    
-    logger.info(f"📢 New announcement added to RSS: {title}")
-    
-    # Push to SSE/WebSocket clients
+
+    save_announcements()
+    logger.info(f"📢 Announcement added and saved: {title}")
+
+    # Push to SSE clients
     for queue in list(active_sse_clients):
         try:
             queue.put_nowait(announcement)
         except Exception:
             if queue in active_sse_clients:
                 active_sse_clients.remove(queue)
-    
-    return announcement
 
+    return announcement
+    
 # Store of active SSE clients
 active_sse_clients: list[asyncio.Queue] = []
 
+
+@app.get("/events/test", tags=["meta"])
+async def sse_test_page():
+    """Simple test page for SSE real-time updates"""
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>invinoveritas SSE Test</title>
+        <style>
+            body { font-family: system-ui; background: #0a0a0a; color: #ddd; padding: 20px; }
+            #log { background: #1f1f1f; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; font-family: monospace; }
+            .connected { color: #4ade80; }
+        </style>
+    </head>
+    <body>
+        <h1>⚡ invinoveritas SSE Test</h1>
+        <p>Status: <span id="status" class="connected">Connecting...</span></p>
+        <div id="log"></div>
+
+        <script>
+            const log = document.getElementById('log');
+            const status = document.getElementById('status');
+            const eventSource = new EventSource('/events');
+
+            eventSource.onopen = () => {
+                status.textContent = "Connected (waiting for announcements)";
+                status.className = "connected";
+                log.innerHTML += "<p>✅ SSE connection opened</p>";
+            };
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                log.innerHTML += `<p><strong>${data.title}</strong><br>${data.description}</p>`;
+                log.scrollTop = log.scrollHeight;
+            };
+
+            eventSource.onerror = () => {
+                status.textContent = "Connection error - retrying...";
+                status.style.color = "#f87171";
+            };
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
 async def sse_event_generator():
-    """SSE generator that pushes announcements to connected clients"""
-    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=20)
     active_sse_clients.append(queue)
     
     try:
         while True:
             try:
-                announcement = await asyncio.wait_for(queue.get(), timeout=30.0)
+                announcement = await asyncio.wait_for(queue.get(), timeout=25.0)
                 data = {
                     "type": "announcement",
-                    "title": announcement.get("title"),
-                    "description": announcement.get("description"),
+                    "title": announcement.get("title", "Update"),
+                    "description": announcement.get("description", ""),
                     "link": announcement.get("link"),
                     "timestamp": announcement.get("timestamp")
                 }
                 yield f"data: {json.dumps(data)}\n\n"
             except asyncio.TimeoutError:
-                # Send keep-alive comment every 30 seconds
-                yield ": keep-alive\n\n"
+                yield ": keep-alive\n\n"   # prevents timeout
                 continue
     except asyncio.CancelledError:
         pass
@@ -744,6 +813,12 @@ async def relay_health():
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 invinoveritas broadcaster started (v2)")
+    
+    # Load saved announcements from disk so RSS shows previous entries after deploy
+    load_announcements()
+    logger.info(f"📋 Loaded {len(ANNOUNCEMENTS)} announcements from persistent storage")
+    
+    # Start the main broadcast loop
     asyncio.create_task(broadcast_loop())
     
 # =========================
