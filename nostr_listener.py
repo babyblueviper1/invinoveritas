@@ -15,7 +15,6 @@ NOSTR_RELAYS = [
     "wss://relay.primal.net",
     "wss://nostr-pub.wellorder.net",
     "wss://relay.snort.social",
-    "wss://relay.nostr.bg",
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
 ]
