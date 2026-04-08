@@ -569,7 +569,7 @@ async def _publish_to_relay(
     events: List[Event],
     sem: asyncio.Semaphore,
 ) -> int:
-    """Publish all events to one relay. Returns OK count."""
+    """Publish all events to one relay under the semaphore. Returns OK count."""
     ok_count = 0
     async with sem:
         for event in events:
@@ -585,21 +585,30 @@ async def _publish_to_relay(
                     if attempt == 0:
                         logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
                     
-                    # === Trigger announcement only once per unique event ===
-                    if event.kind == 31234:
+                    # === Trigger announcement for relevant kinds (only once per event) ===
+                    if event.kind in [31234, 31990, 30078] and not published:
                         title = "invinoveritas Update"
-                        description = event.content.strip()
+                        description = event.content.strip() if event.content else "New update from invinoveritas"
                         link = "https://invinoveritas.onrender.com/discover"
                         
-                        content_lower = event.content.lower()
-                        if "a2a" in content_lower or "delegation" in content_lower:
+                        content_lower = event.content.lower() if event.content else ""
+                        
+                        if event.kind == 31990 or "mcp" in content_lower:
+                            title = "invinoveritas MCP Server Update"
+                        elif event.kind == 30078 or "sdk" in content_lower:
+                            title = "invinoveritas SDK Update"
+                        elif "a2a" in content_lower or "delegation" in content_lower:
                             title = "A2A Delegation Enabled"
-                        elif any(word in content_lower for word in ["trading", "arbitrage", "portfolio", "rebalance"]):
+                        elif any(word in content_lower for word in ["trading", "arbitrage", "portfolio"]):
                             title = "Trading Bot Support Improved"
 
-                        # Add to RSS + broadcast via WebSocket
+                        # Broadcast to WebSocket + add to RSS
+                        await broadcast_via_websocket(
+                            title=title,
+                            description=description,
+                            link=link
+                        )
                         add_announcement(title=title, description=description, link=link)
-                        await broadcast_via_websocket(title=title, description=description, link=link)
                     
                     published = True
                     break
@@ -613,7 +622,6 @@ async def _publish_to_relay(
                 logger.debug(f"✗ Failed kind={event.kind} → {relay_url} after {PUBLISH_RETRIES} attempts")
  
     return ok_count
-
 @app.get("/debug/announcements", include_in_schema=False)
 async def debug_announcements():
     return {
