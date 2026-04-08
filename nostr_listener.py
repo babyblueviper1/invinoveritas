@@ -48,6 +48,9 @@ async def run_listener():
 
     private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
+    # Global set to prevent replying to the same event multiple times
+    SEEN_EVENTS = set()
+
     relay_manager = RelayManager()
     for relay in NOSTR_RELAYS:
         relay_manager.add_relay(relay)
@@ -74,12 +77,16 @@ async def run_listener():
                 event = event_msg.event
 
                 try:
-                    # Skip if we've already seen it
+                    # ❌ Skip if we've already seen it
                     if event.id in SEEN_EVENTS:
                         continue
                     SEEN_EVENTS.add(event.id)
 
-                    # Skip our own events
+                    # 🧹 Prevent unbounded growth
+                    if len(SEEN_EVENTS) > 5000:
+                        SEEN_EVENTS.clear()
+
+                    # ❌ Skip our own events
                     if event.pubkey == private_key.public_key.hex():
                         continue
 
@@ -91,7 +98,7 @@ async def run_listener():
                     if not is_relevant_event(content):
                         continue
 
-                    logger.info(f"🎯 Relevant event detected: {content[:80]}")
+                    logger.info(f"🎯 Relevant event detected: {content[:80]}...")
 
                     # Build reply
                     reply = Event(
