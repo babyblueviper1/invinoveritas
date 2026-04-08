@@ -272,23 +272,57 @@ def build_human_event(private_key: PrivateKey):
     return event
 
 
+        await asyncio.sleep(random.randint(720, 1080))
+
+Alright — this is already solid, we’re just going to make it production-grade resilient.
+
+Goals of this upgrade:
+
+✅ never crash loop
+✅ handle dead relays cleanly
+✅ avoid “connection already closed”
+✅ isolate failures per event
+✅ tighter timing (less drop-off)
+🚀 Robust Broadcaster (Upgraded)
 # ========================= BROADCASTER =========================
 async def broadcast_once():
+    relay_manager = None
+
     try:
+        # -------------------------
+        # 🔑 Key check
+        # -------------------------
         if not NOSTR_NSEC:
             logger.error("❌ NOSTR_NSEC not set")
             return
 
         private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-        mcp_event = build_mcp_event(private_key)
-        human_event = build_human_event(private_key)
+        # -------------------------
+        # 🧠 Build events
+        # -------------------------
+        try:
+            mcp_event = build_mcp_event(private_key)
+            sdk_event = build_sdk_event(private_key)
+            human_event = build_human_event(private_key)
+        except Exception as e:
+            logger.error(f"❌ Event build failed: {e}")
+            return
 
-        relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
+        # -------------------------
+        # 🌐 Select relays
+        # -------------------------
+        relays_to_use = random.sample(
+            NOSTR_RELAYS,
+            k=min(5, len(NOSTR_RELAYS))
+        )
 
         relay_manager = RelayManager()
         active_relays = []
 
+        # -------------------------
+        # ➕ Add relays safely
+        # -------------------------
         for relay in relays_to_use:
             try:
                 relay_manager.add_relay(relay)
@@ -300,34 +334,70 @@ async def broadcast_once():
             logger.error("❌ No valid relays available")
             return
 
-        relay_manager.open_connections()
-        await asyncio.sleep(2)
+        # -------------------------
+        # 🔌 Connect
+        # -------------------------
+        try:
+            relay_manager.open_connections()
+        except Exception as e:
+            logger.error(f"❌ Failed to open connections: {e}")
+            return
 
-        sdk_event = build_sdk_event(private_key)
+        # shorter wait → less chance of disconnect
+        await asyncio.sleep(1)
 
-        relay_manager.publish_event(mcp_event)
-        relay_manager.publish_event(sdk_event)
-        relay_manager.publish_event(human_event)
+        # -------------------------
+        # 📡 Publish (robust)
+        # -------------------------
+        events = [
+            ("MCP", mcp_event),
+            ("SDK", sdk_event),
+            ("HUMAN", human_event)
+        ]
 
-        logger.info(f"📡 Broadcast sent to {len(active_relays)} relays")
+        success_count = 0
 
+        for name, event in events:
+            try:
+                relay_manager.publish_event(event)
+                success_count += 1
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to publish {name} event: {e}")
+
+        if success_count > 0:
+            logger.info(f"📡 Broadcast sent ({success_count}/3 events) to {len(active_relays)} relays")
+        else:
+            logger.error("❌ All event publishes failed")
+
+        # -------------------------
+        # 🧹 Flush + close
+        # -------------------------
         await asyncio.sleep(1)
 
     except Exception as e:
         logger.error(f"❌ Broadcast error: {e}")
 
     finally:
-        try:
-            relay_manager.close_connections()
-        except:
-            pass
+        if relay_manager:
+            try:
+                relay_manager.close_connections()
+            except Exception as e:
+                logger.warning(f"⚠️ Error closing connections: {e}")
 
 
-
+# ========================= LOOP =========================
 async def broadcast_to_nostr():
     while True:
-        await broadcast_once()
-        await asyncio.sleep(random.randint(720, 1080))
+        try:
+            await broadcast_once()
+        except Exception as e:
+            logger.error(f"❌ Loop error: {e}")
+
+        # jitter prevents sync with bad relay cycles
+        sleep_time = random.randint(720, 1080)
+        logger.info(f"⏳ Next broadcast in {sleep_time}s")
+
+        await asyncio.sleep(sleep_time)
 
 # ========================= FASTAPI =========================
 @app.post("/broadcast-now")
