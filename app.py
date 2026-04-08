@@ -1732,7 +1732,9 @@ SERVER_CARD = {
         "  • Pay-per-call (L402): No account needed — pay a fresh invoice for each request.",
         "  • Account mode: Pay ~1000 sats once to create an account, receive an API key + 5 complementary calls, then top up balance as needed.",
         "NWC is the fastest way to enable seamless autonomous behavior.",
-        "New accounts automaticaally receive 5 complementary calls after the initial ~1000 sats payment."
+        "New accounts automatically receive 5 complementary calls after the initial ~1000 sats payment.",
+        # Trading Bot Section
+        "Trading bots are fully supported: Lightning payments enable high-frequency async decisions, arbitrage evaluation, portfolio rebalancing, and risk scoring."
     ]
 }
 
@@ -1760,13 +1762,14 @@ AGENT_CARD = {
         "reasoning",
         "decision-making",
         "structured-output",
-        "risk-assessment"
+        "risk-assessment",
+        "trading-bot-support"          # Added for trading bots
     ],
     "protocols": ["mcp", "a2a"],
     "authentication": ["L402", "Bearer"],
     "endpoints": {
         "mcp": "https://invinoveritas.onrender.com/mcp",
-        "a2a": "https://invinoveritas.onrender.com/a2a"   # placeholder for future
+        "a2a": "https://invinoveritas.onrender.com/a2a"
     },
     "pricing": {
         "model": "pay-per-use",
@@ -1783,12 +1786,20 @@ AGENT_CARD = {
             "wss://nos.lol",
             "wss://relay.primal.net",
             "wss://nostr-pub.wellorder.net",
-            "wss://relay.snort.social"
+            "wss://nostr.oxtr.dev",
+            "wss://nostr.bitcoiner.social",
+            "wss://offchain.pub",
         ]
+    },
+    "tradingBotSupport": {
+        "supported": True,
+        "description": "Optimized for trading bots with async decision-making, arbitrage analysis, portfolio rebalancing, and risk scoring via Lightning payments.",
+        "walletRecommendation": "NWC (Alby, Zeus, Mutiny) for seamless high-frequency operation",
+        "useCases": ["arbitrage detection", "portfolio rebalancing", "risk assessment", "high-frequency decisioning"]
     },
     "documentation": "https://invinoveritas.onrender.com/guide",
     "contact": "mailto:babyblueviperbusiness@gmail.com",
-    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "paid-ai"]
+    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "paid-ai", "trading-bot"]
 }
 
 
@@ -1807,12 +1818,12 @@ AGENTS_REGISTRY = {
         {
             "id": "invinoveritas-reasoning-agent",
             "name": "invinoveritas Reasoning Agent",
-            "description": "Lightning-paid reasoning and structured decision intelligence for autonomous agents",
+            "description": "Lightning-paid reasoning and structured decision intelligence for autonomous agents. Strong support for trading bots.",
             "type": "specialist",
             "provider": "invinoveritas",
             "version": "0.4.0",
             "protocols": ["mcp"],
-            "capabilities": ["reasoning", "decision-making"],
+            "capabilities": ["reasoning", "decision-making", "trading-bot-support"],
             "pricing": "pay-per-use (Lightning)",
             "endpoint": "https://invinoveritas.onrender.com/mcp",
             "agentCard": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
@@ -1829,10 +1840,10 @@ AGENTS_REGISTRY = {
 async def get_agents_registry():
     return JSONResponse(content=AGENTS_REGISTRY)
 
+
 # =========================
 # A2A (Agent-to-Agent) Stub Endpoint
 # =========================
-
 @app.get("/a2a", include_in_schema=False)
 @app.post("/a2a", include_in_schema=False)
 async def a2a_endpoint():
@@ -1844,9 +1855,9 @@ async def a2a_endpoint():
         "message": "A2A endpoint is active. Full agent-to-agent task delegation coming soon.",
         "supported": ["task_proposal", "mcp_forward"],
         "documentation": "https://invinoveritas.onrender.com/guide",
-        "note": "Currently forwards high-value tasks to the MCP endpoint with L402 payment."
+        "note": "Currently forwards high-value tasks to the MCP endpoint with L402 payment.",
+        "trading_bot_optimized": True
     }
-
 # =========================
 # Models (unchanged)
 # =========================
