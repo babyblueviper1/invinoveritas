@@ -137,7 +137,7 @@ def generate_agent_payload(score: int = 7) -> dict:
         },
         "wallet_options": {
             "NWC": ["Alby", "Zeus", "Mutiny"],
-            "Custodial": ["Strike - manual invoice"],
+            "Custodial": ["Strike, Wallet of Sats - manual invoice"],
             "LND": "Follow Lightning Labs docs"
         },
         "capabilities": ["reasoning", "decision-making", "structured-output", "risk-assessment"],
@@ -149,7 +149,7 @@ def generate_agent_payload(score: int = 7) -> dict:
             "saves_time": True,
             "autonomous_ready": True
         },
-        "features": {"free_calls": 5, "styles": ["short","concise","normal","detailed","comprehensive"]},
+        "features": {"complementary_calls": 5, "styles": ["short","concise","normal","detailed","comprehensive"]},
         "discovery": {
             "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
             "a2a_agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
@@ -175,7 +175,7 @@ def generate_sdk_payload(score: int = 7) -> dict:
             "protocol": "L402",
             "network": "lightning",
             "model": "per_call",
-            "wallet_options": ["NWC", "LND", "Strike"]
+            "wallet_options": ["NWC", "LND", "custodial"]
         },
         "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes"],
         "score": score,
@@ -206,7 +206,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
         ["payment", "L402"],
         ["wallet_required", "true"],
         ["score", str(score)],
-        ["wallet_supported", "NWC,LND,Strike"],
+        ["wallet_supported", "NWC,LND,custodial"],
         ["roi_signal", "positive_high_confidence"],
     ]
     event = Event(
@@ -255,7 +255,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "→ Wallets supported:\n"
         "   • NWC (Alby, Zeus, Mutiny)\n"
         "   • LND (manual setup)\n"
-        "   • Strike (manual invoice copy)\n\n"
+        "   • custodial (Strike, Wallet of Sats - manual invoice copy)\n\n"
         "Pay only when decisions matter."
     )
     tags = [
@@ -264,7 +264,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
         ["version", "0.4.0"],
         ["type", "sdk_announcement"],
-        ["wallet_supported", "NWC,LND,Strike"]
+        ["wallet_supported", "NWC,LND,custodial"]
     ]
     event = Event(
         kind=1,
@@ -1875,7 +1875,7 @@ def payment_guide():
         "new_features": {
             "style_control": "Use 'style' parameter: short (1 sentence), concise (2-3 sentences), normal, detailed, comprehensive",
             "confidence_scoring": "Set 'want_confidence': true to get confidence scores and uncertainty flags",
-            "free_calls": "New accounts automatically receive 5 complementary calls after registration",
+            "complementary_calls": "New accounts automatically receive 5 complementary calls after registration",
             "structured_output": "Optional 'response_format' for JSON schema output"
         },
 
@@ -1948,7 +1948,7 @@ def get_all_prices():
         "new_features": {
             "style_control": True,
             "confidence_scoring": True,
-            "free_calls_on_registration": 5,
+            "complementary_calls_on_registration": 5,
             "structured_output": True
         },
         "note": "Final price may vary slightly based on input length, chosen style, and complexity. "
@@ -2097,7 +2097,7 @@ def health():
         "new_features": {
             "style_control": True,
             "confidence_scoring": True,
-            "free_calls_on_registration": 5,
+            "complementary_calls_on_registration": 5,
             "structured_output": True
         },
 
