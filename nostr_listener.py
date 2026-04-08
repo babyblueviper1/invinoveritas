@@ -5,6 +5,7 @@ from nostr.relay_manager import RelayManager
 from nostr.event import Event
 from nostr.key import PrivateKey
 from collections import deque
+from config import NOSTR_NSEC
 
 logger = logging.getLogger(__name__)
 
