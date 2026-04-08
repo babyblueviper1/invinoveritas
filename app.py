@@ -55,6 +55,7 @@ NOSTR_RELAYS = [
     "wss://nostr.bitcoiner.social",
 ]
 
+
 # ========================= BUILDERS =========================
 def generate_agent_payload():
     return {
@@ -343,6 +344,7 @@ async def broadcast_now():
 async def startup_event():
     logger.info("🚀 invinoveritas Nostr Broadcaster started")
     asyncio.create_task(broadcast_to_nostr())
+    asyncio.create_task(run_listener())
     
 # =========================
 # Well-Known Discovery Endpoints (Polite Responses)
