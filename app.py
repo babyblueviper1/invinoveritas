@@ -274,65 +274,91 @@ async def broadcast_once():
     try:
         private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
+        # Build all three events once
         mcp_event = build_mcp_event(private_key)
         sdk_event = build_sdk_event(private_key)
         human_event = build_human_event(private_key)
 
+        events = [mcp_event, sdk_event, human_event]
+
+        # Randomly select up to 5 relays
         relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
 
+        if not relays_to_use:
+            logger.error("❌ No relays available")
+            return
+
         success_count = 0
+        total_attempts = len(relays_to_use) * len(events)
 
-        for relay in relays_to_use:
+        # Single RelayManager for better efficiency
+        relay_manager = RelayManager()
+
+        # Add all selected relays at once
+        for relay_url in relays_to_use:
             try:
-                relay_manager = RelayManager()
-
-                # Add ONE relay per connection (key change)
-                relay_manager.add_relay(relay)
-
-                relay_manager.open_connections()
-                await asyncio.sleep(0.5)  # minimal wait
-
-                try:
-                    relay_manager.publish_event(mcp_event)
-                    relay_manager.publish_event(sdk_event)
-                    relay_manager.publish_event(human_event)
-
-                    success_count += 1
-                    logger.info(f"✅ Published to {relay}")
-
-                except Exception as e:
-                    logger.warning(f"⚠️ Publish failed on {relay}: {e}")
-
-                finally:
-                    try:
-                        relay_manager.close_connections()
-                    except:
-                        pass
-
+                relay_manager.add_relay(relay_url)
             except Exception as e:
-                logger.warning(f"⚠️ Relay connection failed {relay}: {e}")
+                logger.warning(f"⚠️ Failed to add relay {relay_url}: {e}")
 
+        # Open connections once
+        relay_manager.open_connections()
+        await asyncio.sleep(1.0)  # Allow time for connections to establish
+
+        try:
+            for relay_url in relays_to_use:
+                relay_success = 0
+
+                for event in events:
+                    retries = 3
+                    delay = 1.0
+
+                    for attempt in range(retries):
+                        try:
+                            relay_manager.publish_event(event)
+                            success_count += 1
+                            relay_success += 1
+                            logger.info(f"✅ Published kind={event.kind} to {relay_url}")
+                            break
+
+                        except Exception as e:
+                            logger.warning(
+                                f"⚠️ Publish attempt {attempt+1}/3 failed for kind={event.kind} on {relay_url}: {e}"
+                            )
+                            if attempt < retries - 1:
+                                await asyncio.sleep(delay)
+                                delay *= 2  # exponential backoff
+
+                    else:
+                        logger.error(f"❌ Failed to publish kind={event.kind} to {relay_url} after {retries} attempts")
+
+                if relay_success > 0:
+                    logger.info(f"📤 Successfully sent {relay_success} events to {relay_url}")
+
+        finally:
+            # Always clean up connections
+            try:
+                relay_manager.close_connections()
+            except Exception as e:
+                logger.warning(f"⚠️ Error closing connections: {e}")
+
+        # Final summary
         if success_count == 0:
             logger.error("❌ All relay publishes failed")
         else:
-            logger.info(f"📡 Broadcast success on {success_count}/{len(relays_to_use)} relays")
+            logger.info(f"📡 Broadcast success: {success_count}/{total_attempts} events "
+                       f"across {len(relays_to_use)} relays")
 
     except Exception as e:
         logger.error(f"❌ Broadcast error: {e}")
 
-# ========================= LOOP =========================
-async def broadcast_to_nostr():
+
+async def broadcast_loop():
     while True:
-        try:
-            await broadcast_once()
-        except Exception as e:
-            logger.error(f"❌ Loop error: {e}")
-
-        # jitter prevents sync with bad relay cycles
-        sleep_time = random.randint(720, 1080)
-        logger.info(f"⏳ Next broadcast in {sleep_time}s")
-
-        await asyncio.sleep(sleep_time)
+        await broadcast_once()
+        wait_seconds = random.randint(720, 1080)  # 12-18 minutes
+        logger.info(f"⏳ Next broadcast in {wait_seconds}s")
+        await asyncio.sleep(wait_seconds)
 
 # ========================= FASTAPI =========================
 @app.post("/broadcast-now")
