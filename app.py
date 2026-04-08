@@ -78,6 +78,29 @@ DENYLIST_BACKOFF_SECONDS = 7200    # 2 hours
 BROADCAST_INTERVAL_MIN = 720       # 12 min
 BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
+ANNOUNCEMENTS: list[dict] = []
+
+def add_announcement(title: str, description: str, link: str = None):
+    """Add announcement from Nostr broadcaster to RSS feed"""
+    announcement = {
+        "title": title,
+        "description": description,
+        "link": link or "https://invinoveritas.onrender.com/discover",
+        "pubDate": datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "guid": f"https://invinoveritas.onrender.com/announce/{int(time.time())}"
+    }
+    
+    ANNOUNCEMENTS.insert(0, announcement)  # newest first
+    
+    # Keep only last 5
+    if len(ANNOUNCEMENTS) > 5:
+        ANNOUNCEMENTS.pop()
+    
+    logger.info(f"📢 RSS announcement added: {title}")
+    return announcement
+
+
+
 # ── Relay health tracker ──────────────────────────────────────────────────────
 @dataclass
 class RelayHealth:
@@ -368,15 +391,34 @@ async def _publish_to_relay(
         for event in events:
             delay = RETRY_BASE_DELAY
             published = False
+            
             for attempt in range(PUBLISH_RETRIES):
                 ok = await _publish_with_ok(relay_url, event)
                 if ok:
                     ok_count += 1
                     _health[relay_url].record_ok()
+                    
                     if attempt == 0:
                         logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
+                    
+                    # === ADD THIS BLOCK: Auto-update RSS when kind 31234 is published ===
+                    if event.kind == 31234:
+                        # Extract title and content from your event
+                        title = "invinoveritas Update"
+                        description = event.content
+                        link = "https://invinoveritas.onrender.com/discover"
+                        
+                        # Optional: make title more specific based on content
+                        if "A2A" in event.content:
+                            title = "A2A Delegation Enabled"
+                        elif "trading" in event.content.lower():
+                            title = "Trading Bot Support Improved"
+                        
+                        add_announcement(title=title, description=description, link=link)
+                    
                     published = True
                     break
+                    
                 if attempt < PUBLISH_RETRIES - 1:
                     await asyncio.sleep(delay)
                     delay *= RETRY_BACKOFF
@@ -2719,13 +2761,15 @@ async def discover_page():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>invinoveritas — Lightning-Paid Reasoning MCP Server</title>
         <style>
-            body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+            body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
             h1, h2 { color: #f7931a; }
             .card { background: #1f1f1f; padding: 25px; border-radius: 12px; margin: 20px 0; }
             button { background: #f7931a; color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
             button:hover { background: #ffaa33; }
             pre { background: #0f0f0f; padding: 15px; border-radius: 8px; overflow-x: auto; }
             .tag { background: #333; padding: 4px 10px; border-radius: 20px; font-size: 0.85em; }
+            a { color: #f7931a; text-decoration: none; }
+            a:hover { text-decoration: underline; }
         </style>
     </head>
     <body>
@@ -2766,6 +2810,16 @@ async def discover_page():
             <p><strong>Recommended:</strong> NWC (Alby / Zeus / Mutiny) + pre-funded account for lowest latency.</p>
         </div>
 
+        <div class="card">
+            <h2>Stay Updated</h2>
+            <p>Follow our announcements via RSS feed:</p>
+            <p>
+                <a href="/rss" target="_blank">📡 RSS Feed</a> 
+                <small>(https://invinoveritas.onrender.com/rss)</small>
+            </p>
+            <p>This feed automatically updates every time we publish a new announcement on Nostr.</p>
+        </div>
+
         <p><small>Last updated: 2026-04-08 | Powered by Bitcoin Lightning</small></p>
 
         <script>
@@ -2783,10 +2837,22 @@ async def discover_page():
 
 
 @app.get("/rss", tags=["meta"])
-@app.get("/announce.xml", tags=["meta"])
 @app.get("/feed", tags=["meta"])
+@app.get("/announce.xml", tags=["meta"])
 async def rss_feed():
-    """RSS feed for MCP server announcements and updates"""
+    """RSS feed that automatically mirrors the last 5 Nostr kind 31234 announcements"""
+    
+    items = ""
+    for ann in ANNOUNCEMENTS:
+        items += f"""
+        <item>
+            <title>{ann['title']}</title>
+            <link>{ann['link']}</link>
+            <description>{ann['description']}</description>
+            <pubDate>{ann['pubDate']}</pubDate>
+            <guid>{ann['guid']}</guid>
+        </item>"""
+
     rss_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
@@ -2796,21 +2862,9 @@ async def rss_feed():
         <language>en-us</language>
         <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
         <atom:link href="https://invinoveritas.onrender.com/rss" rel="self" type="application/rss+xml" />
-
-        <item>
-            <title>invinoveritas MCP Server - Live</title>
-            <link>https://invinoveritas.onrender.com/discover</link>
-            <description>High-quality Lightning-paid reasoning and decision tools. Strong trading bot support with A2A delegation.</description>
-            <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
-            <guid>https://invinoveritas.onrender.com/mcp</guid>
-        </item>
-
-        <item>
-            <title>A2A Delegation Enabled</title>
-            <link>https://invinoveritas.onrender.com/a2a</link>
-            <description>Other agents can now delegate reasoning and decision tasks directly to invinoveritas via A2A.</description>
-            <pubDate>2026-04-08T00:00:00Z</pubDate>
-        </item>
+        
+        {items if items else "<item><title>No announcements yet</title><description>Check back soon for updates!</description></item>"}
     </channel>
 </rss>"""
+
     return Response(content=rss_content, media_type="application/rss+xml")
