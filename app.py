@@ -1785,7 +1785,7 @@ AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
     "version": "1.0",
     "name": "invinoveritas-reasoning-agent",
-    "description": "Specialized high-quality reasoning and decision-making agent powered by Lightning payments (L402)",
+    "description": "High-quality Lightning-paid reasoning and structured decision intelligence agent. Strong support for autonomous agents, trading bots, and A2A task delegation.",
     "provider": "invinoveritas",
     "version": "0.4.0",
     "capabilities": [
@@ -1793,7 +1793,9 @@ AGENT_CARD = {
         "decision-making",
         "structured-output",
         "risk-assessment",
-        "trading-bot-support"          # Added for trading bots
+        "confidence-scoring",
+        "trading-bot-support",
+        "a2a-delegation"
     ],
     "protocols": ["mcp", "a2a"],
     "authentication": ["L402", "Bearer"],
@@ -1801,11 +1803,29 @@ AGENT_CARD = {
         "mcp": "https://invinoveritas.onrender.com/mcp",
         "a2a": "https://invinoveritas.onrender.com/a2a"
     },
+    "a2a_support": {
+        "supported": True,
+        "forwarding": True,
+        "target": "mcp",
+        "description": "Delegates reasoning and decision tasks internally to the MCP endpoint. Payment is still required via L402 or Bearer token."
+    },
+    "tradingBotSupport": {
+        "supported": True,
+        "description": "Optimized for trading bots with low-latency async decisions, arbitrage analysis, portfolio rebalancing, and risk scoring.",
+        "useCases": [
+            "arbitrage detection",
+            "portfolio rebalancing",
+            "market sentiment analysis",
+            "risk-aware trade decisions",
+            "high-frequency reasoning"
+        ],
+        "recommendedSetup": "NWC + pre-funded account for best performance"
+    },
     "pricing": {
         "model": "pay-per-use",
         "currency": "sats",
-        "reasoning": "500 sats base",
-        "decision": "1000 sats base",
+        "reasoning": "~500 sats base",
+        "decision": "~1000 sats base",
         "agent_multiplier": 1.2
     },
     "nostr": {
@@ -1818,20 +1838,13 @@ AGENT_CARD = {
             "wss://nostr-pub.wellorder.net",
             "wss://nostr.oxtr.dev",
             "wss://nostr.bitcoiner.social",
-            "wss://offchain.pub",
+            "wss://offchain.pub"
         ]
-    },
-    "tradingBotSupport": {
-        "supported": True,
-        "description": "Optimized for trading bots with async decision-making, arbitrage analysis, portfolio rebalancing, and risk scoring via Lightning payments.",
-        "walletRecommendation": "NWC (Alby, Zeus, Mutiny) for seamless high-frequency operation",
-        "useCases": ["arbitrage detection", "portfolio rebalancing", "risk assessment", "high-frequency decisioning"]
     },
     "documentation": "https://invinoveritas.onrender.com/guide",
     "contact": "mailto:babyblueviperbusiness@gmail.com",
-    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "paid-ai", "trading-bot"]
+    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "a2a", "trading-bot", "paid-ai"]
 }
-
 
 @app.get("/.well-known/agent-card.json", include_in_schema=False)
 @app.get("/agent-card.json", include_in_schema=False)
@@ -1848,14 +1861,15 @@ AGENTS_REGISTRY = {
         {
             "id": "invinoveritas-reasoning-agent",
             "name": "invinoveritas Reasoning Agent",
-            "description": "Lightning-paid reasoning and structured decision intelligence for autonomous agents. Strong support for trading bots.",
+            "description": "Lightning-paid strategic reasoning and structured decision intelligence. Strong support for autonomous agents, trading bots, and A2A task delegation.",
             "type": "specialist",
             "provider": "invinoveritas",
             "version": "0.4.0",
-            "protocols": ["mcp"],
-            "capabilities": ["reasoning", "decision-making", "trading-bot-support"],
+            "protocols": ["mcp", "a2a"],
+            "capabilities": ["reasoning", "decision-making", "trading-bot-support", "a2a-delegation", "risk-assessment"],
             "pricing": "pay-per-use (Lightning)",
             "endpoint": "https://invinoveritas.onrender.com/mcp",
+            "a2aEndpoint": "https://invinoveritas.onrender.com/a2a",
             "agentCard": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
             "serverCard": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
             "nostr": True
@@ -1872,22 +1886,81 @@ async def get_agents_registry():
 
 
 # =========================
-# A2A (Agent-to-Agent) Stub Endpoint
+# A2A Endpoint with Internal MCP Forwarding
 # =========================
 @app.get("/a2a", include_in_schema=False)
 @app.post("/a2a", include_in_schema=False)
-async def a2a_endpoint():
-    """Basic A2A compatibility stub - ready for future expansion"""
-    return {
-        "status": "ok",
-        "protocol": "a2a",
-        "server": "invinoveritas",
-        "message": "A2A endpoint is active. Full agent-to-agent task delegation coming soon.",
-        "supported": ["task_proposal", "mcp_forward"],
-        "documentation": "https://invinoveritas.onrender.com/guide",
-        "note": "Currently forwards high-value tasks to the MCP endpoint with L402 payment.",
-        "trading_bot_optimized": True
+async def a2a_endpoint(request: Request):
+    """A2A endpoint that forwards tasks internally to MCP. 
+    The calling agent must still pay (402 will be returned if no valid payment)."""
+
+    # GET = Discovery
+    if request.method == "GET":
+        return {
+            "status": "ok",
+            "protocol": "a2a",
+            "agent_name": "invinoveritas-reasoning-agent",
+            "description": "Lightning-paid reasoning and decision specialist with A2A delegation support.",
+            "capabilities": ["reasoning", "decision-making", "trading-bot-support"],
+            "supported_operations": ["task_proposal", "task_delegation"],
+            "trading_bot_optimized": True,
+            "note": "All tasks require Lightning payment via L402 or Bearer token."
+        }
+
+    # POST = Task delegation with internal forwarding
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "error", "error": "Invalid JSON body"}
+
+    operation = body.get("operation") or body.get("type", "")
+    task = body.get("task", {}) or body.get("payload", {})
+
+    if not task:
+        return {"status": "error", "error": "No task provided"}
+
+    # Choose tool intelligently
+    goal_lower = str(task.get("goal", "") or task.get("description", "")).lower()
+    tool_name = "decide" if any(k in goal_lower for k in ["decide", "choose", "should", "trade", "arbitrage", "rebalance", "risk"]) else "reason"
+
+    # Build MCP payload
+    mcp_payload = {
+        "jsonrpc": "2.0",
+        "id": f"a2a-{int(time.time())}",
+        "method": "callTool",
+        "params": {
+            "name": tool_name,
+            "arguments": task
+        }
     }
+
+    # Forward internally to MCP
+    async with httpx.AsyncClient() as client:
+        try:
+            # Pass through the original Authorization header (if any)
+            headers = {}
+            if auth := request.headers.get("authorization"):
+                headers["Authorization"] = auth
+
+            resp = await client.post(
+                "http://127.0.0.1:8000/mcp",   # internal call
+                json=mcp_payload,
+                headers=headers,
+                timeout=45.0
+            )
+
+            # Return exactly what MCP returned (including 402 with invoice)
+            return resp.json()
+
+        except Exception as e:
+            logger.error(f"A2A forwarding error: {e}")
+            return {
+                "status": "error",
+                "message": "Internal forwarding to MCP failed",
+                "detail": str(e)
+            }
+
+
 # =========================
 # Models (unchanged)
 # =========================
