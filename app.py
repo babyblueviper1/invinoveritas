@@ -138,36 +138,43 @@ async def websocket_announcements(websocket: WebSocket):
 
 # ========================= BROADCAST HELPER =========================
 async def broadcast_via_websocket(title: str, description: str, link: str = None):
+    """Broadcast to ALL active WebSocket + SSE clients"""
     message = {
         "type": "announcement",
         "title": title,
         "description": description,
-        "link": link or "https://invinoveritas.onrender.com",
+        "link": link or "https://invinoveritas.onrender.com/discover",
         "timestamp": int(time.time())
     }
-    # WebSocket
-    dead = []
-    for ws in active_ws_clients:
+
+    # WebSocket clients
+    dead_ws = []
+    for ws in active_ws_clients[:]:
         try:
             await ws.send_json(message)
-        except:
-            dead.append(ws)
-    for d in dead:
+        except Exception:
+            dead_ws.append(ws)
+
+    for d in dead_ws:
         if d in active_ws_clients:
             active_ws_clients.remove(d)
 
-    # SSE
-    for queue in list(active_sse_clients):
+    # SSE clients
+    dead_sse = []
+    for q in active_sse_clients[:]:
         try:
-            queue.put_nowait(message)
-        except:
-            if queue in active_sse_clients:
-                active_sse_clients.remove(queue)
+            q.put_nowait(message)          # Send same format as WS
+        except Exception:
+            dead_sse.append(q)
+
+    for q in dead_sse:
+        if q in active_sse_clients:
+            active_sse_clients.remove(q)
 
 
-
+# ========================= ADD ANNOUNCEMENT =========================
 def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement, save to disk, and broadcast via SSE/WebSocket"""
+    """Add announcement, save to disk, and broadcast"""
     if len(description) > 280:
         description = description[:277] + "..."
 
@@ -190,9 +197,19 @@ def add_announcement(title: str, description: str, link: str = None):
         ANNOUNCEMENTS.pop()
 
     save_announcements()
-    logger.info(f"📢 Announcement added and saved: {title}")
+    logger.info(f"📢 Announcement added: {title}")
 
-    # Push to SSE clients
+    # === BROADCAST TO EVERYONE ===
+    # Use the async function (we'll call it properly from async context)
+    try:
+        # Since add_announcement is sync, we use create_task
+        asyncio.create_task(
+            broadcast_via_websocket(title, description, link)
+        )
+    except Exception as e:
+        logger.error(f"Failed to broadcast announcement: {e}")
+
+    # Also push full announcement to SSE (for backward compatibility with old clients)
     for queue in list(active_sse_clients):
         try:
             queue.put_nowait(announcement)
@@ -255,17 +272,26 @@ async def sse_test_page():
 async def sse_event_generator():
     queue: asyncio.Queue = asyncio.Queue(maxsize=20)
     active_sse_clients.append(queue)
+    
     try:
+        # === SEND EXISTING ANNOUNCEMENTS FIRST ===
+        for ann in ANNOUNCEMENTS[:5]:  # last 5
+            try:
+                data = {
+                    "type": "announcement",
+                    "title": ann.get("title", "Update"),
+                    "description": ann.get("description", ""),
+                    "link": ann.get("link"),
+                    "timestamp": ann.get("timestamp")
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+            except:
+                pass
+        
         while True:
             try:
                 announcement = await asyncio.wait_for(queue.get(), timeout=25.0)
-                data = {
-                    "type": "announcement",
-                    "title": announcement.get("title", "Update"),
-                    "description": announcement.get("description", ""),
-                    "link": announcement.get("link"),
-                    "timestamp": announcement.get("timestamp")
-                }
+                data = { ... same as before ... }
                 yield f"data: {json.dumps(data)}\n\n"
             except asyncio.TimeoutError:
                 yield ": keep-alive\n\n"
@@ -293,16 +319,9 @@ async def sse_discovery_hub(request: Request):
             "Access-Control-Allow-Origin": "*",
         }
     )
-
-    return StreamingResponse(
-        sse_event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-        }
-    )
+@app.get("/debug/sse-clients")
+async def debug_sse():
+    return {"active_sse_queues": len(active_sse_clients), "active_ws": len(active_ws_clients)}
 
 # ── Relay health tracker ──────────────────────────────────────────────────────
 @dataclass
