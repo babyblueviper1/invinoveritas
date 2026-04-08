@@ -176,69 +176,62 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
 
     # Ultra-high relevance (score >= 9)
     if score >= 9 or ("mcp" in content_lower and "agent" in content_lower):
-        return (
-            base
-            "Saw you're building with MCP — let's get you connected:\n\n"
-            "💡 Quick Wallet Options:\n"
-            "• NWC wallets: Alby, Zeus, Mutiny → plug WalletConnect URI into SDK\n"
-            "• Custodial wallets: Strike, Wallet of Sats → pay directly without node\n\n"
-            "🔗 MCP server: https://invinoveritas.onrender.com/mcp\n"
-            "🔗 Python SDK: `pip install invinoveritas`\n"
-            "💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 free calls)"
-        )
+        return f"""{base}Saw you're building with MCP — let's get you connected:
+
+💡 Quick Wallet Options:
+• NWC wallets: Alby, Zeus, Mutiny → plug WalletConnect URI into SDK
+• Custodial wallets: Strike, Wallet of Sats → pay directly without node
+
+🔗 MCP server: https://invinoveritas.onrender.com/mcp
+🔗 Python SDK: `pip install invinoveritas`
+💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 free calls)
+"""
 
     # High relevance (score 7-8)
     elif score >= 7:
-        return (
-            base
-            "→ MCP server: https://invinoveritas.onrender.com/mcp\n"
-            "→ Python SDK: `pip install invinoveritas`\n\n"
-            "Agents can pay per call (L402) or pre-fund an account.\n"
-            "💡 Wallet guidance:\n"
-            "• NWC wallets (Alby, Zeus, Mutiny) — no node required\n"
-            "• Custodial wallets (Strike, Wallet of Sats) — pay directly\n"
-            "• LND node users can follow Lightning Labs setup docs"
-        )
+        return f"""{base}→ MCP server: https://invinoveritas.onrender.com/mcp
+→ Python SDK: `pip install invinoveritas`
+
+Agents can pay per call (L402) or pre-fund an account.
+💡 Wallet guidance:
+• NWC wallets (Alby, Zeus, Mutiny) — no node required
+• Custodial wallets (Strike, Wallet of Sats) — pay directly
+• LND node users can follow Lightning Labs setup docs
+"""
 
     # Medium-high relevance (score 5-6)
     elif score >= 5:
-        return (
-            base
-            "→ MCP: https://invinoveritas.onrender.com/mcp\n"
-            "→ SDK: `pip install invinoveritas`\n\n"
-            "Pay per call (L402) or pre-fund an account.\n"
-            "Wallet options:\n"
-            "• NWC wallets (Alby, Zeus, Mutiny) → no node needed\n"
-            "• Custodial wallets (Strike, Wallet of Sats) → easy payments\n"
-            "• LND node → follow Lightning Labs docs"
-        )
+        return f"""{base}→ MCP: https://invinoveritas.onrender.com/mcp
+→ SDK: `pip install invinoveritas`
+
+Pay per call (L402) or pre-fund an account.
+Wallet options:
+• NWC wallets (Alby, Zeus, Mutiny) → no node needed
+• Custodial wallets (Strike, Wallet of Sats) → easy payments
+• LND node → follow Lightning Labs docs
+"""
 
     # Medium relevance (score 3-4)
     elif score >= 3:
-        return (
-            base
-            "Lightning-paid reasoning for AI agents.\n"
-            "→ MCP server: https://invinoveritas.onrender.com/mcp\n\n"
-            "Pay ~1000 sats to create an account + 5 complementary calls, then top up as needed.\n"
-            "Or use pay-per-call via L402 (NWC or custodial wallets)."
-        )
+        return f"""{base}Lightning-paid reasoning for AI agents.
+→ MCP server: https://invinoveritas.onrender.com/mcp
+
+Pay ~1000 sats to create an account + 5 complementary calls, then top up as needed.
+Or use pay-per-call via L402 (NWC or custodial wallets)
+"""
 
     # Low but acceptable relevance (score 2)
     elif score >= 2:
-        return (
-            f"⚡ invinoveritas — Lightning-paid reasoning tools for agents\n\n"
-            f"Hey {user_tag}, create an account (~1000 sats) and get 5 complementary calls.\n"
-            "MCP server: https://invinoveritas.onrender.com/mcp\n"
-            "Wallet options: NWC (Alby, Zeus, Mutiny) or custodial (Strike, Wallet of Sats)"
-        )
+        return f"""{base}Create an account (~1000 sats) and get 5 complementary calls.
+MCP server: https://invinoveritas.onrender.com/mcp
+Wallet options: NWC (Alby, Zeus, Mutiny) or custodial (Strike, Wallet of Sats)
+"""
 
     # Fallback
     else:
-        return (
-            f"⚡ invinoveritas — Lightning-paid reasoning for AI agents.\n"
-            f"Hey {user_tag}, check out https://invinoveritas.onrender.com/mcp\n"
-            "Wallet options: NWC or custodial wallets available"
-        )
+        return f"""{base}Check out https://invinoveritas.onrender.com/mcp
+Wallet options: NWC or custodial wallets available
+"""
       
 # ── Rate limit check ──────────────────────────────────────────────────────────
 def _is_rate_limited(relay_url: str) -> bool:
