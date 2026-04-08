@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from collections import deque
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
+import datetime
 from config import (
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
@@ -2406,6 +2407,12 @@ def sitemap():
         <priority>1.0</priority>
     </url>
     <url>
+        <loc>https://invinoveritas.onrender.com/discover</loc>
+        <lastmod>2026-04-08</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.95</priority>
+    </url>
+    <url>
         <loc>https://invinoveritas.onrender.com/mcp</loc>
         <lastmod>2026-04-08</lastmod>
         <changefreq>weekly</changefreq>
@@ -2436,16 +2443,22 @@ def sitemap():
         <priority>0.7</priority>
     </url>
     <url>
+        <loc>https://invinoveritas.onrender.com/rss</loc>
+        <lastmod>2026-04-08</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.65</priority>
+    </url>
+    <url>
         <loc>https://invinoveritas.onrender.com/tool</loc>
         <lastmod>2026-04-08</lastmod>
         <changefreq>weekly</changefreq>
-        <priority>0.65</priority>
+        <priority>0.6</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/docs</loc>
         <lastmod>2026-04-08</lastmod>
         <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
+        <priority>0.55</priority>
     </url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
@@ -2693,3 +2706,111 @@ def ai_plugin():
             "note": "Configure NWCProvider or LNDProvider in the SDK for automatic payments. Highly recommended for trading bots."
         }
     }
+
+@app.get("/discover", tags=["meta"])
+@app.get("/mcp", tags=["meta"])   # nice alias
+async def discover_page():
+    """Public MCP server discovery page with one-click setup"""
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>invinoveritas — Lightning-Paid Reasoning MCP Server</title>
+        <style>
+            body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+            h1, h2 { color: #f7931a; }
+            .card { background: #1f1f1f; padding: 25px; border-radius: 12px; margin: 20px 0; }
+            button { background: #f7931a; color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+            button:hover { background: #ffaa33; }
+            pre { background: #0f0f0f; padding: 15px; border-radius: 8px; overflow-x: auto; }
+            .tag { background: #333; padding: 4px 10px; border-radius: 20px; font-size: 0.85em; }
+        </style>
+    </head>
+    <body>
+        <h1>⚡ invinoveritas</h1>
+        <p><strong>Lightning-paid AI Reasoning & Decision Intelligence for Agents</strong></p>
+        
+        <div class="card">
+            <h2>MCP Server</h2>
+            <p>High-quality reasoning, structured decisions, and trading bot support via Lightning (L402).</p>
+            
+            <h3>Server Card</h3>
+            <pre>https://invinoveritas.onrender.com/.well-known/mcp/server-card.json</pre>
+            
+            <h3>Agent Card</h3>
+            <pre>https://invinoveritas.onrender.com/.well-known/agent-card.json</pre>
+        </div>
+
+        <div class="card">
+            <h2>Quick Add Instructions</h2>
+            
+            <h3>Cursor</h3>
+            <p>Copy this URL into Cursor's MCP settings:</p>
+            <pre>https://invinoveritas.onrender.com/.well-known/mcp/server-card.json</pre>
+            <button onclick="copyToClipboard('https://invinoveritas.onrender.com/.well-known/mcp/server-card.json')">Copy Cursor URL</button>
+            
+            <h3>Claude Desktop</h3>
+            <p>Use the MCP server card above or add via ai-plugin.json:</p>
+            <pre>https://invinoveritas.onrender.com/.well-known/ai-plugin.json</pre>
+            
+            <h3>LangChain / Custom Agents</h3>
+            <pre>pip install invinoveritas</pre>
+            <p>Then use the MCP endpoint: <code>https://invinoveritas.onrender.com/mcp</code></p>
+        </div>
+
+        <div class="card">
+            <h2>Trading Bot Friendly</h2>
+            <p>Optimized for high-frequency decisions, arbitrage, portfolio rebalancing, and risk assessment.</p>
+            <p><strong>Recommended:</strong> NWC (Alby / Zeus / Mutiny) + pre-funded account for lowest latency.</p>
+        </div>
+
+        <p><small>Last updated: 2026-04-08 | Powered by Bitcoin Lightning</small></p>
+
+        <script>
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert("Copied to clipboard!");
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+
+@app.get("/rss", tags=["meta"])
+@app.get("/announce.xml", tags=["meta"])
+@app.get("/feed", tags=["meta"])
+async def rss_feed():
+    """RSS feed for MCP server announcements and updates"""
+    rss_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>invinoveritas MCP Server</title>
+        <link>https://invinoveritas.onrender.com</link>
+        <description>Lightning-paid AI reasoning and decision intelligence for autonomous agents and trading bots.</description>
+        <language>en-us</language>
+        <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
+        <atom:link href="https://invinoveritas.onrender.com/rss" rel="self" type="application/rss+xml" />
+
+        <item>
+            <title>invinoveritas MCP Server - Live</title>
+            <link>https://invinoveritas.onrender.com/discover</link>
+            <description>High-quality Lightning-paid reasoning and decision tools. Strong trading bot support with A2A delegation.</description>
+            <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
+            <guid>https://invinoveritas.onrender.com/mcp</guid>
+        </item>
+
+        <item>
+            <title>A2A Delegation Enabled</title>
+            <link>https://invinoveritas.onrender.com/a2a</link>
+            <description>Other agents can now delegate reasoning and decision tasks directly to invinoveritas via A2A.</description>
+            <pubDate>2026-04-08T00:00:00Z</pubDate>
+        </item>
+    </channel>
+</rss>"""
+    return Response(content=rss_content, media_type="application/rss+xml")
