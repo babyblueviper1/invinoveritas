@@ -520,22 +520,21 @@ async def _publish_to_relay(
                     if attempt == 0:
                         logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
                     
-                    # === Auto-update RSS + WebSocket when kind 31234 is published ===
-                    if event.kind == 31234:
+                    # === SINGLE ANNOUNCEMENT LOGIC: Trigger only once per event ===
+                    if event.kind == 31234 and not published:   # Only on first successful publish
                         title = "invinoveritas Update"
                         description = event.content.strip()
                         link = "https://invinoveritas.onrender.com/discover"
                         
-                        # Make title more specific when possible
                         content_lower = event.content.lower()
                         if "a2a" in content_lower or "delegation" in content_lower:
                             title = "A2A Delegation Enabled"
-                        elif "trading" in content_lower or "arbitrage" in content_lower or "portfolio" in content_lower:
+                        elif any(word in content_lower for word in ["trading", "arbitrage", "portfolio", "rebalance"]):
                             title = "Trading Bot Support Improved"
-                        elif "update" in content_lower or "new" in content_lower:
+                        elif any(word in content_lower for word in ["update", "new feature", "released"]):
                             title = "invinoveritas Update"
 
-                        # Broadcast to WebSocket (real-time)
+                        # Broadcast once via WebSocket
                         await broadcast_via_websocket(
                             title=title,
                             description=description,
