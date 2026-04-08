@@ -146,7 +146,11 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
 
 
 def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement and broadcast to both RSS and SSE clients"""
+    """Add announcement and broadcast to RSS + SSE/WebSocket"""
+    # Truncate long descriptions for RSS friendliness
+    if len(description) > 300:
+        description = description[:297] + "..."
+
     announcement = {
         "title": title,
         "description": description,
@@ -160,14 +164,13 @@ def add_announcement(title: str, description: str, link: str = None):
     if len(ANNOUNCEMENTS) > 5:
         ANNOUNCEMENTS.pop()
     
-    logger.info(f"📢 Announcement added: {title}")
+    logger.info(f"📢 RSS announcement added: {title}")
     
-    # Push to all connected SSE clients
-    for queue in active_sse_clients[:]:   # copy to avoid modification during iteration
+    # Push to SSE/WebSocket clients
+    for queue in active_sse_clients[:]:
         try:
             queue.put_nowait(announcement)
         except Exception:
-            # Clean up dead queues if needed
             if queue in active_sse_clients:
                 active_sse_clients.remove(queue)
     
@@ -587,20 +590,19 @@ async def _publish_to_relay(
                     
                     # === Trigger announcement for relevant kinds (only once per event) ===
                     if event.kind in [31234, 31990, 30078] and not published:
-                        title = "invinoveritas Update"
-                        description = event.content.strip() if event.content else "New update from invinoveritas"
-                        link = "https://invinoveritas.onrender.com/discover"
-                        
-                        content_lower = event.content.lower() if event.content else ""
+                        content_lower = (event.content or "").lower()
                         
                         if event.kind == 31990 or "mcp" in content_lower:
                             title = "invinoveritas MCP Server Update"
+                            description = "High-quality Lightning-paid reasoning and decision intelligence via MCP. Trading bot optimized."
                         elif event.kind == 30078 or "sdk" in content_lower:
-                            title = "invinoveritas SDK Update"
-                        elif "a2a" in content_lower or "delegation" in content_lower:
-                            title = "A2A Delegation Enabled"
-                        elif any(word in content_lower for word in ["trading", "arbitrage", "portfolio"]):
-                            title = "Trading Bot Support Improved"
+                            title = "invinoveritas Python SDK Update"
+                            description = "New SDK version with improved A2A support and real-time features."
+                        else:
+                            title = "invinoveritas Update"
+                            description = event.content[:200] + "..." if len(event.content) > 200 else event.content
+
+                        link = "https://invinoveritas.onrender.com/discover"
 
                         # Broadcast to WebSocket + add to RSS
                         await broadcast_via_websocket(
