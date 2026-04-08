@@ -260,12 +260,25 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
     Returns True on confirmed OK, False on timeout / error / rejection.
     All failure modes log at WARNING or ERROR so they are visible in Render logs.
     """
+    # Serialise event
     try:
-        event_msg = _event_to_wire(event)
+        if hasattr(event, "to_dict"):
+            payload = event.to_dict()
+        else:
+            payload = {
+                "id":         event.id,
+                "pubkey":     event.public_key,
+                "created_at": event.created_at,
+                "kind":       event.kind,
+                "tags":       event.tags,
+                "content":    event.content,
+                "sig":        event.signature,
+            }
+        event_msg = json.dumps(["EVENT", payload], separators=(",", ":"))
     except Exception as e:
         logger.error(f"❌ Event serialisation failed: {e}")
         return False
- 
+
     try:
         async with websockets.connect(
             relay_url,
@@ -275,7 +288,7 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
         ) as ws:
             await ws.send(event_msg)
             logger.debug(f"→ Sent kind={event.kind} id={event.id[:8]} to {relay_url}")
- 
+
             deadline = time.time() + OK_WAIT_TIMEOUT
             while time.time() < deadline:
                 try:
@@ -284,44 +297,41 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
                     )
                 except asyncio.TimeoutError:
                     break
- 
+
                 logger.debug(f"← {relay_url} raw: {raw[:120]}")
- 
+
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
                     logger.warning(f"⚠️ Non-JSON from {relay_url}: {raw[:80]}")
                     continue
- 
+
                 if not isinstance(msg, list) or len(msg) < 2:
                     continue
- 
+
                 msg_type = msg[0]
- 
-                # NIP-20 OK
+
                 if msg_type == "OK" and len(msg) >= 3 and msg[1] == event.id:
                     if msg[2] is True:
                         return True
                     reason = msg[3] if len(msg) > 3 else "(no reason)"
                     logger.warning(f"⚠️ Relay rejected {event.id[:8]} @ {relay_url}: {reason}")
                     return False
- 
-                # NOTICE — relay sending a message instead of OK
+
                 if msg_type == "NOTICE":
                     logger.warning(f"⚠️ NOTICE from {relay_url}: {msg[1]}")
                     continue
- 
-                # AUTH challenge — NIP-42, not supported yet
+
                 if msg_type == "AUTH":
                     logger.warning(f"⚠️ {relay_url} requires NIP-42 AUTH — skipping")
                     return False
- 
+
             logger.warning(
                 f"⏱ OK timeout ({OK_WAIT_TIMEOUT}s) from {relay_url} "
                 f"for kind={event.kind} id={event.id[:8]}"
             )
             return False
- 
+
     except websockets.exceptions.InvalidURI:
         logger.error(f"❌ Invalid relay URI: {relay_url}")
         return False
