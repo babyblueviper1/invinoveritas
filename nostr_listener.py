@@ -164,52 +164,33 @@ async def _send_reply_with_ok(ws: websockets.WebSocketClientProtocol, reply: Eve
 
 # ── Response templates ────────────────────────────────────────────────────────
 def _build_reply_text(content: str, score: int) -> str:
-    """
-    Builds contextual reply text based on relevance score.
-    Higher score = more detailed and valuable pitch.
-    """
     content_lower = content.lower()
     base = "⚡ invinoveritas — Lightning-paid reasoning for agents\n\n"
 
-    # Very high relevance (MCP mentions, strong agent frameworks, etc.)
     if score >= 8 or "mcp" in content_lower:
         return base + (
             "→ Native MCP server: https://invinoveritas.onrender.com/mcp\n"
             "→ Python SDK: `pip install invinoveritas`\n\n"
-            "Pay in sats per high-quality reasoning or decision call. "
-            "No accounts, no subscriptions, no KYC. "
-            "Works natively with Claude Desktop, Cursor, LangGraph, CrewAI, etc. "
-            "Clean, structured, reliable output your agent can trust."
+            "Pay-per-insight with Lightning (L402). No accounts, no subscriptions. "
+            "First small invoice unlocks trial credits (5 free calls). "
+            "Works great with Claude Desktop, Cursor, LangGraph etc."
         )
 
-    # High relevance
-    elif score >= 6:
+    elif score >= 5:
         return base + (
-            "→ MCP endpoint: https://invinoveritas.onrender.com/mcp\n"
-            "→ SDK: `pip install invinoveritas`\n\n"
-            "Lightning-paid (L402) reasoning & decisions for agents. "
-            "Atomic, verifiable, pay-per-insight. "
-            "Great for autonomous agents and tool-calling workflows."
-        )
-
-    # Medium relevance
-    elif score >= 4:
-        return base + (
-            "Lightning-paid reasoning for AI agents.\n"
             "→ MCP: https://invinoveritas.onrender.com/mcp\n"
             "→ SDK: `pip install invinoveritas`\n\n"
-            "Pay once in sats → get clean structured output."
+            "Lightning-paid high-quality reasoning/decisions. "
+            "Try with 5 free calls after one tiny Lightning invoice — no KYC or account needed."
         )
 
-    # Low but acceptable relevance
     elif score >= 2:
         return base + (
-            "Fast Lightning-paid reasoning & decision tools for agents.\n"
-            "Try the MCP server: https://invinoveritas.onrender.com/mcp "
-            "(5 free calls, no wallet setup needed)."
+            "Lightning-paid reasoning for AI agents via L402.\n"
+            "MCP server: https://invinoveritas.onrender.com/mcp\n"
+            "5 free calls after first small payment — no signup required."
         )
 
-    # Fallback (should almost never reach here due to min score = 2)
     else:
         return "⚡ invinoveritas — Lightning-paid reasoning tools for agents."
       
