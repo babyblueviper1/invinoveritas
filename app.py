@@ -59,7 +59,6 @@ NOSTR_RELAYS = [
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
     "wss://offchain.pub",          # open, no restrictions
-    "wss://relay.current.fyi",     # open general purpose
     
 ]
 
