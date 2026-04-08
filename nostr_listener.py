@@ -4,6 +4,7 @@ import logging
 from nostr.relay_manager import RelayManager
 from nostr.event import Event
 from nostr.key import PrivateKey
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,8 @@ async def run_listener():
 
     private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-    # Global set to prevent replying to the same event multiple times
-    SEEN_EVENTS = set()
+    # Efficient seen events tracker with automatic size limit
+    SEEN_EVENTS = deque(maxlen=5000)
 
     relay_manager = RelayManager()
     for relay in NOSTR_RELAYS:
@@ -80,11 +81,8 @@ async def run_listener():
                     # ❌ Skip if we've already seen it
                     if event.id in SEEN_EVENTS:
                         continue
-                    SEEN_EVENTS.add(event.id)
-
-                    # 🧹 Prevent unbounded growth
-                    if len(SEEN_EVENTS) > 5000:
-                        SEEN_EVENTS.clear()
+                    
+                    SEEN_EVENTS.append(event.id)
 
                     # ❌ Skip our own events
                     if event.pubkey == private_key.public_key.hex():
