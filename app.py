@@ -7,6 +7,7 @@ from collections import deque
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
 import datetime
+from fastapi import WebSocket, WebSocketDisconnect
 from config import (
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
@@ -80,6 +81,69 @@ BROADCAST_INTERVAL_MIN = 720       # 12 min
 BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
 ANNOUNCEMENTS: list[dict] = []
+
+
+
+# Simple list of active WebSocket connections
+active_ws_clients: list[WebSocket] = []
+
+
+@app.websocket("/ws")
+@app.websocket("/ws/announcements")
+async def websocket_announcements(websocket: WebSocket):
+    """Simple WebSocket endpoint for real-time MCP announcements"""
+    await websocket.accept()
+    active_ws_clients.append(websocket)
+    
+    try:
+        # Send welcome message
+        await websocket.send_json({
+            "type": "welcome",
+            "message": "Connected to invinoveritas announcements channel.",
+            "note": "You will receive live updates when new announcements are published via Nostr."
+        })
+
+        # Keep connection alive (listen for pings from client)
+        while True:
+            data = await websocket.receive_text()
+            if data.lower() == "ping":
+                await websocket.send_json({"type": "pong", "timestamp": int(time.time())})
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        # Clean up disconnected client
+        if websocket in active_ws_clients:
+            active_ws_clients.remove(websocket)
+
+
+# Helper function to broadcast (call this from your Nostr broadcaster)
+async def broadcast_via_websocket(title: str, description: str, link: str = None):
+    """Broadcast announcement to all connected WebSocket clients"""
+    message = {
+        "type": "announcement",
+        "title": title,
+        "description": description,
+        "link": link or "https://invinoveritas.onrender.com/discover",
+        "timestamp": int(time.time())
+    }
+    
+    dead_clients = []
+    
+    for ws in active_ws_clients:
+        try:
+            await ws.send_json(message)
+        except Exception:
+            dead_clients.append(ws)
+    
+    # Remove dead clients
+    for dead in dead_clients:
+        if dead in active_ws_clients:
+            active_ws_clients.remove(dead)
+
+
 
 def add_announcement(title: str, description: str, link: str = None):
     """Add announcement and broadcast to both RSS and SSE clients"""
@@ -456,19 +520,29 @@ async def _publish_to_relay(
                     if attempt == 0:
                         logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
                     
-                    # === ADD THIS BLOCK: Auto-update RSS when kind 31234 is published ===
+                    # === Auto-update RSS + WebSocket when kind 31234 is published ===
                     if event.kind == 31234:
-                        # Extract title and content from your event
                         title = "invinoveritas Update"
-                        description = event.content
+                        description = event.content.strip()
                         link = "https://invinoveritas.onrender.com/discover"
                         
-                        # Optional: make title more specific based on content
-                        if "A2A" in event.content:
+                        # Make title more specific when possible
+                        content_lower = event.content.lower()
+                        if "a2a" in content_lower or "delegation" in content_lower:
                             title = "A2A Delegation Enabled"
-                        elif "trading" in event.content.lower():
+                        elif "trading" in content_lower or "arbitrage" in content_lower or "portfolio" in content_lower:
                             title = "Trading Bot Support Improved"
+                        elif "update" in content_lower or "new" in content_lower:
+                            title = "invinoveritas Update"
+
+                        # Broadcast to WebSocket (real-time)
+                        await broadcast_via_websocket(
+                            title=title,
+                            description=description,
+                            link=link
+                        )
                         
+                        # Add to RSS (last 5 only)
                         add_announcement(title=title, description=description, link=link)
                     
                     published = True
