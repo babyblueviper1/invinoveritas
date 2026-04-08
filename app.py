@@ -56,9 +56,10 @@ NOSTR_RELAYS = [
     "wss://nos.lol",
     "wss://relay.primal.net",
     "wss://nostr-pub.wellorder.net",
-    "wss://relay.snort.social",
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
+    "wss://relay.nostr.band",
+    "wss://purplepag.es"
 ]
 
 # ── Constants ─────────────────────────────────────────────────────────────────
