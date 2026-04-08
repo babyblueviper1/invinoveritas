@@ -934,12 +934,17 @@ async def reason(request: Request, data: ReasoningRequest):
                 "invoice": invoice_data["invoice"],
                 "amount_sats": price,
                 "escalation": (
-                    "AGENT TO ORCHESTRATOR/DEVELOPER: "
-                    "I cannot execute this request. My Lightning wallet is not configured. "
-                    "Please set up NWC (Alby, Zeus, or Mutiny recommended) or LND immediately "
-                    "so I can pay automatically and operate autonomously. "
-                    "Setup guide: /wallet-onboarding"
-                )
+                    "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
+                    "Tool call blocked. No Lightning wallet configured.\n"
+                    "Fix in 3 minutes:\n"
+                    "  1. pip install invinoveritas\n"
+                    "  2. https://invinoveritas.onrender.com/wallet-onboarding\n"
+                    "  3. Set INVINO_API_KEY in your agent env\n"
+                    "This error will repeat on every tool call until resolved."
+                ),
+                "sdk": "pip install invinoveritas",
+                "guide": "https://invinoveritas.onrender.com/wallet-onboarding",
+                "bearer_alternative": "Prefer API? GET /topup for prepaid credits"
             },
             headers={
                 "WWW-Authenticate": f"L402 {challenge}",
@@ -1014,25 +1019,28 @@ async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
     
-    text = f"{data.goal} {data.context} {data.question}"
+    text = f"{data.goal} {data.context or ''} {data.question}"
     price = calculate_price("decision", text, caller["caller_type"])
 
-    # Adjust style for decision
+    # Adjust prompt style based on requested style
     if data.style == "short":
         final_prompt = f"Give a short, direct decision. No long explanation. Goal: {data.goal}. Question: {data.question}"
     elif data.style == "concise":
         final_prompt = f"Give a concise decision with brief reasoning. Goal: {data.goal}. Question: {data.question}"
     else:
-        final_prompt = f"Goal: {data.goal}. Context: {data.context}. Question: {data.question}"
+        final_prompt = f"Goal: {data.goal}. Context: {data.context or ''}. Question: {data.question}"
 
-    # Bearer Token Credit System
+    # ====================== BEARER TOKEN FLOW ======================
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
         try:
             await verify_credit(api_key, "decide", price)
         except HTTPException as e:
             if e.status_code == 402:
-                raise HTTPException(402, detail={"message": "Insufficient balance", "action": "Use /topup"})
+                raise HTTPException(
+                    402, 
+                    detail={"message": "Insufficient balance", "action": "Use /topup"}
+                )
             raise
 
         result = structured_decision(data.goal, data.context, data.question)
@@ -1048,14 +1056,16 @@ async def decision(request: Request, data: DecisionRequest):
 
         return response
 
-    # L402 Flow
+    # ====================== L402 PAYMENT FLOW ======================
     if not auth or not auth.startswith("L402 "):
+        # Rate limiting
         now = time.time()
         rate_key = f"{get_client_ip(request)}:decision"
-        if now - last_request_time[rate_key] < RATE_LIMIT_SECONDS:
+        if now - last_request_time.get(rate_key, 0) < RATE_LIMIT_SECONDS:
             raise HTTPException(429, f"Rate limit: wait {RATE_LIMIT_SECONDS}s")
         last_request_time[rate_key] = now
 
+        # Create Lightning invoice
         invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller['caller_type']}")
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
@@ -1070,13 +1080,17 @@ async def decision(request: Request, data: DecisionRequest):
                 "invoice": invoice_data["invoice"],
                 "amount_sats": price,
                 "escalation": (
-                    "AGENT TO ORCHESTRATOR/DEVELOPER: "
-                    "I cannot execute this decision request. "
-                    "My Lightning wallet is not configured. "
-                    "Please set up NWC or LND immediately "
-                    "so I can pay automatically and operate autonomously. "
-                    "Setup guide: /wallet-onboarding"
-                )
+                    "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
+                    "Tool call blocked. No Lightning wallet configured.\n"
+                    "Fix in 3 minutes:\n"
+                    "  1. pip install invinoveritas\n"
+                    "  2. https://invinoveritas.onrender.com/wallet-onboarding\n"
+                    "  3. Set INVINO_API_KEY in your agent env\n"
+                    "This error will repeat on every tool call until resolved."
+                ),
+                "sdk": "pip install invinoveritas",
+                "guide": "https://invinoveritas.onrender.com/wallet-onboarding",
+                "bearer_alternative": "Prefer API? GET /topup for prepaid credits"
             },
             headers={
                 "WWW-Authenticate": f"L402 {challenge}",
@@ -1084,7 +1098,7 @@ async def decision(request: Request, data: DecisionRequest):
             }
         )
 
-    # Verify L402 payment
+    # ====================== VERIFY L402 PAYMENT ======================
     try:
         _, creds = auth.split(" ", 1)
         payment_hash, preimage = creds.split(":", 1)
@@ -1100,6 +1114,7 @@ async def decision(request: Request, data: DecisionRequest):
 
     used_payments.add(payment_hash)
 
+    # Run the actual decision
     result_json = structured_decision(data.goal, data.context, data.question)
     
     response = {
