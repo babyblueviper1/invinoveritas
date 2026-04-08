@@ -556,7 +556,7 @@ async def _publish_to_relay(
     events: List[Event],
     sem: asyncio.Semaphore,
 ) -> int:
-    """Publish all events to one relay under the semaphore. Returns OK count."""
+    """Publish all events to one relay. Returns OK count."""
     ok_count = 0
     async with sem:
         for event in events:
@@ -572,8 +572,8 @@ async def _publish_to_relay(
                     if attempt == 0:
                         logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
                     
-                    # === SINGLE ANNOUNCEMENT LOGIC: Trigger only once per event ===
-                    if event.kind == 31234 and not published:   # Only on first successful publish
+                    # === Trigger announcement only once per unique event ===
+                    if event.kind == 31234:
                         title = "invinoveritas Update"
                         description = event.content.strip()
                         link = "https://invinoveritas.onrender.com/discover"
@@ -583,18 +583,10 @@ async def _publish_to_relay(
                             title = "A2A Delegation Enabled"
                         elif any(word in content_lower for word in ["trading", "arbitrage", "portfolio", "rebalance"]):
                             title = "Trading Bot Support Improved"
-                        elif any(word in content_lower for word in ["update", "new feature", "released"]):
-                            title = "invinoveritas Update"
 
-                        # Broadcast once via WebSocket
-                        await broadcast_via_websocket(
-                            title=title,
-                            description=description,
-                            link=link
-                        )
-                        
-                        # Add to RSS (last 5 only)
+                        # Add to RSS + broadcast via WebSocket
                         add_announcement(title=title, description=description, link=link)
+                        await broadcast_via_websocket(title=title, description=description, link=link)
                     
                     published = True
                     break
@@ -608,6 +600,13 @@ async def _publish_to_relay(
                 logger.debug(f"✗ Failed kind={event.kind} → {relay_url} after {PUBLISH_RETRIES} attempts")
  
     return ok_count
+
+@app.get("/debug/announcements", include_in_schema=False)
+async def debug_announcements():
+    return {
+        "count": len(ANNOUNCEMENTS),
+        "announcements": ANNOUNCEMENTS
+    }
  
  
 # ── Broadcast orchestrator ────────────────────────────────────────────────────
