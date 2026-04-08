@@ -91,19 +91,18 @@ active_ws_clients: list[WebSocket] = []
 @app.websocket("/ws")
 @app.websocket("/ws/announcements")
 async def websocket_announcements(websocket: WebSocket):
-    """Simple WebSocket endpoint for real-time MCP announcements"""
+    """Simple WebSocket for real-time announcements"""
     await websocket.accept()
     active_ws_clients.append(websocket)
     
     try:
-        # Send welcome message
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas announcements channel.",
-            "note": "You will receive live updates when new announcements are published via Nostr."
+            "message": "Connected to invinoveritas real-time announcements.",
+            "note": "You will receive updates when new Nostr announcements are published."
         })
 
-        # Keep connection alive (listen for pings from client)
+        # Keep connection alive
         while True:
             data = await websocket.receive_text()
             if data.lower() == "ping":
@@ -114,10 +113,8 @@ async def websocket_announcements(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
-        # Clean up disconnected client
         if websocket in active_ws_clients:
             active_ws_clients.remove(websocket)
-
 
 # Helper function to broadcast (call this from your Nostr broadcaster)
 async def broadcast_via_websocket(title: str, description: str, link: str = None):
@@ -130,18 +127,16 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
         "timestamp": int(time.time())
     }
     
-    dead_clients = []
-    
+    dead = []
     for ws in active_ws_clients:
         try:
             await ws.send_json(message)
         except Exception:
-            dead_clients.append(ws)
+            dead.append(ws)
     
-    # Remove dead clients
-    for dead in dead_clients:
-        if dead in active_ws_clients:
-            active_ws_clients.remove(dead)
+    for d in dead:
+        if d in active_ws_clients:
+            active_ws_clients.remove(d)
 
 
 
@@ -184,26 +179,26 @@ def add_announcement(title: str, description: str, link: str = None):
 active_sse_clients: list[asyncio.Queue] = []
 
 async def sse_event_generator():
-    """Generator that pushes announcements to all connected SSE clients"""
-    queue: asyncio.Queue = asyncio.Queue()
+    """SSE generator that pushes announcements to connected clients"""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
     active_sse_clients.append(queue)
     
     try:
         while True:
-            # Wait for new announcement
-            announcement = await queue.get()
-            
-            # Format as SSE
-            data = {
-                "type": "announcement",
-                "title": announcement["title"],
-                "description": announcement["description"],
-                "link": announcement.get("link"),
-                "timestamp": announcement.get("timestamp", int(time.time()))
-            }
-            
-            yield f"data: {json.dumps(data)}\n\n"
-            
+            try:
+                announcement = await asyncio.wait_for(queue.get(), timeout=30.0)
+                data = {
+                    "type": "announcement",
+                    "title": announcement.get("title"),
+                    "description": announcement.get("description"),
+                    "link": announcement.get("link"),
+                    "timestamp": announcement.get("timestamp")
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+            except asyncio.TimeoutError:
+                # Send keep-alive comment every 30 seconds
+                yield ": keep-alive\n\n"
+                continue
     except asyncio.CancelledError:
         pass
     finally:
@@ -211,15 +206,14 @@ async def sse_event_generator():
             active_sse_clients.remove(queue)
 
 
-# ── SSE Endpoint with HEAD support ───────────────────────────────────────────
 @app.get("/events", tags=["meta"])
 @app.get("/sse", tags=["meta"])
 @app.head("/events", tags=["meta"])
 @app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time MCP server announcements"""
+    """SSE endpoint for real-time announcements from Nostr broadcasts"""
+    
     if request.method == "HEAD":
-        # Fast response for HEAD requests (used by monitors and agents)
         return Response(
             status_code=200,
             headers={
@@ -229,7 +223,6 @@ async def sse_discovery_hub(request: Request):
             }
         )
 
-    # Normal GET → streaming response
     return StreamingResponse(
         sse_event_generator(),
         media_type="text/event-stream",
