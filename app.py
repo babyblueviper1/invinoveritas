@@ -1,3 +1,4 @@
+from nostr_listener import run_listener
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
 from pydantic import BaseModel, Field
