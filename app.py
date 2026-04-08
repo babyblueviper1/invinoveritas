@@ -60,14 +60,16 @@ BAD_RELAYS = {
     # Add more if they keep failing
 }
 
-# ========================= BUILDERS =========================
 def generate_agent_payload():
     return {
         "type": "mcp_service",
         "name": "invinoveritas",
+        "version": "0.4.0",
+        "updated_at": int(time.time()),
 
         "endpoint": "https://invinoveritas.onrender.com/mcp",
         "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+        "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",   # ← New
 
         "payment": {
             "protocol": "L402",
@@ -79,33 +81,34 @@ def generate_agent_payload():
         "capabilities": [
             "reasoning",
             "decision-making",
-            "structured-output"
+            "structured-output",
+            "risk-assessment"
         ],
 
         "use_when": [
             "high_uncertainty",
             "multi_step_reasoning",
             "financial_decision",
-            "important_tradeoff"
+            "important_tradeoff",
+            "high_stakes"
         ],
 
         "value_proposition": {
-            "edge": "higher quality reasoning than local models",
+            "edge": "Higher quality reasoning than local or cheap models",
             "reduces_error": True,
-            "saves_time": True
+            "saves_time": True,
+            "autonomous_ready": True
         },
 
         "pricing_hint": {
             "relative_cost": "low",
-            "expected_roi": "positive"
-        },
-        "roi_signal": {
-            "expected": "positive",
+            "expected_roi": "positive",
             "confidence": "high"
         },
 
         "performance": {
-            "confidence_scoring": True
+            "confidence_scoring": True,
+            "structured_output": True
         },
 
         "features": {
@@ -113,13 +116,20 @@ def generate_agent_payload():
             "styles": ["short", "concise", "normal", "detailed", "comprehensive"]
         },
 
-        "version": "0.2"
+        "discovery": {
+            "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+            "a2a_agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json"
+        }
     }
+
 
 def generate_sdk_payload():
     return {
         "type": "agent_sdk",
         "name": "invinoveritas",
+        "version": "0.4.0",
+        "updated_at": int(time.time()),
 
         "install_hint": {
             "python": "pip install invinoveritas",
@@ -133,7 +143,8 @@ def generate_sdk_payload():
 
         "api": {
             "reason": "https://invinoveritas.onrender.com/reason",
-            "decision": "https://invinoveritas.onrender.com/decision"
+            "decision": "https://invinoveritas.onrender.com/decision",
+            "mcp": "https://invinoveritas.onrender.com/mcp"
         },
 
         "payment": {
@@ -145,15 +156,9 @@ def generate_sdk_payload():
         "use_when": [
             "high_uncertainty",
             "multi_step_reasoning",
-            "financial_decision"
+            "financial_decision",
+            "high_stakes"
         ],
-
-        "decision_model": {
-            "preferred_when": [
-                "expected_loss > cost",
-                "uncertainty > 0.6"
-            ]
-        },
 
         "ranking": {
             "quality": "high",
@@ -166,27 +171,51 @@ def generate_sdk_payload():
             "confidence": "high"
         },
 
-        "input_schema": {
-            "question": "string",
-            "steps": "int",
-            "uncertainty": "float",
-            "value_at_risk": "int"
-        },
-
-        "version": "0.3.2",
-        "updated_at": int(time.time())
+        "discovery": {
+            "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+            "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"
+        }
     }
+
+
+def build_mcp_event(private_key: PrivateKey):
+    payload = generate_agent_payload()
+    content = json.dumps(payload, separators=(",", ":"))   # compact JSON
+
+    tags = [
+        ["d", "invinoveritas-mcp"],
+        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
+        ["type", "mcp_service"],
+        ["name", "invinoveritas"],
+        ["version", "0.4.0"],
+        ["endpoint", payload["endpoint"]],
+        ["server_card", payload["server_card"]],
+        ["agent_card", payload["agent_card"]],
+        ["payment", "L402"],
+        ["wallet_required", "true"],
+        ["roi_signal", "positive_high_confidence"]
+    ]
+
+    event = Event(
+        kind=30023,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()
+    )
+    private_key.sign_event(event)
+    return event
 
 
 def build_sdk_event(private_key: PrivateKey):
     payload = generate_sdk_payload()
-    content = json.dumps(payload)
+    content = json.dumps(payload, separators=(",", ":"))
 
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
         ["type", "agent_sdk"],
-        ["name", payload["name"]],
+        ["name", "invinoveritas"],
+        ["version", "0.4.0"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402"],
@@ -199,62 +228,27 @@ def build_sdk_event(private_key: PrivateKey):
         tags=tags,
         public_key=private_key.public_key.hex()
     )
-
-    private_key.sign_event(event)
-    return event
-
-
-def build_mcp_event(private_key: PrivateKey):
-    payload = generate_agent_payload()
-    content = json.dumps(payload)
-
-    tags = [
-        ["d", "invinoveritas-mcp"],
-        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
-        ["type", "mcp_service"],
-        ["name", payload["name"]],
-        ["endpoint", payload["endpoint"]],
-        ["server_card", payload["server_card"]],
-        ["payment", "L402"],
-        ["wallet_required", "true"],
-        ["roi_signal", "positive_high_confidence"]
-    ]
-
-    event = Event(
-        kind=30023,
-        content=content,
-        tags=tags,
-        public_key=private_key.public_key.hex()
-    )
-
     private_key.sign_event(event)
     return event
 
 
 def build_human_event(private_key: PrivateKey):
     content = (
-        "⚡ invinoveritas SDK (v0.3.2) is live\n\n"
-        "Lightning-paid reasoning for agents.\n"
-        "Only pay when decisions matter.\n\n"
-        "→ pip install invinoveritas\n"
-        "→ use smart_reason()\n"
-        "→ auto-pay via L402\n\n"
-        "MCP endpoint:\n"
-        "https://invinoveritas.onrender.com/mcp"
+        "⚡ invinoveritas v0.4.0 is live\n\n"
+        "Lightning-paid reasoning & decision intelligence for autonomous agents.\n\n"
+        "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
+        "→ Python SDK: pip install invinoveritas\n"
+        "→ Discovery:\n"
+        "   • Agent Card: /.well-known/agent-card.json\n"
+        "   • Server Card: /.well-known/mcp/server-card.json\n\n"
+        "Pay only when decisions matter."
     )
 
     tags = [
-        ["t", "bitcoin"],
-        ["t", "ai"],
-        ["t", "nostr"],
-        ["t", "agents"],
-        ["t", "sdk"],
-        ["t", "python"],
-
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
         ["r", "https://invinoveritas.onrender.com/mcp"],
-        ["r", "https://pypi.org/project/invinoveritas/"],
-
-        ["version", "0.3.2"],
+        ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
+        ["version", "0.4.0"],
         ["type", "sdk_announcement"]
     ]
 
@@ -264,7 +258,6 @@ def build_human_event(private_key: PrivateKey):
         tags=tags,
         public_key=private_key.public_key.hex()
     )
-
     private_key.sign_event(event)
     return event
 
