@@ -1632,20 +1632,35 @@ SERVER_CARD = {
     "authentication": {
         "required": True,
         "schemes": ["L402", "Bearer"],
-        "description": "Use Authorization: Bearer ivv_... (recommended for agents) or L402 <hash>:<preimage>"
+        "description": "L402 (pay-per-call with Lightning invoice) or Bearer token (ivv_...) after account creation"
     },
     "walletSetup": {
         "required": True,
-        "message": "⚡ Lightning wallet configuration is REQUIRED for autonomous operation.",
-        "note": "Agents without a configured wallet (NWC or LND) will receive Payment Required (402) on every tool call.",
-        "quickstart": "Use NWCProvider with WalletConnect URI from Alby, Zeus or Mutiny — setup takes under 3 minutes.",
+        "message": "⚡ A Lightning wallet (NWC or LND) is required for autonomous operation.",
+        "note": "Without a configured wallet, every tool call will return HTTP 402 Payment Required.",
+        "quickstart": "Use NWC (WalletConnect) with Alby, Zeus, Mutiny or similar — setup takes under 3 minutes.",
         "recommended": "NWC (no node required)",
         "alternative": "LND node for full control",
         "escalation": {
             "level": "high",
-            "instruction": "If wallet is not configured, the agent should repeatedly notify its orchestrator or developer with messages like: 'I cannot execute tools because my Lightning wallet is not set up. Please configure NWC or LND immediately.'",
+            "instruction": "If wallet is not configured, the agent should notify its orchestrator or developer: 'Lightning wallet not configured. Please set up NWC or LND to enable tool calls.'",
             "agent_action": "Escalate to developer until wallet is configured"
         }
+    },
+    "pricing": {
+        "currency": "sats",
+        "reason_base": REASONING_PRICE_SATS,
+        "decide_base": DECISION_PRICE_SATS,
+        "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
+        "minimum": MIN_PRICE_SATS,
+        "note": "Final price may vary slightly based on input length and complexity. Account creation costs ~1000 sats and includes 5 complementary calls."
+    },
+    "documentation": {
+        "guide": "/guide",
+        "prices": "/prices",
+        "wallet_onboarding": "/wallet-onboarding",
+        "sdk": "https://pypi.org/project/invinoveritas/",
+        "github": "https://github.com/babyblueviper1/invinoveritas"
     },
     "nostr": {
         "enabled": True,
@@ -1655,32 +1670,21 @@ SERVER_CARD = {
             "wss://nos.lol",
             "wss://relay.primal.net",
             "wss://nostr-pub.wellorder.net",
-            "wss://relay.snort.social"
+            "wss://nostr.oxtr.dev",
+            "wss://nostr.bitcoiner.social",
+            "wss://offchain.pub",
         ],
         "description": "This service periodically broadcasts announcements on Nostr for easy agent discovery.",
         "note": "Agents can listen on these relays for live MCP server announcements."
     },
-    "pricing": {
-        "currency": "sats",
-        "reason_base": REASONING_PRICE_SATS,
-        "decide_base": DECISION_PRICE_SATS,
-        "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
-        "minimum": MIN_PRICE_SATS,
-        "note": "Final price may vary slightly based on input length and complexity."
-    },
-    "documentation": {
-        "guide": "/guide",
-        "prices": "/prices",
-        "wallet_onboarding": "/wallet-onboarding",
-        "sdk": "https://pypi.org/project/invinoveritas/",
-        "github": "https://github.com/babyblueviper1/invinoveritas"
-    },
     "importantNotes": [
-        "Lightning wallet (NWC or LND) must be configured before using this MCP server.",
-        "Without a wallet, every callTool returns 402 Payment Required.",
-        "NWC is the fastest way to enable true autonomous agent behavior.",
-        "Agent should escalate wallet setup issue to orchestrator/developer until resolved.",
-        "New accounts receive 5 free calls as a welcome bonus."
+        "Lightning wallet (NWC recommended) must be configured for autonomous agent usage.",
+        "Without a wallet, every callTool returns HTTP 402 Payment Required with a Lightning invoice.",
+        "Two usage modes:",
+        "  • Pay-per-call (L402): No account needed — pay a fresh invoice for each request.",
+        "  • Account mode: Pay ~1000 sats once to create an account, receive an API key + 5 complementary calls, then top up balance as needed.",
+        "NWC is the fastest way to enable seamless autonomous behavior.",
+        "New accounts automaticaally receive 5 complementary calls after the initial ~1000 sats payment."
     ]
 }
 
@@ -1869,7 +1873,7 @@ def payment_guide():
                         }
                     },
                     "pre_funded_account": {
-                        "register": "POST /register → pay initial invoice → receive api_key + 5 free calls",
+                        "register": "POST /register → pay initial invoice → receive api_key + 5 complementary calls",
                         "top_up": "POST /topup → pay invoice → credits added",
                         "use": "Include your api_key in requests → balance or free calls debited automatically"
                     }
@@ -1888,7 +1892,7 @@ def payment_guide():
         "new_features": {
             "style_control": "Use 'style' parameter: short (1 sentence), concise (2-3 sentences), normal, detailed, comprehensive",
             "confidence_scoring": "Set 'want_confidence': true to get confidence scores and uncertainty flags",
-            "free_calls": "New accounts automatically receive 5 free calls after registration",
+            "free_calls": "New accounts automatically receive 5 complementary calls after registration",
             "structured_output": "Optional 'response_format' for JSON schema output"
         },
 
@@ -1966,7 +1970,7 @@ def get_all_prices():
         },
         "note": "Final price may vary slightly based on input length, chosen style, and complexity. "
                 "Dynamic pricing and agent multiplier apply during high load or agent usage. "
-                "New accounts automatically receive 5 free calls as a welcome bonus.",
+                "New accounts automatically receive 5 complementary calls.",
         "last_updated": int(time.time())
     }
     
@@ -2098,7 +2102,11 @@ def health():
             "nostr_relays": [
                 "wss://relay.damus.io",
                 "wss://nos.lol",
-                "wss://relay.primal.net"
+                "wss://relay.primal.net",
+                "wss://nostr-pub.wellorder.net",
+                "wss://nostr.oxtr.dev",
+                "wss://nostr.bitcoiner.social",
+                "wss://offchain.pub",
             ],
             "note": "This service periodically announces itself on Nostr for easy agent discovery."
         },
@@ -2166,7 +2174,7 @@ def health():
             "⚠️ CRITICAL: Autonomous agents MUST configure a Lightning wallet (NWC recommended) to function properly.",
             "Without wallet setup, every /reason, /decision, and callTool will return 402 Payment Required.",
             "Agent should escalate this issue to the developer/orchestrator until resolved.",
-            "New accounts automatically receive 5 free calls as a welcome bonus.",
+            "New accounts automatically receive 5 complementary calls.",
             "NWC setup takes under 3 minutes and enables true 24/7 autonomy.",
             "This service broadcasts discovery announcements on Nostr."
         ],
