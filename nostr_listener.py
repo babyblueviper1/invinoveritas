@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from nostr.relay_manager import RelayManager
 from nostr.event import Event
 from nostr.key import PrivateKey
+from dataclasses import dataclass
+from collections import defaultdict
 
 from config import NOSTR_NSEC
 
