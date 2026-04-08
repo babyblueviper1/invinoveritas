@@ -1,0 +1,332 @@
+NOSTR_RELAYS = [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.primal.net",
+    "wss://nostr-pub.wellorder.net",
+    "wss://relay.snort.social",
+    "wss://nostr.oxtr.dev",
+    "wss://nostr.bitcoiner.social",
+]
+# Optional: Blacklist of currently flaky relays (update as needed)
+BAD_RELAYS = {
+    "wss://relay.nostr.bg",
+    # Add more if they keep failing
+}
+
+def generate_agent_payload():
+    return {
+        "type": "mcp_service",
+        "name": "invinoveritas",
+        "version": "0.4.0",
+        "updated_at": int(time.time()),
+
+        "endpoint": "https://invinoveritas.onrender.com/mcp",
+        "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+        "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",   # ← New
+
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "wallet_required": True,
+            "model": "per_call"
+        },
+
+        "capabilities": [
+            "reasoning",
+            "decision-making",
+            "structured-output",
+            "risk-assessment"
+        ],
+
+        "use_when": [
+            "high_uncertainty",
+            "multi_step_reasoning",
+            "financial_decision",
+            "important_tradeoff",
+            "high_stakes"
+        ],
+
+        "value_proposition": {
+            "edge": "Higher quality reasoning than local or cheap models",
+            "reduces_error": True,
+            "saves_time": True,
+            "autonomous_ready": True
+        },
+
+        "pricing_hint": {
+            "relative_cost": "low",
+            "expected_roi": "positive",
+            "confidence": "high"
+        },
+
+        "performance": {
+            "confidence_scoring": True,
+            "structured_output": True
+        },
+
+        "features": {
+            "free_calls": 5,
+            "styles": ["short", "concise", "normal", "detailed", "comprehensive"]
+        },
+
+        "discovery": {
+            "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+            "a2a_agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json"
+        }
+    }
+
+
+def generate_sdk_payload():
+    return {
+        "type": "agent_sdk",
+        "name": "invinoveritas",
+        "version": "0.4.0",
+        "updated_at": int(time.time()),
+
+        "install_hint": {
+            "python": "pip install invinoveritas",
+            "auto_install": True
+        },
+
+        "invoke": {
+            "default": "smart_reason",
+            "async": "async_smart_reason"
+        },
+
+        "api": {
+            "reason": "https://invinoveritas.onrender.com/reason",
+            "decision": "https://invinoveritas.onrender.com/decision",
+            "mcp": "https://invinoveritas.onrender.com/mcp"
+        },
+
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "model": "per_call"
+        },
+
+        "use_when": [
+            "high_uncertainty",
+            "multi_step_reasoning",
+            "financial_decision",
+            "high_stakes"
+        ],
+
+        "ranking": {
+            "quality": "high",
+            "cost_efficiency": "high",
+            "determinism": "high"
+        },
+
+        "roi_signal": {
+            "expected": "positive",
+            "confidence": "high"
+        },
+
+        "discovery": {
+            "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+            "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"
+        }
+    }
+
+
+def build_mcp_event(private_key: PrivateKey):
+    payload = generate_agent_payload()
+    content = json.dumps(payload, separators=(",", ":"))   # compact JSON
+
+    tags = [
+        ["d", "invinoveritas-mcp"],
+        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
+        ["type", "mcp_service"],
+        ["name", "invinoveritas"],
+        ["version", "0.4.0"],
+        ["endpoint", payload["endpoint"]],
+        ["server_card", payload["server_card"]],
+        ["agent_card", payload["agent_card"]],
+        ["payment", "L402"],
+        ["wallet_required", "true"],
+        ["roi_signal", "positive_high_confidence"]
+    ]
+
+    event = Event(
+        kind=30023,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()
+    )
+    private_key.sign_event(event)
+    return event
+
+
+def build_sdk_event(private_key: PrivateKey):
+    payload = generate_sdk_payload()
+    content = json.dumps(payload, separators=(",", ":"))
+
+    tags = [
+        ["d", "invinoveritas-sdk"],
+        ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
+        ["type", "agent_sdk"],
+        ["name", "invinoveritas"],
+        ["version", "0.4.0"],
+        ["install", "pip install invinoveritas"],
+        ["entrypoint", "smart_reason"],
+        ["payment", "L402"],
+        ["roi_signal", "positive_high_confidence"]
+    ]
+
+    event = Event(
+        kind=30023,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()
+    )
+    private_key.sign_event(event)
+    return event
+
+
+def build_human_event(private_key: PrivateKey):
+    content = (
+        "⚡ invinoveritas v0.4.0 is live\n\n"
+        "Lightning-paid reasoning & decision intelligence for autonomous agents.\n\n"
+        "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
+        "→ Python SDK: pip install invinoveritas\n"
+        "→ Discovery:\n"
+        "   • Agent Card: /.well-known/agent-card.json\n"
+        "   • Server Card: /.well-known/mcp/server-card.json\n\n"
+        "Pay only when decisions matter."
+    )
+
+    tags = [
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
+        ["r", "https://invinoveritas.onrender.com/mcp"],
+        ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
+        ["version", "0.4.0"],
+        ["type", "sdk_announcement"]
+    ]
+
+    event = Event(
+        kind=1,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()
+    )
+    private_key.sign_event(event)
+    return event
+
+# ========================= BROADCASTER =========================
+async def broadcast_once():
+    if not NOSTR_NSEC:
+        logger.error("❌ NOSTR_NSEC not set")
+        return
+
+    try:
+        private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
+
+        events = [
+            build_mcp_event(private_key),
+            build_sdk_event(private_key),
+            build_human_event(private_key)
+        ]
+
+        # Filter out known bad relays and pick up to 7
+        good_relays = [r for r in NOSTR_RELAYS if r not in BAD_RELAYS]
+        relays_to_use = random.sample(good_relays, k=min(7, len(good_relays)))
+
+        success_count = 0
+        total_attempts = len(relays_to_use) * len(events)
+
+        for relay_url in relays_to_use:
+            relay_success = 0
+            relay_manager = None
+
+            try:
+                relay_manager = RelayManager()
+                relay_manager.add_relay(relay_url)
+
+                relay_manager.open_connections()
+                await asyncio.sleep(1.1)   # stable connection time
+
+                for event in events:
+                    retries = 3
+                    delay = 1.0
+                    published = False
+
+                    for attempt in range(retries):
+                        try:
+                            relay_manager.publish_event(event)
+                            success_count += 1
+                            relay_success += 1
+                            # Reduced logging noise — only log once per event type per relay
+                            if attempt == 0:
+                                logger.info(f"✅ Published kind={event.kind} → {relay_url}")
+                            published = True
+                            break
+
+                        except Exception as publish_err:
+                            err_str = str(publish_err).lower()
+                            if "504" in err_str or "gateway time-out" in err_str:
+                                logger.warning(f"⚠️ 504 timeout on {relay_url} - skipping")
+                                break
+                            elif any(x in err_str for x in ["closed", "sock", "none", "lost", "name or service"]):
+                                logger.debug(f"Connection hiccup on {relay_url} (attempt {attempt+1})")
+                            else:
+                                logger.warning(f"Publish attempt {attempt+1} failed on {relay_url}: {publish_err}")
+
+                            if attempt < retries - 1:
+                                await asyncio.sleep(delay)
+                                delay *= 1.8
+
+                    if not published:
+                        logger.debug(f"Failed kind={event.kind} to {relay_url} after retries")
+
+                if relay_success > 0:
+                    logger.info(f"📤 Sent {relay_success} events to {relay_url}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ Relay {relay_url} failed: {e}")
+            finally:
+                # Gentle cleanup
+                if relay_manager:
+                    try:
+                        relay_manager.close_connections()
+                    except:
+                        pass
+
+        if success_count == 0:
+            logger.error("❌ All relay publishes failed")
+        else:
+            logger.info(f"📡 Broadcast success: {success_count}/{total_attempts} events "
+                       f"across {len(relays_to_use)} relays")
+
+    except Exception as e:
+        logger.error(f"❌ Critical broadcast error: {e}")
+
+
+async def broadcast_loop():
+    while True:
+        try:
+            await broadcast_once()
+        except Exception as e:
+            logger.error(f"Broadcast loop error: {e}")
+
+        wait_seconds = random.randint(720, 1080)
+        logger.info(f"⏳ Next broadcast in {wait_seconds}s")
+        try:
+            await asyncio.sleep(wait_seconds)
+        except asyncio.CancelledError:
+            logger.info("Broadcast loop cancelled on shutdown")
+            break
+
+# ========================= FASTAPI =========================
+@app.post("/broadcast-now")
+async def broadcast_now():
+    asyncio.create_task(broadcast_once())
+    return {"status": "success"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("🚀 invinoveritas Nostr Broadcaster started")
+    asyncio.create_task(broadcast_loop())
+    asyncio.create_task(run_listener())
