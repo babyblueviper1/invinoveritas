@@ -146,12 +146,7 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
 
 
 def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement with basic deduplication"""
-    # Skip if we already have this exact title in the last 5
-    if any(ann["title"] == title for ann in ANNOUNCEMENTS[:3]):
-        logger.debug(f"Announcement skipped (duplicate): {title}")
-        return None
-
+    """Add announcement with deduplication"""
     if len(description) > 280:
         description = description[:277] + "..."
 
@@ -164,13 +159,18 @@ def add_announcement(title: str, description: str, link: str = None):
         "timestamp": int(time.time())
     }
     
+    # Simple deduplication: don't add exact same title within last 10 minutes
+    if any(ann["title"] == title for ann in ANNOUNCEMENTS):
+        logger.debug(f"Announcement skipped (duplicate title): {title}")
+        return None
+
     ANNOUNCEMENTS.insert(0, announcement)
     if len(ANNOUNCEMENTS) > 5:
         ANNOUNCEMENTS.pop()
     
-    logger.info(f"📢 RSS announcement added: {title}")
+    logger.info(f"📢 New announcement added to RSS: {title}")
     
-    # Push to SSE/WebSocket
+    # Push to SSE/WebSocket clients
     for queue in list(active_sse_clients):
         try:
             queue.put_nowait(announcement)
@@ -3136,9 +3136,8 @@ async def discover_page():
 @app.head("/feed", tags=["meta"])
 @app.head("/announce.xml", tags=["meta"])
 async def rss_feed(request: Request):
-    """RSS feed that mirrors the last 5 Nostr announcements"""
+    """RSS feed that mirrors the last 5 Nostr announcements with real-time links"""
     
-    # Handle HEAD requests (used by crawlers and monitoring tools)
     if request.method == "HEAD":
         return Response(
             status_code=200,
@@ -3148,14 +3147,18 @@ async def rss_feed(request: Request):
             }
         )
 
-    # Generate RSS content for GET requests
+    # Build items
     items = ""
-    for ann in ANNOUNCEMENTS[:5]:   # explicitly limit to 5
+    for ann in ANNOUNCEMENTS[:5]:
         items += f"""
         <item>
             <title>{ann['title']}</title>
             <link>{ann['link']}</link>
-            <description>{ann['description']}</description>
+            <description>{ann['description']}
+
+Real-time updates:
+• SSE: https://invinoveritas.onrender.com/events
+• WebSocket: wss://invinoveritas.onrender.com/ws</description>
             <pubDate>{ann['pubDate']}</pubDate>
             <guid>{ann['guid']}</guid>
         </item>"""
@@ -3173,7 +3176,11 @@ async def rss_feed(request: Request):
         {items if items else """
         <item>
             <title>No announcements yet</title>
-            <description>Check back soon for updates from invinoveritas!</description>
+            <description>Check back soon for updates from invinoveritas!
+
+Real-time channels:
+• SSE: https://invinoveritas.onrender.com/events
+• WebSocket: wss://invinoveritas.onrender.com/ws</description>
             <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
         </item>"""}
     </channel>
