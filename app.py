@@ -274,75 +274,70 @@ async def broadcast_once():
     try:
         private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-        # Build all three events once
         mcp_event = build_mcp_event(private_key)
         sdk_event = build_sdk_event(private_key)
         human_event = build_human_event(private_key)
 
         events = [mcp_event, sdk_event, human_event]
 
-        # Randomly select up to 5 relays
-        relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
-
-        if not relays_to_use:
-            logger.error("❌ No relays available")
-            return
+        relays_to_use = random.sample(NOSTR_RELAYS, k=min(6, len(NOSTR_RELAYS)))  # slightly more relays
 
         success_count = 0
         total_attempts = len(relays_to_use) * len(events)
 
-        # Single RelayManager for better efficiency
-        relay_manager = RelayManager()
-
-        # Add all selected relays at once
         for relay_url in relays_to_use:
+            relay_success = 0
+            relay_manager = None
+
             try:
+                relay_manager = RelayManager()
                 relay_manager.add_relay(relay_url)
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to add relay {relay_url}: {e}")
 
-        # Open connections once
-        relay_manager.open_connections()
-        await asyncio.sleep(1.0)  # Allow time for connections to establish
-
-        try:
-            for relay_url in relays_to_use:
-                relay_success = 0
+                relay_manager.open_connections()
+                await asyncio.sleep(1.2)  # give it time to connect properly
 
                 for event in events:
                     retries = 3
                     delay = 1.0
+                    published = False
 
                     for attempt in range(retries):
                         try:
                             relay_manager.publish_event(event)
                             success_count += 1
                             relay_success += 1
-                            logger.info(f"✅ Published kind={event.kind} to {relay_url}")
+                            logger.info(f"✅ Published kind={event.kind} → {relay_url}")
+                            published = True
                             break
 
                         except Exception as e:
-                            logger.warning(
-                                f"⚠️ Publish attempt {attempt+1}/3 failed for kind={event.kind} on {relay_url}: {e}"
-                            )
+                            err_str = str(e).lower()
+                            if "already closed" in err_str or "connection" in err_str:
+                                logger.warning(f"⚠️ Connection lost on {relay_url}, retrying...")
+                            else:
+                                logger.warning(f"⚠️ Publish attempt {attempt+1}/3 failed on {relay_url}: {e}")
+
                             if attempt < retries - 1:
                                 await asyncio.sleep(delay)
-                                delay *= 2  # exponential backoff
+                                delay *= 1.8
 
-                    else:
+                    if not published:
                         logger.error(f"❌ Failed to publish kind={event.kind} to {relay_url} after {retries} attempts")
 
                 if relay_success > 0:
-                    logger.info(f"📤 Successfully sent {relay_success} events to {relay_url}")
+                    logger.info(f"📤 Sent {relay_success} events to {relay_url}")
 
-        finally:
-            # Always clean up connections
-            try:
-                relay_manager.close_connections()
             except Exception as e:
-                logger.warning(f"⚠️ Error closing connections: {e}")
+                logger.warning(f"⚠️ Relay {relay_url} completely failed: {e}")
 
-        # Final summary
+            finally:
+                # Clean up this relay's manager
+                if relay_manager:
+                    try:
+                        relay_manager.close_connections()
+                    except:
+                        pass
+
         if success_count == 0:
             logger.error("❌ All relay publishes failed")
         else:
