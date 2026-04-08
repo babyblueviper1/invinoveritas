@@ -922,9 +922,15 @@ async def decision(request: Request, data: DecisionRequest):
     return response
 
 
-@app.get("/favicon.ico", include_in_schema=False)
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
 async def favicon():
-    return FileResponse("favicon.ico", media_type="image/x-icon")
+    try:
+        return FileResponse(
+            "favicon.ico", 
+            media_type="image/x-icon"
+        )
+    except FileNotFoundError:
+        return Response(status_code=204)  # Graceful fallback
 
 # =========================
 # Simple MCP Handler (comes AFTER app is created)
