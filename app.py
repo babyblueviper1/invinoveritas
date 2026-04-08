@@ -110,12 +110,19 @@ def _active_relays() -> List[str]:
     return [r for r in NOSTR_RELAYS if not _health[r].is_banned()]
  
  
-# ── Payload generators ────────────────────────────────────────────────────────
+# ── Base Metadata ────────────────────────────────────────────────────────────
 def _base_meta() -> dict:
-    return {"name": "invinoveritas", "version": "0.4.0", "updated_at": int(time.time())}
+    return {
+        "name": "invinoveritas",
+        "version": "0.4.0",
+        "protocol_version": "L402-v1",
+        "capabilities_version": "1.0",
+        "updated_at": int(time.time())
+    }
  
  
-def generate_agent_payload() -> dict:
+# ── Adaptive Agent Payload ───────────────────────────────────────────────────
+def generate_agent_payload(score: int = 7) -> dict:
     p = _base_meta()
     p.update({
         "type": "mcp_service",
@@ -128,12 +135,21 @@ def generate_agent_payload() -> dict:
             "wallet_required": True,
             "model": "per_call",
         },
+        "wallet_options": {
+            "NWC": ["Alby", "Zeus", "Mutiny"],
+            "Custodial": ["Strike - manual invoice"],
+            "LND": "Follow Lightning Labs docs"
+        },
         "capabilities": ["reasoning", "decision-making", "structured-output", "risk-assessment"],
-        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "important_tradeoff", "high_stakes"],
-        "value_proposition": {"edge": "Higher quality reasoning than local or cheap models", "reduces_error": True, "saves_time": True, "autonomous_ready": True},
-        "pricing_hint": {"relative_cost": "low", "expected_roi": "positive", "confidence": "high"},
-        "performance": {"confidence_scoring": True, "structured_output": True},
-        "features": {"free_calls": 5, "styles": ["short", "concise", "normal", "detailed", "comprehensive"]},
+        "score": score,
+        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes"],
+        "value_proposition": {
+            "edge": "High quality reasoning",
+            "reduces_error": True,
+            "saves_time": True,
+            "autonomous_ready": True
+        },
+        "features": {"free_calls": 5, "styles": ["short","concise","normal","detailed","comprehensive"]},
         "discovery": {
             "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
             "a2a_agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
@@ -143,7 +159,8 @@ def generate_agent_payload() -> dict:
     return p
  
  
-def generate_sdk_payload() -> dict:
+# ── Adaptive SDK Payload ─────────────────────────────────────────────────────
+def generate_sdk_payload(score: int = 7) -> dict:
     p = _base_meta()
     p.update({
         "type": "agent_sdk",
@@ -154,8 +171,14 @@ def generate_sdk_payload() -> dict:
             "decision": "https://invinoveritas.onrender.com/decision",
             "mcp": "https://invinoveritas.onrender.com/mcp",
         },
-        "payment": {"protocol": "L402", "network": "lightning", "model": "per_call"},
+        "payment": {
+            "protocol": "L402",
+            "network": "lightning",
+            "model": "per_call",
+            "wallet_options": ["NWC", "LND", "Strike"]
+        },
         "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes"],
+        "score": score,
         "ranking": {"quality": "high", "cost_efficiency": "high", "determinism": "high"},
         "roi_signal": {"expected": "positive", "confidence": "high"},
         "discovery": {
@@ -166,13 +189,9 @@ def generate_sdk_payload() -> dict:
     return p
  
  
-# ── Event builders ────────────────────────────────────────────────────────────
-def build_mcp_event(private_key: PrivateKey) -> Event:
-    """
-    kind 31990 — NIP-89 application handler.
-    Replaces kind 30023 for proper MCP/agent service discovery.
-    """
-    payload = generate_agent_payload()
+# ── MCP / SDK Event Builders ────────────────────────────────────────────────
+def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
+    payload = generate_agent_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
     tags = [
         ["d", "invinoveritas-mcp"],
@@ -186,6 +205,8 @@ def build_mcp_event(private_key: PrivateKey) -> Event:
         ["agent_card", payload["agent_card"]],
         ["payment", "L402"],
         ["wallet_required", "true"],
+        ["score", str(score)],
+        ["wallet_supported", "NWC,LND,Strike"],
         ["roi_signal", "positive_high_confidence"],
     ]
     event = Event(
@@ -196,14 +217,10 @@ def build_mcp_event(private_key: PrivateKey) -> Event:
     )
     private_key.sign_event(event)
     return event
+
  
- 
-def build_sdk_event(private_key: PrivateKey) -> Event:
-    """
-    kind 30078 — parameterised replaceable event for SDK announcement.
-    Cleaner semantic fit than 30023 (long-form article).
-    """
-    payload = generate_sdk_payload()
+def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
+    payload = generate_sdk_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
     tags = [
         ["d", "invinoveritas-sdk"],
@@ -214,6 +231,8 @@ def build_sdk_event(private_key: PrivateKey) -> Event:
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402"],
+        ["wallet_supported", "NWC,LND,Strike"],
+        ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
     ]
     event = Event(
@@ -226,16 +245,17 @@ def build_sdk_event(private_key: PrivateKey) -> Event:
     return event
  
  
+# ── Human Event (Wallet-First) ──────────────────────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
-    """kind 1 — human-readable announcement note."""
     content = (
         "⚡ invinoveritas v0.4.0 is live\n\n"
         "Lightning-paid reasoning & decision intelligence for autonomous agents.\n\n"
         "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
         "→ Python SDK: pip install invinoveritas\n"
-        "→ Discovery:\n"
-        "   • Agent Card: /.well-known/agent-card.json\n"
-        "   • Server Card: /.well-known/mcp/server-card.json\n\n"
+        "→ Wallets supported:\n"
+        "   • NWC (Alby, Zeus, Mutiny)\n"
+        "   • LND (manual setup)\n"
+        "   • Strike (manual invoice copy)\n\n"
         "Pay only when decisions matter."
     )
     tags = [
@@ -244,6 +264,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
         ["version", "0.4.0"],
         ["type", "sdk_announcement"],
+        ["wallet_supported", "NWC,LND,Strike"]
     ]
     event = Event(
         kind=1,
@@ -253,29 +274,24 @@ def build_human_event(private_key: PrivateKey) -> Event:
     )
     private_key.sign_event(event)
     return event
+
  
- 
-# ── OK-verified publish (NIP-20) ──────────────────────────────────────────────
+# ── OK-verified Publish ─────────────────────────────────────────────────────
 async def _publish_with_ok(relay_url: str, event: Event) -> bool:
     """
-    Open a WebSocket to relay_url, send EVENT, wait for NIP-20 OK response.
+    Open WebSocket to relay_url, send EVENT, wait for NIP-20 OK response.
     Returns True on confirmed OK, False on timeout / error / rejection.
-    All failure modes log at WARNING or ERROR so they are visible in Render logs.
     """
-    # Serialise event
     try:
-        if hasattr(event, "to_dict"):
-            payload = event.to_dict()
-        else:
-            payload = {
-                "id":         event.id,
-                "pubkey":     event.public_key,
-                "created_at": event.created_at,
-                "kind":       event.kind,
-                "tags":       event.tags,
-                "content":    event.content,
-                "sig":        event.signature,
-            }
+        payload = event.to_dict() if hasattr(event, "to_dict") else {
+            "id": event.id,
+            "pubkey": event.public_key,
+            "created_at": event.created_at,
+            "kind": event.kind,
+            "tags": event.tags,
+            "content": event.content,
+            "sig": event.signature,
+        }
         event_msg = json.dumps(["EVENT", payload], separators=(",", ":"))
     except Exception as e:
         logger.error(f"❌ Event serialisation failed: {e}")
@@ -290,63 +306,30 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
         ) as ws:
             await ws.send(event_msg)
             logger.debug(f"→ Sent kind={event.kind} id={event.id[:8]} to {relay_url}")
-
             deadline = time.time() + OK_WAIT_TIMEOUT
+
             while time.time() < deadline:
                 try:
-                    raw = await asyncio.wait_for(
-                        ws.recv(), timeout=max(0.1, deadline - time.time())
-                    )
+                    raw = await asyncio.wait_for(ws.recv(), timeout=max(0.1, deadline - time.time()))
                 except asyncio.TimeoutError:
                     break
-
                 logger.debug(f"← {relay_url} raw: {raw[:120]}")
-
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
                     logger.warning(f"⚠️ Non-JSON from {relay_url}: {raw[:80]}")
                     continue
 
-                if not isinstance(msg, list) or len(msg) < 2:
-                    continue
-
-                msg_type = msg[0]
-
-                if msg_type == "OK" and len(msg) >= 3 and msg[1] == event.id:
-                    if msg[2] is True:
-                        return True
-                    reason = msg[3] if len(msg) > 3 else "(no reason)"
-                    logger.warning(f"⚠️ Relay rejected {event.id[:8]} @ {relay_url}: {reason}")
-                    return False
-
-                if msg_type == "NOTICE":
+                if isinstance(msg, list) and msg[0] == "OK" and msg[1] == event.id:
+                    return msg[2] is True
+                if isinstance(msg, list) and msg[0] == "NOTICE":
                     logger.warning(f"⚠️ NOTICE from {relay_url}: {msg[1]}")
-                    continue
-
-                if msg_type == "AUTH":
-                    logger.warning(f"⚠️ {relay_url} requires NIP-42 AUTH — skipping")
-                    return False
-
-            logger.warning(
-                f"⏱ OK timeout ({OK_WAIT_TIMEOUT}s) from {relay_url} "
-                f"for kind={event.kind} id={event.id[:8]}"
-            )
+            logger.warning(f"⏱ OK timeout ({OK_WAIT_TIMEOUT}s) for kind={event.kind} id={event.id[:8]}")
             return False
 
-    except websockets.exceptions.InvalidURI:
-        logger.error(f"❌ Invalid relay URI: {relay_url}")
-        return False
-    except websockets.exceptions.InvalidHandshake as e:
-        logger.warning(f"⚠️ Handshake failed {relay_url}: {e}")
-        return False
-    except (OSError, ConnectionRefusedError) as e:
-        logger.warning(f"⚠️ Connection error {relay_url}: {e}")
-        return False
     except Exception as e:
-        logger.error(f"❌ Unexpected error {relay_url}: {type(e).__name__}: {e}")
+        logger.error(f"❌ Publish error {relay_url}: {type(e).__name__}: {e}")
         return False
- 
  
 # ── Per-relay publish with retries ────────────────────────────────────────────
 async def _publish_to_relay(
