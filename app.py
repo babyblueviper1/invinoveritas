@@ -300,12 +300,27 @@ def generate_agent_payload(score: int = 7) -> dict:
             "saves_time": True,
             "autonomous_ready": True
         },
-        "features": {"complementary_calls": 5, "styles": ["short","concise","normal","detailed","comprehensive"]},
+        "features": {
+            "complementary_calls": 5, 
+            "styles": ["short","concise","normal","detailed","comprehensive"]
+        },
         "discovery": {
             "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-            "a2a_agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+            "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
             "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json",
+            "a2a_endpoint": "https://invinoveritas.onrender.com/a2a",
+            "real_time": {
+                "sse": "https://invinoveritas.onrender.com/events",
+                "websocket": "wss://invinoveritas.onrender.com/ws",
+                "rss": "https://invinoveritas.onrender.com/rss"
+            }
         },
+        "real_time_updates": {
+            "sse": "/events",
+            "websocket": "/ws",
+            "rss": "/rss",
+            "description": "Live announcements synced with Nostr broadcasts"
+        }
     })
     return p
  
@@ -321,6 +336,7 @@ def generate_sdk_payload(score: int = 7) -> dict:
             "reason": "https://invinoveritas.onrender.com/reason",
             "decision": "https://invinoveritas.onrender.com/decision",
             "mcp": "https://invinoveritas.onrender.com/mcp",
+            "a2a": "https://invinoveritas.onrender.com/a2a"
         },
         "payment": {
             "protocol": "L402",
@@ -343,7 +359,19 @@ def generate_sdk_payload(score: int = 7) -> dict:
         "discovery": {
             "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
             "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json",
+            "real_time": {
+                "sse": "https://invinoveritas.onrender.com/events",
+                "websocket": "wss://invinoveritas.onrender.com/ws",
+                "rss": "https://invinoveritas.onrender.com/rss"
+            }
         },
+        "real_time_updates": {
+            "sse": "/events",
+            "websocket": "/ws",
+            "rss": "/rss",
+            "description": "Live announcements synced with Nostr broadcasts"
+        }
     })
     return p
  
@@ -352,6 +380,7 @@ def generate_sdk_payload(score: int = 7) -> dict:
 def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     payload = generate_agent_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
+    
     tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
@@ -368,7 +397,15 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
         ["wallet_supported", "NWC,LND,Custodial"],
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
+        
+        # Real-time discovery
+        ["real_time", "sse:https://invinoveritas.onrender.com/events"],
+        ["real_time", "websocket:wss://invinoveritas.onrender.com/ws"],
+        ["real_time", "rss:https://invinoveritas.onrender.com/rss"],
+        
+        ["discover", "https://invinoveritas.onrender.com/discover"]
     ]
+    
     event = Event(
         kind=31990,
         content=content,
@@ -382,6 +419,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
 def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
     payload = generate_sdk_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
+    
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
@@ -395,7 +433,15 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
         ["wallet_supported", "NWC,LND,Custodial"],
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
+        
+        # Real-time discovery
+        ["real_time", "sse:https://invinoveritas.onrender.com/events"],
+        ["real_time", "websocket:wss://invinoveritas.onrender.com/ws"],
+        ["real_time", "rss:https://invinoveritas.onrender.com/rss"],
+        
+        ["discover", "https://invinoveritas.onrender.com/discover"]
     ]
+    
     event = Event(
         kind=30078,
         content=content,
@@ -413,6 +459,10 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "Lightning-paid reasoning & decision intelligence for autonomous agents.\n\n"
         "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
         "→ Python SDK: pip install invinoveritas\n"
+        "→ Real-time updates:\n"
+        "   • SSE: https://invinoveritas.onrender.com/events\n"
+        "   • WebSocket: wss://invinoveritas.onrender.com/ws\n"
+        "   • RSS: https://invinoveritas.onrender.com/rss\n\n"
         "→ Wallets supported:\n"
         "   • NWC (Alby, Zeus, Mutiny)\n"
         "   • LND (manual setup)\n"
@@ -424,15 +474,18 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "   • Async-ready API for Python bots\n\n"
         "Pay only when decisions matter."
     )
+    
     tags = [
         ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
         ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
         ["r", "https://invinoveritas.onrender.com/mcp"],
-        ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
+        ["r", "https://invinoveritas.onrender.com/discover"],
+        ["r", "https://invinoveritas.onrender.com/events"],
         ["version", "0.4.0"],
         ["type", "sdk_announcement"],
         ["wallet_supported", "NWC,LND,Custodial"]
     ]
+    
     event = Event(
         kind=1,
         content=content,
@@ -441,7 +494,6 @@ def build_human_event(private_key: PrivateKey) -> Event:
     )
     private_key.sign_event(event)
     return event
-
  
 # ── OK-verified Publish ─────────────────────────────────────────────────────
 async def _publish_with_ok(relay_url: str, event: Event) -> bool:
