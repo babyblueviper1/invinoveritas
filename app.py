@@ -28,6 +28,8 @@ from nostr.key import PrivateKey
 from nostr.event import Event
 from nostr.relay_manager import RelayManager
 import websockets
+from dataclasses import dataclass
+from collections import defaultdict
 
 # =========================
 # FastAPI App
