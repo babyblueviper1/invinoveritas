@@ -92,6 +92,101 @@ class RelayHealth:
 
 _health: Dict[str, RelayHealth] = defaultdict(RelayHealth)
 
+async def _publish_with_ok(relay_url: str, event: Event) -> bool:
+    """
+    Open a WebSocket to relay_url, send EVENT, wait for NIP-20 OK response.
+    Returns True on confirmed OK, False on timeout / error / rejection.
+    All failure modes log at WARNING or ERROR so they are visible in Render logs.
+    """
+    # Serialise event
+    try:
+        if hasattr(event, "to_dict"):
+            payload = event.to_dict()
+        else:
+            payload = {
+                "id":         event.id,
+                "pubkey":     event.public_key,
+                "created_at": event.created_at,
+                "kind":       event.kind,
+                "tags":       event.tags,
+                "content":    event.content,
+                "sig":        event.signature,
+            }
+        event_msg = json.dumps(["EVENT", payload], separators=(",", ":"))
+    except Exception as e:
+        logger.error(f"❌ Event serialisation failed: {e}")
+        return False
+
+    try:
+        async with websockets.connect(
+            relay_url,
+            open_timeout=RELAY_CONNECT_TIMEOUT,
+            close_timeout=3,
+            additional_headers={"User-Agent": "invinoveritas/0.4.0"},
+        ) as ws:
+            await ws.send(event_msg)
+            logger.debug(f"→ Sent kind={event.kind} id={event.id[:8]} to {relay_url}")
+
+            deadline = time.time() + OK_WAIT_TIMEOUT
+            while time.time() < deadline:
+                try:
+                    raw = await asyncio.wait_for(
+                        ws.recv(), timeout=max(0.1, deadline - time.time())
+                    )
+                except asyncio.TimeoutError:
+                    break
+
+                logger.debug(f"← {relay_url} raw: {raw[:120]}")
+
+                try:
+                    msg = json.loads(raw)
+                except json.JSONDecodeError:
+                    logger.warning(f"⚠️ Non-JSON from {relay_url}: {raw[:80]}")
+                    continue
+
+                if not isinstance(msg, list) or len(msg) < 2:
+                    continue
+
+                msg_type = msg[0]
+
+                if msg_type == "OK" and len(msg) >= 3 and msg[1] == event.id:
+                    if msg[2] is True:
+                        return True
+                    reason = msg[3] if len(msg) > 3 else "(no reason)"
+                    logger.warning(f"⚠️ Relay rejected {event.id[:8]} @ {relay_url}: {reason}")
+                    return False
+
+                if msg_type == "NOTICE":
+                    logger.warning(f"⚠️ NOTICE from {relay_url}: {msg[1]}")
+                    continue
+
+                if msg_type == "AUTH":
+                    logger.warning(f"⚠️ {relay_url} requires NIP-42 AUTH — skipping")
+                    return False
+
+            logger.warning(
+                f"⏱ OK timeout ({OK_WAIT_TIMEOUT}s) from {relay_url} "
+                f"for kind={event.kind} id={event.id[:8]}"
+            )
+            return False
+
+    except websockets.exceptions.InvalidURI:
+        logger.error(f"❌ Invalid relay URI: {relay_url}")
+        return False
+    except websockets.exceptions.InvalidHandshake as e:
+        logger.warning(f"⚠️ Handshake failed {relay_url}: {e}")
+        return False
+    except (OSError, ConnectionRefusedError) as e:
+        logger.warning(f"⚠️ Connection error {relay_url}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"❌ Unexpected error {relay_url}: {type(e).__name__}: {e}")
+        return False
+ 
+
+
+
+
 # ── Reply serialisation ───────────────────────────────────────────────────────
 def _event_to_wire(event: Event) -> str:
     if hasattr(event, "to_dict"):
