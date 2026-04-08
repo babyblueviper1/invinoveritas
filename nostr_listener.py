@@ -30,14 +30,15 @@ from config import NOSTR_NSEC
 logger = logging.getLogger("invinoveritas.listener")
 
 # ── Relay list ────────────────────────────────────────────────────────────────
-LISTENER_RELAYS = [
+NOSTR_RELAYS = [
     "wss://relay.damus.io",
     "wss://nos.lol",
     "wss://relay.primal.net",
     "wss://nostr-pub.wellorder.net",
+    "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
     "wss://relay.nostr.band",
-    "wss://purplepag.es",
+    "wss://purplepag.es"
 ]
 
 # ── Constants ─────────────────────────────────────────────────────────────────
