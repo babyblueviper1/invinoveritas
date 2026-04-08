@@ -757,7 +757,39 @@ async def reason(request: Request, data: ReasoningRequest):
 
     return response
 
+# Allow friendly GET responses for /reason and /decision (prevents 405 errors)
+@app.get("/reason", include_in_schema=False)
+async def reason_get():
+    return {
+        "error": "Method Not Allowed",
+        "message": "The /reason endpoint only accepts POST requests.",
+        "correct_usage": {
+            "method": "POST",
+            "body": {
+                "question": "Your question here",
+                "style": "short | concise | normal | detailed | comprehensive (optional)"
+            }
+        },
+        "example": "curl -X POST https://invinoveritas.onrender.com/reason -d '{\"question\": \"What is the capital of France?\"}'"
+    }
 
+
+@app.get("/decision", include_in_schema=False)
+async def decision_get():
+    return {
+        "error": "Method Not Allowed",
+        "message": "The /decision endpoint only accepts POST requests.",
+        "correct_usage": {
+            "method": "POST",
+            "body": {
+                "goal": "Your overall goal",
+                "question": "The specific decision question",
+                "context": "Optional background context",
+                "style": "short | concise | normal | detailed (optional)"
+            }
+        },
+        "example": "curl -X POST https://invinoveritas.onrender.com/decision -d '{\"goal\": \"Investment strategy\", \"question\": \"Should I buy more BTC?\"}'"
+    }
 @app.post("/decision", response_model=dict, tags=["inference"])
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
