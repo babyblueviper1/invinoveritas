@@ -370,7 +370,7 @@ async def broadcast_now():
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 invinoveritas Nostr Broadcaster started")
-    asyncio.create_task(broadcast_to_nostr())
+    asyncio.create_task(broadcast_loop())
     asyncio.create_task(run_listener())
     
 # =========================
