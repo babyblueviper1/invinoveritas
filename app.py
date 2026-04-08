@@ -270,12 +270,13 @@ async def sse_test_page():
     return HTMLResponse(content=html)
 
 async def sse_event_generator():
+    """SSE generator that sends historical announcements + live updates"""
     queue: asyncio.Queue = asyncio.Queue(maxsize=20)
     active_sse_clients.append(queue)
     
     try:
-        # === SEND EXISTING ANNOUNCEMENTS FIRST ===
-        for ann in ANNOUNCEMENTS[:5]:  # last 5
+        # === 1. Send existing announcements to new client (very important) ===
+        for ann in ANNOUNCEMENTS[:5]:   # Send last 5 announcements
             try:
                 data = {
                     "type": "announcement",
@@ -285,16 +286,29 @@ async def sse_event_generator():
                     "timestamp": ann.get("timestamp")
                 }
                 yield f"data: {json.dumps(data)}\n\n"
-            except:
-                pass
-        
+            except Exception as e:
+                logger.warning(f"Failed to send historical announcement: {e}")
+
+        # === 2. Keep connection alive and send new announcements ===
         while True:
             try:
                 announcement = await asyncio.wait_for(queue.get(), timeout=25.0)
-                data = { ... same as before ... }
+                
+                data = {
+                    "type": "announcement",
+                    "title": announcement.get("title", "Update"),
+                    "description": announcement.get("description", ""),
+                    "link": announcement.get("link"),
+                    "timestamp": announcement.get("timestamp")
+                }
                 yield f"data: {json.dumps(data)}\n\n"
+                
             except asyncio.TimeoutError:
-                yield ": keep-alive\n\n"
+                yield ": keep-alive\n\n"   # Prevents connection timeout
+            except Exception as e:
+                logger.error(f"SSE generator error: {e}")
+                break
+                
     except asyncio.CancelledError:
         pass
     finally:
