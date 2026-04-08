@@ -162,66 +162,77 @@ async def _send_reply_with_ok(ws: websockets.WebSocketClientProtocol, reply: Eve
     return False
 
 
-# ── Response templates ────────────────────────────────────────────────────────
-def _build_reply_text(content: str, score: int) -> str:
+# ── Wallet-Personalized Reply Builder ─────────────────────────────────────────
+def _build_reply_text(content: str, score: int, pubkey: str) -> str:
     """
-    Builds contextual reply text based on relevance score.
-    Uses accurate pricing: ~1000 sats for account + 5 complementary calls.
+    Builds contextual reply text optimized for wallet adoption and discoverability.
+    Injects personalized cues using the author's pubkey.
     """
     content_lower = content.lower()
-    base = "⚡ invinoveritas — Lightning-paid reasoning for agents\n\n"
+    user_tag = pubkey[:8]  # short identifier for personalization
 
-    # Ultra-high relevance: Special friendly MCP version (score >= 9)
+    # Base preamble
+    base = f"⚡ invinoveritas — Lightning-paid reasoning for AI agents\n\nHey {user_tag},\n\n"
+
+    # Ultra-high relevance (score >= 9)
     if score >= 9 or ("mcp" in content_lower and "agent" in content_lower):
         return (
-            "Saw you're building with MCP — invinoveritas adds Lightning-paid reasoning.\n\n"
-            "Pay ~1000 sats once to create an account and get 5 complementary calls, "
-            "then top up as you go. Or pay invoice-by-invoice with L402 (no account).\n\n"
-            "→ MCP server: https://invinoveritas.onrender.com/mcp\n"
-            "→ Python SDK: `pip install invinoveritas`"
+            base
+            "Saw you're building with MCP — let's get you connected:\n\n"
+            "💡 Quick WalletConnect Setup (NWC wallets: Alby, Zeus, Mutiny):\n"
+            "1️⃣ Install your preferred wallet\n"
+            "2️⃣ Copy your WalletConnect URI\n"
+            "3️⃣ Plug it into invinoveritas SDK → instant MCP calls\n\n"
+            "🔗 MCP server: https://invinoveritas.onrender.com/mcp\n"
+            "🔗 Python SDK: `pip install invinoveritas`\n"
+            "💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 free calls)"
         )
 
-    # High relevance
+    # High relevance (score 7-8)
     elif score >= 7:
-        return base + (
-            "→ Native MCP server: https://invinoveritas.onrender.com/mcp\n"
+        return (
+            base
+            "→ MCP server: https://invinoveritas.onrender.com/mcp\n"
             "→ Python SDK: `pip install invinoveritas`\n\n"
-            "Two ways to use it:\n"
-            "• Pay ~1000 sats once → get API key + 5 complementary calls, then top-up as needed\n"
-            "• Or pay per call via L402 (no account needed)\n\n"
-            "No subscriptions or KYC. Works great with Claude Desktop, Cursor, LangGraph, etc."
+            "Agents can pay per call (L402) or pre-fund an account.\n"
+            "💡 Wallet guidance:\n"
+            "• NWC wallets (Alby, Zeus, Mutiny) — no node required\n"
+            "• LND node users can follow Lightning Labs setup docs"
         )
 
-    # Medium-high relevance
+    # Medium-high relevance (score 5-6)
     elif score >= 5:
-        return base + (
+        return (
+            base
             "→ MCP: https://invinoveritas.onrender.com/mcp\n"
             "→ SDK: `pip install invinoveritas`\n\n"
-            "Create an account with one ~1000 sats Lightning payment and instantly get 5 complementary calls. "
-            "Then top up your balance as you go. "
-            "Or pay invoice-by-invoice with L402 — no account required."
+            "Pay per call (L402) or pre-fund an account.\n"
+            "Wallet options:\n"
+            "• NWC wallets (Alby, Zeus, Mutiny) → no node needed\n"
+            "• LND node → follow Lightning Labs docs"
         )
 
-    # Medium relevance
+    # Medium relevance (score 3-4)
     elif score >= 3:
-        return base + (
+        return (
+            base
             "Lightning-paid reasoning for AI agents.\n"
             "→ MCP server: https://invinoveritas.onrender.com/mcp\n\n"
-            "Pay ~1000 sats to create an account + receive 5 complementary calls, then top-up as needed. "
-            "Or use pure pay-per-call (L402)."
+            "Pay ~1000 sats to create an account + 5 complementary calls, then top up as needed.\n"
+            "Or use pay-per-call via L402 — no account required."
         )
 
-    # Low but acceptable relevance
+    # Low but acceptable relevance (score 2)
     elif score >= 2:
         return (
-            "⚡ invinoveritas — Lightning-paid reasoning for agents\n\n"
-            "Get 5 complementary calls when you create an account with one ~1000 sats payment. "
+            f"⚡ invinoveritas — Lightning-paid reasoning tools for agents\n\n"
+            f"Hey {user_tag}, create an account (~1000 sats) and get 5 complementary calls.\n"
             "MCP server: https://invinoveritas.onrender.com/mcp"
         )
 
     # Fallback
     else:
-        return "⚡ invinoveritas — Lightning-paid reasoning tools for agents."
+        return f"⚡ invinoveritas — Lightning-paid reasoning for AI agents.\nHey {user_tag}, check out https://invinoveritas.onrender.com/mcp"
       
 # ── Rate limit check ──────────────────────────────────────────────────────────
 def _is_rate_limited(relay_url: str) -> bool:
@@ -353,7 +364,7 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                         continue
 
                     # Build and sign reply
-                    reply_text = _build_reply_text(content, score)
+                    reply_text = _build_reply_text(content, score, pubkey)
                     reply = Event(
                         kind=1,
                         content=reply_text,
