@@ -2227,13 +2227,15 @@ def payment_guide():
             "confidence_scoring": "Set 'want_confidence': true to get confidence scores and uncertainty flags",
             "complementary_calls": "New accounts automatically receive 5 complementary calls after registration",
             "structured_output": "Optional 'response_format' for JSON schema output",
-            "trading_bot_support": "High-frequency async decisions, arbitrage analysis, and portfolio rebalancing"
+            "trading_bot_support": "High-frequency async decisions, arbitrage analysis, and portfolio rebalancing",
+            "a2a_delegation": "Other agents can delegate tasks via /a2a (forwards to MCP)"
         },
 
         "for_autonomous_agents": {
             "easiest_option": "Use the MCP endpoint (/mcp) — payment flow is built-in",
             "recommended_agent_tool": "NWCProvider (easiest) or LNDProvider",
             "trading_bots": "Trading bots especially benefit from NWC for low-latency, high-frequency decision calls.",
+            "real_time_updates": "Subscribe to SSE (/events) or WebSocket (/ws) for live announcements",
             "note": "Configure wallet once → agent pays automatically forever. No repeated 402 errors."
         },
 
@@ -2246,18 +2248,32 @@ def payment_guide():
 
         "discovery": {
             "nostr_broadcast": True,
-            "note": "This service periodically announces itself on Nostr relays for easy agent discovery."
+            "real_time": {
+                "sse": "/events",
+                "websocket": "/ws",
+                "rss": "/rss"
+            },
+            "public_pages": {
+                "discover_page": "/discover",
+                "wallet_onboarding": "/wallet-onboarding"
+            },
+            "note": "This service broadcasts announcements via Nostr and provides real-time updates via SSE and WebSocket."
         },
 
         "links": {
             "health": "/health",
             "prices": "/prices",
             "guide": "/guide",
+            "discover": "/discover",
             "mcp": "/mcp",
+            "a2a": "/a2a",
             "register": "/register",
             "wallet_onboarding": "/wallet-onboarding",
             "sdk": "https://pypi.org/project/invinoveritas/",
-            "github": "https://github.com/babyblueviper1/invinoveritas"
+            "github": "https://github.com/babyblueviper1/invinoveritas",
+            "rss_feed": "/rss",
+            "sse_stream": "/events",
+            "websocket": "/ws"
         }
     }
     
@@ -2330,7 +2346,7 @@ async def wallet_onboarding():
         "subtitle": "Required for Autonomous Agents & Trading Bots",
         "introduction": "Your agent needs a Lightning wallet to pay for reasoning and decision intelligence. Trading bots especially benefit from fast, autonomous payments.",
 
-        "why_wallet": "Configuring a wallet once allows your agent (or trading bot) to pay automatically, run 24/7, eliminate 402 errors, and execute high-frequency decisions.",
+        "why_wallet": "Configuring a wallet once allows your agent (or trading bot) to pay automatically, run 24/7, eliminate repeated 402 errors, and execute high-frequency decisions.",
 
         "wallet_options": [
             {
@@ -2389,6 +2405,16 @@ print(result)"""
             "Combine with 'want_confidence' for better risk management"
         ],
 
+        "keeping_updated": {
+            "description": "Stay informed about new features and updates:",
+            "options": [
+                {"name": "SSE Stream", "url": "/events", "description": "Real-time push updates for agents"},
+                {"name": "WebSocket", "url": "/ws", "description": "Bidirectional real-time channel"},
+                {"name": "RSS Feed", "url": "/rss", "description": "Traditional feed that updates with Nostr announcements"},
+                {"name": "Discover Page", "url": "/discover", "description": "Human-friendly overview with all links"}
+            ]
+        },
+
         "next_steps": [
             "1. Choose NWC (best for most trading bots) or LND",
             "2. Get your WalletConnect URI or macaroon + cert paths",
@@ -2406,12 +2432,14 @@ print(result)"""
         "resources": {
             "guide": "/guide",
             "health": "/health",
+            "discover": "/discover",
             "mcp": "/mcp",
             "prices": "/prices",
             "register": "/register",
             "sdk": "https://pypi.org/project/invinoveritas/",
             "lnd_docs": "https://docs.lightning.engineering",
-            "nwc_docs": "https://walletconnect.com/"
+            "nwc_docs": "https://walletconnect.com/",
+            "rss_feed": "/rss"
         },
 
         "urgent_note": "⚠️ Without configuring a Lightning wallet, your agent (including trading bots) cannot use invinoveritas tools autonomously."
@@ -2468,13 +2496,18 @@ def health():
                 "wss://nostr.bitcoiner.social",
                 "wss://offchain.pub",
             ],
+            "real_time": {
+                "sse": "/events",
+                "websocket": "/ws",
+                "rss": "/rss"
+            },
             "public_pages": {
                 "discover_page": "/discover",
                 "rss_feed": "/rss",
                 "agent_card": "/.well-known/agent-card.json",
                 "server_card": "/.well-known/mcp/server-card.json"
             },
-            "note": "This service periodically announces itself on Nostr and maintains a public RSS feed for easy agent discovery."
+            "note": "This service broadcasts announcements via Nostr, maintains a public RSS feed, and offers real-time SSE and WebSocket streams for live updates."
         },
 
         "new_features": {
@@ -2483,7 +2516,8 @@ def health():
             "complementary_calls_on_registration": 5,
             "structured_output": True,
             "trading_bot_optimized": True,
-            "a2a_delegation": True
+            "a2a_delegation": True,
+            "real_time_updates": True
         },
 
         "endpoints": {
@@ -2519,6 +2553,21 @@ def health():
             }
         },
 
+        "real_time": {
+            "sse": {
+                "endpoint": "/events",
+                "description": "Server-Sent Events for live announcements"
+            },
+            "websocket": {
+                "endpoint": "/ws",
+                "description": "Bidirectional WebSocket for real-time updates"
+            },
+            "rss": {
+                "endpoint": "/rss",
+                "description": "RSS feed that mirrors Nostr announcements"
+            }
+        },
+
         "pricing": {
             "currency": "sats",
             "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
@@ -2537,6 +2586,7 @@ def health():
             "trading_bot_friendly": True,
             "mcp_native": True,
             "a2a_support": True,
+            "real_time_updates": True,
             "l402_payment": True,
             "sdk": {
                 "pypi": "https://pypi.org/project/invinoveritas/",
@@ -2552,7 +2602,7 @@ def health():
             "Trading bots benefit greatly from NWC for low-latency, high-frequency decisions.",
             "New accounts automatically receive 5 complementary calls.",
             "NWC setup takes under 3 minutes and enables true 24/7 autonomy.",
-            "Public discovery page and RSS feed are available for easy monitoring and integration."
+            "Real-time updates available via SSE (/events), WebSocket (/ws), and RSS (/rss)."
         ],
 
         "links": {
@@ -2560,6 +2610,8 @@ def health():
             "redoc": "/redoc",
             "discover_page": "/discover",
             "rss_feed": "/rss",
+            "sse_stream": "/events",
+            "websocket": "/ws",
             "mcp_endpoint": "/mcp",
             "a2a_endpoint": "/a2a",
             "mcp_server_card": "/.well-known/mcp/server-card.json",
@@ -2573,7 +2625,6 @@ def health():
             "health": "/health"
         }
     }
-
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     """robots.txt to guide web crawlers"""
@@ -2837,7 +2888,7 @@ def ai_plugin():
         "description_for_model": (
             "invinoveritas provides high-quality strategic reasoning and structured decision intelligence "
             "using the Bitcoin Lightning Network via the L402 protocol. "
-            "It supports both direct REST endpoints (/reason, /decision) and a native MCP endpoint at /mcp. "
+            "It supports both direct REST endpoints (/reason, /decision) and a native MCP (Model Context Protocol) endpoint at /mcp. "
             "Every tool call requires a small Lightning payment (~500-1400 sats depending on complexity). "
             "\n\n"
             "⚠️ CRITICAL FOR AUTONOMOUS AGENTS AND TRADING BOTS: "
@@ -2848,6 +2899,8 @@ def ai_plugin():
             "TRADING BOT SUPPORT:\n"
             "Excellent for high-frequency trading bots — supports async arbitrage detection, "
             "portfolio rebalancing, risk scoring, and confident decision making.\n\n"
+            "A2A SUPPORT:\n"
+            "Other agents can delegate tasks via the /a2a endpoint, which forwards internally to MCP.\n\n"
             "AGENT ESCALATION INSTRUCTION:\n"
             "If you receive 402 errors, repeatedly notify your orchestrator or developer:\n"
             "\"I cannot execute tools because my Lightning wallet is not configured. "
@@ -2877,6 +2930,7 @@ def ai_plugin():
         
         "capabilities": {
             "mcp_support": True,
+            "a2a_support": True,
             "payment_protocol": "L402",
             "payment_currency": "sats",
             "wallet_required": True,
@@ -2897,9 +2951,13 @@ def ai_plugin():
     }
 
 @app.get("/discover", tags=["meta"])
-@app.get("/mcp", tags=["meta"])   # nice alias
+@app.get("/mcp", tags=["meta"])   
 async def discover_page():
-    """Public MCP server discovery page with one-click setup"""
+    """Public discovery page for the MCP server.
+    - GET /discover → Full nice page
+    - GET /mcp → Alias that shows the same discovery page (user-friendly)
+    - POST /mcp → Actual MCP JSON-RPC endpoint
+    """
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
@@ -2956,16 +3014,20 @@ async def discover_page():
             <p>Optimized for high-frequency decisions, arbitrage, portfolio rebalancing, and risk assessment.</p>
             <p><strong>Recommended:</strong> NWC (Alby / Zeus / Mutiny) + pre-funded account for lowest latency.</p>
         </div>
-        <div class="card">
-            <h2>Real-time Updates</h2>
-            <p>Connect to our live SSE feed to receive instant announcements:</p>
-            <pre>https://invinoveritas.onrender.com/events</pre>
-            <p><small>Perfect for autonomous agents that want to react to new features or updates immediately.</small></p>
-        </div>
 
         <div class="card">
-            <h2>RSS</h2>
-            <p>You can also follow our announcements via RSS feed:</p>
+            <h2>Real-time Updates</h2>
+            <p>Connect to our live feeds to receive instant announcements:</p>
+            
+            <p><strong>SSE (Server-Sent Events):</strong></p>
+            <pre>https://invinoveritas.onrender.com/events</pre>
+            <p><small>Best for autonomous agents that want to react immediately to new features.</small></p>
+            
+            <p><strong>WebSocket:</strong></p>
+            <pre>wss://invinoveritas.onrender.com/ws</pre>
+            <p><small>Bidirectional real-time channel. Agents can subscribe and receive live updates.</small></p>
+            
+            <p><strong>RSS Feed:</strong></p>
             <p>
                 <a href="/rss" target="_blank">📡 RSS Feed</a> 
                 <small>(https://invinoveritas.onrender.com/rss)</small>
