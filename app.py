@@ -1594,6 +1594,24 @@ async def get_agents_registry():
     return JSONResponse(content=AGENTS_REGISTRY)
 
 # =========================
+# A2A (Agent-to-Agent) Stub Endpoint
+# =========================
+
+@app.get("/a2a", include_in_schema=False)
+@app.post("/a2a", include_in_schema=False)
+async def a2a_endpoint():
+    """Basic A2A compatibility stub - ready for future expansion"""
+    return {
+        "status": "ok",
+        "protocol": "a2a",
+        "server": "invinoveritas",
+        "message": "A2A endpoint is active. Full agent-to-agent task delegation coming soon.",
+        "supported": ["task_proposal", "mcp_forward"],
+        "documentation": "https://invinoveritas.onrender.com/guide",
+        "note": "Currently forwards high-value tasks to the MCP endpoint with L402 payment."
+    }
+
+# =========================
 # Models (unchanged)
 # =========================
 class ReasoningRequest(BaseModel):
