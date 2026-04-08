@@ -386,8 +386,23 @@ async def startup_event():
     asyncio.create_task(run_listener())
     
 # =========================
-# Well-Known Discovery Endpoints (Polite Responses)
+# Well-Known Discovery Endpoints (Polite & Standards-Compliant)
 # =========================
+
+from fastapi.responses import JSONResponse
+
+# Apple Touch Icons - This fixes the 404s you're seeing
+@app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/apple-touch-icon-precomposed.png", methods=["GET", "HEAD"], include_in_schema=False)
+async def apple_touch_icons():
+    # Return 204 No Content - standard way to silence these requests
+    return Response(status_code=204)
+
+
+# Optional: Catch a few more common Apple icon sizes (recommended)
+@app.api_route("/apple-touch-icon-{size}px.png", methods=["GET", "HEAD"], include_in_schema=False)
+async def apple_touch_icons_sized(size: str):
+    return Response(status_code=204)
 
 @app.get("/.well-known/security.txt", include_in_schema=False)
 @app.get("/security.txt", include_in_schema=False)
@@ -398,27 +413,37 @@ async def security_txt():
         "preferred_languages": "en",
         "canonical": "https://invinoveritas.onrender.com/.well-known/security.txt",
         "policy": "https://invinoveritas.onrender.com/guide",
-        "acknowledgments": "https://github.com/babyblueviper1/invinoveritas"
+        "acknowledgments": "https://github.com/babyblueviper1/invinoveritas",
+        "expires": "2027-04-08T00:00:00Z"
     }
 
 
 @app.get("/.well-known/change-password", include_in_schema=False)
 async def change_password():
-    """Redirect for password change (standard well-known path)."""
-    return {"error": "not_supported", "message": "This service does not use traditional passwords."}
+    """Standard well-known path for password change."""
+    return JSONResponse(
+        status_code=404,
+        content={"error": "not_supported", "message": "This service does not use traditional passwords."}
+    )
 
 
 @app.get("/.well-known/apple-app-site-association", include_in_schema=False)
 @app.get("/apple-app-site-association", include_in_schema=False)
 async def apple_app_site_association():
-    """Apple App Site Association (for universal links)."""
-    return {"error": "not_supported", "message": "No iOS app associated."}
+    """Apple App Site Association."""
+    return JSONResponse(
+        status_code=404,
+        content={"error": "not_supported", "message": "No iOS app associated with this domain."}
+    )
 
 
 @app.get("/.well-known/assetlinks.json", include_in_schema=False)
 async def assetlinks():
     """Android Asset Links."""
-    return {"error": "not_supported", "message": "No Android app associated."}
+    return JSONResponse(
+        status_code=404,
+        content={"error": "not_supported", "message": "No Android app associated."}
+    )
 
 
 @app.get("/.well-known/openid-configuration", include_in_schema=False)
@@ -428,22 +453,22 @@ async def openid_configuration():
         "error": "not_supported",
         "error_description": "This service does not support OpenID Connect / OAuth2.",
         "supported_auth": ["L402", "Bearer"],
-        "documentation": "/guide"
+        "documentation": "https://invinoveritas.onrender.com/guide"
     }
 
 
 @app.get("/.well-known/webfinger", include_in_schema=False)
 async def webfinger():
     """WebFinger discovery."""
-    return {
-        "error": "not_supported",
-        "error_description": "WebFinger is not supported."
-    }
+    return JSONResponse(
+        status_code=404,
+        content={"error": "not_supported", "error_description": "WebFinger is not supported on this service."}
+    )
 
 
 @app.get("/.well-known/nodeinfo", include_in_schema=False)
 async def nodeinfo():
-    """NodeInfo for federated services."""
+    """NodeInfo discovery."""
     return {
         "links": [
             {
@@ -456,34 +481,23 @@ async def nodeinfo():
 
 @app.get("/.well-known/nodeinfo/2.0", include_in_schema=False)
 async def nodeinfo_20():
+    """NodeInfo 2.0 schema."""
     return {
         "version": "2.0",
         "software": {
             "name": "invinoveritas",
-            "version": "0.4.0"
+            "version": "0.4.0",
+            "repository": "https://github.com/babyblueviper1/invinoveritas"
         },
         "protocols": ["l402"],
         "services": {
             "inbound": [],
-            "outbound": []
+            "outbound": ["mcp"]
         },
         "usage": {
             "users": {}
         },
         "openRegistrations": False
-    }
-
-# Well-known OAuth discovery endpoints (polite "not supported" responses)
-@app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
-@app.get("/.well-known/oauth-authorization-server", include_in_schema=False)
-@app.get("/oauth/.well-known/oauth-authorization-server", include_in_schema=False)
-@app.get("/mcp/.well-known/oauth-protected-resource", include_in_schema=False)
-async def oauth_discovery():
-    return {
-        "error": "not_supported",
-        "error_description": "This service does not use OAuth2/OpenID Connect. It uses Lightning L402 + Bearer tokens.",
-        "supported_protocols": ["L402", "Bearer"],
-        "documentation": "/guide"
     }
 
 
