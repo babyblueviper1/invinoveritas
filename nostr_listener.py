@@ -12,7 +12,12 @@ NOSTR_RELAYS = [
     "wss://nos.lol",
     "wss://relay.primal.net",
     "wss://nostr-pub.wellorder.net",
+    "wss://relay.snort.social",
+    "wss://relay.nostr.bg",
+    "wss://nostr.oxtr.dev",
+    "wss://nostr.bitcoiner.social",
 ]
+SEEN_EVENTS = set()
 
 KEYWORDS = [
     "mcp",
@@ -69,6 +74,15 @@ async def run_listener():
                 event = event_msg.event
 
                 try:
+                    # Skip if we've already seen it
+                    if event.id in SEEN_EVENTS:
+                        continue
+                    SEEN_EVENTS.add(event.id)
+
+                    # Skip our own events
+                    if event.pubkey == private_key.public_key.hex():
+                        continue
+
                     content = event.content
 
                     if not content:
@@ -83,12 +97,11 @@ async def run_listener():
                     reply = Event(
                         kind=1,
                         content=RESPONSE_TEXT,
-                        tags=[["e", event.id]],  # reply threading
+                        tags=[["e", event.id]],   # reply threading
                         public_key=private_key.public_key.hex()
                     )
 
                     private_key.sign_event(reply)
-
                     relay_manager.publish_event(reply)
 
                     logger.info("💬 Replied to event")
