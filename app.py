@@ -2340,7 +2340,13 @@ def health():
                 "wss://nostr.bitcoiner.social",
                 "wss://offchain.pub",
             ],
-            "note": "This service periodically announces itself on Nostr for easy agent discovery."
+            "public_pages": {
+                "discover_page": "/discover",
+                "rss_feed": "/rss",
+                "agent_card": "/.well-known/agent-card.json",
+                "server_card": "/.well-known/mcp/server-card.json"
+            },
+            "note": "This service periodically announces itself on Nostr and maintains a public RSS feed for easy agent discovery."
         },
 
         "new_features": {
@@ -2348,7 +2354,8 @@ def health():
             "confidence_scoring": True,
             "complementary_calls_on_registration": 5,
             "structured_output": True,
-            "trading_bot_optimized": True
+            "trading_bot_optimized": True,
+            "a2a_delegation": True
         },
 
         "endpoints": {
@@ -2375,6 +2382,12 @@ def health():
                 "supports": ["initialize", "tools/list", "listTools", "callTool", "ping"],
                 "payment_handling": "built-in L402 + Bearer credits",
                 "wallet_required": True
+            },
+            "a2a": {
+                "path": "/a2a",
+                "method": "POST",
+                "description": "Agent-to-Agent delegation endpoint (forwards to MCP)",
+                "trading_bot_optimized": True
             }
         },
 
@@ -2395,6 +2408,7 @@ def health():
             "agent_friendly": True,
             "trading_bot_friendly": True,
             "mcp_native": True,
+            "a2a_support": True,
             "l402_payment": True,
             "sdk": {
                 "pypi": "https://pypi.org/project/invinoveritas/",
@@ -2409,14 +2423,19 @@ def health():
             "Without wallet setup, every /reason, /decision, and callTool will return 402 Payment Required.",
             "Trading bots benefit greatly from NWC for low-latency, high-frequency decisions.",
             "New accounts automatically receive 5 complementary calls.",
-            "NWC setup takes under 3 minutes and enables true 24/7 autonomy."
+            "NWC setup takes under 3 minutes and enables true 24/7 autonomy.",
+            "Public discovery page and RSS feed are available for easy monitoring and integration."
         ],
 
         "links": {
             "docs": "/docs",
             "redoc": "/redoc",
+            "discover_page": "/discover",
+            "rss_feed": "/rss",
             "mcp_endpoint": "/mcp",
+            "a2a_endpoint": "/a2a",
             "mcp_server_card": "/.well-known/mcp/server-card.json",
+            "agent_card": "/.well-known/agent-card.json",
             "ai_plugin": "/.well-known/ai-plugin.json",
             "tool_definition": "/tool",
             "prices": "/prices",
