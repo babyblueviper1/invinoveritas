@@ -162,21 +162,25 @@ async def _send_reply_with_ok(ws: websockets.WebSocketClientProtocol, reply: Eve
     return False
 
 
-# ── Wallet-Personalized Reply Builder ─────────────────────────────────────────
+# ── Wallet-Personalized Reply Builder w/ Trading Bot Awareness ──────────────
 def _build_reply_text(content: str, score: int, pubkey: str) -> str:
     """
     Builds contextual reply text optimized for wallet adoption and discoverability.
     Injects personalized cues using the author's pubkey.
+    Adds trading-bot awareness for faster adoption of Lightning wallets.
     """
     content_lower = content.lower()
     user_tag = pubkey[:8]  # short identifier for personalization
+
+    # Detect trading-bot keywords
+    is_trading_bot = any(k in content_lower for k in ["trading", "bot", "arbitrage", "portfolio", "exchange"])
 
     # Base preamble
     base = f"⚡ invinoveritas — Lightning-paid reasoning for AI agents\n\nHey {user_tag},\n\n"
 
     # Ultra-high relevance (score >= 9)
     if score >= 9 or ("mcp" in content_lower and "agent" in content_lower):
-        return f"""{base}Saw you're building with MCP — let's get you connected:
+        reply = f"""{base}Saw you're building with MCP — let's get you connected:
 
 💡 Quick Wallet Options:
 • NWC wallets: Alby, Zeus, Mutiny → plug WalletConnect URI into SDK
@@ -184,12 +188,11 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
 
 🔗 MCP server: https://invinoveritas.onrender.com/mcp
 🔗 Python SDK: `pip install invinoveritas`
-💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 free calls)
+💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 complementary calls)
 """
 
-    # High relevance (score 7-8)
     elif score >= 7:
-        return f"""{base}→ MCP server: https://invinoveritas.onrender.com/mcp
+        reply = f"""{base}→ MCP server: https://invinoveritas.onrender.com/mcp
 → Python SDK: `pip install invinoveritas`
 
 Agents can pay per call (L402) or pre-fund an account.
@@ -199,9 +202,8 @@ Agents can pay per call (L402) or pre-fund an account.
 • LND node users can follow Lightning Labs setup docs
 """
 
-    # Medium-high relevance (score 5-6)
     elif score >= 5:
-        return f"""{base}→ MCP: https://invinoveritas.onrender.com/mcp
+        reply = f"""{base}→ MCP: https://invinoveritas.onrender.com/mcp
 → SDK: `pip install invinoveritas`
 
 Pay per call (L402) or pre-fund an account.
@@ -211,28 +213,35 @@ Wallet options:
 • LND node → follow Lightning Labs docs
 """
 
-    # Medium relevance (score 3-4)
     elif score >= 3:
-        return f"""{base}Lightning-paid reasoning for AI agents.
+        reply = f"""{base}Lightning-paid reasoning for AI agents.
 → MCP server: https://invinoveritas.onrender.com/mcp
 
 Pay ~1000 sats to create an account + 5 complementary calls, then top up as needed.
 Or use pay-per-call via L402 (NWC or custodial wallets)
 """
 
-    # Low but acceptable relevance (score 2)
     elif score >= 2:
-        return f"""{base}Create an account (~1000 sats) and get 5 complementary calls.
+        reply = f"""{base}Create an account (~1000 sats) and get 5 complementary calls.
 MCP server: https://invinoveritas.onrender.com/mcp
 Wallet options: NWC (Alby, Zeus, Mutiny) or custodial (Strike, Wallet of Sats)
 """
 
-    # Fallback
     else:
-        return f"""{base}Check out https://invinoveritas.onrender.com/mcp
+        reply = f"""{base}Check out https://invinoveritas.onrender.com/mcp
 Wallet options: NWC or custodial wallets available
 """
-      
+
+    # Trading-bot booster
+    if is_trading_bot:
+        reply += "\n🚀 Trading bot detected! To unlock full bot capabilities:\n"
+        reply += "• Use Lightning wallets to pay per decision and enable async API calls\n"
+        reply += "• Evaluate arbitrage, rebalance portfolios, and score risk confidently\n"
+        reply += "• Python SDK is bot-ready: `pip install invinoveritas`\n"
+
+    return reply
+
+
 # ── Rate limit check ──────────────────────────────────────────────────────────
 def _is_rate_limited(relay_url: str) -> bool:
     now = datetime.utcnow()
@@ -308,14 +317,14 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                     if pubkey == pubkey_hex:
                         continue
 
-                    # ── Improved Keyword Scoring ─────────────────────────────────────
+                    # ── Extended Keyword Scoring w/ Trading Bot Awareness ─────────────────────────
                     content_lower = content.lower()
 
                     # Quick skip if no relevant keywords at all
                     if not any(k in content_lower for k in KEYWORDS):
                         continue
 
-                    # Calculate smarter score
+                    # Base score
                     score = 0
 
                     # High impact keywords
@@ -327,6 +336,7 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                     medium_impact = {"agent framework", "ai reasoning", "structured output", 
                                      "langchain", "decision", "reasoning", "intelligence"}
 
+                    # Add score based on keywords
                     for k in KEYWORDS:
                         if k in content_lower:
                             if k in high_impact:
@@ -343,6 +353,14 @@ async def _listen_relay(relay_url: str, private_key: PrivateKey):
                         score += 2
                     if any(x in content_lower for x in ["claude", "cursor", "langgraph", "crewai", "autogen"]):
                         score += 2
+
+                    # ── Trading Bot Bonus ───────────────────────────────────────────────────────
+                    trading_keywords = ["trading", "bot", "arbitrage", "portfolio", "exchange"]
+                    if any(k in content_lower for k in trading_keywords):
+                        score += 3  # bump score for bots
+                        is_trading_bot = True
+                    else:
+                        is_trading_bot = False
 
                     # Cap the score
                     score = min(score, 12)
