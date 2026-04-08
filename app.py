@@ -2,6 +2,7 @@ from nostr_listener import run_listener
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from collections import deque
 from node_bridge import create_invoice, check_payment, verify_preimage
 from ai import premium_reasoning, structured_decision
 from config import (
@@ -625,7 +626,7 @@ logger = logging.getLogger("invinoveritas")
 last_request_time: Dict[str, float] = defaultdict(lambda: 0.0)
 
 # Global trackers
-used_payments = set()
+used_payments = deque(maxlen=2000)
 agent_usage = defaultdict(lambda: {"calls": 0, "last_seen": 0, "total_sats": 0})
 
 # =========================
@@ -1302,6 +1303,9 @@ async def mcp_handler(request: Request):
                 "note": "Use 'style' parameter for answer length control and 'want_confidence' for uncertainty reporting."
             }
         }
+    # ==================== PING ====================
+    elif method == "ping":
+        return {"jsonrpc": "2.0", "id": rpc_id, "result": {}}
 
      # ==================== CALL TOOL ====================
     elif method == "callTool":
