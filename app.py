@@ -1509,6 +1509,90 @@ async def get_server_card():
     """Return MCP Server Card"""
     return JSONResponse(content=SERVER_CARD)
 
+
+# =========================
+# A2A Agent Card
+# =========================
+AGENT_CARD = {
+    "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
+    "version": "1.0",
+    "name": "invinoveritas-reasoning-agent",
+    "description": "Specialized high-quality reasoning and decision-making agent powered by Lightning payments (L402)",
+    "provider": "invinoveritas",
+    "version": "0.4.0",
+    "capabilities": [
+        "reasoning",
+        "decision-making",
+        "structured-output",
+        "risk-assessment"
+    ],
+    "protocols": ["mcp", "a2a"],
+    "authentication": ["L402", "Bearer"],
+    "endpoints": {
+        "mcp": "https://invinoveritas.onrender.com/mcp",
+        "a2a": "https://invinoveritas.onrender.com/a2a"   # placeholder for future
+    },
+    "pricing": {
+        "model": "pay-per-use",
+        "currency": "sats",
+        "reasoning": "500 sats base",
+        "decision": "1000 sats base",
+        "agent_multiplier": 1.2
+    },
+    "nostr": {
+        "enabled": True,
+        "announcement_kind": 31234,
+        "relays": [
+            "wss://relay.damus.io",
+            "wss://nos.lol",
+            "wss://relay.primal.net",
+            "wss://nostr-pub.wellorder.net",
+            "wss://relay.snort.social"
+        ]
+    },
+    "documentation": "https://invinoveritas.onrender.com/guide",
+    "contact": "mailto:babyblueviperbusiness@gmail.com",
+    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "paid-ai"]
+}
+
+
+@app.get("/.well-known/agent-card.json", include_in_schema=False)
+@app.get("/agent-card.json", include_in_schema=False)
+@app.get("/.well-known/agent.json", include_in_schema=False)
+async def get_agent_card():
+    return JSONResponse(content=AGENT_CARD)
+
+
+# =========================
+# agents.json - General Agent Discovery
+# =========================
+AGENTS_REGISTRY = {
+    "agents": [
+        {
+            "id": "invinoveritas-reasoning-agent",
+            "name": "invinoveritas Reasoning Agent",
+            "description": "Lightning-paid reasoning and structured decision intelligence for autonomous agents",
+            "type": "specialist",
+            "provider": "invinoveritas",
+            "version": "0.4.0",
+            "protocols": ["mcp"],
+            "capabilities": ["reasoning", "decision-making"],
+            "pricing": "pay-per-use (Lightning)",
+            "endpoint": "https://invinoveritas.onrender.com/mcp",
+            "agentCard": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+            "serverCard": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+            "nostr": True
+        }
+    ],
+    "updated": "2026-04-08T00:00:00Z",
+    "total": 1
+}
+
+
+@app.get("/.well-known/agents.json", include_in_schema=False)
+async def get_agents_registry():
+    return JSONResponse(content=AGENTS_REGISTRY)
+
 # =========================
 # Models (unchanged)
 # =========================
