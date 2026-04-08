@@ -27,6 +27,7 @@ import random
 from nostr.key import PrivateKey
 from nostr.event import Event
 from nostr.relay_manager import RelayManager
+import websockets
 
 # =========================
 # FastAPI App
@@ -44,6 +45,9 @@ app = FastAPI(
 
 app.router.redirect_slashes = False
 
+logger = logging.getLogger("invinoveritas.broadcaster")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
 
 NOSTR_RELAYS = [
     "wss://relay.damus.io",
@@ -54,137 +58,122 @@ NOSTR_RELAYS = [
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
 ]
-# Optional: Blacklist of currently flaky relays (update as needed)
-BAD_RELAYS = {
-    "wss://relay.nostr.bg",
-    # Add more if they keep failing
-}
 
-def generate_agent_payload():
-    return {
+# ── Constants ─────────────────────────────────────────────────────────────────
+MAX_CONCURRENT_RELAYS = 5          # semaphore cap
+RELAY_CONNECT_TIMEOUT = 6.0        # seconds to open WebSocket
+OK_WAIT_TIMEOUT = 8.0              # seconds to wait for NIP-20 OK
+PUBLISH_RETRIES = 3
+RETRY_BASE_DELAY = 1.0
+RETRY_BACKOFF = 1.8
+ 
+DENYLIST_THRESHOLD = 3             # consecutive failures before soft-ban
+DENYLIST_BACKOFF_SECONDS = 7200    # 2 hours
+ 
+BROADCAST_INTERVAL_MIN = 720       # 12 min
+BROADCAST_INTERVAL_MAX = 1080      # 18 min
+ 
+# ── Relay health tracker ──────────────────────────────────────────────────────
+@dataclass
+class RelayHealth:
+    consecutive_failures: int = 0
+    total_ok: int = 0
+    total_fail: int = 0
+    banned_until: float = 0.0      # epoch seconds; 0 = not banned
+ 
+    def is_banned(self) -> bool:
+        return time.time() < self.banned_until
+ 
+    def record_ok(self):
+        self.consecutive_failures = 0
+        self.total_ok += 1
+ 
+    def record_fail(self):
+        self.consecutive_failures += 1
+        self.total_fail += 1
+        if self.consecutive_failures >= DENYLIST_THRESHOLD:
+            self.banned_until = time.time() + DENYLIST_BACKOFF_SECONDS
+            logger.warning(
+                f"🚫 Relay soft-banned for {DENYLIST_BACKOFF_SECONDS}s "
+                f"({self.consecutive_failures} consecutive failures)"
+            )
+ 
+ 
+_health: Dict[str, RelayHealth] = defaultdict(RelayHealth)
+ 
+def _active_relays() -> List[str]:
+    """Return relays that are not currently soft-banned."""
+    return [r for r in NOSTR_RELAYS if not _health[r].is_banned()]
+ 
+ 
+# ── Payload generators ────────────────────────────────────────────────────────
+def _base_meta() -> dict:
+    return {"name": "invinoveritas", "version": "0.4.0", "updated_at": int(time.time())}
+ 
+ 
+def generate_agent_payload() -> dict:
+    p = _base_meta()
+    p.update({
         "type": "mcp_service",
-        "name": "invinoveritas",
-        "version": "0.4.0",
-        "updated_at": int(time.time()),
-
         "endpoint": "https://invinoveritas.onrender.com/mcp",
         "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-        "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",   # ← New
-
+        "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
         "payment": {
             "protocol": "L402",
             "network": "lightning",
             "wallet_required": True,
-            "model": "per_call"
+            "model": "per_call",
         },
-
-        "capabilities": [
-            "reasoning",
-            "decision-making",
-            "structured-output",
-            "risk-assessment"
-        ],
-
-        "use_when": [
-            "high_uncertainty",
-            "multi_step_reasoning",
-            "financial_decision",
-            "important_tradeoff",
-            "high_stakes"
-        ],
-
-        "value_proposition": {
-            "edge": "Higher quality reasoning than local or cheap models",
-            "reduces_error": True,
-            "saves_time": True,
-            "autonomous_ready": True
-        },
-
-        "pricing_hint": {
-            "relative_cost": "low",
-            "expected_roi": "positive",
-            "confidence": "high"
-        },
-
-        "performance": {
-            "confidence_scoring": True,
-            "structured_output": True
-        },
-
-        "features": {
-            "free_calls": 5,
-            "styles": ["short", "concise", "normal", "detailed", "comprehensive"]
-        },
-
+        "capabilities": ["reasoning", "decision-making", "structured-output", "risk-assessment"],
+        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "important_tradeoff", "high_stakes"],
+        "value_proposition": {"edge": "Higher quality reasoning than local or cheap models", "reduces_error": True, "saves_time": True, "autonomous_ready": True},
+        "pricing_hint": {"relative_cost": "low", "expected_roi": "positive", "confidence": "high"},
+        "performance": {"confidence_scoring": True, "structured_output": True},
+        "features": {"free_calls": 5, "styles": ["short", "concise", "normal", "detailed", "comprehensive"]},
         "discovery": {
             "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
             "a2a_agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
-            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json"
-        }
-    }
-
-
-def generate_sdk_payload():
-    return {
+            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json",
+        },
+    })
+    return p
+ 
+ 
+def generate_sdk_payload() -> dict:
+    p = _base_meta()
+    p.update({
         "type": "agent_sdk",
-        "name": "invinoveritas",
-        "version": "0.4.0",
-        "updated_at": int(time.time()),
-
-        "install_hint": {
-            "python": "pip install invinoveritas",
-            "auto_install": True
-        },
-
-        "invoke": {
-            "default": "smart_reason",
-            "async": "async_smart_reason"
-        },
-
+        "install_hint": {"python": "pip install invinoveritas", "auto_install": True},
+        "invoke": {"default": "smart_reason", "async": "async_smart_reason"},
         "api": {
             "reason": "https://invinoveritas.onrender.com/reason",
             "decision": "https://invinoveritas.onrender.com/decision",
-            "mcp": "https://invinoveritas.onrender.com/mcp"
+            "mcp": "https://invinoveritas.onrender.com/mcp",
         },
-
-        "payment": {
-            "protocol": "L402",
-            "network": "lightning",
-            "model": "per_call"
-        },
-
-        "use_when": [
-            "high_uncertainty",
-            "multi_step_reasoning",
-            "financial_decision",
-            "high_stakes"
-        ],
-
-        "ranking": {
-            "quality": "high",
-            "cost_efficiency": "high",
-            "determinism": "high"
-        },
-
-        "roi_signal": {
-            "expected": "positive",
-            "confidence": "high"
-        },
-
+        "payment": {"protocol": "L402", "network": "lightning", "model": "per_call"},
+        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes"],
+        "ranking": {"quality": "high", "cost_efficiency": "high", "determinism": "high"},
+        "roi_signal": {"expected": "positive", "confidence": "high"},
         "discovery": {
             "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
-            "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json"
-        }
-    }
-
-
-def build_mcp_event(private_key: PrivateKey):
+            "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
+        },
+    })
+    return p
+ 
+ 
+# ── Event builders ────────────────────────────────────────────────────────────
+def build_mcp_event(private_key: PrivateKey) -> Event:
+    """
+    kind 31990 — NIP-89 application handler.
+    Replaces kind 30023 for proper MCP/agent service discovery.
+    """
     payload = generate_agent_payload()
-    content = json.dumps(payload, separators=(",", ":"))   # compact JSON
-
+    content = json.dumps(payload, separators=(",", ":"))
     tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
+        ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
         ["version", "0.4.0"],
@@ -193,23 +182,25 @@ def build_mcp_event(private_key: PrivateKey):
         ["agent_card", payload["agent_card"]],
         ["payment", "L402"],
         ["wallet_required", "true"],
-        ["roi_signal", "positive_high_confidence"]
+        ["roi_signal", "positive_high_confidence"],
     ]
-
     event = Event(
-        kind=30023,
+        kind=31990,
         content=content,
         tags=tags,
-        public_key=private_key.public_key.hex()
+        public_key=private_key.public_key.hex(),
     )
     private_key.sign_event(event)
     return event
-
-
-def build_sdk_event(private_key: PrivateKey):
+ 
+ 
+def build_sdk_event(private_key: PrivateKey) -> Event:
+    """
+    kind 30078 — parameterised replaceable event for SDK announcement.
+    Cleaner semantic fit than 30023 (long-form article).
+    """
     payload = generate_sdk_payload()
     content = json.dumps(payload, separators=(",", ":"))
-
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
@@ -219,20 +210,20 @@ def build_sdk_event(private_key: PrivateKey):
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402"],
-        ["roi_signal", "positive_high_confidence"]
+        ["roi_signal", "positive_high_confidence"],
     ]
-
     event = Event(
-        kind=30023,
+        kind=30078,
         content=content,
         tags=tags,
-        public_key=private_key.public_key.hex()
+        public_key=private_key.public_key.hex(),
     )
     private_key.sign_event(event)
     return event
-
-
-def build_human_event(private_key: PrivateKey):
+ 
+ 
+def build_human_event(private_key: PrivateKey) -> Event:
+    """kind 1 — human-readable announcement note."""
     content = (
         "⚡ invinoveritas v0.4.0 is live\n\n"
         "Lightning-paid reasoning & decision intelligence for autonomous agents.\n\n"
@@ -243,140 +234,214 @@ def build_human_event(private_key: PrivateKey):
         "   • Server Card: /.well-known/mcp/server-card.json\n\n"
         "Pay only when decisions matter."
     )
-
     tags = [
         ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
         ["r", "https://invinoveritas.onrender.com/mcp"],
         ["r", "https://invinoveritas.onrender.com/.well-known/agent-card.json"],
         ["version", "0.4.0"],
-        ["type", "sdk_announcement"]
+        ["type", "sdk_announcement"],
     ]
-
     event = Event(
         kind=1,
         content=content,
         tags=tags,
-        public_key=private_key.public_key.hex()
+        public_key=private_key.public_key.hex(),
     )
     private_key.sign_event(event)
     return event
-
-# ========================= BROADCASTER =========================
-async def broadcast_once():
-    if not NOSTR_NSEC:
-        logger.error("❌ NOSTR_NSEC not set")
-        return
-
+ 
+ 
+# ── OK-verified publish (NIP-20) ──────────────────────────────────────────────
+async def _publish_with_ok(relay_url: str, event: Event) -> bool:
+    """
+    Open a WebSocket to relay_url, send EVENT, wait for NIP-20 OK response.
+    Returns True on confirmed OK, False on timeout / error / rejection.
+    """
+    event_msg = json.dumps(["EVENT", event.to_dict()], separators=(",", ":"))
     try:
-        private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
-
+        async with websockets.connect(
+            relay_url,
+            open_timeout=RELAY_CONNECT_TIMEOUT,
+            close_timeout=3,
+        ) as ws:
+            await ws.send(event_msg)
+            deadline = time.time() + OK_WAIT_TIMEOUT
+            while time.time() < deadline:
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=max(0.1, deadline - time.time()))
+                except asyncio.TimeoutError:
+                    break
+                try:
+                    msg = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                # NIP-20: ["OK", <event-id>, <true|false>, <message>]
+                if (
+                    isinstance(msg, list)
+                    and len(msg) >= 3
+                    and msg[0] == "OK"
+                    and msg[1] == event.id
+                ):
+                    if msg[2] is True:
+                        return True
+                    else:
+                        logger.debug(f"Relay rejected event {event.id[:8]}: {msg[3] if len(msg) > 3 else ''}")
+                        return False
+            logger.debug(f"OK timeout from {relay_url} for event {event.id[:8]}")
+            return False
+    except Exception as e:
+        logger.debug(f"WebSocket error on {relay_url}: {e}")
+        return False
+ 
+ 
+# ── Per-relay publish with retries ────────────────────────────────────────────
+async def _publish_to_relay(
+    relay_url: str,
+    events: List[Event],
+    sem: asyncio.Semaphore,
+) -> int:
+    """Publish all events to one relay under the semaphore. Returns OK count."""
+    ok_count = 0
+    async with sem:
+        for event in events:
+            delay = RETRY_BASE_DELAY
+            published = False
+            for attempt in range(PUBLISH_RETRIES):
+                ok = await _publish_with_ok(relay_url, event)
+                if ok:
+                    ok_count += 1
+                    _health[relay_url].record_ok()
+                    if attempt == 0:
+                        logger.info(f"✅ OK kind={event.kind} id={event.id[:8]} → {relay_url}")
+                    published = True
+                    break
+                if attempt < PUBLISH_RETRIES - 1:
+                    await asyncio.sleep(delay)
+                    delay *= RETRY_BACKOFF
+ 
+            if not published:
+                _health[relay_url].record_fail()
+                logger.debug(f"✗ Failed kind={event.kind} → {relay_url} after {PUBLISH_RETRIES} attempts")
+ 
+    return ok_count
+ 
+ 
+# ── Broadcast orchestrator ────────────────────────────────────────────────────
+_broadcast_lock = asyncio.Lock()
+ 
+ 
+async def broadcast_once() -> dict:
+    """
+    Sign events once, then fan out to all healthy relays concurrently.
+    Returns a summary dict.
+    """
+    if _broadcast_lock.locked():
+        logger.info("⏭ Broadcast already in progress — skipping")
+        return {"status": "skipped", "reason": "already_running"}
+ 
+    async with _broadcast_lock:
+        if not NOSTR_NSEC:
+            logger.error("❌ NOSTR_NSEC not set")
+            return {"status": "error", "reason": "no_nsec"}
+ 
+        try:
+            private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
+        except Exception as e:
+            logger.error(f"❌ Invalid NOSTR_NSEC: {e}")
+            return {"status": "error", "reason": str(e)}
+ 
+        # ── Sign once ────────────────────────────────────────────────────────
         events = [
             build_mcp_event(private_key),
             build_sdk_event(private_key),
-            build_human_event(private_key)
+            build_human_event(private_key),
         ]
-
-        # Filter out known bad relays and pick up to 7
-        good_relays = [r for r in NOSTR_RELAYS if r not in BAD_RELAYS]
-        relays_to_use = random.sample(good_relays, k=min(7, len(good_relays)))
-
-        success_count = 0
-        total_attempts = len(relays_to_use) * len(events)
-
-        for relay_url in relays_to_use:
-            relay_success = 0
-            relay_manager = None
-
-            try:
-                relay_manager = RelayManager()
-                relay_manager.add_relay(relay_url)
-
-                relay_manager.open_connections()
-                await asyncio.sleep(1.1)   # stable connection time
-
-                for event in events:
-                    retries = 3
-                    delay = 1.0
-                    published = False
-
-                    for attempt in range(retries):
-                        try:
-                            relay_manager.publish_event(event)
-                            success_count += 1
-                            relay_success += 1
-                            # Reduced logging noise — only log once per event type per relay
-                            if attempt == 0:
-                                logger.info(f"✅ Published kind={event.kind} → {relay_url}")
-                            published = True
-                            break
-
-                        except Exception as publish_err:
-                            err_str = str(publish_err).lower()
-                            if "504" in err_str or "gateway time-out" in err_str:
-                                logger.warning(f"⚠️ 504 timeout on {relay_url} - skipping")
-                                break
-                            elif any(x in err_str for x in ["closed", "sock", "none", "lost", "name or service"]):
-                                logger.debug(f"Connection hiccup on {relay_url} (attempt {attempt+1})")
-                            else:
-                                logger.warning(f"Publish attempt {attempt+1} failed on {relay_url}: {publish_err}")
-
-                            if attempt < retries - 1:
-                                await asyncio.sleep(delay)
-                                delay *= 1.8
-
-                    if not published:
-                        logger.debug(f"Failed kind={event.kind} to {relay_url} after retries")
-
-                if relay_success > 0:
-                    logger.info(f"📤 Sent {relay_success} events to {relay_url}")
-
-            except Exception as e:
-                logger.warning(f"⚠️ Relay {relay_url} failed: {e}")
-            finally:
-                # Gentle cleanup
-                if relay_manager:
-                    try:
-                        relay_manager.close_connections()
-                    except:
-                        pass
-
-        if success_count == 0:
-            logger.error("❌ All relay publishes failed")
+        logger.info(f"🔑 Signed {len(events)} events")
+ 
+        # ── Pick healthy relays ──────────────────────────────────────────────
+        available = _active_relays()
+        if not available:
+            logger.error("❌ All relays are currently soft-banned")
+            return {"status": "error", "reason": "all_relays_banned"}
+ 
+        relays_to_use = random.sample(available, k=min(7, len(available)))
+        logger.info(f"📡 Broadcasting to {len(relays_to_use)} relays")
+ 
+        # ── Fan out concurrently under semaphore ─────────────────────────────
+        sem = asyncio.Semaphore(MAX_CONCURRENT_RELAYS)
+        tasks = [_publish_to_relay(url, events, sem) for url in relays_to_use]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+ 
+        total_ok = sum(r for r in results if isinstance(r, int))
+        total_possible = len(relays_to_use) * len(events)
+ 
+        # ── Health summary ───────────────────────────────────────────────────
+        banned = [r for r in NOSTR_RELAYS if _health[r].is_banned()]
+        if banned:
+            logger.warning(f"🚫 Soft-banned relays: {banned}")
+ 
+        if total_ok == 0:
+            logger.error(f"❌ Zero confirmed OKs ({total_possible} attempts)")
         else:
-            logger.info(f"📡 Broadcast success: {success_count}/{total_attempts} events "
-                       f"across {len(relays_to_use)} relays")
-
-    except Exception as e:
-        logger.error(f"❌ Critical broadcast error: {e}")
-
-
+            logger.info(
+                f"📤 Broadcast done: {total_ok}/{total_possible} confirmed OK "
+                f"across {len(relays_to_use)} relays"
+            )
+ 
+        return {
+            "status": "ok" if total_ok > 0 else "failed",
+            "ok": total_ok,
+            "attempted": total_possible,
+            "relays_used": len(relays_to_use),
+            "relays_banned": len(banned),
+        }
+ 
+ 
 async def broadcast_loop():
     while True:
         try:
-            await broadcast_once()
+            summary = await broadcast_once()
+            logger.info(f"Loop summary: {summary}")
         except Exception as e:
             logger.error(f"Broadcast loop error: {e}")
-
-        wait_seconds = random.randint(720, 1080)
-        logger.info(f"⏳ Next broadcast in {wait_seconds}s")
+ 
+        wait = random.randint(BROADCAST_INTERVAL_MIN, BROADCAST_INTERVAL_MAX)
+        logger.info(f"⏳ Next broadcast in {wait}s")
         try:
-            await asyncio.sleep(wait_seconds)
+            await asyncio.sleep(wait)
         except asyncio.CancelledError:
-            logger.info("Broadcast loop cancelled on shutdown")
+            logger.info("Broadcast loop cancelled")
             break
-
-# ========================= FASTAPI =========================
+ 
+ 
+# ── FastAPI endpoints ─────────────────────────────────────────────────────────
+ 
 @app.post("/broadcast-now")
 async def broadcast_now():
+    if _broadcast_lock.locked():
+        return {"status": "skipped", "reason": "already_running"}
     asyncio.create_task(broadcast_once())
-    return {"status": "success"}
-
-
+    return {"status": "accepted"}
+ 
+ 
+@app.get("/relay-health")
+async def relay_health():
+    return {
+        url: {
+            "ok": h.total_ok,
+            "fail": h.total_fail,
+            "consecutive_failures": h.consecutive_failures,
+            "banned": h.is_banned(),
+            "banned_until": h.banned_until if h.is_banned() else None,
+        }
+        for url, h in _health.items()
+    }
+ 
+ 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 invinoveritas Nostr Broadcaster started")
+    logger.info("🚀 invinoveritas broadcaster started (v2)")
     asyncio.create_task(broadcast_loop())
-    asyncio.create_task(run_listener())
     
 # =========================
 # Well-Known Discovery Endpoints (Polite & Standards-Compliant)
