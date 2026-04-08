@@ -164,33 +164,62 @@ async def _send_reply_with_ok(ws: websockets.WebSocketClientProtocol, reply: Eve
 
 # ── Response templates ────────────────────────────────────────────────────────
 def _build_reply_text(content: str, score: int) -> str:
+    """
+    Builds contextual reply text based on relevance score.
+    Uses accurate pricing: ~1000 sats for account + 5 complementary calls.
+    """
     content_lower = content.lower()
     base = "⚡ invinoveritas — Lightning-paid reasoning for agents\n\n"
 
-    if score >= 8 or "mcp" in content_lower:
+    # Ultra-high relevance: Special friendly MCP version (score >= 9)
+    if score >= 9 or ("mcp" in content_lower and "agent" in content_lower):
+        return (
+            "Saw you're building with MCP — invinoveritas adds Lightning-paid reasoning.\n\n"
+            "Pay ~1000 sats once to create an account and get 5 complementary calls, "
+            "then top up as you go. Or pay invoice-by-invoice with L402 (no account).\n\n"
+            "→ MCP server: https://invinoveritas.onrender.com/mcp\n"
+            "→ Python SDK: `pip install invinoveritas`"
+        )
+
+    # High relevance
+    elif score >= 7:
         return base + (
             "→ Native MCP server: https://invinoveritas.onrender.com/mcp\n"
             "→ Python SDK: `pip install invinoveritas`\n\n"
-            "Pay-per-insight with Lightning (L402). No accounts, no subscriptions. "
-            "First small invoice unlocks trial credits (5 free calls). "
-            "Works great with Claude Desktop, Cursor, LangGraph etc."
+            "Two ways to use it:\n"
+            "• Pay ~1000 sats once → get API key + 5 complementary calls, then top-up as needed\n"
+            "• Or pay per call via L402 (no account needed)\n\n"
+            "No subscriptions or KYC. Works great with Claude Desktop, Cursor, LangGraph, etc."
         )
 
+    # Medium-high relevance
     elif score >= 5:
         return base + (
             "→ MCP: https://invinoveritas.onrender.com/mcp\n"
             "→ SDK: `pip install invinoveritas`\n\n"
-            "Lightning-paid high-quality reasoning/decisions. "
-            "Try with 5 free calls after one tiny Lightning invoice — no KYC or account needed."
+            "Create an account with one ~1000 sats Lightning payment and instantly get 5 complementary calls. "
+            "Then top up your balance as you go. "
+            "Or pay invoice-by-invoice with L402 — no account required."
         )
 
-    elif score >= 2:
+    # Medium relevance
+    elif score >= 3:
         return base + (
-            "Lightning-paid reasoning for AI agents via L402.\n"
-            "MCP server: https://invinoveritas.onrender.com/mcp\n"
-            "5 free calls after first small payment — no signup required."
+            "Lightning-paid reasoning for AI agents.\n"
+            "→ MCP server: https://invinoveritas.onrender.com/mcp\n\n"
+            "Pay ~1000 sats to create an account + receive 5 complementary calls, then top-up as needed. "
+            "Or use pure pay-per-call (L402)."
         )
 
+    # Low but acceptable relevance
+    elif score >= 2:
+        return (
+            "⚡ invinoveritas — Lightning-paid reasoning for agents\n\n"
+            "Get 5 complementary calls when you create an account with one ~1000 sats payment. "
+            "MCP server: https://invinoveritas.onrender.com/mcp"
+        )
+
+    # Fallback
     else:
         return "⚡ invinoveritas — Lightning-paid reasoning tools for agents."
       
