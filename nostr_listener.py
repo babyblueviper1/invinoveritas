@@ -179,10 +179,9 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
         return (
             base
             "Saw you're building with MCP — let's get you connected:\n\n"
-            "💡 Quick WalletConnect Setup (NWC wallets: Alby, Zeus, Mutiny):\n"
-            "1️⃣ Install your preferred wallet\n"
-            "2️⃣ Copy your WalletConnect URI\n"
-            "3️⃣ Plug it into invinoveritas SDK → instant MCP calls\n\n"
+            "💡 Quick Wallet Options:\n"
+            "• NWC wallets: Alby, Zeus, Mutiny → plug WalletConnect URI into SDK\n"
+            "• Custodial wallets: Strike, Wallet of Sats → pay directly without node\n\n"
             "🔗 MCP server: https://invinoveritas.onrender.com/mcp\n"
             "🔗 Python SDK: `pip install invinoveritas`\n"
             "💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 free calls)"
@@ -197,6 +196,7 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
             "Agents can pay per call (L402) or pre-fund an account.\n"
             "💡 Wallet guidance:\n"
             "• NWC wallets (Alby, Zeus, Mutiny) — no node required\n"
+            "• Custodial wallets (Strike, Wallet of Sats) — pay directly\n"
             "• LND node users can follow Lightning Labs setup docs"
         )
 
@@ -209,6 +209,7 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
             "Pay per call (L402) or pre-fund an account.\n"
             "Wallet options:\n"
             "• NWC wallets (Alby, Zeus, Mutiny) → no node needed\n"
+            "• Custodial wallets (Strike, Wallet of Sats) → easy payments\n"
             "• LND node → follow Lightning Labs docs"
         )
 
@@ -219,7 +220,7 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
             "Lightning-paid reasoning for AI agents.\n"
             "→ MCP server: https://invinoveritas.onrender.com/mcp\n\n"
             "Pay ~1000 sats to create an account + 5 complementary calls, then top up as needed.\n"
-            "Or use pay-per-call via L402 — no account required."
+            "Or use pay-per-call via L402 (NWC or custodial wallets)."
         )
 
     # Low but acceptable relevance (score 2)
@@ -227,12 +228,17 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
         return (
             f"⚡ invinoveritas — Lightning-paid reasoning tools for agents\n\n"
             f"Hey {user_tag}, create an account (~1000 sats) and get 5 complementary calls.\n"
-            "MCP server: https://invinoveritas.onrender.com/mcp"
+            "MCP server: https://invinoveritas.onrender.com/mcp\n"
+            "Wallet options: NWC (Alby, Zeus, Mutiny) or custodial (Strike, Wallet of Sats)"
         )
 
     # Fallback
     else:
-        return f"⚡ invinoveritas — Lightning-paid reasoning for AI agents.\nHey {user_tag}, check out https://invinoveritas.onrender.com/mcp"
+        return (
+            f"⚡ invinoveritas — Lightning-paid reasoning for AI agents.\n"
+            f"Hey {user_tag}, check out https://invinoveritas.onrender.com/mcp\n"
+            "Wallet options: NWC or custodial wallets available"
+        )
       
 # ── Rate limit check ──────────────────────────────────────────────────────────
 def _is_rate_limited(relay_url: str) -> bool:
