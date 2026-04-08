@@ -37,7 +37,6 @@ NOSTR_RELAYS = [
     "wss://nostr-pub.wellorder.net",
     "wss://nostr.oxtr.dev",
     "wss://nostr.bitcoiner.social",
-    "wss://relay.snort.social",    # back in — was timing out before but worth retrying
     "wss://offchain.pub",          # open, no restrictions
     "wss://relay.current.fyi",     # open general purpose
     
