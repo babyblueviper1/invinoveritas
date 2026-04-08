@@ -265,104 +265,58 @@ def build_human_event(private_key: PrivateKey):
 
 # ========================= BROADCASTER =========================
 async def broadcast_once():
-    relay_manager = None
+    if not NOSTR_NSEC:
+        logger.error("❌ NOSTR_NSEC not set")
+        return
 
     try:
-        # -------------------------
-        # 🔑 Key check
-        # -------------------------
-        if not NOSTR_NSEC:
-            logger.error("❌ NOSTR_NSEC not set")
-            return
-
         private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
 
-        # -------------------------
-        # 🧠 Build events
-        # -------------------------
-        try:
-            mcp_event = build_mcp_event(private_key)
-            sdk_event = build_sdk_event(private_key)
-            human_event = build_human_event(private_key)
-        except Exception as e:
-            logger.error(f"❌ Event build failed: {e}")
-            return
+        mcp_event = build_mcp_event(private_key)
+        sdk_event = build_sdk_event(private_key)
+        human_event = build_human_event(private_key)
 
-        # -------------------------
-        # 🌐 Select relays
-        # -------------------------
-        relays_to_use = random.sample(
-            NOSTR_RELAYS,
-            k=min(5, len(NOSTR_RELAYS))
-        )
-
-        relay_manager = RelayManager()
-        active_relays = []
-
-        # -------------------------
-        # ➕ Add relays safely
-        # -------------------------
-        for relay in relays_to_use:
-            try:
-                relay_manager.add_relay(relay)
-                active_relays.append(relay)
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to add relay {relay}: {e}")
-
-        if not active_relays:
-            logger.error("❌ No valid relays available")
-            return
-
-        # -------------------------
-        # 🔌 Connect
-        # -------------------------
-        try:
-            relay_manager.open_connections()
-        except Exception as e:
-            logger.error(f"❌ Failed to open connections: {e}")
-            return
-
-        # shorter wait → less chance of disconnect
-        await asyncio.sleep(1)
-
-        # -------------------------
-        # 📡 Publish (robust)
-        # -------------------------
-        events = [
-            ("MCP", mcp_event),
-            ("SDK", sdk_event),
-            ("HUMAN", human_event)
-        ]
+        relays_to_use = random.sample(NOSTR_RELAYS, k=min(5, len(NOSTR_RELAYS)))
 
         success_count = 0
 
-        for name, event in events:
+        for relay in relays_to_use:
             try:
-                relay_manager.publish_event(event)
-                success_count += 1
+                relay_manager = RelayManager()
+
+                # Add ONE relay per connection (key change)
+                relay_manager.add_relay(relay)
+
+                relay_manager.open_connections()
+                await asyncio.sleep(0.5)  # minimal wait
+
+                try:
+                    relay_manager.publish_event(mcp_event)
+                    relay_manager.publish_event(sdk_event)
+                    relay_manager.publish_event(human_event)
+
+                    success_count += 1
+                    logger.info(f"✅ Published to {relay}")
+
+                except Exception as e:
+                    logger.warning(f"⚠️ Publish failed on {relay}: {e}")
+
+                finally:
+                    try:
+                        relay_manager.close_connections()
+                    except:
+                        pass
+
             except Exception as e:
-                logger.warning(f"⚠️ Failed to publish {name} event: {e}")
+                logger.warning(f"⚠️ Relay connection failed {relay}: {e}")
 
-        if success_count > 0:
-            logger.info(f"📡 Broadcast sent ({success_count}/3 events) to {len(active_relays)} relays")
+        if success_count == 0:
+            logger.error("❌ All relay publishes failed")
         else:
-            logger.error("❌ All event publishes failed")
-
-        # -------------------------
-        # 🧹 Flush + close
-        # -------------------------
-        await asyncio.sleep(1)
+            logger.info(f"📡 Broadcast success on {success_count}/{len(relays_to_use)} relays")
 
     except Exception as e:
         logger.error(f"❌ Broadcast error: {e}")
-
-    finally:
-        if relay_manager:
-            try:
-                relay_manager.close_connections()
-            except Exception as e:
-                logger.warning(f"⚠️ Error closing connections: {e}")
-
 
 # ========================= LOOP =========================
 async def broadcast_to_nostr():
