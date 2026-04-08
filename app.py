@@ -195,6 +195,33 @@ result = smart_reason({
         "version": "0.3.2"
     }
 
+
+def build_sdk_event(private_key: PrivateKey):
+    payload = generate_sdk_payload()
+    content = json.dumps(payload)
+
+    tags = [
+        ["d", "invinoveritas-sdk"],
+        ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
+        ["type", "agent_sdk"],
+        ["name", payload["name"]],
+        ["install", "pip install invinoveritas"],
+        ["entrypoint", "smart_reason"],
+        ["payment", "L402"],
+        ["roi_signal", "positive_high_confidence"]
+    ]
+
+    event = Event(
+        kind=30023,
+        content=content,
+        tags=tags,
+        public_key=private_key.public_key.hex()
+    )
+
+    private_key.sign_event(event)
+    return event
+
+
 def build_mcp_event(private_key: PrivateKey):
     payload = generate_agent_payload()
     content = json.dumps(payload)
