@@ -10,7 +10,8 @@ nostr
 nostr-sdk>=0.44.0
 python-dotenv          # if you want to use environment variables for NSEC
 asyncio
-websockets 
+websockets
+x402[fastapi,evm]
 
 # MCP support for autonomous agents
 mcp>=1.2.0
