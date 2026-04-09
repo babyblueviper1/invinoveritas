@@ -321,23 +321,22 @@ class VerifyRequest(BaseModel):
 # =========================
 
 def lnd_ready() -> bool:
-    """Check if LND is responsive and ready"""
+    """Check if LND is responsive"""
     try:
-        # Primary attempt
+        # Primary test
         data = safe_lncli(["getinfo"])
-        if isinstance(data, dict) and "identity_pubkey" in data:
-            logger.info("LND is connected and responsive")
+        if isinstance(data, dict) and data.get("identity_pubkey"):
+            logger.info("✅ LND connected successfully")
             return True
 
-        # Fallback with explicit network flag
+        # Fallback with network flag
         data = safe_lncli(["--network=mainnet", "getinfo"])
-        if isinstance(data, dict) and "identity_pubkey" in data:
-            logger.info("LND is connected using --network=mainnet flag")
+        if isinstance(data, dict) and data.get("identity_pubkey"):
+            logger.info("✅ LND connected (using --network=mainnet)")
             return True
 
-        logger.warning("LND getinfo returned data but missing identity_pubkey")
+        logger.warning("LND getinfo succeeded but no identity_pubkey found")
         return False
-
     except Exception as e:
         logger.warning(f"LND readiness check failed: {type(e).__name__}: {e}")
         return False
@@ -354,33 +353,39 @@ def run_lncli(args: list, timeout: int = 15) -> Dict[str, Any]:
         raise Exception(f"lncli error: {error}")
     return json.loads(result.stdout)
 
-def safe_lncli(args: list, timeout: int = 15):
-    """Safe wrapper around lncli commands"""
+def safe_lncli(args: list, timeout: int = 12):
+    """Robust wrapper for lncli commands"""
     try:
-        full_cmd = ["lncli"] + args
+        cmd = ["lncli"] + args
         result = subprocess.run(
-            full_cmd, 
-            capture_output=True, 
-            text=True, 
+            cmd,
+            capture_output=True,
+            text=True,
             timeout=timeout,
             check=False
         )
-        
+
         if result.returncode != 0:
-            logger.warning(f"lncli failed: {result.stderr.strip()}")
+            if result.stderr:
+                logger.warning(f"lncli error: {result.stderr.strip()[:200]}")
             return None
-            
+
+        stdout = result.stdout.strip()
+        if not stdout:
+            return None
+
         try:
-            return json.loads(result.stdout)
+            data = json.loads(stdout)
+            return data
         except json.JSONDecodeError:
             logger.warning("lncli returned non-JSON output")
             return None
-            
+
     except subprocess.TimeoutExpired:
-        logger.warning("lncli command timed out")
+        logger.warning("lncli timed out")
         return None
     except Exception as e:
-        logger.warning(f"safe_lncli exception: {e}")
+        logger.warning(f"safe_lncli exception: {type(e).__name__}: {e}")
         return None
 
 # =========================
