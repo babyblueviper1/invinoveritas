@@ -321,21 +321,21 @@ class VerifyRequest(BaseModel):
 # =========================
 
 def lnd_ready() -> bool:
-    """Check if LND is responsive and ready for use"""
+    """Check if LND is responsive and ready"""
     try:
-        # First attempt - standard call
+        # Primary attempt
         data = safe_lncli(["getinfo"])
-        if data and isinstance(data, dict) and "identity_pubkey" in data:
-            logger.info("LND connected successfully")
+        if isinstance(data, dict) and "identity_pubkey" in data:
+            logger.info("LND is connected and responsive")
             return True
 
-        # Second attempt - with explicit mainnet flag (many nodes require it)
+        # Fallback with explicit network flag
         data = safe_lncli(["--network=mainnet", "getinfo"])
-        if data and isinstance(data, dict) and "identity_pubkey" in data:
-            logger.info("LND connected (using --network=mainnet)")
+        if isinstance(data, dict) and "identity_pubkey" in data:
+            logger.info("LND is connected using --network=mainnet flag")
             return True
 
-        logger.warning("LND getinfo returned data but no identity_pubkey")
+        logger.warning("LND getinfo returned data but missing identity_pubkey")
         return False
 
     except Exception as e:
