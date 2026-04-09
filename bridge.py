@@ -409,7 +409,8 @@ async def get_balance(api_key: str):
 
 @app.post("/verify", tags=["accounts"])
 @limiter.limit("30/minute")
-async def verify_account(req: VerifyRequest):
+async def verify_account(req: VerifyRequest, request: Request):   # ← Add , request: Request here
+    """Called by your main app to debit before tool execution. Atomic updates."""
     now = int(time.time())
     with get_db_conn() as conn:
         c = conn.cursor()
