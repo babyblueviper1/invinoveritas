@@ -647,7 +647,7 @@ def generate_agent_payload(score: int = 7) -> dict:
             "details": {
                 "bearer": {
                     "description": "Pre-funded credit account with API key. Best for autonomous agents and trading bots.",
-                    "setup": "POST /register → pay once via Lightning → get api_key + 5 free calls",
+                    "setup": "POST /register → pay once via Lightning → get api_key + 5 complementary calls",
                     "usage": "Authorization: Bearer ivv_...",
                     "note": "Recommended for daily/high-frequency use"
                 },
@@ -733,7 +733,7 @@ def generate_agent_payload(score: int = 7) -> dict:
         "notes": [
             "Bearer token is the easiest long-term solution for autonomous agents and trading bots",
             "L402 Lightning remains fully supported for users who prefer direct pay-per-call",
-            "Accounts with any balance or free calls remain active for at least 2 years of inactivity"
+            "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity"
         ]
     })
     return p
@@ -1406,7 +1406,7 @@ async def register_account(request: Request, label: Optional[str] = None):
     if request.method == "GET":
         return {
             "status": "info",
-            "message": "POST to /register to create a new account with 5 free calls.",
+            "message": "POST to /register to create a new account with 5 complementary calls.",
             "payment": "Lightning (~1000 sats)",
             "next_step": "Pay the returned invoice, then POST /register/confirm with payment_hash and preimage"
         }
@@ -1502,7 +1502,7 @@ async def wallet_status():
         "message": "Flexible payment system. Bearer Token is the easiest for autonomous agents and trading bots.",
 
         "payment_options": {
-            "best_for_agents": "Bearer Token — register once, get API key + 5 free calls, use forever",
+            "best_for_agents": "Bearer Token — register once, get API key + 5 complementary calls, use forever",
             "best_for_stablecoins": "x402 USDC on Base — bulk top-ups to fund your Bearer account (min $15 recommended)",
             "best_for_lightning": "L402 Lightning — true atomic pay-per-call",
             "network_info": "x402 runs on Base (low fees, stable value)"
@@ -1516,7 +1516,7 @@ async def wallet_status():
         },
 
         "important_notes": [
-            "Accounts with any balance or free calls remain active for at least 2 years of inactivity",
+            "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity",
             "x402 is designed for bulk top-ups ($15+ recommended). Small per-call x402 is possible but not optimal due to fees.",
             "Bearer Token gives you fine-grained per-call usage after funding"
         ],
@@ -1645,7 +1645,7 @@ def _402_response(invoice_data: dict, price_sats: int, caller_type: str) -> dict
         "payment_hash": invoice_data["payment_hash"],
         "invoice": invoice_data["invoice"],
         "amount_sats": price_sats,
-        "register_for_credits": "POST /register to get 5 free calls + pre-fund account",
+        "register_for_credits": "POST /register to get 5 complementary calls + pre-fund account",
         "sdk": "pip install invinoveritas",
         "guide": "https://invinoveritas.onrender.com/guide"
     }
@@ -1863,7 +1863,7 @@ async def mcp_info():
             "reason": f"~{REASONING_PRICE_SATS} sats per call",
             "decide": f"~{DECISION_PRICE_SATS} sats per call",
         },
-        "get_started": "POST /register for 5 free calls + pre-funded account",
+        "get_started": "POST /register for 5 complementary calls + pre-funded account",
         "server_card": "/.well-known/mcp/server-card.json",
         "guide": "/guide"
     }
@@ -1903,7 +1903,7 @@ async def mcp_handler(request: Request):
                 "capabilities": {"tools": {"listChanged": True}},
                 "serverInfo": {"name": "invinoveritas", "version": "1.0.0"},
                 "supported_payments": ["Bearer Token (credits)", "L402 (Lightning)"],
-                "get_started": "POST /register for 5 free calls"
+                "get_started": "POST /register for 5 complementary calls"
             }
         }
  
@@ -1914,7 +1914,7 @@ async def mcp_handler(request: Request):
             "result": {
                 "tools": list(TOOLS.values()),
                 "supported_payments": ["Bearer Token (recommended)", "L402 (Lightning)"],
-                "get_started": "POST /register for 5 free calls + Bearer token"
+                "get_started": "POST /register for 5 complementary calls + Bearer token"
             }
         }
  
@@ -2001,7 +2001,7 @@ async def mcp_handler(request: Request):
                     "invoice": invoice_data["invoice"],
                     "amount_sats": price,
                     "supported_methods": ["Bearer Token (credits)", "L402 (Lightning)"],
-                    "register_for_credits": "POST /register for 5 free calls",
+                    "register_for_credits": "POST /register for 5 complementary calls",
                     "guide": "https://invinoveritas.onrender.com/guide"
                 }
             }
@@ -2102,13 +2102,13 @@ SERVER_CARD = {
     "paymentMethods": {
         "supported": ["Bearer", "L402"],
         "preferred": "Bearer Token (after registration)",
-        "note": "New accounts receive 5 free calls after Lightning registration."
+        "note": "New accounts receive 5 complementary calls after Lightning registration."
     },
     "walletSetup": {
         "required": False,
         "message": "Lightning wallet (NWC or LND) recommended for full autonomous operation.",
         "recommended": "Register with Lightning → get Bearer token (easiest long-term solution)",
-        "quickstart": "Pay Lightning invoice during registration to receive 5 free calls and a Bearer API key.",
+        "quickstart": "Pay Lightning invoice during registration to receive 5 complementary calls and a Bearer API key.",
         "escalation": {
             "level": "medium",
             "instruction": "If you receive 402 errors, configure a Lightning wallet (NWC recommended) or fund your Bearer account."
@@ -2120,7 +2120,7 @@ SERVER_CARD = {
         "decide_base": "~180 sats",
         "agent_multiplier": 1.2,
         "minimum": 50,
-        "note": "New accounts receive 5 free calls. All usage is paid via Lightning (Bearer or L402)."
+        "note": "New accounts receive 5 complementary calls. All usage is paid via Lightning (Bearer or L402)."
     },
     "documentation": {
         "guide": "/guide",
@@ -2141,7 +2141,7 @@ SERVER_CARD = {
     "importantNotes": [
         "All payments are processed via the Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
-        "New accounts receive 5 free calls after Lightning registration",
+        "New accounts receive 5 complementary calls after Lightning registration",
         "Accounts with any balance remain active for at least 2 years of inactivity"
     ]
 }
@@ -2191,7 +2191,7 @@ AGENT_CARD = {
         "currency": "sats",
         "reasoning": "~100 sats per call",
         "decision": "~180 sats per call",
-        "note": "New accounts receive 5 free calls"
+        "note": "New accounts receive 5 complementary calls"
     },
     "nostr": {
         "enabled": True,
@@ -2369,9 +2369,9 @@ def payment_guide():
             "bearer": {
                 "name": "Bearer Token (Recommended)",
                 "description": "Pre-funded credit account. Best for autonomous agents and trading bots.",
-                "flow": "POST /register → pay ~1000 sats via Lightning → get api_key + 5 free calls",
+                "flow": "POST /register → pay ~1000 sats via Lightning → get api_key + 5 complementary calls",
                 "usage": "Authorization: Bearer ivv_...",
-                "advantages": ["Simple long-term usage", "5 free calls on signup", "Fine-grained per-call billing"]
+                "advantages": ["Simple long-term usage", "5 complementary calls on signup", "Fine-grained per-call billing"]
             },
             "l402": {
                 "name": "L402 Lightning (Pay-per-call)",
@@ -2389,7 +2389,7 @@ def payment_guide():
                 "step": 1,
                 "title": "Register your account",
                 "action": "POST /register and pay the Lightning invoice (~1000 sats)",
-                "result": "Receive API key + 5 free calls"
+                "result": "Receive API key + 5 complementary calls"
             },
             {
                 "step": 2,
@@ -2466,7 +2466,7 @@ def get_all_prices():
             ]
         },
 
-        "note": "All payments are processed via the Lightning Network. New accounts receive 5 free calls.",
+        "note": "All payments are processed via the Lightning Network. New accounts receive 5 complementary calls.",
         "last_updated": int(time.time())
     }
 
@@ -2485,9 +2485,9 @@ async def wallet_onboarding():
             {
                 "type": "Bearer Token (Recommended for long-term use)",
                 "description": "Create an account once and use an API key for all future calls.",
-                "setup": "POST /register → pay ~1000 sats via Lightning invoice → get api_key + 5 free calls",
+                "setup": "POST /register → pay ~1000 sats via Lightning invoice → get api_key + 5 complementary calls",
                 "usage": "Authorization: Bearer ivv_...",
-                "pros": ["Easiest for agents and trading bots", "5 free calls on signup", "Fine-grained per-call usage"],
+                "pros": ["Easiest for agents and trading bots", "5 complementary calls on signup", "Fine-grained per-call usage"],
                 "recommended": True
             },
             {
@@ -2566,7 +2566,7 @@ def health():
             "supported": ["Bearer", "L402"],
             "preferred": "Bearer Token (for agents)",
             "details": {
-                "bearer": "Pre-funded accounts with API key + 5 free calls on registration",
+                "bearer": "Pre-funded accounts with API key + 5 complementary calls on registration",
                 "l402": "Classic Lightning pay-per-call using L402 protocol"
             }
         },
@@ -2817,7 +2817,7 @@ def tool_definition():
         "payment_methods": {
             "bearer": {
                 "description": "Pre-funded account with API key. Recommended for agents and trading bots.",
-                "setup": "POST /register → receive api_key + 5 free calls"
+                "setup": "POST /register → receive api_key + 5 complementary calls"
             },
             "l402": {
                 "description": "Classic atomic Lightning payments (pay-per-call).",
@@ -2979,7 +2979,7 @@ Supported payment methods:
 • Bearer Token (recommended for autonomous agents and trading bots)
   - Create an account once via POST /register
   - Pay ~1000 sats via Lightning invoice
-  - Receive API key + 5 free calls
+  - Receive API key + 5 complementary calls
   - Use Authorization: Bearer ivv_...
 
 • L402 Lightning (pay-per-call)
@@ -3067,7 +3067,7 @@ def ai_plugin():
         
         "payment_setup": {
             "recommended": "Bearer token after registration",
-            "bearer": "POST /register → get api_key + 5 free calls",
+            "bearer": "POST /register → get api_key + 5 complementary calls",
             "l402": "Authorization: L402 <payment_hash>:<preimage>",
             "guide_url": "/wallet-onboarding"
         }
@@ -3214,7 +3214,7 @@ Real-time updates:
             <link>https://invinoveritas.onrender.com/discover</link>
             <description>invinoveritas provides high-quality AI reasoning and decision intelligence paid via Lightning Network.
 
-• Bearer Token — easiest for autonomous agents (5 free calls on registration)
+• Bearer Token — easiest for autonomous agents (5 complementary calls on registration)
 • L402 Lightning — classic pay-per-call
 
 Real-time channels:
