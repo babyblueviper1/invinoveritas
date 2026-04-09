@@ -279,7 +279,7 @@ async def register(req: RegisterRequest, request: Request):
             "invoice": data["payment_request"],
             "payment_hash": data.get("r_hash", ""),
             "amount_sats": LIGHTNING_REGISTER_SATS,
-            "message": f"Pay this Lightning invoice to create your account + receive {FREE_CALLS_ON_REGISTER} free calls.",
+            "message": f"Pay this Lightning invoice to create your account + receive {FREE_CALLS_ON_REGISTER} complementary calls.",
             "free_calls_on_creation": FREE_CALLS_ON_REGISTER,
             "next_step": "After paying, POST to /register/confirm with payment_hash and preimage.",
             "important_note": "Accounts stay active for at least 2 years of inactivity."
