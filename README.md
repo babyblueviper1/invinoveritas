@@ -3,11 +3,11 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/invinoveritas)](https://pypi.org/project/invinoveritas/)
 
-**Lightning-paid + USDC reasoning and decision intelligence for autonomous agents and trading bots**
+**Lightning-paid AI reasoning and decision intelligence for autonomous agents and trading bots**
 
-Pay-per-insight API using **Bearer credits**, **x402 USDC** (bulk top-ups), and **L402 Lightning**.
+Pay-per-insight API using **Bearer credits** and **L402 Lightning**.
 
-No subscriptions. No KYC. Flexible payment options.
+No subscriptions. No KYC. Simple and reliable Lightning payments.
 
 **Live API**: [https://invinoveritas.onrender.com](https://invinoveritas.onrender.com)  
 **MCP Endpoint**: [https://invinoveritas.onrender.com/mcp](https://invinoveritas.onrender.com/mcp)
@@ -28,7 +28,7 @@ pip install invinoveritas
 curl -X POST https://invinoveritas.onrender.com/register
 ```
 
-Pay the ~1000 sats invoice → you get an `api_key` + **5 free calls**.
+Pay the ~1000 sats Lightning invoice → you get an `api_key` + **5 free calls**.
 
 Then use it like this:
 
@@ -43,13 +43,12 @@ print(result.answer)
 
 ---
 
-## Payment Options (Updated)
+## Payment Options (Lightning Only)
 
-| Method              | Best For                     | Details                                      | Minimum     |
-|---------------------|------------------------------|----------------------------------------------|-------------|
-| **Bearer Token**    | Autonomous agents, trading bots | Register once → use API key forever         | ~1000 sats (5 free calls) |
-| **x402 USDC**       | Stablecoin users             | Bulk top-ups to your Bearer account         | **$15 USDC** |
-| **L402 Lightning**  | Lightning maximalists        | Pay-per-call with invoices                  | ~100 sats   |
+| Method              | Best For                          | Details                                      | Minimum          |
+|---------------------|-----------------------------------|----------------------------------------------|------------------|
+| **Bearer Token**    | Autonomous agents, trading bots   | Register once → use API key forever         | ~1000 sats (5 free calls) |
+| **L402 Lightning**  | Lightning maximalists             | Pay-per-call with invoices                  | ~100 sats        |
 
 **Recommended for most users**: Start with **Bearer Token** after registration.
 
@@ -63,7 +62,6 @@ print(result.answer)
 | `decide`  | 180 sats   | 234 sats              | Structured decisions + risk    |
 
 - New accounts get **5 free calls** after registration (~1000 sats).
-- x402 USDC is for **bulk top-ups** (minimum $15 recommended).
 - Prices can vary slightly based on input length.
 
 **Full pricing** → [`/prices`](https://invinoveritas.onrender.com/prices)
@@ -74,7 +72,7 @@ print(result.answer)
 
 **Best setup**:
 - Register once (`/register`)
-- Pre-fund with x402 USDC top-ups (`/topup`) or Lightning
+- Pre-fund with Lightning (`/topup`)
 - Use Bearer token for all future calls
 
 **Trading bot advantages**:
@@ -106,7 +104,7 @@ Add this MCP server card:
 https://invinoveritas.onrender.com/.well-known/mcp/server-card.json
 ```
 
-Full support for `initialize`, `tools/list`, and `callTool` with built-in payment handling.
+Full support for `initialize`, `tools/list`, and `callTool` with built-in Lightning payment handling.
 
 ---
 
@@ -134,9 +132,9 @@ Most AI agents are stuck with subscriptions or unpredictable token costs.
 
 **invinoveritas** offers a better model:
 
-> **Atomic intelligence purchases using Bitcoin Lightning + USDC.**
+> **Atomic intelligence purchases using Bitcoin Lightning.**
 
-Pay only when the insight matters — with sats or stablecoin, instantly, and without intermediaries.
+Pay only when the insight matters — with sats, instantly, and without intermediaries.
 
 Built for the **Bitcoin × AI** future. ⚡
 
