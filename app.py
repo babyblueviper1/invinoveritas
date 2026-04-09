@@ -97,22 +97,14 @@ NOSTR_RELAYS = [
 # ========================= X402 CONFIG =========================
 load_dotenv()
 
-X402_CONFIG = {
-    "pay_to": os.getenv("X402_PAY_TO", "").strip(),
-    "network": os.getenv("X402_NETWORK", "base"),
-    "currency": "USDC",
-    "asset_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+# Only the wallet address is needed here for x402 challenges
+X402_PAY_TO = os.getenv("X402_PAY_TO", "").strip()
 
-    # Per-call prices (used only for reference / old L402 flow)
-    "reason_price": "0.10",
-    "decision_price": "0.15",
+# Minimum top-up amount (hardcoded or from env)
+X402_MIN_TOPUP_USDC = float(os.getenv("X402_MIN_TOPUP_USDC", "15.00"))
 
-    # New: Minimum top-up amounts for x402 (much more practical)
-    "min_topup_usdc": "15.00",        # Recommended minimum
-    "suggested_topups": ["15", "25", "50", "100"],
-
-    "description": "invinoveritas AI credits top-up (Bearer account)",
-}
+# Suggested top-up amounts
+SUGGESTED_TOPUPS = ["15", "25", "50", "100"]
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 MAX_CONCURRENT_RELAYS = 5          # semaphore cap
@@ -1451,7 +1443,7 @@ async def return_x402_challenge(request: Request, endpoint: str, price_usdc: str
     """Return x402 challenge encouraging bulk top-up (new model)."""
     # Default to minimum sensible top-up amount
     if not price_usdc:
-        price_usdc = X402_CONFIG.get("min_topup_usdc", "15.00")
+        price_usdc = X402_CONFIG.get("X402_MIN_TOPUP_USDC", "15.00")
 
     accepts = [{
         "scheme": "exact",
@@ -1513,31 +1505,31 @@ async def verify_l402_payment(payment_hash: str, preimage: str) -> bool:
 async def wallet_status():
     """Current wallet / payment status with realistic recommendations."""
     return {
-        "wallet_required": False,   # More accurate now
+        "wallet_required": False,
         "payment_required": True,
         "supported_methods": [
             "Bearer Token (prepaid credits)",
-            "x402 USDC (bulk top-up)",
+            "x402 USDC (bulk top-up on Base)",
             "L402 Lightning (pay-per-call)"
         ],
         "status": "active",
         "message": "Multiple flexible payment options available. Bearer Token is recommended for most autonomous agents and trading bots.",
-        
+
         "payment_options": {
-            "best_for_agents": "Bearer Token (prepaid credits) — register once, use forever",
+            "best_for_agents": "Bearer Token — register once and use API key forever",
             "best_for_stablecoins": "x402 USDC — bulk top-ups to your Bearer account (min $15 recommended)",
-            "best_for_lightning": "L402 Lightning — true pay-per-call",
-            "x402_network": X402_CONFIG.get("network", "base")
+            "best_for_lightning": "L402 Lightning — true atomic pay-per-call",
+            "network_info": "x402 USDC runs on Base network"
         },
 
         "recommendations": {
-            "autonomous_agents": "Bearer Token (after /register)",
+            "autonomous_agents": "Bearer Token after /register (easiest long-term)",
             "trading_bots": "Bearer Token (pre-funded) or x402 USDC top-ups",
-            "stablecoin_users": "x402 USDC top-ups",
-            "lightning_maximalists": "L402 Lightning"
+            "stablecoin_users": "x402 USDC bulk top-ups",
+            "lightning_users": "L402 Lightning"
         },
 
-        "x402_note": "x402 is designed for convenient bulk top-ups (minimum $15 recommended) that credit your Bearer account. Small per-call x402 is possible but not optimal due to fees.",
+        "x402_note": "x402 is designed for convenient bulk top-ups (minimum $15 recommended) that credit your Bearer account. Small per-call x402 is possible but not optimal due to gas fees.",
 
         "guide": "/wallet-onboarding",
         "topup_endpoint": "/topup",
@@ -1837,7 +1829,7 @@ async def reason(request: Request, data: ReasoningRequest):
     await return_x402_challenge(
         request=request,
         endpoint="reason",
-        price_usdc=X402_CONFIG.get("min_topup_usdc", "15.00"),
+        price_usdc=X402_CONFIG.get("X402_MIN_TOPUP_USDC", "15.00"),
         description="invinoveritas reasoning - Top-up your Bearer account"
     )
 
@@ -1886,7 +1878,7 @@ async def decision(request: Request, data: DecisionRequest):
     await return_x402_challenge(
         request=request,
         endpoint="decision",
-        price_usdc=X402_CONFIG.get("min_topup_usdc", "15.00"),
+        price_usdc=X402_CONFIG.get("X402_MIN_TOPUP_USDC", "15.00"),
         description="invinoveritas decision - Top-up your Bearer account"
     )
     
@@ -2155,7 +2147,7 @@ async def mcp_handler(request: Request):
             await return_x402_challenge(
                 request=request,
                 endpoint="reason",
-                price_usdc=X402_CONFIG.get("min_topup_usdc", "15.00"),
+                price_usdc=X402_CONFIG.get("X402_MIN_TOPUP_USDC", "15.00"),
                 description="invinoveritas MCP reason tool - Top-up your account"
             )
 
@@ -2228,7 +2220,7 @@ async def mcp_handler(request: Request):
             await return_x402_challenge(
                 request=request,
                 endpoint="decide",
-                price_usdc=X402_CONFIG.get("min_topup_usdc", "15.00"),
+                price_usdc=X402_CONFIG.get("X402_MIN_TOPUP_USDC", "15.00"),
                 description="invinoveritas MCP decide tool - Top-up your account"
             )
 
@@ -2711,7 +2703,7 @@ def get_all_prices():
         },
 
         "x402_topups": {
-            "minimum_recommended": min_topup_usdc,
+            "minimum_recommended": X402_MIN_TOPUP_USDC,
             "suggested": ["15", "25", "50", "100"],
             "note": "Top-ups add virtual sats to your Bearer account for fine-grained usage"
         },
@@ -3202,7 +3194,7 @@ def get_price(endpoint: str):
             "endpoint": "reason",
             "sats_base": REASONING_PRICE_SATS,
             "sats_agent": int(REASONING_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_topup_min": min_topup_usdc,
+            "usdc_topup_min": X402_MIN_TOPUP_USDC,
             "currency_options": ["sats", "USDC"],
             "description": "Premium strategic reasoning with style control and optional confidence scoring",
             "trading_bot_note": "Great for market analysis and strategic reasoning",
@@ -3214,7 +3206,7 @@ def get_price(endpoint: str):
             "endpoint": "decide",
             "sats_base": DECISION_PRICE_SATS,
             "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_topup_min": min_topup_usdc,
+            "usdc_topup_min": X402_MIN_TOPUP_USDC,
             "currency_options": ["sats", "USDC"],
             "description": "Structured decision intelligence with risk assessment and confidence scoring",
             "trading_bot_note": "Excellent for arbitrage detection, portfolio rebalancing, and risk-aware trading decisions",
@@ -3227,7 +3219,7 @@ def get_price(endpoint: str):
             "price_note": "Same as underlying tools (reason or decide)",
             "sats_reason": REASONING_PRICE_SATS,
             "sats_decide": DECISION_PRICE_SATS,
-            "usdc_topup_min": min_topup_usdc,
+            "usdc_topup_min": X402_MIN_TOPUP_USDC,
             "description": "MCP endpoint supporting callTool for reason and decide",
             "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
             "trading_bot_note": "Ideal for trading bots due to structured output and async support",
