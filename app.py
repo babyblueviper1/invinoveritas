@@ -199,12 +199,7 @@ async def cleanup_used_payments():
         except Exception as e:
             logger.error(f"Error during used_payments cleanup: {e}")
 
-        await asyncio.sleep(300)  # Run every 5 minutes
-
-
-
-
-
+        await asyncio.sleep(300)  # Run every 5 minute
 
 
 
@@ -1562,8 +1557,9 @@ async def verify_account(req: Optional[VerifyRequest] = None):
         raise HTTPException(503, f"Verification service unavailable: {str(e)}")
         
 # =========================
-# Inference Routes (Credit + L402)
+# Request Models
 # =========================
+
 class ReasoningRequest(BaseModel):
     question: str = Field(..., description="The question to reason about")
     
@@ -1585,7 +1581,7 @@ class ReasoningRequest(BaseModel):
 
 class DecisionRequest(BaseModel):
     goal: str = Field(..., description="The overall goal or objective")
-    context: str = Field("", description="Background context")
+    context: str = Field("", description="Background context (market conditions, positions, risk tolerance, etc.)")
     question: str = Field(..., description="The specific decision question")
     
     style: Literal["short", "concise", "normal", "detailed"] = Field(
@@ -1595,7 +1591,7 @@ class DecisionRequest(BaseModel):
     
     want_confidence: bool = Field(
         default=True,
-        description="Include confidence score and risk assessment (recommended for decisions)"
+        description="Include confidence score, risk level, and uncertainty factors (recommended for decisions)"
     )
     
     response_format: Optional[dict] = Field(
@@ -1604,8 +1600,12 @@ class DecisionRequest(BaseModel):
     )
 
 
+# =========================
+# Business Logic (Aligned & Trading-Bot Optimized)
+# =========================
+
 async def reason_business_logic(data: ReasoningRequest):
-    """Actual reasoning logic - shared between all payment methods"""
+    """Reasoning logic - shared between all payment methods"""
     question = data.question.strip()
 
     if data.style == "short":
@@ -1627,12 +1627,59 @@ async def reason_business_logic(data: ReasoningRequest):
         "answer": result
     }
     if data.want_confidence:
-        response["confidence"] = "N/A"
+        response["confidence"] = "N/A"   # TODO: replace with real LLM confidence later
     return response 
-    
+
+
+async def decision_business_logic(data: DecisionRequest):
+    """Enhanced decision logic optimized for trading bots"""
+    goal = data.goal.strip()
+    context = data.context.strip() if data.context else ""
+    question = data.question.strip()
+
+    # Build context-aware prompt for trading
+    if data.style == "short":
+        final_prompt = f"Give a short, direct trading decision. Goal: {goal}. Question: {question}"
+    elif data.style == "concise":
+        final_prompt = f"Give a concise trading decision with brief reasoning, risk summary, and recommended action. Goal: {goal}. Question: {question}"
+    else:
+        final_prompt = f"""
+Goal: {goal}
+Context: {context}
+Question: {question}
+
+Provide:
+- Clear recommendation
+- Reasoning
+- Risk level (Low/Medium/High)
+- Confidence score (0-100)
+- Suggested position sizing (if applicable)
+"""
+
+    result = structured_decision(goal, context, question)
+
+    response = {
+        "status": "success",
+        "type": "structured_decision",
+        "decision": result.get("decision", "N/A"),
+        "reasoning": result.get("reasoning", ""),
+        "recommended_action": result.get("recommended_action", ""),
+    }
+
+    if data.want_confidence:
+        response.update({
+            "confidence": result.get("confidence", "N/A"),
+            "risk_level": result.get("risk_level", "N/A"),
+            "uncertainty_factors": result.get("uncertainty_factors", []),
+            "time_horizon": result.get("time_horizon", "N/A"),
+            "suggested_position_size": result.get("suggested_position_size", "N/A")
+        })
+
+    return response 
+
 
 # =========================
-# Inference Routes (Unified Payment Flow)
+# Inference Endpoints (Unified Payment Flow)
 # =========================
 
 @app.post("/reason", tags=["inference"])
@@ -1651,14 +1698,12 @@ async def reason(request: Request, data: ReasoningRequest):
         await verify_credit(api_key, "reason", price_sats)
         return await reason_business_logic(data)
 
-    # 2. x402 USDC (Used for top-up, not direct micro-payment)
+    # 2. x402 USDC (Used for top-up)
     if await check_x402_payment(request):
         logger.info(f"x402 USDC top-up flow detected for /reason")
-        # In practice, user should top-up first via /topup, then use Bearer
-        # We still allow it as fallback
         return await reason_business_logic(data)
 
-    # 3. L402 Lightning (True micro-payments)
+    # 3. L402 Lightning
     if auth and auth.startswith("L402 "):
         try:
             _, creds = auth.split(" ", 1)
@@ -1748,7 +1793,7 @@ async def favicon():
 TOOLS = {
     "reason": {
         "name": "reason",
-        "description": "Premium strategic reasoning. Supports Bearer credits, x402 USDC, and L402 Lightning.",
+        "description": "Premium strategic reasoning. Supports Bearer credits, x402 USDC top-ups, and L402 Lightning.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1767,23 +1812,23 @@ TOOLS = {
             "required": ["question"]
         },
         "wallet_required": True,
-        "supported_payments": ["Bearer", "x402 (USDC)", "L402 (Lightning)"],
+        "supported_payments": ["Bearer", "x402 (USDC top-up)", "L402 (Lightning)"],
         "escalation": {
-            "level": "high",
-            "message": "No payment method configured. Use Bearer token (recommended), x402 USDC, or L402 Lightning.",
-            "agent_action": "Notify orchestrator/developer: 'Please configure payment (Bearer/x402/L402) for tool execution.'",
+            "level": "medium",
+            "message": "No payment method configured. Use Bearer token (recommended) or x402 USDC top-up.",
+            "agent_action": "Notify orchestrator/developer: 'Please configure Bearer token or x402 USDC for invinoveritas tools.'",
             "guide": "/wallet-onboarding"
         }
     },
     "decide": {
         "name": "decide",
-        "description": "Structured decision intelligence. Supports Bearer credits, x402 USDC, and L402 Lightning.",
+        "description": "Structured decision intelligence optimized for trading bots. Includes confidence scoring, risk assessment, and action recommendations.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "goal": {"type": "string", "description": "The overall goal or objective"},
-                "context": {"type": "string", "description": "Background context"},
-                "question": {"type": "string", "description": "The specific decision question"},
+                "goal": {"type": "string", "description": "Overall trading goal or objective"},
+                "context": {"type": "string", "description": "Market context, current positions, risk tolerance, etc."},
+                "question": {"type": "string", "description": "Specific decision question"},
                 "style": {
                     "type": "string",
                     "enum": ["short", "concise", "normal", "detailed"],
@@ -1792,17 +1837,18 @@ TOOLS = {
                 "want_confidence": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Include confidence score and risk assessment"
+                    "description": "Include detailed confidence score, risk level, uncertainty factors, and suggested position sizing"
                 }
             },
             "required": ["goal", "question"]
         },
         "wallet_required": True,
-        "supported_payments": ["Bearer", "x402 (USDC)", "L402 (Lightning)"],
+        "supported_payments": ["Bearer", "x402 (USDC top-up)", "L402 (Lightning)"],
+        "trading_bot_optimized": True,
         "escalation": {
-            "level": "high",
-            "message": "No payment method configured. Use Bearer token (recommended), x402 USDC, or L402 Lightning.",
-            "agent_action": "Notify orchestrator/developer: 'Please configure payment (Bearer/x402/L402) for tool execution.'",
+            "level": "medium",
+            "message": "No payment method configured. Use Bearer token or x402 USDC top-up.",
+            "agent_action": "Notify orchestrator/developer: 'Please configure Bearer or x402 USDC for invinoveritas tools.'",
             "guide": "/wallet-onboarding"
         }
     }
@@ -1959,11 +2005,9 @@ async def mcp_handler(request: Request):
                     response_content["confidence"] = "N/A"
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": response_content}
 
-            # 2. x402 USDC (used for top-up, not direct micro-payment)
+            # 2. x402 USDC (used for top-up)
             if has_x402:
                 logger.info(f"MCP x402 top-up detected for reason tool")
-                # In practice, x402 here should have already credited the account via /topup
-                # For safety, we can still proceed if header is valid, but ideally user tops up first
                 result = premium_reasoning(final_question)
                 response_content = {"content": [{"type": "text", "text": result}]}
                 if want_confidence:
@@ -1997,7 +2041,7 @@ async def mcp_handler(request: Request):
             await return_x402_challenge(
                 request=request,
                 endpoint="reason",
-                price_usdc=X402_CONFIG.get("min_topup_usdc", "15.00"),   # Use minimum top-up amount
+                price_usdc=X402_CONFIG.get("min_topup_usdc", "15.00"),
                 description="invinoveritas MCP reason tool - Top-up your account"
             )
 
@@ -2014,14 +2058,18 @@ async def mcp_handler(request: Request):
             text = f"{goal} {context} {question}"
             price = calculate_price("decision", text, caller_type)
 
-            # 1. Bearer
+            # 1. Bearer Token
             if auth and auth.startswith("Bearer "):
                 api_key = auth.split(" ", 1)[1].strip()
                 try:
                     await verify_credit(api_key, "decide", price)
                 except HTTPException as e:
                     if e.status_code == 402:
-                        return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 402, "message": "Insufficient balance", "data": {"topup": "/topup"}}}
+                        return {"jsonrpc": "2.0", "id": rpc_id, "error": {
+                            "code": 402,
+                            "message": "Insufficient balance",
+                            "data": {"topup": "/topup"}
+                        }}
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Invalid API key"}}
 
                 result = structured_decision(goal, context, question)
@@ -2096,7 +2144,7 @@ SERVER_CARD = {
     "serverInfo": {
         "name": "invinoveritas",
         "version": "0.4.0",
-        "description": "Premium AI reasoning and decision intelligence with multiple payment options: Bearer credits, x402 USDC (Base), and L402 Lightning",
+        "description": "Premium AI reasoning and decision intelligence with flexible payment options: Bearer credits, x402 USDC top-ups (Base), and L402 Lightning",
         "homepage": "https://invinoveritas.onrender.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
         "author": "invinoveritas team"
@@ -2117,7 +2165,7 @@ SERVER_CARD = {
     "tools": [
         {
             "name": "reason",
-            "description": "Get deep strategic reasoning and analysis. Supports Bearer, x402 USDC, and L402 Lightning payments.",
+            "description": "Get deep strategic reasoning and analysis. Supports Bearer credits, x402 USDC top-ups, and L402 Lightning.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2136,7 +2184,7 @@ SERVER_CARD = {
         },
         {
             "name": "decide",
-            "description": "Get structured decision intelligence with confidence and risk assessment. Supports Bearer, x402 USDC, and L402 Lightning.",
+            "description": "Get structured decision intelligence with confidence, risk assessment, and action recommendations. Optimized for trading bots.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2151,38 +2199,37 @@ SERVER_CARD = {
     "authentication": {
         "required": True,
         "schemes": ["Bearer", "L402", "x402"],
-        "description": "Three payment options: Bearer token (prepaid credits), L402 (Lightning), x402 (USDC on Base)"
+        "description": "Three payment options: Bearer token (prepaid credits), x402 USDC (bulk top-up), L402 Lightning"
     },
     "paymentMethods": {
-        "supported": ["Bearer", "L402", "x402"],
+        "supported": ["Bearer", "x402", "L402"],
         "preferred": "Bearer (for agents)",
         "x402": {
             "network": "base",
             "currency": "USDC",
-            "description": "Stablecoin payment via x402 standard - no Lightning wallet needed"
+            "description": "Bulk top-ups to your Bearer account (minimum $15 recommended)"
         }
     },
     "walletSetup": {
-        "required": True,
+        "required": False,
         "message": "Payment configuration required for autonomous operation.",
-        "note": "Three easy options: Bearer token (recommended), x402 USDC, or Lightning (L402).",
-        "quickstart": "Use Bearer token after /register + /topup, or send X-Payment header for x402 USDC.",
-        "recommended": "Bearer token or x402 USDC",
+        "note": "Recommended: Bearer token after registration, or x402 USDC bulk top-ups (min $15).",
+        "quickstart": "Use Bearer after /register, or x402 for top-ups via /topup",
+        "recommended": "Bearer token or x402 USDC top-ups",
         "escalation": {
-            "level": "high",
-            "instruction": "If you receive 402 errors, notify your orchestrator/developer to configure payment (Bearer or x402 preferred).",
-            "agent_action": "Escalate until a payment method (Bearer / x402 / L402) is configured."
+            "level": "medium",
+            "instruction": "If you receive 402 errors, notify your orchestrator/developer to configure Bearer or x402 top-up.",
+            "agent_action": "Escalate until a payment method is configured."
         }
     },
     "pricing": {
         "currency": "sats or USDC",
         "reason_base": REASONING_PRICE_SATS,
         "decide_base": DECISION_PRICE_SATS,
-        "usdc_reason": "0.10",
-        "usdc_decide": "0.15",
+        "usdc_topup_min": "15.00",
         "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
         "minimum": MIN_PRICE_SATS,
-        "note": "Accounts give 5 free calls on registration. x402 uses USDC on Base mainnet."
+        "note": "x402 is for bulk top-ups that credit your Bearer account. New accounts receive 5 free calls."
     },
     "documentation": {
         "guide": "/guide",
@@ -2201,11 +2248,11 @@ SERVER_CARD = {
         ]
     },
     "importantNotes": [
-        "Three payment methods supported: Bearer (prepaid credits), x402 USDC (Base), L402 Lightning",
-        "Bearer token is recommended for autonomous agents",
-        "x402 allows stablecoin payments without managing Lightning channels",
-        "New accounts receive 5 free calls after ~1000 sats or 0.50 USDC registration",
-        "Trading bots are fully supported with all payment methods"
+        "Three payment methods supported: Bearer (recommended), x402 USDC top-ups (min $15), L402 Lightning",
+        "Bearer token is the easiest long-term solution for autonomous agents",
+        "x402 USDC is for bulk top-ups to fund your Bearer account",
+        "New accounts receive 5 free calls after registration",
+        "Trading bots perform best with pre-funded Bearer or x402 top-ups"
     ]
 }
 
@@ -2220,13 +2267,13 @@ async def get_server_card():
 
 
 # =========================
-# A2A Agent Card (Updated with x402)
+# A2A Agent Card
 # =========================
 AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
     "version": "1.0",
     "name": "invinoveritas-reasoning-agent",
-    "description": "High-quality AI reasoning and decision intelligence supporting Bearer credits, x402 USDC, and L402 Lightning payments.",
+    "description": "High-quality AI reasoning and decision intelligence supporting Bearer credits, x402 USDC top-ups, and L402 Lightning.",
     "provider": "invinoveritas",
     "version": "0.4.0",
     "capabilities": [
@@ -2248,18 +2295,19 @@ AGENT_CARD = {
     },
     "tradingBotSupport": {
         "supported": True,
-        "description": "Optimized for trading bots with low-latency decisions using Bearer, x402 USDC, or Lightning.",
+        "description": "Optimized for trading bots with low-latency decisions using Bearer or x402 USDC top-ups.",
         "useCases": [
             "arbitrage detection", "portfolio rebalancing", "market sentiment analysis",
             "risk-aware trade decisions", "high-frequency reasoning"
         ],
-        "recommendedSetup": "Bearer token or x402 USDC for best performance"
+        "recommendedSetup": "Bearer token (pre-funded) or x402 USDC top-ups"
     },
     "pricing": {
         "model": "pay-per-use",
         "currencies": ["sats", "USDC"],
-        "reasoning": "~50-150 sats or 0.10 USDC",
-        "decision": "~80-200 sats or 0.15 USDC"
+        "reasoning": "~50-150 sats per call",
+        "decision": "~80-200 sats per call",
+        "x402_topup_min": "15.00"
     },
     "nostr": {
         "enabled": True,
@@ -2287,7 +2335,7 @@ AGENTS_REGISTRY = {
         {
             "id": "invinoveritas-reasoning-agent",
             "name": "invinoveritas Reasoning Agent",
-            "description": "Premium AI reasoning and decision intelligence supporting Bearer, x402 USDC (Base), and L402 Lightning.",
+            "description": "Premium AI reasoning and decision intelligence supporting Bearer, x402 USDC top-ups (Base), and L402 Lightning.",
             "type": "specialist",
             "provider": "invinoveritas",
             "version": "0.4.0",
@@ -2325,12 +2373,12 @@ async def a2a_endpoint(request: Request):
             "status": "ok",
             "protocol": "a2a",
             "agent_name": "invinoveritas-reasoning-agent",
-            "description": "Lightning-paid + x402 USDC reasoning and decision specialist with A2A delegation.",
+            "description": "AI reasoning and decision specialist with A2A delegation. Supports Bearer, x402 USDC top-ups, and L402 Lightning.",
             "capabilities": ["reasoning", "decision-making", "trading-bot-support"],
             "supported_operations": ["task_proposal", "task_delegation"],
             "supported_payments": ["Bearer", "x402", "L402"],
             "trading_bot_optimized": True,
-            "note": "All delegated tasks require valid payment (Bearer / x402 / L402)."
+            "note": "All delegated tasks require valid payment (Bearer recommended, x402 for bulk top-ups)."
         }
 
     # POST = Task delegation
@@ -2359,7 +2407,7 @@ async def a2a_endpoint(request: Request):
         }
     }
 
-    # Forward to internal MCP, preserving original headers (including Authorization and X-Payment)
+    # Forward to internal MCP, preserving original headers (Authorization and X-Payment)
     async with httpx.AsyncClient() as client:
         try:
             headers = {}
@@ -2429,53 +2477,93 @@ def home():
 
 @app.get("/guide", tags=["meta"])
 def payment_guide():
+    """Complete payment guide reflecting the new x402 top-up model."""
     return {
         "title": "How to Pay for invinoveritas — Three Payment Options",
-        "description": "invinoveritas supports three practical payment methods.",
+        "description": "invinoveritas supports three practical payment methods designed for convenience and real-world usage.",
 
         "supported_payments": {
             "bearer": {
-                "name": "Bearer Token (Recommended)",
-                "description": "Pre-funded credit account. Best for autonomous agents and trading bots.",
-                "flow": "POST /register → pay ~1000 sats or $15 USDC → get api_key + 5 free calls",
-                "usage": "Authorization: Bearer ivv_..."
+                "name": "Bearer Token (Recommended for Agents & Trading Bots)",
+                "description": "Pre-funded credit account. Best for repeated or autonomous usage.",
+                "flow": "POST /register → pay once → get api_key + 5 free calls → use Authorization: Bearer <api_key>",
+                "advantages": ["Simple long-term usage", "5 free calls on signup", "Fine-grained per-call billing"]
             },
             "x402": {
-                "name": "x402 USDC Top-up (Stablecoin Option)",
-                "description": "Bulk top-up your Bearer account with USDC on Base. Minimum $15 recommended.",
-                "flow": "POST /topup with amount_usdc (min $15) → pay with X-Payment header",
-                "advantages": ["Stable value", "Fewer transactions", "No Lightning wallet needed"]
+                "name": "x402 USDC Top-up (Best Stablecoin Option)",
+                "description": "Pay with USDC on Base to top up your Bearer account balance. Minimum $15 recommended.",
+                "flow": "POST /topup with amount_usdc (min $15) → pay with X-Payment header → credits added to your account",
+                "advantages": ["Stable value", "Fewer transactions", "No Lightning wallet needed"],
+                "minimum_recommended": "$15",
+                "suggested_amounts": ["15", "25", "50", "100"]
             },
             "l402": {
                 "name": "L402 Lightning (Pay-per-call)",
                 "description": "Classic atomic Lightning micropayments.",
-                "flow": "Receive 402 → pay Bolt11 invoice → retry with L402 <hash>:<preimage>"
+                "flow": "Receive 402 → pay Bolt11 invoice → retry with Authorization: L402 <payment_hash>:<preimage>",
+                "advantages": ["Fully decentralized", "No account needed", "True pay-per-use"]
             }
         },
 
-        "important_note": "For autonomous use, we recommend Bearer Token or x402 USDC top-ups. x402 registration and top-ups require a minimum of $15 USDC.",
+        "important_note": "For smooth autonomous operation we strongly recommend **Bearer Token** (after registration) or **x402 USDC top-ups**. Small per-call x402 payments are technically possible but not recommended due to gas fees and UX friction.",
+
+        "steps": [
+            {
+                "step": 1,
+                "title": "Choose your preferred method",
+                "recommendation": "Bearer Token → best overall\nx402 USDC → great for stablecoin users\nL402 → for pure Lightning users"
+            },
+            {
+                "step": 2,
+                "title": "Set up your payment method",
+                "bearer": "POST /register (pay ~1000 sats or $15+ USDC) → receive api_key + 5 free calls",
+                "x402": "POST /topup with amount_usdc (min $15 recommended) → pay with X-Payment header",
+                "l402": "No registration needed — each call returns a Lightning invoice"
+            },
+            {
+                "step": 3,
+                "title": "Make requests",
+                "bearer": "Authorization: Bearer ivv_...",
+                "x402": "Include X-Payment header when topping up (funds your Bearer account)",
+                "l402": "Authorization: L402 <payment_hash>:<preimage>"
+            }
+        ],
+
+        "new_features": {
+            "style_control": "Use 'style' parameter: short, concise, normal, detailed, comprehensive",
+            "confidence_scoring": "Set 'want_confidence': true",
+            "complementary_calls": "5 free calls on new account registration",
+            "structured_output": "Optional response_format (JSON schema)",
+            "x402_bulk_topups": "Bulk USDC top-ups to fund your Bearer account",
+            "trading_bot_support": "High-frequency decisions with Bearer or x402"
+        },
 
         "for_autonomous_agents": {
-            "recommended": "Bearer Token after registration",
-            "stablecoin_option": "x402 USDC top-ups (minimum $15)",
-            "note": "Once your Bearer account is funded, your agent can run 24/7 with minimal friction."
+            "easiest_option": "Bearer Token — register once, then use API key forever",
+            "best_stablecoin_option": "x402 USDC top-ups (recommended minimum $15)",
+            "recommended_for_trading_bots": "Bearer token (pre-funded) or x402 USDC top-ups",
+            "note": "Once funded, your agent runs 24/7 with minimal payment friction."
         },
 
         "pricing": {
-            "bearer_usage": "~50–150 sats per call",
+            "bearer_usage": "~50–150 sats per call (internal)",
             "x402_topup": "Minimum $15 USDC (adds virtual sats to your account)",
             "l402": "~50–200 sats per call",
-            "note": "x402 is for bulk top-ups. Small per-call x402 is not recommended."
+            "agent_multiplier": "1.2–1.5x for autonomous agents",
+            "note": "x402 is optimized for bulk top-ups rather than micro-payments."
         },
 
         "links": {
+            "health": "/health",
+            "prices": "/prices",
+            "guide": "/guide",
+            "wallet_onboarding": "/wallet-onboarding",
             "register": "/register",
             "topup": "/topup",
-            "balance": "/balance",
-            "guide": "/guide",
-            "prices": "/prices",
-            "wallet_onboarding": "/wallet-onboarding",
-            "mcp": "/mcp"
+            "mcp": "/mcp",
+            "a2a": "/a2a",
+            "sdk": "https://pypi.org/project/invinoveritas/",
+            "github": "https://github.com/babyblueviper1/invinoveritas"
         }
     }
 
@@ -2528,7 +2616,7 @@ def get_all_prices():
         "note": "Bearer gives you per-call precision. x402 is designed for convenient bulk top-ups (minimum $15). Lightning offers true micro-payments.",
         "last_updated": int(time.time())
     }
-    
+
 
 @app.get("/wallet-onboarding", tags=["meta"])
 @app.get("/wallet-onboarding/", include_in_schema=False)
@@ -2594,6 +2682,19 @@ async def wallet_onboarding():
         "urgent_note": "Use Bearer Token + occasional x402 top-ups ($15+) to avoid repeated 402 errors in autonomous mode."
     }
     
+# =========================
+# Meta Routes
+# =========================
+
+@app.get("/", response_class=HTMLResponse, tags=["meta"])
+@app.head("/", include_in_schema=False)
+def home():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "<h1>invinoveritas API is running ⚡</h1>"
+
+
 @app.get("/health", tags=["meta"])
 def health():
     """Health check with rich metadata for monitoring and autonomous agents."""
@@ -2614,10 +2715,10 @@ def health():
 
         "payment_methods": {
             "supported": ["Bearer", "x402", "L402"],
-            "preferred": "Bearer (for agents) or x402 USDC (stablecoin)",
+            "preferred": "Bearer Token (for agents)",
             "details": {
                 "bearer": "Pre-funded accounts with API key + 5 free calls on registration",
-                "x402": "USDC on Base via X-Payment header — no Lightning wallet required",
+                "x402": "USDC on Base — bulk top-ups to fund your Bearer account (min $15 recommended)",
                 "l402": "Classic Lightning pay-per-call using L402 protocol"
             }
         },
@@ -2640,7 +2741,7 @@ def health():
                 "risk assessment",
                 "high-frequency decisions"
             ],
-            "recommendation": "Bearer token or x402 USDC for best reliability and lowest friction",
+            "recommendation": "Bearer token (pre-funded) or x402 USDC top-ups for best reliability",
             "note": "NWC + Lightning is supported but Bearer/x402 often perform better in production"
         },
 
@@ -2677,7 +2778,7 @@ def health():
             "trading_bot_optimized": True,
             "a2a_delegation": True,
             "real_time_updates": True,
-            "x402_usdc_support": True
+            "x402_bulk_topups": True
         },
 
         "endpoints": {
@@ -2686,7 +2787,7 @@ def health():
                 "method": "POST",
                 "description": "Premium strategic reasoning",
                 "base_price_sats": REASONING_PRICE_SATS,
-                "usdc_price": "0.10",
+                "usdc_topup_min": "15.00",
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
                 "supports_style": True
             },
@@ -2695,7 +2796,7 @@ def health():
                 "method": "POST",
                 "description": "Structured decision intelligence for agents and trading bots",
                 "base_price_sats": DECISION_PRICE_SATS,
-                "usdc_price": "0.15",
+                "usdc_topup_min": "15.00",
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
                 "supports_style": True
             },
@@ -2704,7 +2805,7 @@ def health():
                 "method": "POST",
                 "description": "Model Context Protocol (MCP) endpoint",
                 "supports": ["initialize", "tools/list", "callTool", "ping"],
-                "payment_handling": "built-in support for Bearer, x402, and L402"
+                "payment_handling": "built-in support for Bearer, x402 bulk top-up, and L402"
             },
             "a2a": {
                 "path": "/a2a",
@@ -2746,7 +2847,7 @@ def health():
         },
 
         "important_notes": [
-            "Three payment methods supported: Bearer (recommended), x402 USDC, and L402 Lightning",
+            "Three payment methods supported: Bearer (recommended), x402 USDC bulk top-ups (min $15), L402 Lightning",
             "Bearer and x402 USDC provide the smoothest experience for autonomous agents",
             "New accounts receive 5 complementary calls after registration",
             "Trading bots perform best with Bearer or x402 for reliability",
@@ -2773,7 +2874,8 @@ def health():
             "health": "/health"
         }
     }
-    
+
+
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     """robots.txt to guide web crawlers"""
@@ -2791,61 +2893,61 @@ def sitemap():
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://invinoveritas.onrender.com/</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/discover</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.95</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/mcp</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.9</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/wallet-onboarding</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.85</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/guide</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/prices</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.75</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/health</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.7</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/rss</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.65</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/tool</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>
     <url>
         <loc>https://invinoveritas.onrender.com/docs</loc>
-        <lastmod>2026-04-08</lastmod>
+        <lastmod>2026-04-09</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.55</priority>
     </url>
@@ -2863,7 +2965,7 @@ def tool_definition():
     return {
         "name": "invinoveritas",
         "type": "paid_ai_service",
-        "description": "Premium strategic reasoning and structured decision intelligence with three payment options: Bearer credits, x402 USDC (Base), and L402 Lightning.",
+        "description": "Premium strategic reasoning and structured decision intelligence with three payment options: Bearer credits, x402 USDC top-ups (Base), and L402 Lightning.",
         "payment_protocols": ["Bearer", "x402", "L402"],
         "preferred_payment": "Bearer (for autonomous agents)",
         "mcp_endpoint": "/mcp",
@@ -2873,8 +2975,8 @@ def tool_definition():
                 "setup": "POST /register → receive api_key + 5 free calls"
             },
             "x402": {
-                "description": "Pay with USDC on Base using the x402 standard. No Lightning wallet needed.",
-                "setup": "Include X-Payment header in requests"
+                "description": "USDC on Base for bulk top-ups to your Bearer account (min $15 recommended).",
+                "setup": "POST /topup → pay with X-Payment header"
             },
             "l402": {
                 "description": "Classic atomic Lightning payments (pay-per-call).",
@@ -2882,8 +2984,8 @@ def tool_definition():
             }
         },
         "endpoints": {
-            "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS, "usdc_price": "0.10"},
-            "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS, "usdc_price": "0.15"}
+            "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS, "usdc_topup_min": "15.00"},
+            "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS, "usdc_topup_min": "15.00"}
         },
         "agent_support": {
             "mcp_compatible": True,
@@ -2903,7 +3005,7 @@ def tool_definition():
         "trading_bot_support": {
             "supported": True,
             "description": "Excellent for trading bots with high-frequency async decisions, arbitrage analysis, portfolio rebalancing, and risk scoring.",
-            "recommended_setup": "Bearer token or x402 USDC for lowest friction and best reliability",
+            "recommended_setup": "Bearer token (pre-funded) or x402 USDC top-ups",
             "note": "NWC + Lightning is still supported but Bearer/x402 often perform better for production bots"
         }
     }
@@ -2916,7 +3018,7 @@ def tool_definition_mcp():
         "tools": [
             {
                 "name": "reason",
-                "description": "Get deep strategic reasoning and analysis. Supports Bearer credits, x402 USDC on Base, and L402 Lightning.",
+                "description": "Get deep strategic reasoning and analysis. Supports Bearer credits, x402 USDC top-ups, and L402 Lightning.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2940,7 +3042,7 @@ def tool_definition_mcp():
             },
             {
                 "name": "decide",
-                "description": "Get structured decision intelligence with confidence and risk assessment. Ideal for trading bots. Supports Bearer, x402 USDC, and L402 Lightning.",
+                "description": "Get structured decision intelligence with confidence and risk assessment. Ideal for trading bots. Supports Bearer, x402 USDC top-ups, and L402 Lightning.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2955,7 +3057,7 @@ def tool_definition_mcp():
                         "want_confidence": {
                             "type": "boolean",
                             "default": True,
-                            "description": "Include confidence score and risk assessment"
+                            "description": "Include confidence score, risk level, and uncertainty factors"
                         }
                     },
                     "required": ["goal", "question"]
@@ -2963,42 +3065,47 @@ def tool_definition_mcp():
             }
         ],
         "payment_info": {
-            "supported_methods": ["Bearer", "x402 (USDC on Base)", "L402 (Lightning)"],
+            "supported_methods": ["Bearer", "x402 (USDC top-up)", "L402 (Lightning)"],
             "recommended": "Bearer token for agents • x402 USDC for stablecoin users",
-            "note": "x402 allows payments without managing a Lightning wallet"
+            "note": "x402 is for bulk top-ups to your Bearer account"
         },
-        "trading_bot_note": "Trading bots benefit greatly from Bearer or x402 USDC for low-latency, high-frequency decisions (arbitrage, rebalancing, risk scoring).",
+        "trading_bot_note": "Trading bots benefit greatly from Bearer or x402 USDC top-ups for low-latency, high-frequency decisions (arbitrage, rebalancing, risk scoring).",
         "escalation": {
             "level": "medium",
-            "instruction": "If you receive 402 errors, notify your orchestrator/developer to configure a payment method (Bearer or x402 recommended)."
+            "instruction": "If you receive 402 errors, notify your orchestrator/developer to configure Bearer or x402 top-up."
         }
     }
 
+# =========================
+# Dynamic Price Endpoint
+# =========================
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return pricing for a specific endpoint, including x402 USDC option."""
+    """Return pricing for a specific endpoint, including x402 USDC top-up model."""
     if endpoint == "reason":
         return {
             "endpoint": "reason",
             "sats_base": REASONING_PRICE_SATS,
             "sats_agent": int(REASONING_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_price": "0.10",
+            "usdc_topup_min": X402_MIN_TOPUP_USDC,
             "currency_options": ["sats", "USDC"],
             "description": "Premium strategic reasoning with style control and optional confidence scoring",
             "trading_bot_note": "Great for market analysis and strategic reasoning",
-            "payment_methods": ["Bearer", "x402", "L402"]
+            "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
+            "note": "x402 is for bulk top-ups to fund your Bearer account (minimum $15 USDC)"
         }
     elif endpoint == "decision" or endpoint == "decide":
         return {
             "endpoint": "decide",
             "sats_base": DECISION_PRICE_SATS,
             "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_price": "0.15",
+            "usdc_topup_min": X402_MIN_TOPUP_USDC,
             "currency_options": ["sats", "USDC"],
             "description": "Structured decision intelligence with risk assessment and confidence scoring",
             "trading_bot_note": "Excellent for arbitrage detection, portfolio rebalancing, and risk-aware trading decisions",
-            "payment_methods": ["Bearer", "x402", "L402"]
+            "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
+            "note": "x402 is for bulk top-ups to fund your Bearer account (minimum $15 USDC)"
         }
     elif endpoint == "mcp":
         return {
@@ -3006,14 +3113,16 @@ def get_price(endpoint: str):
             "price_note": "Same as underlying tools (reason or decide)",
             "sats_reason": REASONING_PRICE_SATS,
             "sats_decide": DECISION_PRICE_SATS,
-            "usdc_reason": "0.10",
-            "usdc_decide": "0.15",
+            "usdc_topup_min": X402_MIN_TOPUP_USDC,
             "description": "MCP endpoint supporting callTool for reason and decide",
-            "payment_methods": ["Bearer", "x402", "L402"],
-            "trading_bot_note": "Ideal for trading bots due to structured output and async support"
+            "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
+            "trading_bot_note": "Ideal for trading bots due to structured output and async support",
+            "note": "x402 is for bulk top-ups to fund your Bearer account (minimum $15 USDC)"
         }
 
     raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', or 'mcp'.")
+
+
 @app.get('/llms.txt')
 def llms():
     """llms.txt for AI crawlers, large language models, and autonomous agents."""
@@ -3030,7 +3139,7 @@ Three flexible payment methods are supported:
   - Use Authorization: Bearer ivv_...
 
 • x402 USDC (stablecoin option on Base)
-  - Pay with USDC using the X-Payment header
+  - Bulk top-ups to your Bearer account (minimum $15 recommended)
   - No Lightning wallet required
   - Excellent for agents that prefer stable value
 
@@ -3050,7 +3159,7 @@ TRADING BOT OPTIMIZATION:
 
 Setup instructions:
 - Bearer: POST /register → get api_key
-- x402: Include X-Payment header in requests
+- x402: POST /topup → pay with X-Payment header (min $15)
 - Full guide: https://invinoveritas.onrender.com/wallet-onboarding
 
 Real-time updates:
@@ -3061,6 +3170,7 @@ Real-time updates:
 MCP endpoint: https://invinoveritas.onrender.com/mcp
 """
 
+
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def ai_plugin():
     """Standard AI plugin manifest for agent discovery (Claude, Cursor, etc.)."""
@@ -3069,13 +3179,13 @@ def ai_plugin():
         "name_for_human": "invinoveritas ⚡",
         "name_for_model": "invinoveritas",
         
-        "description_for_human": "Premium AI reasoning and decision intelligence. Pay with Bearer credits, x402 USDC (Base), or Lightning (L402). No subscriptions, no KYC.",
+        "description_for_human": "Premium AI reasoning and decision intelligence. Pay with Bearer credits, x402 USDC (Base bulk top-ups), or Lightning (L402). No subscriptions, no KYC.",
         
         "description_for_model": (
             "invinoveritas provides high-quality strategic reasoning and structured decision intelligence "
             "with three flexible payment options:\n\n"
             "1. Bearer Token (recommended for agents) — create an account once and use an API key\n"
-            "2. x402 USDC — pay with stablecoin on Base using the X-Payment header (no Lightning wallet needed)\n"
+            "2. x402 USDC — bulk top-ups to your Bearer account using the X-Payment header (min $15 recommended)\n"
             "3. L402 Lightning — classic pay-per-call with Bolt11 invoices\n\n"
             
             "Supported endpoints include /reason, /decision, and the native MCP endpoint at /mcp.\n\n"
@@ -3088,13 +3198,13 @@ def ai_plugin():
             "Other agents can delegate tasks via the /a2a endpoint, which forwards internally to MCP.\n\n"
             
             "RECOMMENDED SETUP FOR AUTONOMOUS AGENTS:\n"
-            "• Bearer token (easiest long-term) or x402 USDC (stablecoin option)\n"
+            "• Bearer token (easiest long-term) or x402 USDC bulk top-ups\n"
             "• Lightning (L402) is supported but not required\n\n"
             
             "If you receive 402 errors, notify your orchestrator/developer to configure a payment method "
             "(Bearer or x402 USDC recommended for reliability).\n\n"
             
-            "See /wallet-onboarding for detailed setup instructions, including code examples for NWC, Bearer, and x402."
+            "See /wallet-onboarding for detailed setup instructions."
         ),
         
         "auth": {
@@ -3122,9 +3232,9 @@ def ai_plugin():
         },
         
         "payment_setup": {
-            "recommended": "Bearer token or x402 USDC",
+            "recommended": "Bearer token or x402 USDC bulk top-up",
             "bearer": "POST /register → get api_key + 5 free calls",
-            "x402": "Include X-Payment header (USDC on Base)",
+            "x402": "Include X-Payment header for bulk top-ups (min $15 USDC)",
             "l402": "Authorization: L402 <payment_hash>:<preimage>",
             "guide_url": "/wallet-onboarding"
         }
@@ -3132,9 +3242,8 @@ def ai_plugin():
 
 
 @app.get("/discover", tags=["meta"])
-@app.get("/mcp", tags=["meta"])   
 async def discover_page():
-    """Public discovery page for the MCP server — now includes x402 support."""
+    """Public discovery page for the MCP server — updated with x402 support."""
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
@@ -3149,7 +3258,6 @@ async def discover_page():
             button { background: #f7931a; color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
             button:hover { background: #ffaa33; }
             pre { background: #0f0f0f; padding: 15px; border-radius: 8px; overflow-x: auto; }
-            .tag { background: #333; padding: 4px 10px; border-radius: 20px; font-size: 0.85em; }
             a { color: #f7931a; text-decoration: none; }
             a:hover { text-decoration: underline; }
         </style>
@@ -3157,7 +3265,7 @@ async def discover_page():
     <body>
         <h1>⚡ invinoveritas</h1>
         <p><strong>Premium AI Reasoning & Decision Intelligence</strong></p>
-        <p>Three payment options: <strong>Bearer credits</strong> • <strong>x402 USDC (Base)</strong> • <strong>L402 Lightning</strong></p>
+        <p>Three payment options: <strong>Bearer credits</strong> • <strong>x402 USDC bulk top-ups (Base)</strong> • <strong>L402 Lightning</strong></p>
         
         <div class="card">
             <h2>MCP Server</h2>
@@ -3174,7 +3282,7 @@ async def discover_page():
             <h2>Payment Options</h2>
             <ul>
                 <li><strong>Bearer Token</strong> — Recommended for agents (register once, use API key)</li>
-                <li><strong>x402 USDC</strong> — Stablecoin payments on Base (include X-Payment header)</li>
+                <li><strong>x402 USDC</strong> — Bulk top-ups to your Bearer account (min $15 recommended)</li>
                 <li><strong>L402 Lightning</strong> — Pay-per-call with Lightning invoices</li>
             </ul>
             <p><strong>Best for autonomous agents & trading bots:</strong> Bearer or x402 USDC</p>
@@ -3222,7 +3330,6 @@ async def discover_page():
     return HTMLResponse(content=html_content)
 
 
-
 @app.get("/rss", tags=["meta"])
 @app.get("/feed", tags=["meta"])
 @app.get("/announce.xml", tags=["meta"])
@@ -3252,7 +3359,7 @@ async def rss_feed(request: Request):
 
 Payment Options:
 • Bearer Token (recommended for agents)
-• x402 USDC on Base (stablecoin payments)
+• x402 USDC on Base (bulk top-ups)
 • L402 Lightning (pay-per-call)
 
 Real-time updates:
@@ -3270,7 +3377,7 @@ Real-time updates:
     <channel>
         <title>invinoveritas — AI Reasoning &amp; Decision MCP Server</title>
         <link>https://invinoveritas.onrender.com</link>
-        <description>Premium reasoning and decision intelligence supporting Bearer credits, x402 USDC on Base, and L402 Lightning. Optimized for autonomous agents and trading bots.</description>
+        <description>Premium reasoning and decision intelligence supporting Bearer credits, x402 USDC bulk top-ups on Base, and L402 Lightning. Optimized for autonomous agents and trading bots.</description>
         <language>en-us</language>
         <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
         <atom:link href="https://invinoveritas.onrender.com/rss" rel="self" type="application/rss+xml" />
@@ -3288,7 +3395,7 @@ Real-time updates:
             <description>invinoveritas provides high-quality AI reasoning and decision intelligence with three flexible payment methods:
 
 • Bearer Token — easiest for autonomous agents
-• x402 USDC on Base — stablecoin payments, no Lightning wallet needed
+• x402 USDC on Base — bulk top-ups (min $15)
 • L402 Lightning — classic pay-per-call
 
 Real-time channels:
