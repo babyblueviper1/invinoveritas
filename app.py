@@ -35,6 +35,8 @@ from nostr.relay_manager import RelayManager
 import websockets
 from dataclasses import dataclass
 from collections import defaultdict
+from dotenv import load_dotenv
+load_dotenv()
 
 # =========================
 # FastAPI App
