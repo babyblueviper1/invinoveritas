@@ -2686,25 +2686,25 @@ def get_all_prices():
         "prices": {
             "reason": {
                 "sats_base": REASONING_PRICE_SATS,
-                "sats_agent": int(REASONING_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
+                "sats_agent": int(REASONING_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
                 "description": "Premium strategic reasoning"
             },
             "decide": {
                 "sats_base": DECISION_PRICE_SATS,
-                "sats_agent": int(DECISION_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
+                "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
                 "description": "Structured decision intelligence with risk assessment"
             }
         },
 
         "payment_methods": {
             "bearer": "Prepaid credits via /register and /topup (recommended for daily usage)",
-            "x402": "USDC on Base — bulk top-ups to fund your Bearer account (min $15 recommended)",
+            "x402": f"USDC on Base — bulk top-ups to fund your Bearer account (min ${X402_MIN_TOPUP_USDC} recommended)",
             "l402": "Lightning pay-per-call using L402"
         },
 
         "x402_topups": {
             "minimum_recommended": X402_MIN_TOPUP_USDC,
-            "suggested": ["15", "25", "50", "100"],
+            "suggested": SUGGESTED_TOPUPS,
             "note": "Top-ups add virtual sats to your Bearer account for fine-grained usage"
         },
 
@@ -2719,7 +2719,7 @@ def get_all_prices():
             ]
         },
 
-        "note": "Bearer gives you per-call precision. x402 is designed for convenient bulk top-ups (minimum $15). Lightning offers true micro-payments.",
+        "note": "Bearer gives you per-call precision. x402 is designed for convenient bulk top-ups. Lightning offers true micro-payments.",
         "last_updated": int(time.time())
     }
 
@@ -3188,42 +3188,45 @@ def tool_definition_mcp():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return pricing for a specific endpoint, including x402 USDC top-up model."""
+    """Return pricing for a specific endpoint"""
+    usdc_topup_min = X402_MIN_TOPUP_USDC
+
     if endpoint == "reason":
         return {
             "endpoint": "reason",
             "sats_base": REASONING_PRICE_SATS,
             "sats_agent": int(REASONING_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_topup_min": X402_MIN_TOPUP_USDC,
+            "usdc_topup_min": usdc_topup_min,
             "currency_options": ["sats", "USDC"],
             "description": "Premium strategic reasoning with style control and optional confidence scoring",
             "trading_bot_note": "Great for market analysis and strategic reasoning",
             "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
-            "note": "x402 is for bulk top-ups to fund your Bearer account (minimum $15 USDC)"
+            "note": f"x402 is for bulk top-ups to fund your Bearer account (minimum ${usdc_topup_min} USDC)"
         }
-    elif endpoint == "decision" or endpoint == "decide":
+
+    elif endpoint in ["decision", "decide"]:
         return {
             "endpoint": "decide",
             "sats_base": DECISION_PRICE_SATS,
             "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_topup_min": X402_MIN_TOPUP_USDC,
+            "usdc_topup_min": usdc_topup_min,
             "currency_options": ["sats", "USDC"],
             "description": "Structured decision intelligence with risk assessment and confidence scoring",
             "trading_bot_note": "Excellent for arbitrage detection, portfolio rebalancing, and risk-aware trading decisions",
             "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
-            "note": "x402 is for bulk top-ups to fund your Bearer account (minimum $15 USDC)"
+            "note": f"x402 is for bulk top-ups to fund your Bearer account (minimum ${usdc_topup_min} USDC)"
         }
+
     elif endpoint == "mcp":
         return {
             "endpoint": "mcp",
             "price_note": "Same as underlying tools (reason or decide)",
             "sats_reason": REASONING_PRICE_SATS,
             "sats_decide": DECISION_PRICE_SATS,
-            "usdc_topup_min": X402_MIN_TOPUP_USDC,
+            "usdc_topup_min": usdc_topup_min,
             "description": "MCP endpoint supporting callTool for reason and decide",
             "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
-            "trading_bot_note": "Ideal for trading bots due to structured output and async support",
-            "note": "x402 is for bulk top-ups to fund your Bearer account (minimum $15 USDC)"
+            "note": f"x402 is for bulk top-ups to fund your Bearer account (minimum ${usdc_topup_min} USDC)"
         }
 
     raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', or 'mcp'.")
