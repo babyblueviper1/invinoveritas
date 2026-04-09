@@ -464,12 +464,14 @@ async def get_balance(api_key: str):
 
 @app.post("/verify", tags=["accounts"])
 @limiter.limit("30/minute")
-async def verify_account(req: VerifyRequest):
+async def verify_account(req: VerifyRequest, request: Request):
+    """Called by your main app to debit before tool execution. Atomic updates."""
     now = int(time.time())
 
     with get_db_conn() as conn:
         c = conn.cursor()
 
+        # Try free call first (atomic)
         c.execute(
             """UPDATE accounts 
                SET free_calls_remaining = free_calls_remaining - 1,
@@ -479,6 +481,7 @@ async def verify_account(req: VerifyRequest):
             (now, req.api_key)
         )
         if c.rowcount > 0:
+            # Free call used
             c.execute("SELECT free_calls_remaining, balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
             free_rem, bal = c.fetchone()
             return {
@@ -488,6 +491,7 @@ async def verify_account(req: VerifyRequest):
                 "balance_sats": bal
             }
 
+        # No free calls → deduct from balance (atomic)
         c.execute(
             """UPDATE accounts 
                SET balance_sats = balance_sats - ?,
