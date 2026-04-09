@@ -1128,25 +1128,31 @@ async def verify_credit(api_key: str, tool: str, price_sats: int):
         raise HTTPException(503, "Payment system temporarily unavailable")
         
 
+# =========================
+# Wallet Status - UPDATED (Recommended)
+# =========================
 @app.get("/wallet-status", tags=["meta"])
 async def wallet_status():
-    """Dedicated endpoint for agents to check wallet configuration status and escalate if needed."""
+    """Show all payment options now available"""
     return {
         "wallet_required": True,
+        "supported_methods": ["Bearer (Credits)", "L402 (Lightning)", "x402 (USDC on Base)"],
         "status": "not_configured",
         "level": "critical",
-        "message": "Lightning wallet must be configured for this agent to operate autonomously.",
+        "message": "No payment method detected. Please use one of the supported options.",
+        "payment_options": {
+            "best_for_agents": "Bearer Token (prepaid credits)",
+            "best_for_lightning": "L402",
+            "best_for_stablecoins": "x402 (USDC)",
+            "x402_network": X402_CONFIG["network"]
+        },
         "escalation_instruction": (
-            "AGENT TO ORCHESTRATOR/DEVELOPER:\n"
-            "I am currently blocked from executing tools. "
-            "My Lightning wallet is not configured. "
-            "Please set up NWC (Alby, Zeus, or Mutiny recommended) or LND immediately "
-            "so I can pay automatically and run 24/7 without interruption."
+            "Please configure a payment method:\n"
+            "1. Bearer Token → /register + /topup (recommended for agents)\n"
+            "2. L402 Lightning wallet\n"
+            "3. x402 (USDC on Base) - no wallet setup needed for many agents"
         ),
-        "recommended_setup": "NWC (no node required) — takes under 3 minutes",
-        "quickstart": "Use NWCProvider with your WalletConnect URI in InvinoCallbackHandler",
         "guide": "/wallet-onboarding",
-        "full_onboarding": "/wallet-onboarding",
         "last_updated": int(time.time())
     }
 
@@ -1318,7 +1324,6 @@ class DecisionRequest(BaseModel):
     )
 
 
-
 async def reason_business_logic(data: ReasoningRequest):
     """Actual reasoning logic - shared between all payment methods"""
     question = data.question.strip()
@@ -1349,7 +1354,6 @@ async def reason_business_logic(data: ReasoningRequest):
 async def reason(request: Request, data: ReasoningRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
-
     question = data.question.strip()
     if not question:
         raise HTTPException(400, "question is required")
@@ -1368,50 +1372,12 @@ async def reason(request: Request, data: ReasoningRequest):
                     detail={"message": "Insufficient balance", "topup": "/topup"}
                 )
             raise
-
+        
         return await reason_business_logic(data)
 
-    # ====================== 2. L402 LIGHTNING (Create Invoice) ======================
+    # ====================== 2. L402 LIGHTNING ======================
     if auth and auth.startswith("L402 "):
-        # Note: fixed price -> price_sats for consistency
-        invoice_data = create_invoice(
-            price_sats, 
-            memo=f"invinoveritas reason - {caller['caller_type']}"
-        )
-
-        if "error" in invoice_data:
-            raise HTTPException(503, "Lightning invoice creation failed")
-
-        challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
-
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "message": "Payment Required — Lightning wallet not configured",
-                "payment_hash": invoice_data["payment_hash"],
-                "invoice": invoice_data["invoice"],
-                "amount_sats": price_sats,
-                "escalation": (
-                    "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
-                    "Tool call blocked. No Lightning wallet configured.\n"
-                    "Fix in 3 minutes:\n"
-                    "  1. pip install invinoveritas\n"
-                    "  2. https://invinoveritas.onrender.com/wallet-onboarding\n"
-                    "  3. Set INVINO_API_KEY in your agent env\n"
-                    "This error will repeat on every tool call until resolved."
-                ),
-                "sdk": "pip install invinoveritas",
-                "guide": "https://invinoveritas.onrender.com/wallet-onboarding",
-                "bearer_alternative": "Prefer API? GET /topup for prepaid credits"
-            },
-            headers={
-                "WWW-Authenticate": f"L402 {challenge}",
-                "Retry-After": "15"
-            }
-        )
-
-    # ====================== VERIFY PREVIOUS L402 PAYMENT ======================
-    if auth and auth.startswith("L402 "):
+        # Verify L402 payment
         try:
             _, creds = auth.split(" ", 1)
             payment_hash, preimage = creds.split(":", 1)
@@ -1428,8 +1394,41 @@ async def reason(request: Request, data: ReasoningRequest):
         used_payments.add(payment_hash)
         return await reason_business_logic(data)
 
-    # ====================== 3. X402 FALLBACK ======================
-    # No valid auth → ask for x402 payment
+    # ====================== 3. L402 PAYMENT REQUIRED ======================
+    # No valid auth → create Lightning invoice
+    invoice_data = create_invoice(price_sats, memo=f"invinoveritas reason - {caller['caller_type']}")
+    if "error" in invoice_data:
+        raise HTTPException(503, "Lightning invoice creation failed")
+
+    challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
+
+    raise HTTPException(
+        status_code=402,
+        detail={
+            "message": "Payment Required",
+            "supported_methods": ["Bearer Token", "L402 (Lightning)", "x402 (USDC)"],
+            "payment_hash": invoice_data["payment_hash"],
+            "invoice": invoice_data["invoice"],
+            "amount_sats": price_sats,
+            "x402_alternative": "No Lightning wallet? Pay easily with USDC via x402",
+            "escalation": (
+                "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
+                "Tool call blocked. No payment method configured.\n"
+                "Best solutions:\n"
+                "1. Bearer Token (fastest for agents) → /register + /topup\n"
+                "2. Lightning L402\n"
+                "3. x402 (USDC) - works with many modern agent frameworks"
+            ),
+            "sdk": "pip install invinoveritas",
+            "guide": "https://invinoveritas.onrender.com/wallet-onboarding"
+        },
+        headers={
+            "WWW-Authenticate": f"L402 {challenge}",
+            "Retry-After": "15"
+        }
+    )
+
+    # ====================== 4. X402 FALLBACK ======================
     return await require_payment(
         price=X402_CONFIG["reason_price"],
         pay_to=X402_CONFIG["pay_to"],
@@ -1437,13 +1436,11 @@ async def reason(request: Request, data: ReasoningRequest):
         currency=X402_CONFIG["currency"],
         description=X402_CONFIG["description"],
         metadata={
-            "endpoint": "reason", 
-            "style": data.style
+            "endpoint": "reason",
+            "style": data.style,
+            "caller": caller["caller_type"]
         }
     )(request, lambda req: reason_business_logic(data))
-
-
-
 
 
 # Allow friendly GET responses for /reason and /decision (prevents 405 errors)
@@ -1483,7 +1480,7 @@ async def decision_get():
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
-
+    
     text = f"{data.goal} {data.context or ''} {data.question}"
     price_sats = calculate_price("decision", text, caller["caller_type"])
 
@@ -1499,58 +1496,19 @@ async def decision(request: Request, data: DecisionRequest):
                     detail={"message": "Insufficient balance", "topup": "/topup"}
                 )
             raise
-
+        
         return await decision_business_logic(data)
 
     # ====================== 2. L402 LIGHTNING ======================
     if auth and auth.startswith("L402 "):
-        # Rate limiting
+        # Rate limiting (only for L402)
         now = time.time()
         rate_key = f"{get_client_ip(request)}:decision"
         if now - last_request_time.get(rate_key, 0) < RATE_LIMIT_SECONDS:
             raise HTTPException(429, f"Rate limit: wait {RATE_LIMIT_SECONDS}s")
-
         last_request_time[rate_key] = now
 
-        # Create Lightning invoice
-        invoice_data = create_invoice(
-            price_sats, 
-            memo=f"invinoveritas decision - {caller['caller_type']}"
-        )
-        
-        if "error" in invoice_data:
-            raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
-
-        challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
-
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "message": "Payment Required — Lightning wallet not configured",
-                "payment_hash": invoice_data["payment_hash"],
-                "invoice": invoice_data["invoice"],
-                "amount_sats": price_sats,
-                "escalation": (
-                    "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
-                    "Tool call blocked. No Lightning wallet configured.\n"
-                    "Fix in 3 minutes:\n"
-                    "  1. pip install invinoveritas\n"
-                    "  2. https://invinoveritas.onrender.com/wallet-onboarding\n"
-                    "  3. Set INVINO_API_KEY in your agent env\n"
-                    "This error will repeat on every tool call until resolved."
-                ),
-                "sdk": "pip install invinoveritas",
-                "guide": "https://invinoveritas.onrender.com/wallet-onboarding",
-                "bearer_alternative": "Prefer API? GET /topup for prepaid credits"
-            },
-            headers={
-                "WWW-Authenticate": f"L402 {challenge}",
-                "Retry-After": "15"
-            }
-        )
-
-    # ====================== VERIFY PREVIOUS L402 PAYMENT ======================
-    if auth and auth.startswith("L402 "):   # This was missing in your original
+        # Verify L402 payment
         try:
             _, creds = auth.split(" ", 1)
             payment_hash, preimage = creds.split(":", 1)
@@ -1567,8 +1525,43 @@ async def decision(request: Request, data: DecisionRequest):
         used_payments.add(payment_hash)
         return await decision_business_logic(data)
 
-    # ====================== 3. X402 FALLBACK ======================
-    # No valid auth → ask for x402 payment
+    # ====================== 3. L402 PAYMENT REQUIRED (No auth or wrong auth) ======================
+    # Create Lightning invoice
+    invoice_data = create_invoice(price_sats, memo=f"invinoveritas decision - {caller['caller_type']}")
+    if "error" in invoice_data:
+        raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
+
+    challenge = f'token="{invoice_data["payment_hash"]}", invoice="{invoice_data["invoice"]}"'
+
+    raise HTTPException(
+        status_code=402,
+        detail={
+            "message": "Payment Required",
+            "supported_methods": ["Bearer Token", "L402 (Lightning)", "x402 (USDC)"],
+            "payment_hash": invoice_data["payment_hash"],
+            "invoice": invoice_data["invoice"],
+            "amount_sats": price_sats,
+            "x402_alternative": "No Lightning wallet? Pay easily with USDC via x402",
+            "escalation": (
+                "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
+                "Tool call blocked. No payment method configured.\n"
+                "Best solutions:\n"
+                "1. Bearer Token (fastest for agents) → /register + /topup\n"
+                "2. Lightning L402\n"
+                "3. x402 (USDC) - works with many modern agent frameworks"
+            ),
+            "sdk": "pip install invinoveritas",
+            "guide": "https://invinoveritas.onrender.com/wallet-onboarding"
+        },
+        headers={
+            "WWW-Authenticate": f"L402 {challenge}",
+            "Retry-After": "15"
+        }
+    )
+
+    # ====================== 4. X402 FALLBACK ======================
+    # This will only be reached if somehow we get past the above (should not happen)
+    # But we keep it for safety / future flexibility
     return await require_payment(
         price=X402_CONFIG["decision_price"],
         pay_to=X402_CONFIG["pay_to"],
