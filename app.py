@@ -2711,7 +2711,7 @@ def get_all_prices():
         },
 
         "x402_topups": {
-            "minimum_recommended": X402_MIN_TOPUP_USDC,
+            "minimum_recommended": min_topup_usd,
             "suggested": ["15", "25", "50", "100"],
             "note": "Top-ups add virtual sats to your Bearer account for fine-grained usage"
         },
@@ -3202,7 +3202,7 @@ def get_price(endpoint: str):
             "endpoint": "reason",
             "sats_base": REASONING_PRICE_SATS,
             "sats_agent": int(REASONING_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_topup_min": X402_MIN_TOPUP_USDC,
+            "usdc_topup_min": min_topup_usd,
             "currency_options": ["sats", "USDC"],
             "description": "Premium strategic reasoning with style control and optional confidence scoring",
             "trading_bot_note": "Great for market analysis and strategic reasoning",
@@ -3214,7 +3214,7 @@ def get_price(endpoint: str):
             "endpoint": "decide",
             "sats_base": DECISION_PRICE_SATS,
             "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
-            "usdc_topup_min": X402_MIN_TOPUP_USDC,
+            "usdc_topup_min": min_topup_usd,
             "currency_options": ["sats", "USDC"],
             "description": "Structured decision intelligence with risk assessment and confidence scoring",
             "trading_bot_note": "Excellent for arbitrage detection, portfolio rebalancing, and risk-aware trading decisions",
@@ -3227,7 +3227,7 @@ def get_price(endpoint: str):
             "price_note": "Same as underlying tools (reason or decide)",
             "sats_reason": REASONING_PRICE_SATS,
             "sats_decide": DECISION_PRICE_SATS,
-            "usdc_topup_min": X402_MIN_TOPUP_USDC,
+            "usdc_topup_min": min_topup_usd,
             "description": "MCP endpoint supporting callTool for reason and decide",
             "payment_methods": ["Bearer (recommended)", "x402 USDC (bulk top-up)", "L402 Lightning"],
             "trading_bot_note": "Ideal for trading bots due to structured output and async support",
