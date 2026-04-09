@@ -28,7 +28,7 @@ pip install invinoveritas
 curl -X POST https://invinoveritas.onrender.com/register
 ```
 
-Pay the ~1000 sats Lightning invoice → you get an `api_key` + **5 free calls**.
+Pay the ~1000 sats Lightning invoice → you get an `api_key` + **5 complementary calls**.
 
 Then use it like this:
 
@@ -61,7 +61,7 @@ print(result.answer)
 | `reason`  | 100 sats   | 130 sats              | Strategic reasoning            |
 | `decide`  | 180 sats   | 234 sats              | Structured decisions + risk    |
 
-- New accounts get **5 free calls** after registration (~1000 sats).
+- New accounts get **5 complementary calls** after registration (~1000 sats).
 - Prices can vary slightly based on input length.
 
 **Full pricing** → [`/prices`](https://invinoveritas.onrender.com/prices)
