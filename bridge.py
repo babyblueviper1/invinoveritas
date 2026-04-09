@@ -9,7 +9,8 @@ import secrets
 from typing import Dict, Any, Optional
 import os
 from dotenv import load_dotenv
-from x402.fastapi import require_payment
+from x402 import x402ResourceServer, ResourceConfig
+from x402.http import HTTPFacilitatorClient
 
 load_dotenv()
 
