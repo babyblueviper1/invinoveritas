@@ -266,7 +266,7 @@ def create_account_db(api_key: str, label: Optional[str] = None):
 # =========================
 @app.post("/register", tags=["accounts"])
 @limiter.limit("10/minute")
-async def register(req: RegisterRequest):
+async def register(req: RegisterRequest, request: Request):
     api_key = generate_api_key()
     
     try:
@@ -316,7 +316,7 @@ async def confirm_register(req: RegisterConfirmRequest):
 # =========================
 @app.post("/topup", tags=["accounts"])
 @limiter.limit("10/minute")
-async def topup(req: TopupRequest):
+async def topup(req: TopupRequest, request: Request):
     with get_db_conn() as conn:
         c = conn.cursor()
         c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (req.api_key,))
