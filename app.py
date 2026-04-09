@@ -127,19 +127,31 @@ DENYLIST_BACKOFF_SECONDS = 7200    # 2 hours
 BROADCAST_INTERVAL_MIN = 720       # 12 min
 BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
-ANNOUNCEMENTS_FILE = Path("/tmp/invinoveritas_announcements.json")
+# ── Constants ─────────────────────────────────────────────────────────────────
+ANNOUNCEMENTS_FILE = Path("/root/invinoveritas-data/invinoveritas_announcements.json")
+
+# How many announcements to keep persistently
+MAX_ANNOUNCEMENTS_TO_KEEP = 12     # Keep last 12 announcements on disk
+MAX_RSS_ITEMS = 8                  # Show only 8 in RSS feed
+
 ANNOUNCEMENTS: list[dict] = []
 active_ws_clients: list[WebSocket] = []
 active_sse_clients: list[asyncio.Queue] = []
 
+
 def load_announcements():
-    """Load announcements from disk on startup"""
+    """Load announcements from persistent storage"""
     global ANNOUNCEMENTS
     if ANNOUNCEMENTS_FILE.exists():
         try:
             with open(ANNOUNCEMENTS_FILE, "r", encoding="utf-8") as f:
-                ANNOUNCEMENTS = json.load(f)
-            logger.info(f"✅ Loaded {len(ANNOUNCEMENTS)} announcements from disk")
+                loaded = json.load(f)
+            
+            # Enforce max limit on load too
+            ANNOUNCEMENTS = loaded[:MAX_ANNOUNCEMENTS_TO_KEEP]
+            
+            logger.info(f"✅ Successfully loaded {len(ANNOUNCEMENTS)} announcements from disk "
+                       f"(kept last {MAX_ANNOUNCEMENTS_TO_KEEP})")
         except Exception as e:
             logger.error(f"Failed to load announcements file: {e}")
             ANNOUNCEMENTS = []
@@ -147,60 +159,103 @@ def load_announcements():
         logger.info("No previous announcements file found - starting fresh")
         ANNOUNCEMENTS = []
 
+
 def save_announcements():
-    """Save announcements to disk"""
+    """Save announcements to persistent storage + enforce cleanup"""
     try:
+        # Keep only the most recent announcements
+        recent_announcements = ANNOUNCEMENTS[:MAX_ANNOUNCEMENTS_TO_KEEP]
+        
         with open(ANNOUNCEMENTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(ANNOUNCEMENTS, f, indent=2)
+            json.dump(recent_announcements, f, indent=2, ensure_ascii=False)
+        
+        logger.debug(f"💾 Saved {len(recent_announcements)} announcements to disk "
+                    f"(cleaned up old entries)")
     except Exception as e:
-        logger.error(f"Failed to save announcements: {e}")
+        logger.error(f"Failed to save announcements to disk: {e}")
 
 
-# Simple list of active WebSocket connections
-active_ws_clients: list[WebSocket] = []
+async def async_save_announcements():
+    """Async wrapper for saving announcements"""
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, save_announcements)
+    except Exception as e:
+        logger.error(f"Async save failed: {e}")
 
 
+async def auto_save_announcements():
+    """Background task to periodically save announcements"""
+    while True:
+        await asyncio.sleep(300)  # every 5 minutes
+        if ANNOUNCEMENTS:
+            await async_save_announcements()
 
 # =========================
-# L402 Payment Cleanup
+# L402 Payment Persistence (SQLite)
 # =========================
 
-# Global set for used L402 payments
-used_payments: set = set()
+# Path for persistent used payments (survives redeploys)
+USED_PAYMENTS_DB_PATH = Path("/root/invinoveritas-data/used_payments.db")
 
-# Optional: store with timestamp for smarter cleanup
-used_payments_with_time: dict[str, float] = {}
+
+def init_used_payments_db():
+    """Initialize SQLite table for used L402 payments (prevents double-spending)"""
+    conn = sqlite3.connect(USED_PAYMENTS_DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS used_payments (
+        payment_hash TEXT PRIMARY KEY,
+        used_at REAL,
+        preimage TEXT
+    )''')
+    conn.commit()
+    conn.close()
+
+
+def is_payment_used(payment_hash: str) -> bool:
+    """Check if a Lightning payment has already been used"""
+    normalized = normalize_payment_hash(payment_hash)
+    conn = sqlite3.connect(USED_PAYMENTS_DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM used_payments WHERE payment_hash = ?", (normalized,))
+    result = c.fetchone() is not None
+    conn.close()
+    return result
+
+
+def mark_payment_used(payment_hash: str, preimage: str = None):
+    """Mark a Lightning payment as used (persistent)"""
+    normalized = normalize_payment_hash(payment_hash)
+    now = time.time()
+    conn = sqlite3.connect(USED_PAYMENTS_DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR IGNORE INTO used_payments (payment_hash, used_at, preimage) VALUES (?, ?, ?)",
+        (normalized, now, preimage)
+    )
+    conn.commit()
+    conn.close()
 
 
 async def cleanup_used_payments():
-    """Remove old used payments to prevent memory leak."""
+    """Background task: Clean up old used L402 payments (keep for 48 hours)"""
     while True:
         try:
-            now = time.time()
-            cutoff = now - (3600 * 6)  # Keep payments for 6 hours (adjust as needed)
+            cutoff = time.time() - (3600 * 48)  # 48 hours
 
-            # Clean simple set version
-            # For simple set we can't know age, so we do periodic full clear
-            if len(used_payments) > 1000:   # Safety threshold
-                old_size = len(used_payments)
-                used_payments.clear()
-                logger.info(f"Cleaned all {old_size} used L402 payments (memory safety)")
+            conn = sqlite3.connect(USED_PAYMENTS_DB_PATH)
+            c = conn.cursor()
+            c.execute("DELETE FROM used_payments WHERE used_at < ?", (cutoff,))
+            removed = c.rowcount
+            conn.commit()
+            conn.close()
 
-            # Better version using timestamp dict (recommended)
-            if used_payments_with_time:
-                to_remove = [ph for ph, ts in list(used_payments_with_time.items()) if ts < cutoff]
-                for ph in to_remove:
-                    used_payments_with_time.pop(ph, None)
-                    used_payments.discard(ph)
-
-                if to_remove:
-                    logger.info(f"Cleaned {len(to_remove)} old L402 payments")
-
+            if removed > 0:
+                logger.info(f"🧹 Cleaned {removed} old used L402 payments from database")
         except Exception as e:
             logger.error(f"Error during used_payments cleanup: {e}")
 
-        await asyncio.sleep(300)  # Run every 5 minute
-
+        await asyncio.sleep(600)  # Run every 10 minutes
 
 
 # ========================= WEBSOCKET =========================
@@ -214,11 +269,13 @@ async def websocket_announcements(websocket: WebSocket):
         # === 1. Send Welcome Message ===
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas real-time announcements."
+            "message": "Connected to invinoveritas real-time announcements.",
+            "note": "New announcements will appear here in real-time."
         })
 
-        # === 2. Send Existing Announcements (Important!) ===
-        for ann in ANNOUNCEMENTS[:5]:   # Send last 5 announcements
+        # === 2. Send Existing Announcements (Important for new clients) ===
+        # Use the same limit as RSS for consistency
+        for ann in ANNOUNCEMENTS[:8]:
             try:
                 message = {
                     "type": "announcement",
@@ -243,14 +300,15 @@ async def websocket_announcements(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
     except Exception as e:
-        logger.error(f"WS error: {e}")
+        logger.error(f"WebSocket error: {e}")
     finally:
         if websocket in active_ws_clients:
             active_ws_clients.remove(websocket)
 
+
 @app.get("/ws/test", tags=["meta"])
 async def websocket_test_page():
-    """Simple test page for WebSocket"""
+    """Simple test page for WebSocket real-time updates"""
     html = """
     <!DOCTYPE html>
     <html>
@@ -258,7 +316,7 @@ async def websocket_test_page():
         <title>invinoveritas WebSocket Test</title>
         <style>
             body { font-family: system-ui; background: #0a0a0a; color: #ddd; padding: 20px; }
-            #log { background: #1f1f1f; padding: 15px; border-radius: 8px; height: 500px; overflow-y: auto; font-family: monospace; }
+            #log { background: #1f1f1f; padding: 15px; border-radius: 8px; height: 500px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
             .connected { color: #4ade80; }
             .disconnected { color: #f87171; }
         </style>
@@ -322,9 +380,10 @@ async def websocket_test_page():
     """
     return HTMLResponse(content=html)
 
+
 # ========================= BROADCAST HELPER =========================
 async def broadcast_via_websocket(title: str, description: str, link: str = None):
-    """Broadcast announcement to all active WS + SSE clients"""
+    """Broadcast announcement to all active WebSocket clients"""
     message = {
         "type": "announcement",
         "title": title,
@@ -333,34 +392,48 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
         "timestamp": int(time.time())
     }
 
-    # WebSocket clients
-    dead_ws = []
+    dead_clients = []
     for ws in active_ws_clients[:]:
         try:
             await ws.send_json(message)
         except Exception:
-            dead_ws.append(ws)
+            dead_clients.append(ws)
 
-    for d in dead_ws:
+    # Clean up dead connections
+    for d in dead_clients:
         if d in active_ws_clients:
             active_ws_clients.remove(d)
 
-    # SSE clients
-    dead_sse = []
+    logger.debug(f"Broadcast via WebSocket to {len(active_ws_clients)} clients")
+
+
+async def broadcast_via_sse(title: str, description: str, link: str = None):
+    """Broadcast announcement to all active SSE clients"""
+    message = {
+        "type": "announcement",
+        "title": title,
+        "description": description,
+        "link": link or "https://invinoveritas.onrender.com/discover",
+        "timestamp": int(time.time())
+    }
+
+    dead_queues = []
     for q in active_sse_clients[:]:
         try:
             q.put_nowait(message)
         except Exception:
-            dead_sse.append(q)
+            dead_queues.append(q)
 
-    for q in dead_sse:
+    for q in dead_queues:
         if q in active_sse_clients:
             active_sse_clients.remove(q)
+
+    logger.debug(f"Broadcast via SSE to {len(active_sse_clients)} clients")
 
 
 # ========================= ADD ANNOUNCEMENT (ASYNC) =========================
 async def add_announcement(title: str, description: str, link: str = None):
-    """Add announcement, save to disk, and broadcast"""
+    """Add announcement, enforce limit, persist to disk, and broadcast to all real-time clients"""
     if len(description) > 280:
         description = description[:277] + "..."
 
@@ -369,30 +442,42 @@ async def add_announcement(title: str, description: str, link: str = None):
         "description": description,
         "link": link or "https://invinoveritas.onrender.com/discover",
         "pubDate": datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"),
-        "guid": f"https://invinoveritas.onrender.com/announce/{int(time.time())}",
+        "guid": f"ann-{int(time.time())}",
         "timestamp": int(time.time())
     }
 
-    # Avoid duplicates
-    if any(ann.get("title") == title for ann in ANNOUNCEMENTS):
+    # Avoid duplicates by title (case-insensitive)
+    if any(ann.get("title", "").lower() == title.lower() for ann in ANNOUNCEMENTS):
         logger.debug(f"Announcement skipped (duplicate title): {title}")
         return None
 
+    # Add to front (newest first)
     ANNOUNCEMENTS.insert(0, announcement)
-    if len(ANNOUNCEMENTS) > 5:
-        ANNOUNCEMENTS.pop()
 
-    save_announcements()
-    logger.info(f"📢 Announcement added: {title}")
+    # Automatic cleanup - enforce max limit
+    if len(ANNOUNCEMENTS) > MAX_ANNOUNCEMENTS_TO_KEEP:
+        removed = len(ANNOUNCEMENTS) - MAX_ANNOUNCEMENTS_TO_KEEP
+        ANNOUNCEMENTS[:] = ANNOUNCEMENTS[:MAX_ANNOUNCEMENTS_TO_KEEP]
+        logger.debug(f"Cleaned up {removed} old announcements (keeping last {MAX_ANNOUNCEMENTS_TO_KEEP})")
 
-    # Broadcast (now properly awaited)
-    await broadcast_via_websocket(title, description, link)
+    # Persist to disk (async)
+    await async_save_announcements()
+
+    logger.info(f"📢 New announcement added and saved: {title}")
+
+    # Broadcast to all real-time clients (WebSocket + SSE)
+    try:
+        await broadcast_via_websocket(title, description, link)
+        await broadcast_via_sse(title, description, link)
+    except Exception as e:
+        logger.error(f"Failed to broadcast announcement: {e}")
 
     return announcement
     
-# Store of active SSE clients
-active_sse_clients: list[asyncio.Queue] = []
 
+# =========================
+# SSE Real-time Updates
+# =========================
 
 @app.get("/events/test", tags=["meta"])
 async def sse_test_page():
@@ -404,8 +489,9 @@ async def sse_test_page():
         <title>invinoveritas SSE Test</title>
         <style>
             body { font-family: system-ui; background: #0a0a0a; color: #ddd; padding: 20px; }
-            #log { background: #1f1f1f; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; font-family: monospace; }
+            #log { background: #1f1f1f; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
             .connected { color: #4ade80; }
+            .error { color: #f87171; }
         </style>
     </head>
     <body>
@@ -419,20 +505,24 @@ async def sse_test_page():
             const eventSource = new EventSource('/events');
 
             eventSource.onopen = () => {
-                status.textContent = "Connected (waiting for announcements)";
+                status.textContent = "Connected ✓";
                 status.className = "connected";
                 log.innerHTML += "<p>✅ SSE connection opened</p>";
             };
 
             eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                log.innerHTML += `<p><strong>${data.title}</strong><br>${data.description}</p>`;
-                log.scrollTop = log.scrollHeight;
+                try {
+                    const data = JSON.parse(event.data);
+                    log.innerHTML += `<p><strong>${data.title || 'Update'}</strong><br>${data.description || ''}</p>`;
+                    log.scrollTop = log.scrollHeight;
+                } catch (e) {
+                    log.innerHTML += `<p>Received: ${event.data}</p>`;
+                }
             };
 
             eventSource.onerror = () => {
                 status.textContent = "Connection error - retrying...";
-                status.style.color = "#f87171";
+                status.className = "error";
             };
         </script>
     </body>
@@ -440,14 +530,15 @@ async def sse_test_page():
     """
     return HTMLResponse(content=html)
 
+
 async def sse_event_generator():
     """SSE generator that sends historical announcements + live updates"""
     queue: asyncio.Queue = asyncio.Queue(maxsize=20)
     active_sse_clients.append(queue)
     
     try:
-        # === 1. Send existing announcements to new client (very important) ===
-        for ann in ANNOUNCEMENTS[:5]:   # Send last 5 announcements
+        # Send recent historical announcements to new client (aligned with RSS)
+        for ann in ANNOUNCEMENTS[:MAX_RSS_ITEMS]:
             try:
                 data = {
                     "type": "announcement",
@@ -458,9 +549,9 @@ async def sse_event_generator():
                 }
                 yield f"data: {json.dumps(data)}\n\n"
             except Exception as e:
-                logger.warning(f"Failed to send historical announcement: {e}")
+                logger.warning(f"Failed to send historical announcement via SSE: {e}")
 
-        # === 2. Keep connection alive and send new announcements ===
+        # Keep connection alive and send new announcements
         while True:
             try:
                 announcement = await asyncio.wait_for(queue.get(), timeout=25.0)
@@ -475,7 +566,7 @@ async def sse_event_generator():
                 yield f"data: {json.dumps(data)}\n\n"
                 
             except asyncio.TimeoutError:
-                yield ": keep-alive\n\n"   # Prevents connection timeout
+                yield ": keep-alive\n\n"   # Prevents client timeout
             except Exception as e:
                 logger.error(f"SSE generator error: {e}")
                 break
@@ -486,15 +577,17 @@ async def sse_event_generator():
         if queue in active_sse_clients:
             active_sse_clients.remove(queue)
 
+
 @app.get("/events", tags=["meta"])
 @app.get("/sse", tags=["meta"])
 @app.head("/events", tags=["meta"])
 @app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time announcements from Nostr broadcasts"""
+    """SSE endpoint for real-time announcements"""
     
     if request.method == "HEAD":
         return Response(status_code=200, headers={"Content-Type": "text/event-stream"})
+    
     return StreamingResponse(
         sse_event_generator(),
         media_type="text/event-stream",
@@ -504,9 +597,15 @@ async def sse_discovery_hub(request: Request):
             "Access-Control-Allow-Origin": "*",
         }
     )
-@app.get("/debug/sse-clients")
+
+
+@app.get("/debug/sse-clients", tags=["meta"])
 async def debug_sse():
-    return {"active_sse_queues": len(active_sse_clients), "active_ws": len(active_ws_clients)}
+    """Debug endpoint to see active real-time clients"""
+    return {
+        "active_sse_queues": len(active_sse_clients),
+        "active_ws_clients": len(active_ws_clients)
+    }
 
 # ── Relay health tracker ──────────────────────────────────────────────────────
 @dataclass
@@ -1024,7 +1123,6 @@ async def debug_announcements():
 # ── Broadcast orchestrator ────────────────────────────────────────────────────
 _broadcast_lock = asyncio.Lock()
  
- 
 async def broadcast_once() -> dict:
     """
     Sign events once, then fan out to all healthy relays concurrently.
@@ -1136,15 +1234,28 @@ async def relay_health():
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 invinoveritas broadcaster started (v2)")
-    
-    # Load saved announcements from disk so RSS shows previous entries after deploy
+
+    # 1. Ensure persistent storage directory exists
+    try:
+        ANNOUNCEMENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"📁 Persistent storage directory ready: {ANNOUNCEMENTS_FILE.parent}")
+    except Exception as e:
+        logger.error(f"Failed to create persistent directory: {e}")
+
+    # 2. Initialize persistent databases
+    init_used_payments_db()          # For L402 replay protection
+    # init_db()                      # Uncomment if you have accounts DB init here too
+
+    # 3. Load announcements from disk
     load_announcements()
     logger.info(f"📋 Loaded {len(ANNOUNCEMENTS)} announcements from persistent storage")
-    
-    # Start the main broadcast loop
+
+    # 4. Start background tasks
     asyncio.create_task(broadcast_loop())
     asyncio.create_task(cleanup_used_payments())
-    logger.info("Started background task: used_payments cleanup")
+    asyncio.create_task(auto_save_announcements())
+
+    logger.info("✅ All background tasks started: broadcast_loop, cleanup_used_payments, auto_save_announcements")
     
 # =========================
 # Well-Known Discovery Endpoints (Polite & Standards-Compliant)
@@ -1698,12 +1809,12 @@ async def reason(request: Request, data: ReasoningRequest):
         await verify_credit(api_key, "reason", price_sats)
         return await reason_business_logic(data)
 
-    # 2. x402 USDC (Used for top-up)
+    # 2. x402 USDC (Used for top-up / bulk funding)
     if await check_x402_payment(request):
         logger.info(f"x402 USDC top-up flow detected for /reason")
         return await reason_business_logic(data)
 
-    # 3. L402 Lightning
+    # 3. L402 Lightning (True micro-payments)
     if auth and auth.startswith("L402 "):
         try:
             _, creds = auth.split(" ", 1)
@@ -1711,14 +1822,15 @@ async def reason(request: Request, data: ReasoningRequest):
         except Exception:
             raise HTTPException(401, "Invalid L402 format")
 
-        if payment_hash in used_payments:
+        if is_payment_used(payment_hash):
             raise HTTPException(403, "Payment already used")
 
         if not await verify_l402_payment(payment_hash, preimage):
             raise HTTPException(403, "Invalid payment")
 
-        used_payments.add(payment_hash)
-        used_payments_with_time[payment_hash] = time.time()
+        # Mark as used persistently
+        mark_payment_used(payment_hash, preimage)
+
         return await reason_business_logic(data)
 
     # 4. No valid payment → x402 challenge (encouraging top-up)
@@ -1759,17 +1871,18 @@ async def decision(request: Request, data: DecisionRequest):
         except Exception:
             raise HTTPException(401, "Invalid L402 format")
 
-        if payment_hash in used_payments:
+        if is_payment_used(payment_hash):
             raise HTTPException(403, "Payment already used")
 
         if not await verify_l402_payment(payment_hash, preimage):
             raise HTTPException(403, "Invalid payment")
 
-        used_payments.add(payment_hash)
-        used_payments_with_time[payment_hash] = time.time()
+        # Mark as used persistently
+        mark_payment_used(payment_hash, preimage)
+
         return await decision_business_logic(data)
 
-    # 4. No payment → x402 challenge
+    # 4. No payment → x402 challenge (encouraging top-up)
     await return_x402_challenge(
         request=request,
         endpoint="decision",
@@ -1964,6 +2077,7 @@ async def mcp_handler(request: Request):
         tool_name = body.get("params", {}).get("name")
         args = body.get("params", {}).get("arguments", {})
 
+        # ------------------- REASON TOOL -------------------
         if tool_name == "reason":
             question = args.get("question", "")
             if not question:
@@ -2005,7 +2119,7 @@ async def mcp_handler(request: Request):
                     response_content["confidence"] = "N/A"
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": response_content}
 
-            # 2. x402 USDC (used for top-up)
+            # 2. x402 USDC (top-up)
             if has_x402:
                 logger.info(f"MCP x402 top-up detected for reason tool")
                 result = premium_reasoning(final_question)
@@ -2022,14 +2136,14 @@ async def mcp_handler(request: Request):
                 except Exception:
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Invalid L402 format"}}
 
-                if payment_hash in used_payments:
+                if is_payment_used(payment_hash):
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
 
                 if not await verify_l402_payment(payment_hash, preimage):
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid payment"}}
 
-                used_payments.add(payment_hash)
-                used_payments_with_time[payment_hash] = time.time()
+                # Mark as used (persistent)
+                mark_payment_used(payment_hash, preimage)
 
                 result = premium_reasoning(final_question)
                 response_content = {"content": [{"type": "text", "text": result}]}
@@ -2037,7 +2151,7 @@ async def mcp_handler(request: Request):
                     response_content["confidence"] = "N/A"
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": response_content}
 
-            # No valid payment → return x402 challenge (for top-up flow)
+            # 4. No valid payment → return x402 challenge
             await return_x402_challenge(
                 request=request,
                 endpoint="reason",
@@ -2058,7 +2172,7 @@ async def mcp_handler(request: Request):
             text = f"{goal} {context} {question}"
             price = calculate_price("decision", text, caller_type)
 
-            # 1. Bearer Token
+            # 1. Bearer Token (Primary & Recommended)
             if auth and auth.startswith("Bearer "):
                 api_key = auth.split(" ", 1)[1].strip()
                 try:
@@ -2095,14 +2209,14 @@ async def mcp_handler(request: Request):
                 except Exception:
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Invalid L402 format"}}
 
-                if payment_hash in used_payments:
+                if is_payment_used(payment_hash):
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
 
                 if not await verify_l402_payment(payment_hash, preimage):
                     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid payment"}}
 
-                used_payments.add(payment_hash)
-                used_payments_with_time[payment_hash] = time.time()
+                # Mark as used (persistent)
+                mark_payment_used(payment_hash, preimage)
 
                 result = structured_decision(goal, context, question)
                 response_content = {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
@@ -2110,7 +2224,7 @@ async def mcp_handler(request: Request):
                     response_content["confidence"] = "N/A"
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": response_content}
 
-            # No payment → x402 challenge (top-up)
+            # 4. No valid payment → return x402 challenge
             await return_x402_challenge(
                 request=request,
                 endpoint="decide",
@@ -3348,28 +3462,53 @@ async def rss_feed(request: Request):
             }
         )
 
+    # Use only the most recent announcements for RSS (aligned with MAX_RSS_ITEMS)
+    rss_items = ANNOUNCEMENTS[:8]   # Show max 8 items in feed
+
     # Build items
     items = ""
-    for ann in ANNOUNCEMENTS[:5]:
+    for ann in rss_items:
         items += f"""
         <item>
-            <title>{ann['title']}</title>
-            <link>{ann['link']}</link>
-            <description>{ann['description']}
+            <title>{ann.get('title', 'Announcement')}</title>
+            <link>{ann.get('link', 'https://invinoveritas.onrender.com/discover')}</link>
+            <description>{ann.get('description', '')}
 
 Payment Options:
-• Bearer Token (recommended for agents)
-• x402 USDC on Base (bulk top-ups)
+• Bearer Token (recommended for agents and trading bots)
+• x402 USDC on Base (bulk top-ups, min $15)
 • L402 Lightning (pay-per-call)
 
 Real-time updates:
 • SSE: https://invinoveritas.onrender.com/events
 • WebSocket: wss://invinoveritas.onrender.com/ws</description>
-            <pubDate>{ann['pubDate']}</pubDate>
-            <guid>{ann['guid']}</guid>
+            <pubDate>{ann.get('pubDate', '')}</pubDate>
+            <guid>{ann.get('guid', '')}</guid>
             <category>AI</category>
             <category>MCP</category>
             <category>x402</category>
+        </item>"""
+
+    # Fallback if no announcements yet
+    if not items:
+        items = f"""
+        <item>
+            <title>Welcome to invinoveritas</title>
+            <link>https://invinoveritas.onrender.com/discover</link>
+            <description>invinoveritas provides high-quality AI reasoning and decision intelligence with three flexible payment methods:
+
+• Bearer Token — easiest for autonomous agents (5 free calls on registration)
+• x402 USDC on Base — bulk top-ups (minimum $15 recommended)
+• L402 Lightning — classic pay-per-call
+
+Real-time channels:
+• SSE: https://invinoveritas.onrender.com/events
+• WebSocket: wss://invinoveritas.onrender.com/ws
+• RSS: https://invinoveritas.onrender.com/rss
+
+Trading bots are fully supported with low-latency async decisions, arbitrage detection, and risk-aware reasoning.</description>
+            <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
+            <guid>welcome-{int(time.time())}</guid>
         </item>"""
 
     rss_content = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -3388,25 +3527,7 @@ Real-time updates:
             <link>https://invinoveritas.onrender.com</link>
         </image>
 
-        {items if items else f"""
-        <item>
-            <title>Welcome to invinoveritas</title>
-            <link>https://invinoveritas.onrender.com/discover</link>
-            <description>invinoveritas provides high-quality AI reasoning and decision intelligence with three flexible payment methods:
-
-• Bearer Token — easiest for autonomous agents
-• x402 USDC on Base — bulk top-ups (min $15)
-• L402 Lightning — classic pay-per-call
-
-Real-time channels:
-• SSE: https://invinoveritas.onrender.com/events
-• WebSocket: wss://invinoveritas.onrender.com/ws
-• RSS: https://invinoveritas.onrender.com/rss
-
-Trading bots are fully supported with low-latency async decisions.</description>
-            <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
-            <guid>welcome-{int(time.time())}</guid>
-        </item>"""}
+        {items}
     </channel>
 </rss>"""
 
