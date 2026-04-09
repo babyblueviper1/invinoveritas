@@ -234,7 +234,7 @@ async def websocket_test_page():
 
 # ========================= BROADCAST HELPER =========================
 async def broadcast_via_websocket(title: str, description: str, link: str = None):
-    """Broadcast to ALL active WebSocket + SSE clients"""
+    """Broadcast announcement to all active WS + SSE clients"""
     message = {
         "type": "announcement",
         "title": title,
@@ -259,7 +259,7 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
     dead_sse = []
     for q in active_sse_clients[:]:
         try:
-            q.put_nowait(message)          # Send same format as WS
+            q.put_nowait(message)
         except Exception:
             dead_sse.append(q)
 
@@ -268,8 +268,8 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
             active_sse_clients.remove(q)
 
 
-# ========================= ADD ANNOUNCEMENT =========================
-def add_announcement(title: str, description: str, link: str = None):
+# ========================= ADD ANNOUNCEMENT (ASYNC) =========================
+async def add_announcement(title: str, description: str, link: str = None):
     """Add announcement, save to disk, and broadcast"""
     if len(description) > 280:
         description = description[:277] + "..."
@@ -295,23 +295,8 @@ def add_announcement(title: str, description: str, link: str = None):
     save_announcements()
     logger.info(f"📢 Announcement added: {title}")
 
-    # === BROADCAST TO EVERYONE ===
-    # Use the async function (we'll call it properly from async context)
-    try:
-        # Since add_announcement is sync, we use create_task
-        asyncio.create_task(
-            broadcast_via_websocket(title, description, link)
-        )
-    except Exception as e:
-        logger.error(f"Failed to broadcast announcement: {e}")
-
-    # Also push full announcement to SSE (for backward compatibility with old clients)
-    for queue in list(active_sse_clients):
-        try:
-            queue.put_nowait(announcement)
-        except Exception:
-            if queue in active_sse_clients:
-                active_sse_clients.remove(queue)
+    # Broadcast (now properly awaited)
+    await broadcast_via_websocket(title, description, link)
 
     return announcement
     
@@ -807,7 +792,7 @@ async def _publish_to_relay(
                             description=description,
                             link=link
                         )
-                        add_announcement(title=title, description=description, link=link)
+                        await add_announcement(title=title, description=description, link=link)
                     
                     published = True
                     break
