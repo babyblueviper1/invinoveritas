@@ -136,6 +136,81 @@ async def websocket_announcements(websocket: WebSocket):
         if websocket in active_ws_clients:
             active_ws_clients.remove(websocket)
 
+
+@app.get("/ws/test", tags=["meta"])
+async def websocket_test_page():
+    """Simple test page for WebSocket"""
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>invinoveritas WebSocket Test</title>
+        <style>
+            body { font-family: system-ui; background: #0a0a0a; color: #ddd; padding: 20px; }
+            #log { background: #1f1f1f; padding: 15px; border-radius: 8px; height: 500px; overflow-y: auto; font-family: monospace; }
+            .connected { color: #4ade80; }
+            .disconnected { color: #f87171; }
+        </style>
+    </head>
+    <body>
+        <h1>⚡ invinoveritas WebSocket Test</h1>
+        <p>Status: <span id="status">Connecting...</span></p>
+        <button onclick="sendPing()">Send Ping</button>
+        <div id="log"></div>
+
+        <script>
+            const log = document.getElementById('log');
+            const status = document.getElementById('status');
+            let ws;
+
+            function connect() {
+                ws = new WebSocket("wss://invinoveritas.onrender.com/ws");
+
+                ws.onopen = () => {
+                    status.textContent = "✅ Connected";
+                    status.className = "connected";
+                    log.innerHTML += "<p>✅ WebSocket connected</p>";
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    log.innerHTML += `<p><strong>${data.type}</strong>: ${data.title || data.message || JSON.stringify(data)}</p>`;
+                    log.scrollTop = log.scrollHeight;
+                };
+
+                ws.onerror = () => {
+                    status.textContent = "❌ Connection Error";
+                    status.className = "disconnected";
+                };
+
+                ws.onclose = () => {
+                    status.textContent = "🔴 Disconnected";
+                    status.className = "disconnected";
+                };
+            }
+
+            function sendPing() {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send("ping");
+                    log.innerHTML += "<p>→ Ping sent</p>";
+                }
+            }
+
+            // Auto connect
+            connect();
+
+            // Auto ping every 25 seconds
+            setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send("ping");
+                }
+            }, 25000);
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
 # ========================= BROADCAST HELPER =========================
 async def broadcast_via_websocket(title: str, description: str, link: str = None):
     """Broadcast to ALL active WebSocket + SSE clients"""
