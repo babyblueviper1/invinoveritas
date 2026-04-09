@@ -35,7 +35,15 @@ import websockets
 from dataclasses import dataclass
 from collections import defaultdict
 from dotenv import load_dotenv
-from x402.fastapi import require_payment
+# =========================
+# x402 imports
+# =========================
+try:
+    from x402 import x402ResourceServer, ResourceConfig
+    from x402.http import HTTPFacilitatorClient
+    X402_AVAILABLE = True
+except ImportError:
+    X402_AVAILABLE = False
 
 # =========================
 # FastAPI App
