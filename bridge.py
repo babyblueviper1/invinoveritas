@@ -610,7 +610,7 @@ async def get_balance(api_key: str):
     }
 
 
- =========================
+
 # Verify / Debit Endpoint (Called by main app on Render)
 # =========================
 
