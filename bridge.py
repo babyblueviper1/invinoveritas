@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 import subprocess
 import json
@@ -7,11 +7,25 @@ import time
 import sqlite3
 import secrets
 from typing import Dict, Any, Optional
+import os
+from dotenv import load_dotenv
+from x402.fastapi import require_payment
+
+load_dotenv()
 
 app = FastAPI(title="invinoveritas LND + Accounts Bridge")
 
 DB_PATH = "invinoveritas_accounts.db"
 
+# ========================= X402 CONFIG =========================
+X402_CONFIG = {
+    "pay_to": os.getenv("X402_PAY_TO"),           # ← Set in .env
+    "network": "base-sepolia",                    # Change to "base" for mainnet
+    "currency": "USDC",
+    "register_price": "0.50",                     # $0.50 USDC for account creation
+    "topup_price_multiplier": 1.0,                # Can adjust later
+    "description": "invinoveritas Account / Topup",
+}
 
 # =========================
 # Models
@@ -20,31 +34,25 @@ class InvoiceRequest(BaseModel):
     amount: int = Field(..., gt=0, description="Amount in satoshis")
     memo: str = Field("invinoveritas", max_length=100)
 
-
 class VerifyPreimageRequest(BaseModel):
     payment_hash: str
     preimage: str
-
 
 # Account system models
 class RegisterRequest(BaseModel):
     label: Optional[str] = Field(None, max_length=100)
 
-
 class TopupRequest(BaseModel):
     api_key: str
     amount_sats: int = Field(..., gt=0)
-
 
 class SettleTopupRequest(BaseModel):
     api_key: str
     payment_hash: str
     preimage: str
 
-
 class BalanceRequest(BaseModel):
     api_key: str
-
 
 class VerifyRequest(BaseModel):
     api_key: str
@@ -133,11 +141,41 @@ def check_payment_logic(payment_hash: str) -> bool:
         return False
 
 
+
 # =========================
-# Accounts Endpoints
+# Business Logic Helpers
+# =========================
+async def create_account(api_key: str, label: Optional[str] = None):
+    now = int(time.time())
+    conn = get_db()
+    try:
+        c = conn.cursor()
+        c.execute("""INSERT INTO accounts
+                     (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
+                     VALUES (?, 0, 5, ?, ?, ?)""",
+                  (api_key, now, now, label))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# =========================
+# Accounts Endpoints with x402 support
 # =========================
 @app.post("/register")
-async def register(req: RegisterRequest):
+async def register(req: RegisterRequest, request: Request):
+    # Try x402 first if no Lightning preference
+    if not request.headers.get("Authorization", "").startswith("L402"):
+        return await require_payment(
+            price=X402_CONFIG["register_price"],
+            pay_to=X402_CONFIG["pay_to"],
+            network=X402_CONFIG["network"],
+            currency=X402_CONFIG["currency"],
+            description="invinoveritas Account Creation ($0.50 USDC)",
+            metadata={"action": "register", "label": req.label}
+        )(request, lambda r: register_logic(req))
+
+    # Lightning flow (original)
     try:
         data = safe_lncli([
             "addinvoice",
@@ -149,16 +187,24 @@ async def register(req: RegisterRequest):
             "payment_hash": data.get("r_hash"),
             "amount_sats": 1000,
             "message": "Pay this 1000 sat invoice to create your API key",
-            "welcome_bonus": {
-                "free_calls": 5,
-                "description": "You will receive 5 free tool calls immediately after payment.",
-                "usage": "These can be used on /reason, /decision, or through the MCP endpoint.",
-                "motivation": "Great way to test the quality before topping up your balance."
-            },
-            "next_step": "After paying the invoice, call POST /register/confirm with the payment_hash and preimage to activate your account."
+            "welcome_bonus": {"free_calls": 5},
+            "next_step": "After paying, call POST /register/confirm"
         }
     except Exception as e:
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
+
+
+async def register_logic(req: RegisterRequest):
+    """Called after successful x402 payment"""
+    api_key = f"ivv_{secrets.token_urlsafe(24)}"
+    await create_account(api_key, req.label)
+    return {
+        "api_key": api_key,
+        "message": "Account created successfully via x402!",
+        "welcome_bonus": "You now have 5 free tool calls.",
+        "free_calls_remaining": 5,
+        "payment_method": "x402 (USDC)"
+    }
 
 
 @app.post("/register/confirm")
@@ -192,7 +238,18 @@ async def confirm_register(req: SettleTopupRequest):
     }
 
 @app.post("/topup", tags=["credit"])
-async def topup(req: TopupRequest):
+async def topup(req: TopupRequest, request: Request):
+    # x402 fallback
+    if not request.headers.get("Authorization", "").startswith("L402"):
+        # For simplicity we charge fixed $1 USDC per topup (you can improve later)
+        return await require_payment(
+            price="1.00",
+            pay_to=X402_CONFIG["pay_to"],
+            network=X402_CONFIG["network"],
+            currency=X402_CONFIG["currency"],
+            description=f"invinoveritas Topup for {req.api_key[:8]}...",
+            metadata={"action": "topup", "api_key": req.api_key, "amount_sats": req.amount_sats}
+        )(request, lambda r: topup_logic(req))
     if not lnd_ready():
         raise HTTPException(503, "Lightning node syncing. Please try again shortly.")
 
@@ -226,7 +283,21 @@ async def topup(req: TopupRequest):
         "amount_sats": req.amount_sats,
         "message": "Pay this invoice to top up your account"
     }
-
+async def topup_logic(req: TopupRequest):
+    """Called after successful x402 topup"""
+    # For now we credit a fixed amount. You can make it dynamic later.
+    conn = get_db()
+    try:
+        c = conn.cursor()
+        c.execute("""UPDATE accounts 
+                     SET balance_sats = balance_sats + ?,
+                         last_used = ?
+                     WHERE api_key = ?""",
+                  (req.amount_sats, int(time.time()), req.api_key))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"success": True, "credited_sats": req.amount_sats, "payment_method": "x402"}
 
 @app.post("/settle-topup", tags=["credit"])
 async def settle_topup(req: SettleTopupRequest):
@@ -408,13 +479,13 @@ async def verify_preimage(req: VerifyPreimageRequest):
 async def health():
     return {
         "status": "ok",
-        "service": "lnd-bridge + accounts",
-        "lnd_connected": True,
-        "accounts_db": "ready"
+        "service": "lnd-bridge + accounts + x402",
+        "supported_payments": ["Lightning", "x402 (USDC)"],
+        "lnd_connected": lnd_ready()
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    init_db()  # Initialize DB on startup
+    init_db()
     uvicorn.run(app, host="0.0.0.0", port=8081)
