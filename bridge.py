@@ -6,6 +6,7 @@ import sqlite3
 import secrets
 import logging
 import base64
+import requests
 import os
 from typing import Dict, Any, Optional
 from contextlib import contextmanager
@@ -57,7 +58,7 @@ app.add_middleware(
 DB_PATH = os.getenv("DB_PATH", "/root/invinoveritas_accounts.db")
 
 # =========================
-# Configuration (from .env)
+# x402 Top-up Configuration + Live Price
 # =========================
 X402_PAY_TO          = os.getenv("X402_PAY_TO", "").strip()
 X402_NETWORK         = os.getenv("X402_NETWORK", "base")
@@ -66,10 +67,204 @@ USDC_CONTRACT        = os.getenv("USDC_CONTRACT", "0x833589fCD6eDb6E08f4c7C32D4f
 FREE_CALLS_ON_REGISTER = int(os.getenv("FREE_CALLS_ON_REGISTER", "5"))
 LIGHTNING_REGISTER_SATS = int(os.getenv("LIGHTNING_REGISTER_SATS", "1000"))
 
-# x402 Top-up Settings
 X402_MIN_TOPUP_USDC = float(os.getenv("X402_MIN_TOPUP_USDC", "15.00"))
-SATS_PER_USDC       = int(os.getenv("SATS_PER_USDC", "1000"))   # 1 USDC = 1000 virtual sats
 
+# Live price cache
+last_price_fetch_time = 0.0
+cached_sats_per_usdc = 1000
+
+
+def save_price_to_history(btc_price_usd: float, sats_per_usdc: int):
+    """Save price + automatic cleanup (keep last 7 days)"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+
+        now = time.time()
+
+        c.execute(
+            "INSERT INTO price_history (timestamp, btc_price_usd, sats_per_usdc) VALUES (?, ?, ?)",
+            (now, btc_price_usd, sats_per_usdc)
+        )
+
+        # Cleanup old records (> 7 days)
+        cutoff = now - (7 * 86400)
+        c.execute("DELETE FROM price_history WHERE timestamp < ?", (cutoff,))
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Failed to save price to history: {e}")
+
+
+def get_fallback_sats_per_usdc() -> int:
+    """Get most recent saved price as fallback"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT sats_per_usdc FROM price_history ORDER BY timestamp DESC LIMIT 1")
+        row = c.fetchone()
+        conn.close()
+        if row and row[0]:
+            return int(row[0])
+    except Exception:
+        pass
+    return 1000
+
+
+def get_live_sats_per_usdc() -> int:
+    """Fetch current sats per USDC from Mempool with DB fallback"""
+    global last_price_fetch_time, cached_sats_per_usdc
+
+    now = time.time()
+    if now - last_price_fetch_time < 600:   # 10 minute cache
+        return cached_sats_per_usdc
+
+    try:
+        r = requests.get("https://mempool.space/api/v1/prices", timeout=6)
+        r.raise_for_status()
+        data = r.json()
+        btc_price_usd = float(data.get("USD", 0))
+
+        if btc_price_usd > 0:
+            sats_per_usdc = int(100_000_000 / btc_price_usd)
+            sats_per_usdc = max(600, min(2000, sats_per_usdc))   # safety bounds
+
+            cached_sats_per_usdc = sats_per_usdc
+            last_price_fetch_time = now
+
+            save_price_to_history(btc_price_usd, sats_per_usdc)
+
+            logger.info(f"Live BTC price from mempool: ${btc_price_usd:,.0f} → {sats_per_usdc} sats per USDC")
+            return sats_per_usdc
+
+    except Exception as e:
+        logger.warning(f"Mempool price fetch failed: {e}")
+
+    # Fallback
+    fallback = get_fallback_sats_per_usdc()
+    logger.info(f"Using fallback SATS_PER_USDC: {fallback}")
+    return fallback
+
+
+# =========================
+# Database Initialization + Cleanup
+# =========================
+
+def init_db():
+    """Initialize all tables in one database file"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # Main accounts table
+    c.execute('''CREATE TABLE IF NOT EXISTS accounts (
+        api_key TEXT PRIMARY KEY,
+        balance_sats INTEGER DEFAULT 0,
+        free_calls_remaining INTEGER DEFAULT 5,
+        created_at INTEGER,
+        last_used INTEGER,
+        label TEXT,
+        total_calls INTEGER DEFAULT 0,
+        total_spent_sats INTEGER DEFAULT 0
+    )''')
+
+    # Pending top-ups
+    c.execute('''CREATE TABLE IF NOT EXISTS pending_topups (
+        payment_hash TEXT PRIMARY KEY,
+        api_key TEXT,
+        amount_sats INTEGER,
+        created_at INTEGER
+    )''')
+
+    # Used L402 payments (replay protection)
+    c.execute('''CREATE TABLE IF NOT EXISTS used_payment_hashes (
+        payment_hash TEXT PRIMARY KEY,
+        used_at INTEGER
+    )''')
+
+    # Price history for live SATS_PER_USDC fallback
+    c.execute('''CREATE TABLE IF NOT EXISTS price_history (
+        id INTEGER PRIMARY KEY,
+        timestamp REAL,
+        btc_price_usd REAL,
+        sats_per_usdc INTEGER,
+        source TEXT DEFAULT "mempool"
+    )''')
+
+    # Performance indexes
+    c.execute("CREATE INDEX IF NOT EXISTS idx_pending_api ON pending_topups(api_key)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_accounts_last ON accounts(last_used)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_used_hashes ON used_payment_hashes(used_at)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_price_time ON price_history(timestamp)")
+
+    conn.commit()
+    conn.close()
+    logger.info(f"Database initialized at {DB_PATH}")
+
+
+@contextmanager
+def get_db_conn():
+    """Context manager for safe DB connections"""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def cleanup_old_data():
+    """Comprehensive background cleanup - runs every 6 hours"""
+    while True:
+        try:
+            now = int(time.time())
+
+            with get_db_conn() as conn:
+                c = conn.cursor()
+
+                # 1. Clean old pending top-ups (24h)
+                c.execute("DELETE FROM pending_topups WHERE created_at < ?", 
+                         (now - 86400,))
+                pending_cleaned = c.rowcount
+
+                # 2. Clean old used payments (30 days)
+                c.execute("DELETE FROM used_payment_hashes WHERE used_at < ?", 
+                         (now - 30 * 86400,))
+                hashes_cleaned = c.rowcount
+
+                # 3. Clean old price history (7 days)
+                c.execute("DELETE FROM price_history WHERE timestamp < ?", 
+                         (now - 7 * 86400,))
+                price_cleaned = c.rowcount
+
+                conn.commit()
+
+            if pending_cleaned or hashes_cleaned or price_cleaned:
+                logger.info(f"🧹 Cleanup completed — pending: {pending_cleaned}, "
+                           f"used_hashes: {hashes_cleaned}, price_history: {price_cleaned}")
+
+        except Exception as e:
+            logger.error(f"Error during cleanup_old_data: {e}")
+
+        await asyncio.sleep(6 * 3600)   # Every 6 hours
+
+
+# =========================
+# Startup (bridge.py on VPS)
+# =========================
+@app.on_event("startup")
+async def startup_event():
+    """Initialize bridge services"""
+    
+    # Initialize all tables (accounts, pending_topups, used_payments, price_history)
+    init_db()
+
+    # Start background cleanup task
+    asyncio.create_task(cleanup_old_data())
+
+    logger.info(f"🚀 invinoveritas LND + Accounts + x402 Bridge started successfully on VPS")
+    logger.info("Background task active: cleanup_old_data (every 6 hours)")
+    
 # =========================
 # Pydantic Models
 # =========================
@@ -105,58 +300,6 @@ class VerifyRequest(BaseModel):
     tool: str = Field(..., pattern="^(reason|decide)$")
     price_sats: int = Field(..., gt=0)
 
-# =========================
-# Database
-# =========================
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS accounts (
-        api_key TEXT PRIMARY KEY,
-        balance_sats INTEGER DEFAULT 0,
-        free_calls_remaining INTEGER DEFAULT 5,
-        created_at INTEGER,
-        last_used INTEGER,
-        label TEXT,
-        total_calls INTEGER DEFAULT 0,
-        total_spent_sats INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS pending_topups (
-        payment_hash TEXT PRIMARY KEY,
-        api_key TEXT,
-        amount_sats INTEGER,
-        created_at INTEGER
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS used_payment_hashes (
-        payment_hash TEXT PRIMARY KEY,
-        used_at INTEGER
-    )''')
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_pending_api ON pending_topups(api_key)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_accounts_last ON accounts(last_used)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_used_hashes ON used_payment_hashes(used_at)")
-
-    conn.commit()
-    conn.close()
-    logger.info("Database initialized")
-
-@contextmanager
-def get_db_conn():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
-
-def cleanup_old_hashes():
-    with get_db_conn() as conn:
-        thirty_days = int(time.time()) - 30 * 86400
-        c = conn.cursor()
-        c.execute("DELETE FROM used_payment_hashes WHERE used_at < ?", (thirty_days,))
-        if c.rowcount:
-            logger.info(f"Cleaned {c.rowcount} old payment hashes")
 
 # =========================
 # LND Helpers
@@ -256,15 +399,6 @@ def create_account_db(api_key: str, label: Optional[str] = None):
         )
 
 # =========================
-# Startup
-# =========================
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    cleanup_old_hashes()
-    logger.info("invinoveritas LND + Accounts + x402 service started successfully")
-
-# =========================
 # Registration Endpoints
 # =========================
 
@@ -356,7 +490,8 @@ async def topup(req: TopupRequest, request: Request):
             if usdc_amount < X402_MIN_TOPUP_USDC:
                 raise HTTPException(400, f"Minimum x402 top-up is ${X402_MIN_TOPUP_USDC} USDC")
 
-            sats_to_credit = int(usdc_amount * SATS_PER_USDC)
+            # ←←← THIS IS THE KEY CHANGE ←←←
+            sats_to_credit = int(usdc_amount * get_live_sats_per_usdc())
 
             with get_db_conn() as conn:
                 c = conn.cursor()
@@ -370,13 +505,16 @@ async def topup(req: TopupRequest, request: Request):
                 c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
                 new_balance = c.fetchone()[0]
 
-            logger.info(f"x402 top-up: ${usdc_amount} USDC → {sats_to_credit} virtual sats")
+            logger.info(f"x402 top-up: ${usdc_amount} USDC → {sats_to_credit} virtual sats "
+                       f"(using live rate from mempool)")
+            
             return {
                 "success": True,
                 "credited_usdc": usdc_amount,
                 "credited_sats": sats_to_credit,
                 "new_balance_sats": new_balance,
-                "payment_method": "x402 USDC (top-up)"
+                "payment_method": "x402 USDC (top-up)",
+                "rate_used": "live_mempool"
             }
         except ValueError:
             raise HTTPException(400, "Invalid amount_usdc")
@@ -407,7 +545,7 @@ async def topup(req: TopupRequest, request: Request):
             headers={"X-Payment-Required": "true"}
         )
 
-    # Lightning top-up
+    # Lightning top-up (unchanged)
     try:
         data = safe_lncli([
             "addinvoice",
