@@ -19,6 +19,7 @@ from config import (
     NOSTR_NSEC
 )
 import os
+import sqlite3
 import time
 import logging
 from collections import defaultdict
@@ -128,7 +129,11 @@ BROADCAST_INTERVAL_MIN = 720       # 12 min
 BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
 # ── Constants ─────────────────────────────────────────────────────────────────
-ANNOUNCEMENTS_FILE = Path("/root/invinoveritas-data/invinoveritas_announcements.json")
+# Persistent storage for Render (writable location)
+PERSISTENT_DIR = Path("/opt/render/project/src/data")   # Safe writable path on Render
+
+ANNOUNCEMENTS_FILE = PERSISTENT_DIR / "invinoveritas_announcements.json"
+USED_PAYMENTS_DB_PATH = PERSISTENT_DIR / "used_payments.db"
 
 # How many announcements to keep persistently
 MAX_ANNOUNCEMENTS_TO_KEEP = 12     # Keep last 12 announcements on disk
@@ -194,10 +199,6 @@ async def auto_save_announcements():
 # =========================
 # L402 Payment Persistence (SQLite)
 # =========================
-
-# Path for persistent used payments (survives redeploys)
-USED_PAYMENTS_DB_PATH = Path("/root/invinoveritas-data/used_payments.db")
-
 
 def init_used_payments_db():
     """Initialize SQLite table for used L402 payments (prevents double-spending)"""
@@ -1235,27 +1236,26 @@ async def relay_health():
 async def startup_event():
     logger.info("🚀 invinoveritas broadcaster started (v2)")
 
-    # 1. Ensure persistent storage directory exists
+    # Ensure persistent directory exists
     try:
-        ANNOUNCEMENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"📁 Persistent storage directory ready: {ANNOUNCEMENTS_FILE.parent}")
+        PERSISTENT_DIR.mkdir(parents=True, exist_ok=True)
+        logger.info(f"📁 Persistent storage directory ready: {PERSISTENT_DIR}")
     except Exception as e:
         logger.error(f"Failed to create persistent directory: {e}")
 
-    # 2. Initialize persistent databases
-    init_used_payments_db()          # For L402 replay protection
-    # init_db()                      # Uncomment if you have accounts DB init here too
+    # Initialize databases
+    init_used_payments_db()
 
-    # 3. Load announcements from disk
+    # Load announcements
     load_announcements()
     logger.info(f"📋 Loaded {len(ANNOUNCEMENTS)} announcements from persistent storage")
 
-    # 4. Start background tasks
+    # Start background tasks
     asyncio.create_task(broadcast_loop())
     asyncio.create_task(cleanup_used_payments())
     asyncio.create_task(auto_save_announcements())
 
-    logger.info("✅ All background tasks started: broadcast_loop, cleanup_used_payments, auto_save_announcements")
+    logger.info("✅ All background tasks started successfully")
     
 # =========================
 # Well-Known Discovery Endpoints (Polite & Standards-Compliant)
