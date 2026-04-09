@@ -35,6 +35,9 @@ import websockets
 from dataclasses import dataclass
 from collections import defaultdict
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 # =========================
 # x402 imports
 # =========================
