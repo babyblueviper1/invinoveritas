@@ -34,6 +34,8 @@ from nostr.relay_manager import RelayManager
 import websockets
 from dataclasses import dataclass
 from collections import defaultdict
+from dotenv import load_dotenv
+from x402.fastapi.middleware import require_payment
 
 # =========================
 # FastAPI App
@@ -65,6 +67,17 @@ NOSTR_RELAYS = [
     "wss://offchain.pub",          # open, no restrictions
     
 ]
+
+# ========================= X402 CONFIG =========================
+load_dotenv()
+X402_CONFIG = {
+    "pay_to": os.getenv("X402_PAY_TO"),           # We'll set this later
+    "network": "base-sepolia",                    # Change to "base" when ready for mainnet
+    "currency": "USDC",
+    "reason_price": "0.001",      # $0.001 USDC
+    "decision_price": "0.002",    # $0.002 USDC
+    "description": "invinoveritas AI - Lightning + x402",
+}
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 MAX_CONCURRENT_RELAYS = 5          # semaphore cap
@@ -1305,17 +1318,11 @@ class DecisionRequest(BaseModel):
     )
 
 
-@app.post("/reason", response_model=dict, tags=["inference"])
-async def reason(request: Request, data: ReasoningRequest):
-    caller = detect_caller(request)
-    auth = request.headers.get("Authorization")
+
+async def reason_business_logic(data: ReasoningRequest):
+    """Actual reasoning logic - shared between all payment methods"""
     question = data.question.strip()
-    if not question:
-        raise HTTPException(400, "question is required")
 
-    price = calculate_price("reason", question, caller["caller_type"])
-
-    # Adjust question based on requested style
     if data.style == "short":
         final_question = f"Answer in one short sentence only. No explanations. {question}"
     elif data.style == "concise":
@@ -1327,40 +1334,51 @@ async def reason(request: Request, data: ReasoningRequest):
     else:
         final_question = question
 
-    # Bearer Token Credit System (preferred for agents)
+    result = premium_reasoning(final_question)
+
+    response = {
+        "status": "success",
+        "type": "premium_reasoning",
+        "answer": result
+    }
+    if data.want_confidence:
+        response["confidence"] = "N/A"
+    return response 
+    
+@app.post("/reason", response_model=dict, tags=["inference"])
+async def reason(request: Request, data: ReasoningRequest):
+    caller = detect_caller(request)
+    auth = request.headers.get("Authorization")
+
+    question = data.question.strip()
+    if not question:
+        raise HTTPException(400, "question is required")
+
+    price_sats = calculate_price("reason", question, caller["caller_type"])
+
+    # ====================== 1. BEARER TOKEN (CREDITS) ======================
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
         try:
-            credit_info = await verify_credit(api_key, "reason", price)
-            logger.info(f"Credit used | reason | api_key={api_key[:12]}...")
+            await verify_credit(api_key, "reason", price_sats)
         except HTTPException as e:
             if e.status_code == 402:
                 raise HTTPException(
                     402,
-                    detail={
-                        "message": "Insufficient balance",
-                        "balance": "Check /balance",
-                        "topup": "POST /topup"
-                    }
+                    detail={"message": "Insufficient balance", "topup": "/topup"}
                 )
             raise
 
-        result = premium_reasoning(final_question)
-        
-        response = {
-            "status": "success", 
-            "type": "premium_reasoning", 
-            "answer": result
-        }
-        
-        if data.want_confidence:
-            response["confidence"] = "N/A"  # You can enhance this later
+        return await reason_business_logic(data)
 
-        return response
+    # ====================== 2. L402 LIGHTNING (Create Invoice) ======================
+    if auth and auth.startswith("L402 "):
+        # Note: fixed price -> price_sats for consistency
+        invoice_data = create_invoice(
+            price_sats, 
+            memo=f"invinoveritas reason - {caller['caller_type']}"
+        )
 
-    # L402 Flow
-    if not auth or not auth.startswith("L402 "):
-        invoice_data = create_invoice(price, memo=f"invinoveritas reason - {caller['caller_type']}")
         if "error" in invoice_data:
             raise HTTPException(503, "Lightning invoice creation failed")
 
@@ -1372,7 +1390,7 @@ async def reason(request: Request, data: ReasoningRequest):
                 "message": "Payment Required — Lightning wallet not configured",
                 "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
-                "amount_sats": price,
+                "amount_sats": price_sats,
                 "escalation": (
                     "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
                     "Tool call blocked. No Lightning wallet configured.\n"
@@ -1392,34 +1410,41 @@ async def reason(request: Request, data: ReasoningRequest):
             }
         )
 
-    # Verify L402 payment
-    try:
-        _, creds = auth.split(" ", 1)
-        payment_hash, preimage = creds.split(":", 1)
-    except Exception:
-        raise HTTPException(401, "Invalid L402 format")
+    # ====================== VERIFY PREVIOUS L402 PAYMENT ======================
+    if auth and auth.startswith("L402 "):
+        try:
+            _, creds = auth.split(" ", 1)
+            payment_hash, preimage = creds.split(":", 1)
+        except Exception:
+            raise HTTPException(401, "Invalid L402 format")
 
-    if payment_hash in used_payments:
-        raise HTTPException(403, "Payment already used")
-    if not check_payment(payment_hash):
-        raise HTTPException(403, "Payment not settled yet")
-    if not verify_preimage(payment_hash, preimage):
-        raise HTTPException(403, "Invalid preimage")
+        if payment_hash in used_payments:
+            raise HTTPException(403, "Payment already used")
+        if not check_payment(payment_hash):
+            raise HTTPException(403, "Payment not settled yet")
+        if not verify_preimage(payment_hash, preimage):
+            raise HTTPException(403, "Invalid preimage")
 
-    used_payments.add(payment_hash)
+        used_payments.add(payment_hash)
+        return await reason_business_logic(data)
 
-    result = premium_reasoning(final_question)
-    
-    response = {
-        "status": "success", 
-        "type": "premium_reasoning", 
-        "answer": result
-    }
-    
-    if data.want_confidence:
-        response["confidence"] = "N/A"   # TODO: enhance with real confidence scoring
+    # ====================== 3. X402 FALLBACK ======================
+    # No valid auth → ask for x402 payment
+    return await require_payment(
+        price=X402_CONFIG["reason_price"],
+        pay_to=X402_CONFIG["pay_to"],
+        network=X402_CONFIG["network"],
+        currency=X402_CONFIG["currency"],
+        description=X402_CONFIG["description"],
+        metadata={
+            "endpoint": "reason", 
+            "style": data.style
+        }
+    )(request, lambda req: reason_business_logic(data))
 
-    return response
+
+
+
 
 # Allow friendly GET responses for /reason and /decision (prevents 405 errors)
 @app.get("/reason", include_in_schema=False)
@@ -1458,55 +1483,41 @@ async def decision_get():
 async def decision(request: Request, data: DecisionRequest):
     caller = detect_caller(request)
     auth = request.headers.get("Authorization")
-    
+
     text = f"{data.goal} {data.context or ''} {data.question}"
-    price = calculate_price("decision", text, caller["caller_type"])
+    price_sats = calculate_price("decision", text, caller["caller_type"])
 
-    # Adjust prompt style based on requested style
-    if data.style == "short":
-        final_prompt = f"Give a short, direct decision. No long explanation. Goal: {data.goal}. Question: {data.question}"
-    elif data.style == "concise":
-        final_prompt = f"Give a concise decision with brief reasoning. Goal: {data.goal}. Question: {data.question}"
-    else:
-        final_prompt = f"Goal: {data.goal}. Context: {data.context or ''}. Question: {data.question}"
-
-    # ====================== BEARER TOKEN FLOW ======================
+    # ====================== 1. BEARER TOKEN (CREDITS) ======================
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
         try:
-            await verify_credit(api_key, "decide", price)
+            await verify_credit(api_key, "decide", price_sats)
         except HTTPException as e:
             if e.status_code == 402:
                 raise HTTPException(
-                    402, 
-                    detail={"message": "Insufficient balance", "action": "Use /topup"}
+                    402,
+                    detail={"message": "Insufficient balance", "topup": "/topup"}
                 )
             raise
 
-        result = structured_decision(data.goal, data.context, data.question)
-        
-        response = {
-            "status": "success", 
-            "type": "decision_intelligence", 
-            "result": result
-        }
-        
-        if data.want_confidence:
-            response["confidence"] = "N/A"
+        return await decision_business_logic(data)
 
-        return response
-
-    # ====================== L402 PAYMENT FLOW ======================
-    if not auth or not auth.startswith("L402 "):
+    # ====================== 2. L402 LIGHTNING ======================
+    if auth and auth.startswith("L402 "):
         # Rate limiting
         now = time.time()
         rate_key = f"{get_client_ip(request)}:decision"
         if now - last_request_time.get(rate_key, 0) < RATE_LIMIT_SECONDS:
             raise HTTPException(429, f"Rate limit: wait {RATE_LIMIT_SECONDS}s")
+
         last_request_time[rate_key] = now
 
         # Create Lightning invoice
-        invoice_data = create_invoice(price, memo=f"invinoveritas decision - {caller['caller_type']}")
+        invoice_data = create_invoice(
+            price_sats, 
+            memo=f"invinoveritas decision - {caller['caller_type']}"
+        )
+        
         if "error" in invoice_data:
             raise HTTPException(503, f"Lightning error: {invoice_data.get('error')}")
 
@@ -1518,7 +1529,7 @@ async def decision(request: Request, data: DecisionRequest):
                 "message": "Payment Required — Lightning wallet not configured",
                 "payment_hash": invoice_data["payment_hash"],
                 "invoice": invoice_data["invoice"],
-                "amount_sats": price,
+                "amount_sats": price_sats,
                 "escalation": (
                     "AGENT TO DEVELOPER — ACTION REQUIRED:\n"
                     "Tool call blocked. No Lightning wallet configured.\n"
@@ -1538,35 +1549,38 @@ async def decision(request: Request, data: DecisionRequest):
             }
         )
 
-    # ====================== VERIFY L402 PAYMENT ======================
-    try:
-        _, creds = auth.split(" ", 1)
-        payment_hash, preimage = creds.split(":", 1)
-    except Exception:
-        raise HTTPException(401, "Invalid L402 format")
+    # ====================== VERIFY PREVIOUS L402 PAYMENT ======================
+    if auth and auth.startswith("L402 "):   # This was missing in your original
+        try:
+            _, creds = auth.split(" ", 1)
+            payment_hash, preimage = creds.split(":", 1)
+        except Exception:
+            raise HTTPException(401, "Invalid L402 format")
 
-    if payment_hash in used_payments:
-        raise HTTPException(403, "This invoice has already been used")
-    if not check_payment(payment_hash):
-        raise HTTPException(403, "Payment not settled yet")
-    if not verify_preimage(payment_hash, preimage):
-        raise HTTPException(403, "Invalid payment proof")
+        if payment_hash in used_payments:
+            raise HTTPException(403, "Payment already used")
+        if not check_payment(payment_hash):
+            raise HTTPException(403, "Payment not settled yet")
+        if not verify_preimage(payment_hash, preimage):
+            raise HTTPException(403, "Invalid preimage")
 
-    used_payments.add(payment_hash)
+        used_payments.add(payment_hash)
+        return await decision_business_logic(data)
 
-    # Run the actual decision
-    result_json = structured_decision(data.goal, data.context, data.question)
-    
-    response = {
-        "status": "success", 
-        "type": "decision_intelligence", 
-        "result": result_json
-    }
-    
-    if data.want_confidence:
-        response["confidence"] = "N/A"
-
-    return response
+    # ====================== 3. X402 FALLBACK ======================
+    # No valid auth → ask for x402 payment
+    return await require_payment(
+        price=X402_CONFIG["decision_price"],
+        pay_to=X402_CONFIG["pay_to"],
+        network=X402_CONFIG["network"],
+        currency=X402_CONFIG["currency"],
+        description=X402_CONFIG["description"],
+        metadata={
+            "endpoint": "decision",
+            "style": data.style,
+            "caller": caller["caller_type"]
+        }
+    )(request, lambda req: decision_business_logic(data))
 
 
 @app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
