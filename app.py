@@ -68,13 +68,29 @@ except Exception as e:
 # =========================
 app = FastAPI(
     title="invinoveritas",
-    version="0.4.0",
-    description="Lightning-Paid AI Reasoning & Decision Intelligence (L + Credit System)",
+    version="0.5.0",
+    description=(
+        "Premium AI reasoning and structured decision intelligence for autonomous agents and trading bots. "
+        "Supports three payment methods: Bearer Token (recommended for agents), "
+        "x402 USDC bulk top-ups on Base (stablecoin, min $15), "
+        "and classic L402 Lightning pay-per-call. "
+        "Accounts with any balance remain active for at least 2 years of inactivity."
+    ),
     contact={
         "name": "invinoveritas",
-        "email": "babyblueviperbusiness@gmail.com"
+        "email": "babyblueviperbusiness@gmail.com",
+        "url": "https://invinoveritas.onrender.com"
     },
-    license_info={"name": "Apache 2.0"},
+    license_info={
+        "name": "Apache 2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    openapi_tags=[
+        {"name": "inference", "description": "Reasoning and decision endpoints"},
+        {"name": "accounts", "description": "Account management and credit system"},
+        {"name": "lightning", "description": "Lightning Network utilities"},
+        {"name": "meta", "description": "Health, pricing, and discovery endpoints"},
+    ]
 )
 
 app.router.redirect_slashes = False
@@ -634,13 +650,14 @@ def _active_relays() -> List[str]:
  
  
 # ── Adaptive Agent Payload ───────────────────────────────────────────────────
+
 def _base_meta() -> dict:
-    """Internal base metadata (you can keep or expand this if it exists elsewhere)"""
+    """Internal base metadata"""
     return {
         "name": "invinoveritas",
         "provider": "invinoveritas",
-        "version": "0.4.0",
-        "description": "Premium AI reasoning and structured decision intelligence for autonomous agents and trading bots.",
+        "version": "0.5.0",
+        "description": "Premium AI reasoning and structured decision intelligence for autonomous agents and trading bots using hybrid payments.",
         "homepage": "https://invinoveritas.onrender.com",
         "last_updated": "2026-04-09"
     }
@@ -659,32 +676,33 @@ def generate_agent_payload(score: int = 7) -> dict:
             "protocols": ["Bearer", "x402", "L402"],
             "preferred": "Bearer (for agents)",
             "currencies": ["sats", "USDC"],
-            "model": "hybrid",   # Bearer for usage, x402 for top-ups
+            "model": "hybrid",   # Bearer for per-call usage, x402 for bulk top-ups
             "details": {
                 "bearer": {
-                    "description": "Pre-funded credit account with API key. Best for ongoing use.",
+                    "description": "Pre-funded credit account with API key. Best for autonomous agents and trading bots.",
                     "setup": "POST /register → pay once → get api_key + 5 free calls",
-                    "usage": "Authorization: Bearer ivv_..."
+                    "usage": "Authorization: Bearer ivv_...",
+                    "note": "Recommended for daily/high-frequency use"
                 },
                 "x402": {
-                    "description": "USDC on Base used to top-up your Bearer account balance.",
-                    "setup": "POST /topup with amount_usdc (minimum $15 recommended) → pay with X-Payment header",
+                    "description": "USDC on Base for bulk top-ups into your Bearer account balance.",
+                    "setup": "POST /topup with amount_usdc (minimum $15 recommended)",
                     "network": "base",
                     "currency": "USDC",
-                    "note": "Designed for bulk top-ups, not per-call micro-payments"
+                    "note": "Designed for stable, bulk funding — not per-call micro-payments"
                 },
                 "l402": {
-                    "description": "Atomic Lightning payments (true pay-per-call)",
+                    "description": "Classic atomic Lightning payments (true pay-per-call)",
                     "setup": "Authorization: L402 <payment_hash>:<preimage>"
                 }
             }
         },
 
-        # ── Wallet & Setup ─────────────────────────────────────────────
+        # ── Account & Wallet Setup ─────────────────────────────────────
         "wallet_options": {
-            "recommended": "Bearer token (after registration) or x402 USDC top-ups",
-            "bearer": "Easiest for long-running autonomous agents",
-            "x402": "Best stablecoin option — bulk top-ups to fund Bearer account",
+            "recommended": "Bearer token after registration (easiest for agents)",
+            "bearer": "Best for long-running autonomous agents and trading bots",
+            "x402": "Stablecoin option — bulk top-ups to fund Bearer account (min $15)",
             "NWC": ["Alby", "Zeus", "Mutiny"],
             "Custodial": ["Strike", "Wallet of Sats"],
             "LND": "Self-hosted node (advanced)"
@@ -719,18 +737,19 @@ def generate_agent_payload(score: int = 7) -> dict:
         },
 
         "value_proposition": {
-            "edge": "High-quality reasoning with flexible payment options",
+            "edge": "High-quality reasoning with flexible hybrid payments",
             "reduces_error": True,
             "saves_time": True,
             "autonomous_ready": True,
-            "price_stability": "via x402 USDC top-ups"
+            "price_stability": "via x402 USDC bulk top-ups"
         },
 
         "features": {
             "complementary_calls": 5,
             "styles": ["short", "concise", "normal", "detailed", "comprehensive"],
             "free_calls_on_register": True,
-            "x402_bulk_topups": True
+            "x402_bulk_topups": True,
+            "account_inactivity_policy": "2 years"
         },
 
         # ── Discovery ──────────────────────────────────────────────────
@@ -755,10 +774,10 @@ def generate_agent_payload(score: int = 7) -> dict:
         },
 
         "notes": [
-            "Bearer token is the easiest long-term solution for autonomous agents",
-            "x402 USDC is recommended for bulk top-ups to fund your Bearer account (min $15)",
+            "Bearer token is the easiest long-term solution for autonomous agents and trading bots",
+            "x402 USDC is recommended for bulk top-ups to fund your Bearer account (minimum $15)",
             "L402 Lightning remains fully supported for users who prefer pure Lightning payments",
-            "Trading bots perform best with a pre-funded Bearer account or x402 top-ups"
+            "Accounts with any balance or free calls remain active for at least 2 years of inactivity"
         ]
     })
     return p
@@ -778,12 +797,18 @@ def generate_sdk_payload(score: int = 7) -> dict:
             "a2a": "https://invinoveritas.onrender.com/a2a"
         },
         "payment": {
-            "protocol": "L402",
-            "network": "lightning",
-            "model": "per_call",
-            "wallet_options": ["NWC", "LND", "Custodial"]
+            "protocols": ["Bearer", "x402", "L402"],
+            "preferred": "Bearer (for agents)",
+            "currencies": ["sats", "USDC"],
+            "model": "hybrid",
+            "note": "SDK currently supports L402 natively. Bearer + x402 support is coming soon (use manual HTTP calls or MCP in the meantime).",
+            "details": {
+                "bearer": "Pre-funded account (recommended long-term)",
+                "x402": "USDC on Base for bulk top-ups into Bearer account (min $15)",
+                "l402": "Lightning pay-per-call (current SDK default)"
+            }
         },
-        "use_when": ["high_uncertainty","multi_step_reasoning","financial_decision","high_stakes","trading_decision"],
+        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes", "trading_decision"],
         "score": score,
         "trading_bot_ready": True,
         "trading_features": {
@@ -810,11 +835,16 @@ def generate_sdk_payload(score: int = 7) -> dict:
             "websocket": "/ws",
             "rss": "/rss",
             "description": "Live announcements synced with Nostr broadcasts"
-        }
+        },
+        "notes": [
+            "SDK currently optimized for L402 Lightning payments",
+            "Bearer Token + x402 USDC support coming soon (manual calls and MCP already fully supported)",
+            "Best experience: Use MCP endpoint for maximum flexibility"
+        ]
     })
     return p
- 
- 
+
+
 # ── MCP / SDK Event Builders ────────────────────────────────────────────────
 def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     payload = generate_agent_payload(score)
@@ -822,43 +852,29 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     
     tags = [
         ["d", "invinoveritas-mcp"],
-        ["t", "mcp"], 
-        ["t", "ai"], 
-        ["t", "agents"], 
-        ["t", "bitcoin"], 
-        ["t", "lightning"],
-        ["t", "x402"],          # New: highlight x402 support
-        ["t", "usdc"],          # New
-        ["t", "trading"], 
-        ["t", "arbitrage"], 
-        ["t", "financial"],
+        ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
+        ["t", "x402"], ["t", "usdc"], ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
         
         ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
-        ["version", "0.4.0"],
+        ["version", "0.5.0"],
         
-        # Payment & Discovery
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
         ["agent_card", payload["agent_card"]],
         
-        # Modern payment tags
         ["payment", "Bearer,x402,L402"],
         ["payment_preferred", "Bearer"],
         ["currency", "sats,USDC"],
         ["x402_network", "base"],
-        ["x402_currency", "USDC"],
         
-        # Wallet flexibility
-        ["wallet_required", "false"],           # More accurate now
         ["wallet_options", "Bearer,x402,NWC,LND"],
-        ["recommended_setup", "Bearer or x402"],
+        ["recommended_setup", "Bearer or x402 USDC top-up"],
         
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
         
-        # Real-time discovery
         ["real_time", "sse:https://invinoveritas.onrender.com/events"],
         ["real_time", "websocket:wss://invinoveritas.onrender.com/ws"],
         ["real_time", "rss:https://invinoveritas.onrender.com/rss"],
@@ -876,7 +892,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     private_key.sign_event(event)
     return event
 
- 
+
 def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
     payload = generate_sdk_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
@@ -884,18 +900,18 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
+        ["t", "x402"], ["t", "usdc"], ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
+        
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
-        ["version", "0.4.0"],
+        ["version", "0.5.0"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
-        ["payment", "L402"],
-        ["wallet_supported", "NWC,LND,Custodial"],
+        ["payment", "L402 (native), Bearer+x402 (manual/MCP)"],
+        ["wallet_supported", "NWC,LND,Custodial,Bearer,x402"],
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
         
-        # Real-time discovery
         ["real_time", "sse:https://invinoveritas.onrender.com/events"],
         ["real_time", "websocket:wss://invinoveritas.onrender.com/ws"],
         ["real_time", "rss:https://invinoveritas.onrender.com/rss"],
@@ -911,12 +927,12 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
     )
     private_key.sign_event(event)
     return event
- 
- 
+
+
 # ── Human Event (Wallet-First + Trading Bot + x402 Top-up) ──────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
     content = (
-        "⚡ invinoveritas v0.4.0 is live\n\n"
+        "⚡ invinoveritas v0.5.0 is live\n\n"
         "Premium AI reasoning & structured decision intelligence for autonomous agents and trading bots.\n\n"
         
         "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
@@ -935,7 +951,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         
         "→ Recommended Setup:\n"
         "   • Bearer Token → register once via /register\n"
-        "   • x402 USDC → top up your account in bulk (stable & convenient)\n"
+        "   • x402 USDC → bulk top-ups (stable & convenient)\n"
         "   • NWC (Alby, Zeus, Mutiny) for Lightning users\n\n"
         
         "→ Trading Bot Ready:\n"
@@ -945,39 +961,28 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "   • High-frequency async decisions\n\n"
         
         "Pay only when decisions matter. "
-        "Best experience: Use Bearer Token after a one-time registration or x402 USDC top-ups."
+        "Best experience: Use Bearer Token after registration or x402 USDC for bulk funding. "
+        "SDK currently uses L402; full Bearer + x402 support coming soon."
     )
     
     tags = [
-        ["t", "bitcoin"], 
-        ["t", "ai"], 
-        ["t", "agents"], 
-        ["t", "sdk"], 
-        ["t", "mcp"],
-        ["t", "x402"], 
-        ["t", "usdc"], 
-        ["t", "trading"], 
-        ["t", "arbitrage"], 
-        ["t", "financial"],
-        ["t", "bearer"], 
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
+        ["t", "x402"], ["t", "usdc"], ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "bearer"],
         
         ["r", "https://invinoveritas.onrender.com/mcp"],
         ["r", "https://invinoveritas.onrender.com/discover"],
         ["r", "https://invinoveritas.onrender.com/events"],
-        ["r", "https://invinoveritas.onrender.com/wallet-onboarding"],
         ["r", "https://invinoveritas.onrender.com/register"],
         ["r", "https://invinoveritas.onrender.com/topup"],
         
-        ["version", "0.4.0"],
+        ["version", "0.5.0"],
         ["type", "sdk_announcement"],
         
-        # Payment tags
         ["payment", "Bearer,x402,L402"],
         ["payment_preferred", "Bearer"],
         ["x402_network", "base"],
         ["currency", "sats,USDC"],
         
-        # Updated wallet & setup tags
         ["wallet_options", "Bearer,x402,NWC,LND"],
         ["recommended_setup", "Bearer or x402 USDC top-up"],
         ["x402_usage", "bulk_topup"]
@@ -1392,7 +1397,6 @@ def detect_caller(request: Request) -> dict:
 
 
 def calculate_price(endpoint: str, text: str, caller: str) -> int:
-    """Calculate price in sats for Bearer / L402 usage."""
     base = REASONING_PRICE_SATS if endpoint == "reason" else DECISION_PRICE_SATS
     length_bonus = len(text) // 100
     multiplier = AGENT_PRICE_MULTIPLIER if caller == "agent" and ENABLE_AGENT_MULTIPLIER else 1.0
@@ -1401,16 +1405,12 @@ def calculate_price(endpoint: str, text: str, caller: str) -> int:
 
 
 async def verify_credit(api_key: str, tool: str, price_sats: int):
-    """Proxy to bridge /verify (Bearer credits) — debits account atomically."""
+    """Proxy to bridge /verify — atomic debit"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 f"{NODE_URL}/verify",
-                json={
-                    "api_key": api_key,
-                    "tool": tool,
-                    "price_sats": price_sats
-                }
+                json={"api_key": api_key, "tool": tool, "price_sats": price_sats}
             )
 
             if resp.status_code == 200:
@@ -1420,41 +1420,34 @@ async def verify_credit(api_key: str, tool: str, price_sats: int):
                     402,
                     detail={
                         "message": "Insufficient balance",
+                        "required_sats": price_sats,
                         "topup_url": "/topup",
-                        "balance_url": "/balance",
-                        "note": "Consider topping up with x402 USDC (minimum $15 recommended)"
+                        "note": "Top up with x402 USDC (minimum $15 recommended) or Lightning"
                     }
                 )
             else:
                 raise HTTPException(resp.status_code, detail=resp.text or "Verification failed")
     except httpx.RequestError as e:
-        logger.error(f"Bridge connection error in verify_credit: {e}")
-        raise HTTPException(503, "Payment verification service temporarily unavailable")
+        logger.error(f"Bridge connection error: {e}")
+        raise HTTPException(503, "Payment service temporarily unavailable")
 
 
 async def check_x402_payment(request: Request) -> bool:
-    """Simple presence check for X-Payment header.
-    Full verification is handled by the x402 library or bridge.
-    """
     return bool(request.headers.get("X-Payment"))
 
 
-async def return_x402_challenge(request: Request, endpoint: str, price_usdc: str = None, description: str = None):
-    """Return x402 challenge encouraging bulk top-up (new model)."""
-    # Default to minimum sensible top-up amount
-    if not price_usdc:
-        price_usdc = X402_CONFIG.get("X402_MIN_TOPUP_USDC", "15.00")
+async def return_x402_challenge(request: Request, endpoint: str, description: str = None):
+    """Return x402 challenge encouraging bulk top-up"""
+    price_usdc = X402_CONFIG["min_topup_usdc"]
 
     accepts = [{
         "scheme": "exact",
         "network": X402_CONFIG["network"],
         "maxAmountRequired": price_usdc,
         "resource": str(request.url),
-        "description": description or "invinoveritas AI credits top-up (funds your Bearer account)",
+        "description": description or f"invinoveritas {endpoint} - fund your Bearer account",
         "payTo": X402_CONFIG["pay_to"],
-        "asset": X402_CONFIG.get("asset_address", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
-        "mimeType": "application/json",
-        "maxTimeoutSeconds": 300,
+        "asset": X402_CONFIG["asset_address"],
         "extra": {"name": "USD Coin"}
     }]
 
@@ -1464,82 +1457,35 @@ async def return_x402_challenge(request: Request, endpoint: str, price_usdc: str
             "x402Version": 1,
             "accepts": accepts,
             "error": "Payment required",
-            "message": f"Top up your Bearer account with {price_usdc} USDC via x402",
-            "supported_methods": ["Bearer Token (credits)", "x402 USDC (top-up)", "L402 (Lightning)"],
-            "recommended": "Use x402 to top up your account (min $15), then use Bearer token for calls",
-            "topup_endpoint": "/topup",
-            "note": "Small per-call x402 is not recommended due to gas fees. Bulk top-ups are better."
+            "message": f"Top up your Bearer account with minimum ${price_usdc} USDC via x402",
+            "recommended": "Use x402 for bulk top-ups, then Bearer token for calls",
+            "note": "Bulk top-ups ($15+) are strongly recommended over per-call x402 due to fees."
         },
         headers={"X-Payment-Required": "true"}
     )
 
 
-# L402 Lightning verification (proxies to bridge)
+# L402 verification (proxy to bridge)
 async def verify_l402_payment(payment_hash: str, preimage: str) -> bool:
-    """Full verification: preimage match + settlement status via bridge."""
     try:
-        # 1. Preimage verification
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.post(
-                f"{NODE_URL}/verify-preimage",
-                json={"payment_hash": payment_hash, "preimage": preimage}
-            )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Preimage check
+            resp = await client.post(f"{NODE_URL}/verify-preimage", 
+                                   json={"payment_hash": payment_hash, "preimage": preimage})
             if resp.status_code != 200 or not resp.json().get("valid", False):
                 return False
 
-        # 2. Check settlement
-        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Settlement check
             resp = await client.get(f"{NODE_URL}/check-payment/{payment_hash}")
             data = resp.json()
             return bool(data.get("paid") or data.get("state") == "SETTLED")
-
     except Exception as e:
-        logger.error(f"L402 verification error for hash {payment_hash[:8]}...: {e}")
+        logger.error(f"L402 verification failed for {payment_hash[:12]}...: {e}")
         return False
 
 
 # =========================
-# Wallet Status
-# =========================
-@app.get("/wallet-status", tags=["meta"])
-async def wallet_status():
-    """Current wallet / payment status with realistic recommendations."""
-    return {
-        "wallet_required": False,
-        "payment_required": True,
-        "supported_methods": [
-            "Bearer Token (prepaid credits)",
-            "x402 USDC (bulk top-up on Base)",
-            "L402 Lightning (pay-per-call)"
-        ],
-        "status": "active",
-        "message": "Multiple flexible payment options available. Bearer Token is recommended for most autonomous agents and trading bots.",
-
-        "payment_options": {
-            "best_for_agents": "Bearer Token — register once and use API key forever",
-            "best_for_stablecoins": "x402 USDC — bulk top-ups to your Bearer account (min $15 recommended)",
-            "best_for_lightning": "L402 Lightning — true atomic pay-per-call",
-            "network_info": "x402 USDC runs on Base network"
-        },
-
-        "recommendations": {
-            "autonomous_agents": "Bearer Token after /register (easiest long-term)",
-            "trading_bots": "Bearer Token (pre-funded) or x402 USDC top-ups",
-            "stablecoin_users": "x402 USDC bulk top-ups",
-            "lightning_users": "L402 Lightning"
-        },
-
-        "x402_note": "x402 is designed for convenient bulk top-ups (minimum $15 recommended) that credit your Bearer account. Small per-call x402 is possible but not optimal due to gas fees.",
-
-        "guide": "/wallet-onboarding",
-        "topup_endpoint": "/topup",
-        "register_endpoint": "/register",
-        "last_updated": int(time.time())
-    }
-
-
-# =========================
-# Credit System Endpoints (Proxy to Bridge)
+# Credit System Endpoints (Thin Proxy to Bridge)
 # =========================
 
 @app.api_route("/register", methods=["GET", "POST"], tags=["credit"])
@@ -1548,8 +1494,9 @@ async def register_account(request: Request, label: Optional[str] = None):
     if request.method == "GET":
         return {
             "status": "info",
-            "message": "Use POST /register to create a new account.",
-            "example": {"label": "my-agent-01"}
+            "message": "POST to /register to create a new account with 5 free calls.",
+            "payment_options": "Lightning (~1000 sats) or x402 USDC (min $15)",
+            "note": "Accounts with balance remain active for at least 2 years of inactivity."
         }
 
     try:
@@ -1559,22 +1506,21 @@ async def register_account(request: Request, label: Optional[str] = None):
             return resp.json()
     except Exception as e:
         logger.error(f"Registration proxy error: {e}")
-        raise HTTPException(503, f"Registration service unavailable: {str(e)}")
+        raise HTTPException(503, "Registration service temporarily unavailable")
 
 
 @app.api_route("/topup", methods=["GET", "POST"], tags=["credit"])
 async def topup_account(request: Request, data: Optional[dict] = None):
-    """Request top-up — Lightning or x402 USDC (bulk top-up to Bearer account)."""
+    """Top up Bearer account — Lightning or x402 USDC (bulk)."""
     if request.method == "GET" or not data:
         return {
             "status": "info",
-            "message": "Use POST /topup to top up your Bearer account.",
-            "example": {
-                "api_key": "ivv_...",
-                "amount_sats": 5000,
-                "amount_usdc": "15.00"   # Recommended minimum for x402
+            "message": "POST to /topup to add credits to your Bearer account.",
+            "examples": {
+                "x402_bulk": {"api_key": "ivv_...", "amount_usdc": "15.00"},
+                "lightning": {"api_key": "ivv_...", "amount_sats": 5000}
             },
-            "note": "x402 USDC top-ups should be $15 or more for best experience."
+            "note": "x402 USDC top-ups of $15 or more are recommended for best experience."
         }
 
     try:
@@ -1583,82 +1529,122 @@ async def topup_account(request: Request, data: Optional[dict] = None):
             return resp.json()
     except Exception as e:
         logger.error(f"Top-up proxy error: {e}")
-        raise HTTPException(503, f"Top-up service unavailable: {str(e)}")
+        raise HTTPException(503, "Top-up service temporarily unavailable")
 
 
-@app.api_route("/balance", methods=["GET", "POST"], tags=["credit"])
-async def get_balance(request: Request, api_key: Optional[str] = None, data: Optional[dict] = None):
-    """Check account balance — supports GET query param and POST body."""
-    if data and isinstance(data, dict):
-        api_key = data.get("api_key") or api_key
+# =========================
+# Balance & Verify (Core Proxies)
+# =========================
 
+@app.get("/balance", tags=["credit"])
+async def get_balance(api_key: str):
+    """Check current balance and usage."""
     if not api_key:
-        raise HTTPException(400, "Missing api_key. Provide via ?api_key=... or JSON body.")
+        raise HTTPException(400, "api_key is required (query param or POST body)")
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(f"{NODE_URL}/balance?api_key={api_key}")
-            return resp.json()
-    except Exception as e:
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                raise HTTPException(resp.status_code, detail=resp.text or "Failed to fetch balance")
+    except httpx.RequestError as e:
         logger.error(f"Balance proxy error: {e}")
-        raise HTTPException(503, f"Balance service unavailable: {str(e)}")
-
-
-@app.post("/register/confirm", tags=["credit"])
-@app.get("/register/confirm", tags=["credit"])
-async def confirm_register(req: Optional[SettleTopupRequest] = None):
-    """Confirm registration after payment"""
-    if req is None:
-        return {
-            "status": "info",
-            "message": "Use POST /register/confirm with the settlement request."
-        }
-    
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(f"{NODE_URL}/register/confirm", json=req.dict() if hasattr(req, "dict") else req.model_dump())
-            return resp.json()
-    except Exception as e:
-        raise HTTPException(503, f"Confirmation service unavailable: {str(e)}")
-
-
-@app.post("/settle-topup", tags=["credit"])
-@app.get("/settle-topup", tags=["credit"])
-async def settle_topup_account(req: Optional[SettleTopupRequest] = None):
-    """Settle a top-up payment"""
-    if req is None:
-        return {
-            "status": "info",
-            "message": "Use POST /settle-topup with settlement details."
-        }
-    
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(f"{NODE_URL}/settle-topup", json=req.dict() if hasattr(req, "dict") else req.model_dump())
-            return resp.json()
-    except Exception as e:
-        raise HTTPException(503, f"Top-up settlement unavailable: {str(e)}")
+        raise HTTPException(503, "Balance service temporarily unavailable")
 
 
 @app.post("/verify", tags=["credit"])
-@app.get("/verify", tags=["credit"])
-async def verify_account(req: Optional[VerifyRequest] = None):
-    """Verify account for tool usage"""
-    if req is None:
-        return {
-            "status": "info",
-            "message": "Use POST /verify with verification payload to check/charge account."
-        }
-    
+async def verify_account(req: VerifyRequest):
+    """Atomic verification + debit before tool execution (called by /reason, /decision, MCP)."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{NODE_URL}/verify", json=req.dict() if hasattr(req, "dict") else req.model_dump())
-            return resp.json()
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(503, f"Verification service unavailable: {str(e)}")
-        
+            resp = await client.post(
+                f"{NODE_URL}/verify",
+                json={
+                    "api_key": req.api_key,
+                    "tool": req.tool,
+                    "price_sats": req.price_sats
+                }
+            )
+
+            if resp.status_code == 200:
+                return resp.json()
+
+            elif resp.status_code == 402:
+                # Forward bridge's 402 with helpful context
+                detail = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                raise HTTPException(
+                    402,
+                    detail={
+                        "message": "Insufficient balance",
+                        "required_sats": req.price_sats,
+                        "current_balance": detail.get("current_balance", "unknown"),
+                        "topup_url": "/topup",
+                        "note": "Top up with x402 USDC (minimum $15 recommended) or Lightning"
+                    }
+                )
+
+            else:
+                raise HTTPException(resp.status_code, detail=resp.text or "Verification failed")
+
+    except httpx.RequestError as e:
+        logger.error(f"Bridge connection error during verify: {e}")
+        raise HTTPException(503, "Payment verification service temporarily unavailable")
+
+
+# =========================
+# Wallet / Payment Status
+# =========================
+@app.get("/wallet-status", tags=["meta"])
+async def wallet_status():
+    """Current payment options and recommendations."""
+    return {
+        "status": "active",
+        "payment_required": True,
+        "wallet_required": False,   # Bearer + x402 don't require a Lightning wallet
+
+        "supported_methods": [
+            "Bearer Token (prepaid credits — recommended)",
+            "x402 USDC (bulk top-ups on Base)",
+            "L402 Lightning (pay-per-call)"
+        ],
+
+        "message": "Flexible payment system. Bearer Token is the easiest for autonomous agents and trading bots.",
+
+        "payment_options": {
+            "best_for_agents": "Bearer Token — register once, get API key + 5 free calls, use forever",
+            "best_for_stablecoins": "x402 USDC on Base — bulk top-ups to fund your Bearer account (min $15 recommended)",
+            "best_for_lightning": "L402 Lightning — true atomic pay-per-call",
+            "network_info": "x402 runs on Base (low fees, stable value)"
+        },
+
+        "recommendations": {
+            "autonomous_agents": "Bearer Token after /register (easiest long-term solution)",
+            "trading_bots": "Bearer Token (pre-funded) or x402 USDC bulk top-ups",
+            "stablecoin_users": "x402 USDC for bulk funding",
+            "lightning_maximalists": "L402 Lightning"
+        },
+
+        "important_notes": [
+            "Accounts with any balance or free calls remain active for at least 2 years of inactivity",
+            "x402 is designed for bulk top-ups ($15+ recommended). Small per-call x402 is possible but not optimal due to fees.",
+            "Bearer Token gives you fine-grained per-call usage after funding"
+        ],
+
+        "resources": {
+            "guide": "/guide",
+            "register": "/register",
+            "topup": "/topup",
+            "balance": "/balance",
+            "wallet_onboarding": "/wallet-onboarding"
+        },
+
+        "last_updated": int(time.time())
+    }
+
+
+ 
 # =========================
 # Request Models
 # =========================
