@@ -119,23 +119,44 @@ active_ws_clients: list[WebSocket] = []
 async def websocket_announcements(websocket: WebSocket):
     await websocket.accept()
     active_ws_clients.append(websocket)
+    
     try:
+        # === 1. Send Welcome Message ===
         await websocket.send_json({
             "type": "welcome",
             "message": "Connected to invinoveritas real-time announcements."
         })
+
+        # === 2. Send Existing Announcements (Important!) ===
+        for ann in ANNOUNCEMENTS[:5]:   # Send last 5 announcements
+            try:
+                message = {
+                    "type": "announcement",
+                    "title": ann.get("title", "Update"),
+                    "description": ann.get("description", ""),
+                    "link": ann.get("link"),
+                    "timestamp": ann.get("timestamp")
+                }
+                await websocket.send_json(message)
+            except Exception as e:
+                logger.warning(f"Failed to send historical announcement via WS: {e}")
+
+        # === 3. Keep connection alive + handle ping/pong ===
         while True:
             data = await websocket.receive_text()
             if data.lower() == "ping":
-                await websocket.send_json({"type": "pong", "timestamp": int(time.time())})
+                await websocket.send_json({
+                    "type": "pong",
+                    "timestamp": int(time.time())
+                })
+                
     except WebSocketDisconnect:
-        pass
+        logger.info("WebSocket client disconnected")
     except Exception as e:
         logger.error(f"WS error: {e}")
     finally:
         if websocket in active_ws_clients:
             active_ws_clients.remove(websocket)
-
 
 @app.get("/ws/test", tags=["meta"])
 async def websocket_test_page():
