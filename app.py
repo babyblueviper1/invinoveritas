@@ -2426,93 +2426,53 @@ def home():
 
 @app.get("/guide", tags=["meta"])
 def payment_guide():
-    """Complete payment guide covering Bearer, x402 USDC top-ups, and L402 Lightning."""
     return {
         "title": "How to Pay for invinoveritas — Three Payment Options",
-        "description": "invinoveritas supports three modern payment methods designed for both convenience and practicality.",
+        "description": "invinoveritas supports three practical payment methods.",
 
         "supported_payments": {
             "bearer": {
-                "name": "Bearer Token (Recommended for Agents & Trading Bots)",
-                "description": "Pre-funded credit account. Best for repeated or autonomous use.",
-                "flow": "POST /register → pay once → get api_key + 5 free calls → use Authorization: Bearer <api_key>",
-                "advantages": ["Simple long-term usage", "5 free calls on signup", "Fine-grained per-call billing"]
+                "name": "Bearer Token (Recommended)",
+                "description": "Pre-funded credit account. Best for autonomous agents and trading bots.",
+                "flow": "POST /register → pay ~1000 sats or $15 USDC → get api_key + 5 free calls",
+                "usage": "Authorization: Bearer ivv_..."
             },
             "x402": {
-                "name": "x402 USDC Top-up (Best Stablecoin Option)",
-                "description": "Pay with USDC on Base to top up your Bearer account balance. Minimum ~$15 recommended.",
-                "flow": "POST /topup with desired amount → include X-Payment header → credits added to your account",
-                "advantages": ["Stable value", "No Lightning wallet needed", "Bulk top-ups reduce fees"],
-                "minimum_recommended": "$15 USD",
-                "suggested_amounts": ["15", "25", "50", "100"]
+                "name": "x402 USDC Top-up (Stablecoin Option)",
+                "description": "Bulk top-up your Bearer account with USDC on Base. Minimum $15 recommended.",
+                "flow": "POST /topup with amount_usdc (min $15) → pay with X-Payment header",
+                "advantages": ["Stable value", "Fewer transactions", "No Lightning wallet needed"]
             },
             "l402": {
                 "name": "L402 Lightning (Pay-per-call)",
-                "description": "Classic atomic Lightning payments. True micro-payments.",
-                "flow": "Receive 402 → pay Bolt11 invoice → retry with Authorization: L402 <payment_hash>:<preimage>",
-                "advantages": ["Fully decentralized", "No account needed", "True pay-per-use"]
+                "description": "Classic atomic Lightning micropayments.",
+                "flow": "Receive 402 → pay Bolt11 invoice → retry with L402 <hash>:<preimage>"
             }
         },
 
-        "important_note": "For smooth autonomous operation, we recommend using **Bearer Token** (after registration) or **x402 USDC top-ups**. Small per-call x402 payments are technically possible but not recommended due to gas fees and UX friction.",
-
-        "steps": [
-            {
-                "step": 1,
-                "title": "Choose your preferred payment method",
-                "recommendation": "Bearer Token → best for most users\nx402 USDC → great for stablecoin users\nL402 → for pure Lightning users"
-            },
-            {
-                "step": 2,
-                "title": "Set up your payment method",
-                "bearer": "POST /register (pay ~1000 sats or 0.50 USDC) → receive api_key + 5 free calls",
-                "x402": "POST /topup with amount_usdc (min ~15 recommended) → pay with X-Payment header → credits added to account",
-                "l402": "No registration needed — each call returns a Lightning invoice"
-            },
-            {
-                "step": 3,
-                "title": "Make requests",
-                "bearer": "Authorization: Bearer ivv_...",
-                "x402": "Include X-Payment header (top-up credits your Bearer balance)",
-                "l402": "Authorization: L402 <payment_hash>:<preimage>"
-            }
-        ],
-
-        "new_features": {
-            "style_control": "Use 'style' parameter: short, concise, normal, detailed, comprehensive",
-            "confidence_scoring": "Set 'want_confidence': true",
-            "complementary_calls": "5 free calls on new account registration",
-            "structured_output": "Optional 'response_format' (JSON schema)",
-            "x402_topups": "Bulk USDC top-ups to fund your Bearer account",
-            "trading_bot_support": "High-frequency decisions with Bearer or x402"
-        },
+        "important_note": "For autonomous use, we recommend Bearer Token or x402 USDC top-ups. x402 registration and top-ups require a minimum of $15 USDC.",
 
         "for_autonomous_agents": {
-            "easiest_option": "Bearer Token — register once, then use API key forever",
-            "best_stablecoin_option": "x402 USDC top-ups (recommended minimum $15)",
-            "recommended_for_trading_bots": "Bearer token (pre-funded) or x402 USDC top-ups",
-            "note": "Once you have a funded Bearer account, your agent can run 24/7 with almost no payment friction."
+            "recommended": "Bearer Token after registration",
+            "stablecoin_option": "x402 USDC top-ups (minimum $15)",
+            "note": "Once your Bearer account is funded, your agent can run 24/7 with minimal friction."
         },
 
         "pricing": {
-            "bearer_usage": "~50–150 sats per call (or equivalent)",
-            "x402_topup": "Minimum ~$15 recommended (credits your account)",
-            "l402": "~50–200 sats per call (dynamic)",
-            "agent_multiplier": "1.2–1.5x for autonomous agents",
-            "note": "x402 is designed for bulk top-ups. Small per-call x402 is possible but not recommended due to fees."
+            "bearer_usage": "~50–150 sats per call",
+            "x402_topup": "Minimum $15 USDC (adds virtual sats to your account)",
+            "l402": "~50–200 sats per call",
+            "note": "x402 is for bulk top-ups. Small per-call x402 is not recommended."
         },
 
         "links": {
-            "health": "/health",
-            "prices": "/prices",
-            "guide": "/guide",
-            "wallet_onboarding": "/wallet-onboarding",
             "register": "/register",
             "topup": "/topup",
-            "mcp": "/mcp",
-            "a2a": "/a2a",
-            "sdk": "https://pypi.org/project/invinoveritas/",
-            "github": "https://github.com/babyblueviper1/invinoveritas"
+            "balance": "/balance",
+            "guide": "/guide",
+            "prices": "/prices",
+            "wallet_onboarding": "/wallet-onboarding",
+            "mcp": "/mcp"
         }
     }
 
@@ -2535,20 +2495,20 @@ def get_all_prices():
             "decide": {
                 "sats_base": DECISION_PRICE_SATS,
                 "sats_agent": int(DECISION_PRICE_SATS * AGENT_PRICE_MULTIPLIER),
-                "description": "Structured decision intelligence"
+                "description": "Structured decision intelligence with risk assessment"
             }
         },
 
         "payment_methods": {
-            "bearer": "Prepaid credits via /register and /topup (recommended for usage)",
+            "bearer": "Prepaid credits via /register and /topup (recommended for daily usage)",
             "x402": "USDC on Base — bulk top-ups to fund your Bearer account (min $15 recommended)",
             "l402": "Lightning pay-per-call using L402"
         },
 
         "x402_topups": {
-            "minimum_recommended": "15.00",
+            "minimum_recommended": X402_MIN_TOPUP_USDC,
             "suggested": ["15", "25", "50", "100"],
-            "note": "Top-ups credit your Bearer account for fine-grained usage"
+            "note": "Top-ups add virtual sats to your Bearer account for fine-grained usage"
         },
 
         "trading_bot_support": {
@@ -2557,11 +2517,12 @@ def get_all_prices():
             "benefits": [
                 "Fast arbitrage detection",
                 "Portfolio rebalancing",
-                "Risk-aware decisions with confidence scoring"
+                "Risk-aware decisions with confidence scoring",
+                "High-frequency async calls"
             ]
         },
 
-        "note": "Bearer gives you per-call precision. x402 is designed for convenient bulk top-ups. Lightning offers true micro-payments.",
+        "note": "Bearer gives you per-call precision. x402 is designed for convenient bulk top-ups (minimum $15). Lightning offers true micro-payments.",
         "last_updated": int(time.time())
     }
     
@@ -2572,32 +2533,32 @@ async def wallet_onboarding():
     """Updated wallet onboarding guide reflecting the new x402 top-up model."""
     return {
         "title": "⚡ invinoveritas — Payment Onboarding Guide",
-        "subtitle": "Three Practical Ways to Pay",
+        "subtitle": "Three Practical Ways to Pay: Bearer • x402 USDC Top-up • L402 Lightning",
 
-        "introduction": "You have three payment options. Bearer + x402 top-ups is the most practical combination for most users.",
+        "introduction": "You have three payment options. The best combination for most users is registering with Lightning or x402, then using Bearer for calls.",
 
         "payment_options": [
             {
-                "type": "Bearer Token (Recommended)",
+                "type": "Bearer Token (Recommended for long-term use)",
                 "description": "Create an account once and use an API key for all future calls.",
-                "setup": "POST /register (pay ~1000 sats or 0.50 USDC) → get api_key + 5 free calls",
+                "setup": "POST /register (pay ~1000 sats via Lightning or minimum $15 via x402) → get api_key + 5 free calls",
                 "usage": "Authorization: Bearer ivv_...",
-                "pros": ["Easiest long-term", "Free calls on signup", "Fine-grained usage"]
+                "pros": ["Easiest for agents", "5 free calls on signup", "Fine-grained per-call usage"]
             },
             {
                 "type": "x402 USDC Top-up (Best Stablecoin Option)",
                 "description": "Fund your Bearer account with USDC on Base. Minimum $15 recommended.",
-                "setup": "POST /topup with amount_usdc → pay with X-Payment header → credits added automatically",
+                "setup": "POST /topup with amount_usdc (min $15) → pay with X-Payment header → credits added to your account",
                 "pros": ["Stable value", "Fewer transactions", "No Lightning wallet needed"],
                 "minimum_recommended": "$15",
-                "suggested": ["15", "25", "50", "100"]
+                "suggested_amounts": ["15", "25", "50", "100"]
             },
             {
-                "type": "L402 Lightning (Classic)",
-                "description": "Pay-per-call with Lightning invoices.",
-                "setup": "Pay Bolt11 invoice → retry with Authorization: L402 <hash>:<preimage>",
+                "type": "L402 Lightning (Classic Pay-per-call)",
+                "description": "Pay small amounts per call with Lightning invoices.",
+                "setup": "Receive 402 → pay Bolt11 invoice → retry with Authorization: L402 <hash>:<preimage>",
                 "wallets": ["Alby", "Zeus", "Mutiny", "Phoenix", "Breez"],
-                "pros": ["Fully decentralized", "No account needed"]
+                "pros": ["Fully decentralized", "True micro-payments", "No account needed"]
             }
         ],
 
@@ -2605,8 +2566,8 @@ async def wallet_onboarding():
             "recommended": "Bearer token (pre-funded) or x402 USDC top-ups",
             "tips": [
                 "Pre-fund your Bearer account for uninterrupted high-frequency calls",
-                "x402 USDC gives price stability",
-                "Combine with 'want_confidence' for better risk management"
+                "x402 USDC provides price stability",
+                "Combine with 'want_confidence' for better risk-aware decisions"
             ]
         },
 
@@ -2621,13 +2582,13 @@ async def wallet_onboarding():
         },
 
         "next_steps": [
-            "1. Start with Bearer: POST /register",
+            "1. Register with Lightning or x402 (min $15): POST /register",
             "2. Top up with x402 when needed: POST /topup",
-            "3. Test with /reason or /mcp",
-            "4. Monitor your balance at /balance"
+            "3. Test with /reason or /mcp using your Bearer token",
+            "4. Monitor usage at /balance"
         ],
 
-        "urgent_note": "Configure Bearer + occasional x402 top-ups to avoid repeated 402 errors in autonomous mode."
+        "urgent_note": "Use Bearer Token + occasional x402 top-ups ($15+) to avoid repeated 402 errors in autonomous mode."
     }
     
 @app.get("/health", tags=["meta"])
