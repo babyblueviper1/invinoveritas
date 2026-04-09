@@ -35,7 +35,7 @@ import websockets
 from dataclasses import dataclass
 from collections import defaultdict
 from dotenv import load_dotenv
-from x402.fastapi.middleware import require_payment
+from x402.fastapi import require_payment
 
 # =========================
 # FastAPI App
