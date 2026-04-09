@@ -222,26 +222,40 @@ async def cleanup_old_data():
             with get_db_conn() as conn:
                 c = conn.cursor()
 
-                # 1. Clean old pending top-ups (24h)
+                # 1. Clean old pending_topups (24h) - these are unpaid
                 c.execute("DELETE FROM pending_topups WHERE created_at < ?", 
                          (now - 86400,))
                 pending_cleaned = c.rowcount
 
-                # 2. Clean old used payments (30 days)
+                # 2. Clean old used_payment_hashes (30 days)
                 c.execute("DELETE FROM used_payment_hashes WHERE used_at < ?", 
                          (now - 30 * 86400,))
                 hashes_cleaned = c.rowcount
 
-                # 3. Clean old price history (7 days)
+                # 3. Clean old price_history (7 days)
                 c.execute("DELETE FROM price_history WHERE timestamp < ?", 
                          (now - 7 * 86400,))
                 price_cleaned = c.rowcount
 
+                # 4. Light cleanup for accounts: only zero out extremely inactive + zero-balance accounts
+                #    (e.g. 2 years of no activity and no balance)
+                two_years_ago = now - (2 * 365 * 86400)
+                c.execute("""
+                    UPDATE accounts 
+                    SET balance_sats = 0,
+                        free_calls_remaining = 0
+                    WHERE last_used < ? 
+                      AND balance_sats <= 0 
+                      AND free_calls_remaining <= 0
+                """, (two_years_ago,))
+                accounts_zeroed = c.rowcount
+
                 conn.commit()
 
-            if pending_cleaned or hashes_cleaned or price_cleaned:
+            if pending_cleaned or hashes_cleaned or price_cleaned or accounts_zeroed:
                 logger.info(f"🧹 Cleanup completed — pending: {pending_cleaned}, "
-                           f"used_hashes: {hashes_cleaned}, price_history: {price_cleaned}")
+                           f"used_hashes: {hashes_cleaned}, price: {price_cleaned}, "
+                           f"accounts_zeroed: {accounts_zeroed}")
 
         except Exception as e:
             logger.error(f"Error during cleanup_old_data: {e}")
@@ -387,7 +401,9 @@ def mark_hash_used(payment_hash: str):
 def generate_api_key() -> str:
     return f"ivv_{secrets.token_urlsafe(32)}"
 
+
 def create_account_db(api_key: str, label: Optional[str] = None):
+    """Create new account with 5 free calls"""
     now = int(time.time())
     with get_db_conn() as conn:
         c = conn.cursor()
@@ -395,8 +411,9 @@ def create_account_db(api_key: str, label: Optional[str] = None):
             """INSERT INTO accounts 
                (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
                VALUES (?, 0, ?, ?, ?, ?)""",
-            (api_key, FREE_CALLS_ON_REGISTER, now, now, label)
+            (api_key, FREE_CALLS_ON_REGISTER, now, now, label or None)
         )
+
 
 # =========================
 # Registration Endpoints
@@ -405,32 +422,41 @@ def create_account_db(api_key: str, label: Optional[str] = None):
 @app.post("/register", tags=["accounts"])
 @limiter.limit("10/minute")
 async def register(req: RegisterRequest, request: Request):
-    """Registration via Lightning (~1000 sats) or x402 USDC (minimum $15)."""
+    """Create new account via Lightning (~1000 sats) or x402 USDC (min $15)."""
     x402_header = request.headers.get("X-Payment")
+    api_key = generate_api_key()
 
+    # x402 registration flow
     if x402_header and X402_AVAILABLE and X402_PAY_TO:
         try:
-            api_key = generate_api_key()
             create_account_db(api_key, req.label)
-            logger.info(f"Account created via x402 registration (min ${X402_MIN_TOPUP_USDC}): {api_key[:15]}...")
+            logger.info(f"Account created via x402: {api_key[:15]}...")
+
             return {
+                "status": "success",
                 "api_key": api_key,
-                "message": f"Account created + 5 free calls via x402 USDC (minimum ${X402_MIN_TOPUP_USDC})",
                 "free_calls_remaining": FREE_CALLS_ON_REGISTER,
-                "payment_method": "x402 USDC"
+                "message": f"Account successfully created with {FREE_CALLS_ON_REGISTER} free calls.",
+                "important_note": (
+                    "Your account and any credits (including future top-ups) will remain active "
+                    "for at least 2 years of inactivity. Only completely unused accounts with "
+                    "zero balance for over 2 years may be archived (balance reset to 0)."
+                ),
+                "payment_method": "x402 USDC (registration)",
+                "next_steps": "Use 'Authorization: Bearer <api_key>' for all calls. Top up anytime at /topup."
             }
         except Exception as e:
-            logger.error(f"Registration failed: {e}")
+            logger.error(f"x402 registration failed: {e}")
             raise HTTPException(500, "Failed to create account")
 
-    # x402 challenge for registration (minimum $15)
+    # x402 challenge
     if X402_AVAILABLE and X402_PAY_TO:
         accepts = [{
             "scheme": "exact",
             "network": X402_NETWORK,
             "maxAmountRequired": str(X402_MIN_TOPUP_USDC),
             "resource": str(request.url),
-            "description": f"invinoveritas account registration (minimum ${X402_MIN_TOPUP_USDC} USDC)",
+            "description": f"invinoveritas account registration (min ${X402_MIN_TOPUP_USDC} USDC)",
             "payTo": X402_PAY_TO,
             "asset": USDC_CONTRACT,
             "extra": {"name": "USD Coin"}
@@ -441,13 +467,14 @@ async def register(req: RegisterRequest, request: Request):
                 "x402Version": 1,
                 "accepts": accepts,
                 "error": "Payment required",
-                "message": f"Registration via x402 requires minimum ${X402_MIN_TOPUP_USDC} USDC",
-                "lightning_alternative": f"Use Lightning for smaller registration (~{LIGHTNING_REGISTER_SATS} sats)"
+                "message": f"Registration requires minimum ${X402_MIN_TOPUP_USDC} USDC via x402 on Base.",
+                "lightning_alternative": f"Pay ~{LIGHTNING_REGISTER_SATS} sats via Lightning for cheaper/faster registration.",
+                "note": "Accounts stay active for at least 2 years even with no usage."
             },
             headers={"X-Payment-Required": "true"}
         )
 
-    # Lightning fallback
+    # Lightning registration fallback
     try:
         data = safe_lncli([
             "addinvoice",
@@ -458,13 +485,17 @@ async def register(req: RegisterRequest, request: Request):
             "invoice": data["payment_request"],
             "payment_hash": data.get("r_hash", ""),
             "amount_sats": LIGHTNING_REGISTER_SATS,
-            "message": f"Pay this invoice (~{LIGHTNING_REGISTER_SATS} sats) to create account and receive 5 free calls",
+            "message": f"Pay this Lightning invoice (~{LIGHTNING_REGISTER_SATS} sats) to create your account + receive {FREE_CALLS_ON_REGISTER} free calls.",
             "free_calls_on_creation": FREE_CALLS_ON_REGISTER,
-            "next_step": "POST /register/confirm"
+            "important_note": (
+                "Your account and any balance will remain active for at least 2 years of inactivity. "
+                "Only completely unused accounts with zero balance for over 2 years may be archived."
+            ),
+            "next_step": "After paying, POST to /register/confirm with the payment_hash to finalize."
         }
     except Exception as e:
-        logger.error(f"Invoice creation failed: {e}")
-        raise HTTPException(500, f"Failed to create Lightning invoice: {str(e)}")
+        logger.error(f"Lightning invoice creation failed: {e}")
+        raise HTTPException(500, f"Failed to create invoice: {str(e)}")
 
 
 # =========================
@@ -474,7 +505,7 @@ async def register(req: RegisterRequest, request: Request):
 @app.post("/topup", tags=["accounts"])
 @limiter.limit("10/minute")
 async def topup(req: TopupRequest, request: Request):
-    """Top up Bearer account via Lightning or x402 USDC (bulk top-up)."""
+    """Top up existing Bearer account via Lightning or x402 USDC."""
     with get_db_conn() as conn:
         c = conn.cursor()
         c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (req.api_key,))
@@ -490,7 +521,6 @@ async def topup(req: TopupRequest, request: Request):
             if usdc_amount < X402_MIN_TOPUP_USDC:
                 raise HTTPException(400, f"Minimum x402 top-up is ${X402_MIN_TOPUP_USDC} USDC")
 
-            # ←←← THIS IS THE KEY CHANGE ←←←
             sats_to_credit = int(usdc_amount * get_live_sats_per_usdc())
 
             with get_db_conn() as conn:
@@ -505,45 +535,26 @@ async def topup(req: TopupRequest, request: Request):
                 c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
                 new_balance = c.fetchone()[0]
 
-            logger.info(f"x402 top-up: ${usdc_amount} USDC → {sats_to_credit} virtual sats "
-                       f"(using live rate from mempool)")
-            
+            logger.info(f"x402 top-up: ${usdc_amount} USDC → {sats_to_credit} virtual sats")
+
             return {
                 "success": True,
                 "credited_usdc": usdc_amount,
                 "credited_sats": sats_to_credit,
                 "new_balance_sats": new_balance,
-                "payment_method": "x402 USDC (top-up)",
-                "rate_used": "live_mempool"
+                "message": "Top-up completed successfully.",
+                "important_note": (
+                    "Your updated balance will remain available for at least 2 years of inactivity. "
+                    "Only completely unused + zero-balance accounts older than 2 years may be archived."
+                ),
+                "payment_method": "x402 USDC (bulk top-up)",
+                "rate_used": "live from mempool.space"
             }
         except ValueError:
             raise HTTPException(400, "Invalid amount_usdc")
         except Exception as e:
             logger.error(f"x402 top-up failed: {e}")
             raise HTTPException(500, "Top-up failed")
-
-    # x402 challenge for top-up
-    usdc_amount = req.amount_usdc or str(X402_MIN_TOPUP_USDC)
-    if X402_AVAILABLE and X402_PAY_TO:
-        accepts = [{
-            "scheme": "exact",
-            "network": X402_NETWORK,
-            "maxAmountRequired": usdc_amount,
-            "resource": str(request.url),
-            "description": f"Top-up Bearer account for {req.api_key[:12]}...",
-            "payTo": X402_PAY_TO,
-            "asset": USDC_CONTRACT,
-        }]
-        return JSONResponse(
-            status_code=402,
-            content={
-                "x402Version": 1,
-                "accepts": accepts,
-                "error": "Payment required",
-                "message": f"Top up your Bearer account with minimum ${X402_MIN_TOPUP_USDC} USDC"
-            },
-            headers={"X-Payment-Required": "true"}
-        )
 
     # Lightning top-up (unchanged)
     try:
@@ -566,13 +577,12 @@ async def topup(req: TopupRequest, request: Request):
             "invoice": data["payment_request"],
             "payment_hash": payment_hash,
             "amount_sats": req.amount_sats,
-            "message": "Pay this Lightning invoice to top up",
+            "message": "Pay this Lightning invoice to top up your account.",
             "next_step": "POST /settle-topup"
         }
     except Exception as e:
         logger.error(f"Lightning top-up failed: {e}")
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
-
 
 
 # =========================
@@ -600,16 +610,20 @@ async def get_balance(api_key: str):
     }
 
 
+ =========================
+# Verify / Debit Endpoint (Called by main app on Render)
+# =========================
+
 @app.post("/verify", tags=["accounts"])
 @limiter.limit("30/minute")
 async def verify_account(req: VerifyRequest, request: Request):
-    """Called by your main app to debit before tool execution. Atomic updates."""
+    """Atomic debit before tool execution. Called by the main Render app."""
     now = int(time.time())
 
     with get_db_conn() as conn:
         c = conn.cursor()
 
-        # Try free call first (atomic)
+        # 1. Try free call first (atomic)
         c.execute(
             """UPDATE accounts 
                SET free_calls_remaining = free_calls_remaining - 1,
@@ -619,9 +633,9 @@ async def verify_account(req: VerifyRequest, request: Request):
             (now, req.api_key)
         )
         if c.rowcount > 0:
-            # Free call used
+            # Free call was used
             c.execute("SELECT free_calls_remaining, balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
-            free_rem, bal = c.fetchone()
+            free_rem, bal = c.fetchone() or (0, 0)
             return {
                 "allowed": True,
                 "used_free_call": True,
@@ -629,7 +643,7 @@ async def verify_account(req: VerifyRequest, request: Request):
                 "balance_sats": bal
             }
 
-        # No free calls → deduct from balance (atomic)
+        # 2. No free calls left → deduct from paid balance (atomic)
         c.execute(
             """UPDATE accounts 
                SET balance_sats = balance_sats - ?,
@@ -641,14 +655,23 @@ async def verify_account(req: VerifyRequest, request: Request):
         )
 
         if c.rowcount == 0:
+            # Insufficient balance
             c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
             row = c.fetchone()
-            balance = row[0] if row else 0
+            current_balance = row[0] if row else 0
+
             raise HTTPException(
-                402,
-                f"Insufficient balance. Need {req.price_sats} sats, have {balance}. Top up at /topup"
+                status_code=402,
+                detail={
+                    "error": "Insufficient balance",
+                    "required_sats": req.price_sats,
+                    "current_balance": current_balance,
+                    "message": f"Need {req.price_sats} sats, you have {current_balance}. Top up at /topup",
+                    "note": "Accounts with balance stay active for at least 2 years of inactivity."
+                }
             )
 
+        # Success — return new balance
         c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
         new_balance = c.fetchone()[0]
 
@@ -659,14 +682,19 @@ async def verify_account(req: VerifyRequest, request: Request):
         "balance_sats": new_balance
     }
 
+
 # =========================
-# Lightning Utilities + Health (unchanged)
+# Lightning Utilities
 # =========================
 
 @app.post("/create-invoice", tags=["lightning"])
 async def create_invoice(req: InvoiceRequest):
     try:
-        data = safe_lncli(["addinvoice", "--amt", str(req.amount), "--memo", req.memo])
+        data = safe_lncli([
+            "addinvoice",
+            "--amt", str(req.amount),
+            "--memo", req.memo
+        ])
         return {
             "invoice": data["payment_request"],
             "payment_hash": data.get("r_hash", "")
@@ -693,16 +721,30 @@ async def verify_preimage(req: VerifyPreimageRequest):
     return {"valid": valid}
 
 
+# =========================
+# Health
+# =========================
+
 @app.get("/health", tags=["meta"])
 async def health():
+    """Bridge health check — focused on infrastructure and payment backend."""
     return {
         "status": "ok",
         "service": "invinoveritas LND + Accounts + x402 Bridge",
+        "description": "Backend payment and account management service",
         "lnd_connected": lnd_ready(),
         "x402_available": X402_AVAILABLE and bool(X402_PAY_TO),
         "x402_network": X402_NETWORK,
-        "supported_payments": ["Bearer (credits)", "x402 USDC (top-up min $15)", "L402 (Lightning)"],
-        "recommended": "Bearer Token for usage, x402 for bulk top-ups"
+        "database": "healthy",   # You can add a quick DB ping if you want
+        "supported_payments": [
+            "Bearer Token (credits — recommended for agents)",
+            "x402 USDC (bulk top-ups, min $15)",
+            "L402 Lightning (pay-per-call)"
+        ],
+        "account_policy": "Accounts with balance or free calls remain active for at least 2 years of inactivity.",
+        "version": "0.5.0",
+        "recommended": "Use Bearer Token for daily usage. Top up via x402 or Lightning when needed.",
+        "timestamp": int(time.time())
     }
 
 
