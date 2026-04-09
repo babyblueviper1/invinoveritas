@@ -321,10 +321,24 @@ class VerifyRequest(BaseModel):
 # =========================
 
 def lnd_ready() -> bool:
+    """Check if LND is responsive"""
     try:
-        info = run_lncli(["getinfo"])
-        return bool(info.get("synced_to_chain"))
-    except Exception:
+        # Try standard call
+        data = safe_lncli(["getinfo"])
+        if data and isinstance(data, dict) and "identity_pubkey" in data:
+            logger.info("LND is connected and responsive")
+            return True
+
+        # Try with explicit network flag (many nodes need this)
+        data = safe_lncli(["--network=mainnet", "getinfo"])
+        if data and isinstance(data, dict) and "identity_pubkey" in data:
+            logger.info("LND is connected (mainnet flag used)")
+            return True
+
+        logger.warning("LND getinfo returned unexpected data")
+        return False
+    except Exception as e:
+        logger.warning(f"LND readiness check failed: {type(e).__name__}: {e}")
         return False
 
 def run_lncli(args: list, timeout: int = 15) -> Dict[str, Any]:
@@ -339,10 +353,34 @@ def run_lncli(args: list, timeout: int = 15) -> Dict[str, Any]:
         raise Exception(f"lncli error: {error}")
     return json.loads(result.stdout)
 
-def safe_lncli(args):
-    if not lnd_ready():
-        raise HTTPException(503, "Lightning node is syncing. Please try again shortly.")
-    return run_lncli(args)
+def safe_lncli(args: list, timeout: int = 15):
+    """Safe wrapper around lncli commands"""
+    try:
+        full_cmd = ["lncli"] + args
+        result = subprocess.run(
+            full_cmd, 
+            capture_output=True, 
+            text=True, 
+            timeout=timeout,
+            check=False
+        )
+        
+        if result.returncode != 0:
+            logger.warning(f"lncli failed: {result.stderr.strip()}")
+            return None
+            
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError:
+            logger.warning("lncli returned non-JSON output")
+            return None
+            
+    except subprocess.TimeoutExpired:
+        logger.warning("lncli command timed out")
+        return None
+    except Exception as e:
+        logger.warning(f"safe_lncli exception: {e}")
+        return None
 
 # =========================
 # Payment Helpers
