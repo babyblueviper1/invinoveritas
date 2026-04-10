@@ -305,27 +305,69 @@ async def register(req: RegisterRequest, request: Request):
         logger.error(f"Lightning invoice creation or DB insert failed: {e}")
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
 
-@app.post("/register/confirm", tags=["accounts"])
-async def confirm_register(req: RegisterConfirmRequest):
-    if not verify_preimage_logic(req.payment_hash, req.preimage):
-        raise HTTPException(403, "Invalid preimage")
-    if not check_payment_logic(req.payment_hash):
-        raise HTTPException(402, "Payment not settled yet")
-    if is_hash_used(req.payment_hash):
-        raise HTTPException(403, "Payment already used")
+@app.post("/register/confirm", tags=["credit"])
+async def confirm_register(req: Optional[dict] = None):
+    """Confirm registration after Lightning payment"""
+    if not req or not req.get("payment_hash") or not req.get("preimage"):
+        return {
+            "status": "error",
+            "message": "Missing payment_hash or preimage"
+        }
 
-    api_key = generate_api_key()
-    create_account_db(api_key, req.label)
-    mark_hash_used(req.payment_hash)
+    payment_hash = req["payment_hash"]
+    preimage = req["preimage"]
 
-    return {
-        "status": "success",
-        "api_key": api_key,
-        "free_calls_remaining": FREE_CALLS_ON_REGISTER,
-        "message": "Account created successfully!",
-        "next_steps": "Use Authorization: Bearer <api_key>"
-    }
+    logger.info(f"Confirm registration called for hash: {payment_hash[:16]}...")
 
+    # Normalize hash for lookup
+    normalized_hash = normalize_payment_hash(payment_hash)
+
+    try:
+        with get_db_conn() as conn:
+            c = conn.cursor()
+            c.execute("SELECT api_key, amount_sats FROM pending_topups WHERE payment_hash = ?", (normalized_hash,))
+            row = c.fetchone()
+
+            if not row:
+                logger.warning(f"No pending_topup found for normalized hash: {normalized_hash[:16]}...")
+                raise HTTPException(404, "Payment not found or already confirmed")
+
+            api_key, amount_sats = row
+            logger.info(f"Found pending registration for api_key: {api_key[:12]}...")
+
+        # Verify preimage
+        if not verify_preimage_logic(payment_hash, preimage):
+            logger.warning("Preimage verification failed")
+            raise HTTPException(400, "Invalid preimage")
+
+        # Check if settled on LND
+        if not check_payment_logic(payment_hash):
+            logger.warning("Payment not yet settled on LND")
+            raise HTTPException(402, "Payment not settled yet. Try again in a few seconds.")
+
+        # Create/activate the account
+        create_account_db(api_key)
+
+        # Delete from pending_topups
+        with get_db_conn() as conn:
+            c = conn.cursor()
+            c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (normalized_hash,))
+
+        logger.info(f"✅ Registration confirmed successfully for api_key: {api_key[:12]}...")
+
+        return {
+            "status": "success",
+            "api_key": api_key,
+            "free_calls_remaining": FREE_CALLS_ON_REGISTER,
+            "message": f"Account successfully activated with {FREE_CALLS_ON_REGISTER} free calls.",
+            "important_note": "Your account and any future credits will remain active for at least 2 years of inactivity."
+        }
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Registration confirmation failed: {e}")
+        raise HTTPException(500, f"Confirmation failed: {str(e)}")
 
 # =========================
 # Top-up
