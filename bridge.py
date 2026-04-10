@@ -267,26 +267,38 @@ def create_account_db(api_key: str, label: Optional[str] = None):
 @app.post("/register", tags=["accounts"])
 @limiter.limit("10/minute")
 async def register(req: RegisterRequest, request: Request):
+    """Create new account via Lightning (~1000 sats)."""
     api_key = generate_api_key()
-    
+
     try:
         data = safe_lncli([
             "addinvoice",
             "--amt", str(LIGHTNING_REGISTER_SATS),
             "--memo", "invinoveritas account creation"
         ])
+        payment_hash = data.get("r_hash", "")
+
+        # ←←← IMPORTANT: Save to pending_topups so we can confirm later
+        with get_db_conn() as conn:
+            c = conn.cursor()
+            c.execute(
+                """INSERT INTO pending_topups (payment_hash, api_key, amount_sats, created_at)
+                   VALUES (?, ?, ?, ?)""",
+                (normalize_payment_hash(payment_hash), api_key, LIGHTNING_REGISTER_SATS, int(time.time()))
+            )
+
         return {
             "invoice": data["payment_request"],
-            "payment_hash": data.get("r_hash", ""),
+            "payment_hash": payment_hash,
             "amount_sats": LIGHTNING_REGISTER_SATS,
-            "message": f"Pay this Lightning invoice to create your account + receive {FREE_CALLS_ON_REGISTER} complementary calls.",
+            "message": f"Pay this Lightning invoice (~{LIGHTNING_REGISTER_SATS} sats) to create your account and receive {FREE_CALLS_ON_REGISTER} free calls.",
             "free_calls_on_creation": FREE_CALLS_ON_REGISTER,
-            "next_step": "After paying, POST to /register/confirm with payment_hash and preimage.",
-            "important_note": "Accounts stay active for at least 2 years of inactivity."
+            "important_note": "Your account and balance will remain active for at least 2 years of inactivity.",
+            "next_step": "After paying, POST to /register/confirm with the payment_hash and preimage"
         }
     except Exception as e:
-        logger.error(f"Invoice creation failed: {e}")
-        raise HTTPException(500, "Failed to create Lightning invoice")
+        logger.error(f"Lightning invoice creation failed: {e}")
+        raise HTTPException(500, f"Failed to create invoice: {str(e)}")
 
 
 @app.post("/register/confirm", tags=["accounts"])
