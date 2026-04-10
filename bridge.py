@@ -89,7 +89,10 @@ def init_db():
 
 @contextmanager
 def get_db_conn():
-    conn = sqlite3.connect(DB_PATH)
+    """Improved connection with timeout and WAL mode for better concurrency."""
+    conn = sqlite3.connect(DB_PATH, timeout=15.0)   # 15 second timeout
+    conn.execute("PRAGMA journal_mode=WAL;")        # Critical for concurrent access
+    conn.execute("PRAGMA busy_timeout=15000;")      # 15 seconds
     try:
         yield conn
         conn.commit()
@@ -205,12 +208,21 @@ def is_hash_used(payment_hash: str) -> bool:
 
 def mark_hash_used(payment_hash: str):
     ph_hex = to_hex_hash(payment_hash)
-    with get_db_conn() as conn:
-        c = conn.cursor()
-        c.execute(
-            "INSERT OR IGNORE INTO used_payment_hashes (payment_hash, used_at) VALUES (?, ?)",
-            (ph_hex, int(time.time()))
-        )
+    for attempt in range(3):   # retry up to 3 times
+        try:
+            with get_db_conn() as conn:
+                c = conn.cursor()
+                c.execute(
+                    "INSERT OR IGNORE INTO used_payment_hashes (payment_hash, used_at) VALUES (?, ?)",
+                    (ph_hex, int(time.time()))
+                )
+            return
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e).lower() and attempt < 2:
+                time.sleep(0.3 * (attempt + 1))   # backoff
+                continue
+            logger.error(f"Failed to mark hash used after retries: {e}")
+            raise
 
 
 # =========================
