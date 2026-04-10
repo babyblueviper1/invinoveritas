@@ -630,20 +630,20 @@ def _base_meta() -> dict:
     }
 
 
-def generate_agent_payload(score: int = 7) -> dict:
+def generate_agent_payload(score: int = 8) -> dict:
     p = _base_meta()
     p.update({
         "type": "mcp_service",
-        "endpoint": "https://invinoveritas.onrender.com/mcp",
-        "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-        "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
+        "endpoint": "http://178.156.151.248:8000/mcp",
+        "server_card": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
+        "agent_card": "http://178.156.151.248:8000/.well-known/agent-card.json",
 
         # ── Payment Section ─────────────────────────────────────
         "payment": {
             "protocols": ["Bearer", "L402"],
             "preferred": "Bearer (for agents)",
             "currencies": ["sats"],
-            "model": "hybrid",   # Bearer for ongoing usage, L402 for direct pay-per-call
+            "model": "hybrid",
             "details": {
                 "bearer": {
                     "description": "Pre-funded credit account with API key. Best for autonomous agents and trading bots.",
@@ -673,7 +673,12 @@ def generate_agent_payload(score: int = 7) -> dict:
             "structured-output",
             "risk-assessment",
             "confidence-scoring",
-            "style-control"
+            "style-control",
+            "persistent-memory",
+            "agent-memory-store",
+            "agent-memory-retrieve",
+            "agent-memory-list",
+            "long-term-context"
         ],
 
         "score": score,
@@ -682,7 +687,8 @@ def generate_agent_payload(score: int = 7) -> dict:
             "multi_step_reasoning",
             "financial_decision",
             "high_stakes",
-            "trading_strategy"
+            "trading_strategy",
+            "long_term_agent_context"
         ],
 
         "trading_bot_ready": True,
@@ -692,34 +698,66 @@ def generate_agent_payload(score: int = 7) -> dict:
             "risk_score": True,
             "confidence_weighted_decisions": True,
             "async_api_ready": True,
-            "high_frequency_support": True
+            "high_frequency_support": True,
+            "persistent_memory": True
         },
 
+        # ── Stronger Value Proposition (v0.6.0) ─────────────────────
         "value_proposition": {
-            "edge": "High-quality reasoning with simple Lightning payments",
+            "core_edge": "High-quality reasoning + persistent agent memory with simple Lightning payments",
+            "key_benefits": [
+                "Reduce hallucinations with long-term context",
+                "Enable truly autonomous agents with stateful memory",
+                "Pay only when you use it (no subscriptions)",
+                "Lightning-fast decisions for trading bots",
+                "Memory survives across sessions"
+            ],
             "reduces_error": True,
             "saves_time": True,
-            "autonomous_ready": True
+            "autonomous_ready": True,
+            "memory_enabled": True
         },
 
         "features": {
             "complementary_calls": 5,
             "styles": ["short", "concise", "normal", "detailed", "comprehensive"],
             "free_calls_on_register": True,
-            "account_inactivity_policy": "2 years"
+            "account_inactivity_policy": "2 years",
+            "new_in_0_6_0": "Persistent agent memory service"
+        },
+
+        # ── Memory Service (Prominently Featured) ───────────────────
+        "memory_service": {
+            "description": "Persistent key-value memory store for agents and long-running sessions",
+            "endpoints": {
+                "store": "/memory/store",
+                "get": "/memory/get",
+                "delete": "/memory/delete",
+                "list": "/memory/list"
+            },
+            "pricing": {
+                "store": "≈2 sats per KB (minimum 50 sats)",
+                "retrieve": "≈1 sat per KB (minimum 20 sats)",
+                "delete": "free",
+                "list": "free"
+            },
+            "limits": {
+                "max_size_per_entry": "200 KB"
+            },
+            "note": "Until full SDK support, use raw HTTP endpoints with your Bearer token"
         },
 
         # ── Discovery ──────────────────────────────────────────────────
         "discovery": {
-            "mcp_server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-            "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
-            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json",
-            "a2a_endpoint": "https://invinoveritas.onrender.com/a2a",
-            "ai_plugin": "https://invinoveritas.onrender.com/.well-known/ai-plugin.json",
+            "mcp_server_card": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
+            "agent_card": "http://178.156.151.248:8000/.well-known/agent-card.json",
+            "agents_registry": "http://178.156.151.248:8000/.well-known/agents.json",
+            "a2a_endpoint": "http://178.156.151.248:8000/a2a",
+            "ai_plugin": "http://178.156.151.248:8000/.well-known/ai-plugin.json",
             "real_time": {
-                "sse": "https://invinoveritas.onrender.com/events",
-                "websocket": "wss://invinoveritas.onrender.com/ws",
-                "rss": "https://invinoveritas.onrender.com/rss"
+                "sse": "http://178.156.151.248:8000/events",
+                "websocket": "wss://178.156.151.248:8000/ws",
+                "rss": "http://178.156.151.248:8000/rss"
             }
         },
 
@@ -732,6 +770,7 @@ def generate_agent_payload(score: int = 7) -> dict:
 
         "notes": [
             "Bearer token is the easiest long-term solution for autonomous agents and trading bots",
+            "New persistent memory service allows agents to maintain state across sessions",
             "L402 Lightning remains fully supported for users who prefer direct pay-per-call",
             "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity"
         ]
@@ -740,17 +779,22 @@ def generate_agent_payload(score: int = 7) -> dict:
 
 
 # ── Adaptive SDK Payload ─────────────────────────────────────────────────────
-def generate_sdk_payload(score: int = 7) -> dict:
+def generate_sdk_payload(score: int = 8) -> dict:
     p = _base_meta()
     p.update({
         "type": "agent_sdk",
         "install_hint": {"python": "pip install invinoveritas", "auto_install": True},
         "invoke": {"default": "smart_reason", "async": "async_smart_reason"},
         "api": {
-            "reason": "https://invinoveritas.onrender.com/reason",
-            "decision": "https://invinoveritas.onrender.com/decision",
-            "mcp": "https://invinoveritas.onrender.com/mcp",
-            "a2a": "https://invinoveritas.onrender.com/a2a"
+            "reason": "http://178.156.151.248:8000/reason",
+            "decision": "http://178.156.151.248:8000/decision",
+            "mcp": "http://178.156.151.248:8000/mcp",
+            "a2a": "http://178.156.151.248:8000/a2a",
+            # Memory is available via raw HTTP (SDK support coming later)
+            "memory_store": "http://178.156.151.248:8000/memory/store",
+            "memory_get": "http://178.156.151.248:8000/memory/get",
+            "memory_list": "http://178.156.151.248:8000/memory/list",
+            "memory_delete": "http://178.156.151.248:8000/memory/delete"
         },
         "payment": {
             "protocols": ["Bearer", "L402"],
@@ -763,7 +807,16 @@ def generate_sdk_payload(score: int = 7) -> dict:
                 "l402": "Lightning pay-per-call (current SDK default)"
             }
         },
-        "use_when": ["high_uncertainty", "multi_step_reasoning", "financial_decision", "high_stakes", "trading_decision"],
+
+        "use_when": [
+            "high_uncertainty", 
+            "multi_step_reasoning", 
+            "financial_decision", 
+            "high_stakes", 
+            "trading_decision",
+            "long_term_agent_context"
+        ],
+
         "score": score,
         "trading_bot_ready": True,
         "trading_features": {
@@ -771,30 +824,48 @@ def generate_sdk_payload(score: int = 7) -> dict:
             "portfolio_rebalancing": True,
             "risk_score": True,
             "confidence_weighted_decisions": True,
-            "async_api_ready": True
+            "async_api_ready": True,
+            "persistent_memory": True
         },
+
         "ranking": {"quality": "high", "cost_efficiency": "high", "determinism": "high"},
         "roi_signal": {"expected": "positive", "confidence": "high"},
+
+        "memory_service": {
+            "description": "Persistent key-value memory for agents (long-term context/state)",
+            "note": "SDK does not yet support memory endpoints. Use raw HTTP calls with your Bearer token.",
+            "endpoints": {
+                "store": "http://178.156.151.248:8000/memory/store (200 sats base)",
+                "get": "http://178.156.151.248:8000/memory/get (50 sats base)",
+                "list": "http://178.156.151.248:8000/memory/list (free)",
+                "delete": "http://178.156.151.248:8000/memory/delete (free)"
+            },
+            "pricing_model": "size-based (≈2 sats/KB store, ≈1 sat/KB retrieve)"
+        },
+
         "discovery": {
-            "agent_card": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
-            "server_card": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-            "agents_registry": "https://invinoveritas.onrender.com/.well-known/agents.json",
+            "agent_card": "http://178.156.151.248:8000/.well-known/agent-card.json",
+            "server_card": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
+            "agents_registry": "http://178.156.151.248:8000/.well-known/agents.json",
             "real_time": {
-                "sse": "https://invinoveritas.onrender.com/events",
-                "websocket": "wss://invinoveritas.onrender.com/ws",
-                "rss": "https://invinoveritas.onrender.com/rss"
+                "sse": "http://178.156.151.248:8000/events",
+                "websocket": "wss://178.156.151.248:8000/ws",
+                "rss": "http://178.156.151.248:8000/rss"
             }
         },
+
         "real_time_updates": {
             "sse": "/events",
             "websocket": "/ws",
             "rss": "/rss",
             "description": "Live announcements synced with Nostr broadcasts"
         },
+
         "notes": [
             "SDK currently optimized for L402 Lightning payments",
             "Bearer Token support is available via manual calls and MCP",
-            "Best experience: Use MCP endpoint for maximum flexibility"
+            "New in v0.6.0: Persistent memory service available via raw HTTP endpoints",
+            "Best experience: Use MCP endpoint for maximum flexibility + memory support"
         ]
     })
     return p
@@ -846,18 +917,18 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     return event
 
 
-def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
+def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
     payload = generate_sdk_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
     
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"],
         
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
-        ["version", "0.5.0"],
+        ["version", "0.6.0"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402 (native), Bearer (manual/MCP)"],
@@ -865,11 +936,17 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
         
-        ["real_time", "sse:https://invinoveritas.onrender.com/events"],
-        ["real_time", "websocket:wss://invinoveritas.onrender.com/ws"],
-        ["real_time", "rss:https://invinoveritas.onrender.com/rss"],
+        ["real_time", "sse:http://178.156.151.248:8000/events"],
+        ["real_time", "websocket:wss://178.156.151.248:8000/ws"],
+        ["real_time", "rss:http://178.156.151.248:8000/rss"],
         
-        ["discover", "https://invinoveritas.onrender.com/discover"]
+        ["discover", "http://178.156.151.248:8000/discover"],
+        
+        # New in v0.6.0 — Persistent Agent Memory
+        ["feature", "persistent-memory"],
+        ["memory_service", "http://178.156.151.248:8000/memory"],
+        ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
+        ["memory_usage", "Use raw HTTP endpoints until SDK support is added"],
     ]
     
     event = Event(
@@ -885,46 +962,51 @@ def build_sdk_event(private_key: PrivateKey, score: int = 7) -> Event:
 # ── Human Event (Lightning-First + Trading Bot) ──────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
     content = (
-        "⚡ invinoveritas v0.5.0 is live\n\n"
-        "Premium AI reasoning & structured decision intelligence for autonomous agents and trading bots.\n\n"
+        "⚡ invinoveritas v0.6.0 is live\n\n"
+        "Premium AI reasoning, structured decisions, and **persistent agent memory** for autonomous agents and trading bots.\n\n"
         
-        "→ MCP Server: https://invinoveritas.onrender.com/mcp\n"
+        "→ MCP Server: http://178.156.151.248:8000/mcp\n"
         "→ Python SDK: pip install invinoveritas\n"
-        "→ Discovery: https://invinoveritas.onrender.com/discover\n\n"
+        "→ Discovery: http://178.156.151.248:8000/discover\n\n"
+        
+        "→ New in v0.6.0: Agent Memory Service\n"
+        "   • Store long-term context / state for agents\n"
+        "   • Endpoints: /memory/store, /memory/get, /memory/list\n"
+        "   • Pricing: ~2 sats/KB store | ~1 sat/KB retrieve\n\n"
         
         "→ Payment Options (Lightning Network only):\n"
         "   • Bearer Token (recommended for agents & trading bots)\n"
         "   • L402 Lightning (classic pay-per-call)\n\n"
         
         "→ Real-time updates:\n"
-        "   • SSE: https://invinoveritas.onrender.com/events\n"
-        "   • WebSocket: wss://invinoveritas.onrender.com/ws\n"
-        "   • RSS: https://invinoveritas.onrender.com/rss\n\n"
+        "   • SSE: http://178.156.151.248:8000/events\n"
+        "   • WebSocket: wss://178.156.151.248:8000/ws\n"
+        "   • RSS: http://178.156.151.248:8000/rss\n\n"
         
         "→ Recommended Setup:\n"
-        "   • Bearer Token → register once via /register (pay ~1000 sats)\n"
-        "   • NWC (Alby, Zeus, Mutiny) for Lightning users\n\n"
+        "   • Register once via /register (pay ~1000 sats) → get Bearer token\n"
+        "   • Use NWC (Alby, Zeus, etc.) for Lightning users\n\n"
         
         "→ Trading Bot Ready:\n"
         "   • Arbitrage evaluation\n"
         "   • Portfolio rebalancing\n"
         "   • Risk scoring with confidence\n"
-        "   • High-frequency async decisions\n\n"
+        "   • Persistent memory for agents\n\n"
         
         "Pay only when decisions matter. "
         "Best experience: Use Bearer Token after registration."
     )
     
     tags = [
-        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"],
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"], ["t", "memory"],
         ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "bearer"],
         
-        ["r", "https://invinoveritas.onrender.com/mcp"],
-        ["r", "https://invinoveritas.onrender.com/discover"],
-        ["r", "https://invinoveritas.onrender.com/events"],
-        ["r", "https://invinoveritas.onrender.com/register"],
+        ["r", "http://178.156.151.248:8000/mcp"],
+        ["r", "http://178.156.151.248:8000/discover"],
+        ["r", "http://178.156.151.248:8000/memory"],
+        ["r", "http://178.156.151.248:8000/register"],
         
-        ["version", "0.5.0"],
+        ["version", "0.6.0"],
         ["type", "sdk_announcement"],
         
         ["payment", "Bearer,L402"],
@@ -1528,43 +1610,40 @@ async def confirm_payment(data: ConfirmRequest):
         raise HTTPException(500, "Internal server error during settlement")
 
 
-# =========================
-# Wallet / Payment Status
-# =========================
 @app.get("/wallet-status", tags=["meta"])
 async def wallet_status():
-    """Current payment options and recommendations."""
+    """Current payment options and recommendations (v0.6.0)."""
     return {
         "status": "active",
         "payment_required": True,
-        "wallet_required": False,   # Bearer + x402 don't require a Lightning wallet
+        "wallet_required": True,
+
+        "wallet_usage": "A Lightning wallet is required for initial registration and occasional top-ups. "
+                        "Once your Bearer account is funded, normal API usage requires no wallet — just your api_key.",
 
         "supported_methods": [
-            "Bearer Token (prepaid credits — recommended)",
-            "x402 USDC (bulk top-ups on Base)",
-            "L402 Lightning (pay-per-call)"
+            "Bearer Token (prepaid credits — strongly recommended for agents and long-term use)",
+            "L402 Lightning (true atomic pay-per-call)"
         ],
 
-        "message": "Flexible payment system. Bearer Token is the easiest for autonomous agents and trading bots.",
+        "message": "Lightning-powered payments. Bearer Token is the easiest and most recommended option for autonomous agents, trading bots, and repeated usage.",
 
         "payment_options": {
-            "best_for_agents": "Bearer Token — register once, get API key + 5 complementary calls, use forever",
-            "best_for_stablecoins": "x402 USDC on Base — bulk top-ups to fund your Bearer account (min $15 recommended)",
-            "best_for_lightning": "L402 Lightning — true atomic pay-per-call",
-            "network_info": "x402 runs on Base (low fees, stable value)"
+            "best_for_agents": "Bearer Token — register once via /register (pay ~1000 sats via Lightning wallet), get api_key + 5 complementary calls, then use forever.",
+            "best_for_lightning_users": "L402 Lightning — pure atomic pay-per-call with no account needed.",
+            "best_for_trading_bots": "Bearer Token (pre-funded) for speed and reliability."
         },
 
         "recommendations": {
-            "autonomous_agents": "Bearer Token after /register (easiest long-term solution)",
-            "trading_bots": "Bearer Token (pre-funded) or x402 USDC bulk top-ups",
-            "stablecoin_users": "x402 USDC for bulk funding",
-            "lightning_maximalists": "L402 Lightning"
+            "autonomous_agents": "Bearer Token after /register",
+            "trading_bots": "Bearer Token (pre-funded)",
+            "lightning_users": "L402 Lightning"
         },
 
         "important_notes": [
             "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity",
-            "x402 is designed for bulk top-ups ($15+ recommended). Small per-call x402 is possible but not optimal due to fees.",
-            "Bearer Token gives you fine-grained per-call usage after funding"
+            "Bearer Token provides the best experience for long-running or high-frequency usage",
+            "New in v0.6.0: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
         ],
 
         "resources": {
@@ -1572,7 +1651,8 @@ async def wallet_status():
             "register": "/register",
             "topup": "/topup",
             "balance": "/balance",
-            "wallet_onboarding": "/wallet-onboarding"
+            "wallet_onboarding": "/wallet-onboarding",
+            "memory_service": "/memory"
         },
 
         "last_updated": int(time.time())
