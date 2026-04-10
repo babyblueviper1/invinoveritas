@@ -1481,50 +1481,51 @@ async def verify_account(req: VerifyRequest):
         logger.error(f"Bridge connection error during verify: {e}")
         raise HTTPException(503, "Payment verification service temporarily unavailable")
 
-# =========================
-# Settle Top-up / Confirm Payment (Critical for Bearer Accounts)
+ =========================
+# Confirm Registration / Settle Top-up (Proxy to Bridge)
 # =========================
 
-class SettleTopupRequest(BaseModel):
+class ConfirmRequest(BaseModel):
     payment_hash: str
     preimage: str
-    # Optional: label or api_key if you want to support attaching to existing account later
+    label: Optional[str] = None
 
 
-@app.post("/settle-topup", tags=["credit"])
-@app.post("/register/confirm", tags=["credit"])   # keep both for compatibility
-async def settle_topup(data: SettleTopupRequest):
-    """Confirm Lightning payment and create/credit the bearer account."""
+@app.post("/register/confirm", tags=["credit"])
+@app.post("/settle-topup", tags=["credit"])   # keep for backward compatibility
+async def confirm_payment(data: ConfirmRequest):
+    """Confirm Lightning payment and create/credit bearer account."""
     if not data.payment_hash or not data.preimage:
         raise HTTPException(400, "payment_hash and preimage are required")
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
-                f"{NODE_URL}/settle-topup",   # or /confirm-payment if your bridge uses different name
+                f"{NODE_URL}/register/confirm",          # ← This is the correct bridge endpoint
                 json={
                     "payment_hash": data.payment_hash,
-                    "preimage": data.preimage
+                    "preimage": data.preimage,
+                    "label": data.label
                 }
             )
 
             if resp.status_code == 200:
                 result = resp.json()
-                logger.info(f"✅ Bearer account settled successfully | payment_hash={data.payment_hash[:16]}...")
-                return result   # Should contain {"api_key": "ivv_...", "balance": ..., "message": ...}
+                logger.info(f"✅ Account confirmed | hash={data.payment_hash[:16]}...")
+                return result
 
             else:
-                logger.error(f"Bridge settle failed: {resp.status_code} {resp.text}")
+                logger.error(f"Bridge confirm failed: {resp.status_code} - {resp.text}")
                 raise HTTPException(
                     status_code=resp.status_code,
-                    detail=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text
+                    detail=resp.json() if resp.headers.get("content-type","").startswith("application/json") else resp.text
                 )
 
     except httpx.RequestError as e:
-        logger.error(f"Bridge connection error during settle: {e}")
-        raise HTTPException(503, "Payment settlement service temporarily unavailable")
+        logger.error(f"Bridge connection error: {e}")
+        raise HTTPException(503, "Payment confirmation service unavailable. Is the bridge running?")
     except Exception as e:
-        logger.error(f"Unexpected error in settle-topup: {e}")
+        logger.error(f"Unexpected error in confirm: {e}")
         raise HTTPException(500, "Internal server error during settlement")
 
 
