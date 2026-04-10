@@ -89,15 +89,23 @@ def init_db():
 
 @contextmanager
 def get_db_conn():
-    """Improved connection with timeout and WAL mode for better concurrency."""
-    conn = sqlite3.connect(DB_PATH, timeout=15.0)   # 15 second timeout
-    conn.execute("PRAGMA journal_mode=WAL;")        # Critical for concurrent access
-    conn.execute("PRAGMA busy_timeout=15000;")      # 15 seconds
+    """Robust DB connection with WAL and longer timeout"""
+    conn = None
     try:
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)   # longer timeout
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=30000;")      # 30 seconds
+        conn.execute("PRAGMA synchronous=NORMAL;")
         yield conn
         conn.commit()
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        if conn:
+            conn.rollback()
+        raise
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 async def cleanup_old_data():
@@ -208,21 +216,29 @@ def is_hash_used(payment_hash: str) -> bool:
 
 def mark_hash_used(payment_hash: str):
     ph_hex = to_hex_hash(payment_hash)
-    for attempt in range(3):   # retry up to 3 times
+    for attempt in range(5):        # more retries
         try:
             with get_db_conn() as conn:
                 c = conn.cursor()
                 c.execute(
-                    "INSERT OR IGNORE INTO used_payment_hashes (payment_hash, used_at) VALUES (?, ?)",
+                    """INSERT OR IGNORE INTO used_payment_hashes 
+                       (payment_hash, used_at) VALUES (?, ?)""",
                     (ph_hex, int(time.time()))
                 )
+            logger.debug(f"Marked payment hash as used: {ph_hex[:16]}...")
             return
         except sqlite3.OperationalError as e:
-            if "database is locked" in str(e).lower() and attempt < 2:
-                time.sleep(0.3 * (attempt + 1))   # backoff
+            if "database is locked" in str(e).lower():
+                logger.warning(f"DB locked, retry {attempt+1}/5")
+                time.sleep(0.5 * (attempt + 1))   # exponential backoff
                 continue
-            logger.error(f"Failed to mark hash used after retries: {e}")
+            else:
+                raise
+        except Exception as e:
+            logger.error(f"Unexpected error marking hash used: {e}")
             raise
+    logger.error("Failed to mark hash used after 5 attempts")
+    raise sqlite3.OperationalError("Database is locked after multiple retries")
 
 
 # =========================
