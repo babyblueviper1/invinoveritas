@@ -221,15 +221,26 @@ def generate_api_key() -> str:
 
 
 def create_account(api_key: str, label: Optional[str] = None):
+    """Create account if it doesn't exist, otherwise do nothing (idempotent)."""
     now = int(time.time())
     with get_db_conn() as conn:
         c = conn.cursor()
-        c.execute(
-            """INSERT INTO accounts
-               (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
-               VALUES (?, 0, ?, ?, ?, ?)""",
-            (api_key, FREE_CALLS_ON_REGISTER, now, now, label or None)
-        )
+        try:
+            c.execute(
+                """INSERT INTO accounts 
+                   (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
+                   VALUES (?, 0, ?, ?, ?, ?)""",
+                (api_key, FREE_CALLS_ON_REGISTER, now, now, label or None)
+            )
+            logger.info(f"✅ New account created: {api_key[:20]}...")
+        except sqlite3.IntegrityError:
+            # Account already exists — this is fine (retry case)
+            logger.info(f"Account already exists for api_key: {api_key[:20]}... (idempotent)")
+            # Optionally update last_used
+            c.execute("UPDATE accounts SET last_used = ? WHERE api_key = ?", (now, api_key))
+        except Exception as e:
+            logger.error(f"Unexpected error creating account: {e}")
+            raise
 
 
 # =========================
@@ -312,18 +323,17 @@ async def register(req: RegisterRequest, request: Request):
 
 @app.post("/register/confirm", tags=["accounts"])
 async def confirm_register(req: RegisterConfirmRequest):
-    logger.info(f"[CONFIRM] Received raw payment_hash: '{req.payment_hash}' (len={len(req.payment_hash)})")
+    logger.info(f"[CONFIRM] Received payment_hash: {req.payment_hash[:16]}...")
 
     if not verify_preimage(req.payment_hash, req.preimage):
         logger.error("❌ Preimage verification failed")
         raise HTTPException(403, "Invalid preimage")
 
     if not is_payment_settled(req.payment_hash):
-        logger.error("❌ Payment not settled according to LND")
+        logger.error("❌ Payment not settled")
         raise HTTPException(402, "Payment not settled yet")
 
     lookup_hash = to_hex_hash(req.payment_hash)
-    logger.info(f"[CONFIRM] Looking up with normalized hash: {lookup_hash}")
 
     with get_db_conn() as conn:
         c = conn.cursor()
@@ -331,28 +341,27 @@ async def confirm_register(req: RegisterConfirmRequest):
         row = c.fetchone()
 
         if not row:
-            # Debug dump
-            c.execute("SELECT payment_hash FROM pending_topups")
-            existing = [r[0] for r in c.fetchall()]
-            logger.error(f"❌ No match. Existing pending hashes: {existing}")
-            raise HTTPException(404, "Payment record not found. Try registering again.")
+            logger.error(f"❌ No pending topup found for hash {lookup_hash}")
+            raise HTTPException(404, "Payment record not found. Please register again.")
 
     api_key = row[0]
 
+    # Create account safely (handles duplicate)
     create_account(api_key, req.label)
 
+    # Clean up pending
     with get_db_conn() as conn:
         c = conn.cursor()
         c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (lookup_hash,))
         mark_hash_used(req.payment_hash)
 
-    logger.info(f"🎉 REGISTRATION SUCCESS! API Key: {api_key}")
+    logger.info(f"🎉 Account confirmed successfully → api_key: {api_key[:25]}...")
 
     return {
         "status": "success",
         "api_key": api_key,
         "free_calls_remaining": FREE_CALLS_ON_REGISTER,
-        "message": "Account created successfully"
+        "message": "Account created successfully. Use Authorization: Bearer <api_key> for future calls."
     }
 
 
