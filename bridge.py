@@ -309,18 +309,14 @@ async def register(req: RegisterRequest, request: Request):
 async def confirm_register(req: Optional[dict] = None):
     """Confirm registration after Lightning payment"""
     if not req or not req.get("payment_hash") or not req.get("preimage"):
-        return {
-            "status": "error",
-            "message": "Missing payment_hash or preimage"
-        }
+        return {"status": "error", "message": "Missing payment_hash or preimage"}
 
     payment_hash = req["payment_hash"]
     preimage = req["preimage"]
 
-    logger.info(f"Confirm registration called for hash: {payment_hash[:16]}...")
-
-    # Normalize hash for lookup
     normalized_hash = normalize_payment_hash(payment_hash)
+
+    logger.info(f"Confirm attempt - Raw hash: {payment_hash[:16]}..., Normalized: {normalized_hash[:16]}...")
 
     try:
         with get_db_conn() as conn:
@@ -329,23 +325,27 @@ async def confirm_register(req: Optional[dict] = None):
             row = c.fetchone()
 
             if not row:
-                logger.warning(f"No pending_topup found for normalized hash: {normalized_hash[:16]}...")
+                logger.warning(f"❌ No pending_topup found for normalized hash: {normalized_hash[:16]}...")
+                # Let's see what is actually in the table for debugging
+                c.execute("SELECT payment_hash FROM pending_topups LIMIT 5")
+                existing = c.fetchall()
+                logger.info(f"Existing pending hashes: {[h[0][:16] for h in existing]}")
                 raise HTTPException(404, "Payment not found or already confirmed")
 
             api_key, amount_sats = row
-            logger.info(f"Found pending registration for api_key: {api_key[:12]}...")
+            logger.info(f"✅ Found pending registration for api_key: {api_key[:12]}...")
 
         # Verify preimage
         if not verify_preimage_logic(payment_hash, preimage):
-            logger.warning("Preimage verification failed")
+            logger.warning("❌ Preimage verification failed")
             raise HTTPException(400, "Invalid preimage")
 
         # Check if settled on LND
         if not check_payment_logic(payment_hash):
-            logger.warning("Payment not yet settled on LND")
+            logger.warning("❌ Payment not yet settled on LND")
             raise HTTPException(402, "Payment not settled yet. Try again in a few seconds.")
 
-        # Create/activate the account
+        # Create the account
         create_account_db(api_key)
 
         # Delete from pending_topups
@@ -353,7 +353,7 @@ async def confirm_register(req: Optional[dict] = None):
             c = conn.cursor()
             c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (normalized_hash,))
 
-        logger.info(f"✅ Registration confirmed successfully for api_key: {api_key[:12]}...")
+        logger.info(f"🎉 Registration confirmed successfully for api_key: {api_key[:12]}...")
 
         return {
             "status": "success",
