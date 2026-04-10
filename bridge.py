@@ -307,16 +307,26 @@ async def register(req: RegisterRequest, request: Request):
 
 @app.post("/register/confirm", tags=["credit"])
 async def confirm_register(req: Optional[dict] = None):
-    """Confirm registration after Lightning payment"""
-    if not req or not req.get("payment_hash") or not req.get("preimage"):
+    """Confirm registration after Lightning payment - MAX DEBUG VERSION"""
+    print("=== REGISTER CONFIRM CALLED ===")   # Force to stdout
+    logger.info("=== REGISTER CONFIRM CALLED ===")
+
+    if not req:
+        logger.error("No request body")
+        print("No request body")
+        return {"status": "error", "message": "No request body"}
+
+    payment_hash = req.get("payment_hash")
+    preimage = req.get("preimage")
+
+    logger.info(f"Received - payment_hash: {payment_hash}, preimage length: {len(preimage) if preimage else 0}")
+
+    if not payment_hash or not preimage:
+        logger.error("Missing payment_hash or preimage")
         return {"status": "error", "message": "Missing payment_hash or preimage"}
 
-    payment_hash = req["payment_hash"]
-    preimage = req["preimage"]
-
     normalized_hash = normalize_payment_hash(payment_hash)
-
-    logger.info(f"Confirm attempt - Raw hash: {payment_hash[:16]}..., Normalized: {normalized_hash[:16]}...")
+    logger.info(f"Normalized hash: {normalized_hash[:16]}...")
 
     try:
         with get_db_conn() as conn:
@@ -325,50 +335,55 @@ async def confirm_register(req: Optional[dict] = None):
             row = c.fetchone()
 
             if not row:
-                logger.warning(f"❌ No pending_topup found for normalized hash: {normalized_hash[:16]}...")
-                # Let's see what is actually in the table for debugging
-                c.execute("SELECT payment_hash FROM pending_topups LIMIT 5")
-                existing = c.fetchall()
-                logger.info(f"Existing pending hashes: {[h[0][:16] for h in existing]}")
+                logger.error(f"❌ No record found for normalized hash {normalized_hash[:16]}...")
+                # Dump all pending hashes for debugging
+                c.execute("SELECT payment_hash FROM pending_topups")
+                all_hashes = [r[0][:16] for r in c.fetchall()]
+                logger.error(f"Current pending hashes: {all_hashes}")
+                print(f"Current pending hashes: {all_hashes}")
                 raise HTTPException(404, "Payment not found or already confirmed")
 
             api_key, amount_sats = row
-            logger.info(f"✅ Found pending registration for api_key: {api_key[:12]}...")
+            logger.info(f"✅ Found pending record for api_key {api_key[:12]}...")
 
-        # Verify preimage
-        if not verify_preimage_logic(payment_hash, preimage):
-            logger.warning("❌ Preimage verification failed")
+        # Preimage check
+        preimage_valid = verify_preimage_logic(payment_hash, preimage)
+        logger.info(f"Preimage verification result: {preimage_valid}")
+
+        if not preimage_valid:
             raise HTTPException(400, "Invalid preimage")
 
-        # Check if settled on LND
-        if not check_payment_logic(payment_hash):
-            logger.warning("❌ Payment not yet settled on LND")
-            raise HTTPException(402, "Payment not settled yet. Try again in a few seconds.")
+        # Settlement check
+        settled = check_payment_logic(payment_hash)
+        logger.info(f"Settlement check result: {settled}")
 
-        # Create the account
+        if not settled:
+            raise HTTPException(402, "Payment not settled yet")
+
+        # Create account
         create_account_db(api_key)
+        logger.info(f"✅ Account created for {api_key[:12]}...")
 
-        # Delete from pending_topups
+        # Clean up
         with get_db_conn() as conn:
             c = conn.cursor()
             c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (normalized_hash,))
 
-        logger.info(f"🎉 Registration confirmed successfully for api_key: {api_key[:12]}...")
+        logger.info("🎉 Registration confirmed successfully!")
 
         return {
             "status": "success",
             "api_key": api_key,
             "free_calls_remaining": FREE_CALLS_ON_REGISTER,
-            "message": f"Account successfully activated with {FREE_CALLS_ON_REGISTER} free calls.",
-            "important_note": "Your account and any future credits will remain active for at least 2 years of inactivity."
+            "message": f"Account successfully activated with {FREE_CALLS_ON_REGISTER} free calls."
         }
 
     except HTTPException as e:
+        logger.error(f"HTTP error: {e.detail}")
         raise e
     except Exception as e:
-        logger.error(f"Registration confirmation failed: {e}")
+        logger.error(f"Unexpected error: {e}")
         raise HTTPException(500, f"Confirmation failed: {str(e)}")
-
 # =========================
 # Top-up
 # =========================
