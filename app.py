@@ -1481,7 +1481,6 @@ async def verify_account(req: VerifyRequest):
         logger.error(f"Bridge connection error during verify: {e}")
         raise HTTPException(503, "Payment verification service temporarily unavailable")
 
- =========================
 # Confirm Registration / Settle Top-up (Proxy to Bridge)
 # =========================
 
