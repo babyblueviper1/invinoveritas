@@ -269,6 +269,7 @@ def create_account_db(api_key: str, label: Optional[str] = None):
 async def register(req: RegisterRequest, request: Request):
     """Create new account via Lightning (~1000 sats)."""
     api_key = generate_api_key()
+    logger.info(f"New registration request received. Generated api_key: {api_key[:12]}...")
 
     try:
         data = safe_lncli([
@@ -277,15 +278,19 @@ async def register(req: RegisterRequest, request: Request):
             "--memo", "invinoveritas account creation"
         ])
         payment_hash = data.get("r_hash", "")
+        normalized_hash = normalize_payment_hash(payment_hash)
 
-        # ←←← IMPORTANT: Save to pending_topups so we can confirm later
+        logger.info(f"Invoice created. Raw hash: {payment_hash[:16]}..., Normalized: {normalized_hash[:16]}...")
+
+        # Save to pending_topups
         with get_db_conn() as conn:
             c = conn.cursor()
             c.execute(
                 """INSERT INTO pending_topups (payment_hash, api_key, amount_sats, created_at)
                    VALUES (?, ?, ?, ?)""",
-                (normalize_payment_hash(payment_hash), api_key, LIGHTNING_REGISTER_SATS, int(time.time()))
+                (normalized_hash, api_key, LIGHTNING_REGISTER_SATS, int(time.time()))
             )
+            logger.info(f"✅ Successfully inserted into pending_topups for payment_hash {normalized_hash[:16]}...")
 
         return {
             "invoice": data["payment_request"],
@@ -297,9 +302,8 @@ async def register(req: RegisterRequest, request: Request):
             "next_step": "After paying, POST to /register/confirm with the payment_hash and preimage"
         }
     except Exception as e:
-        logger.error(f"Lightning invoice creation failed: {e}")
+        logger.error(f"Lightning invoice creation or DB insert failed: {e}")
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
-
 
 @app.post("/register/confirm", tags=["accounts"])
 async def confirm_register(req: RegisterConfirmRequest):
