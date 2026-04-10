@@ -1481,6 +1481,52 @@ async def verify_account(req: VerifyRequest):
         logger.error(f"Bridge connection error during verify: {e}")
         raise HTTPException(503, "Payment verification service temporarily unavailable")
 
+# =========================
+# Settle Top-up / Confirm Payment (Critical for Bearer Accounts)
+# =========================
+
+class SettleTopupRequest(BaseModel):
+    payment_hash: str
+    preimage: str
+    # Optional: label or api_key if you want to support attaching to existing account later
+
+
+@app.post("/settle-topup", tags=["credit"])
+@app.post("/register/confirm", tags=["credit"])   # keep both for compatibility
+async def settle_topup(data: SettleTopupRequest):
+    """Confirm Lightning payment and create/credit the bearer account."""
+    if not data.payment_hash or not data.preimage:
+        raise HTTPException(400, "payment_hash and preimage are required")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{NODE_URL}/settle-topup",   # or /confirm-payment if your bridge uses different name
+                json={
+                    "payment_hash": data.payment_hash,
+                    "preimage": data.preimage
+                }
+            )
+
+            if resp.status_code == 200:
+                result = resp.json()
+                logger.info(f"✅ Bearer account settled successfully | payment_hash={data.payment_hash[:16]}...")
+                return result   # Should contain {"api_key": "ivv_...", "balance": ..., "message": ...}
+
+            else:
+                logger.error(f"Bridge settle failed: {resp.status_code} {resp.text}")
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text
+                )
+
+    except httpx.RequestError as e:
+        logger.error(f"Bridge connection error during settle: {e}")
+        raise HTTPException(503, "Payment settlement service temporarily unavailable")
+    except Exception as e:
+        logger.error(f"Unexpected error in settle-topup: {e}")
+        raise HTTPException(500, "Internal server error during settlement")
+
 
 # =========================
 # Wallet / Payment Status
