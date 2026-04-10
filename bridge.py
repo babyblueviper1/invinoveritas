@@ -267,14 +267,13 @@ class VerifyRequest(BaseModel):
 
 
 # =========================
-# Registration
+# Registration - FIXED
 # =========================
 @app.post("/register", tags=["accounts"])
 @limiter.limit("10/minute")
 async def register(req: RegisterRequest, request: Request):
-    """Create new account via Lightning payment."""
     api_key = generate_api_key()
-    logger.info(f"New registration request → API key prefix: {api_key[:12]}...")
+    logger.info(f"New registration started → api_key: {api_key[:15]}...")
 
     try:
         data = safe_lncli([
@@ -282,11 +281,11 @@ async def register(req: RegisterRequest, request: Request):
             "--amt", str(LIGHTNING_REGISTER_SATS),
             "--memo", "invinoveritas account creation"
         ])
-        if not data or "payment_request" not in data:
-            raise Exception("Failed to generate invoice")
+        if not data or "r_hash" not in data:
+            raise Exception("Failed to create invoice from LND")
 
-        raw_hash = data.get("r_hash", "")
-        payment_hash_hex = to_hex_hash(raw_hash)
+        raw_hash = data["r_hash"]
+        stored_hash = to_hex_hash(raw_hash)   # Always store clean hex
 
         with get_db_conn() as conn:
             c = conn.cursor()
@@ -294,59 +293,60 @@ async def register(req: RegisterRequest, request: Request):
                 """INSERT INTO pending_topups 
                    (payment_hash, api_key, amount_sats, created_at)
                    VALUES (?, ?, ?, ?)""",
-                (payment_hash_hex, api_key, LIGHTNING_REGISTER_SATS, int(time.time()))
+                (stored_hash, api_key, LIGHTNING_REGISTER_SATS, int(time.time()))
             )
 
-        logger.info(f"Invoice created successfully. Hash: {payment_hash_hex[:16]}...")
+        logger.info(f"✅ Pending record saved. Stored hash: {stored_hash[:16]}... | Returned to user: {raw_hash[:16]}...")
 
         return {
             "invoice": data["payment_request"],
-            "payment_hash": raw_hash,                    # Return original format to user
+            "payment_hash": raw_hash,           # Give user whatever LND returned
             "amount_sats": LIGHTNING_REGISTER_SATS,
-            "message": f"Pay this Lightning invoice (~{LIGHTNING_REGISTER_SATS} sats) to create your account.",
-            "free_calls_on_creation": FREE_CALLS_ON_REGISTER,
-            "important_note": "Your account will remain active for at least 2 years of inactivity.",
-            "next_step": "After paying, POST to /register/confirm with payment_hash and preimage"
+            "message": f"Pay ~{LIGHTNING_REGISTER_SATS} sats to create account",
+            "next_step": "After payment → POST /register/confirm"
         }
     except Exception as e:
-        logger.error(f"Failed to create registration invoice: {e}")
+        logger.error(f"Register error: {e}")
         raise HTTPException(500, f"Failed to create invoice: {str(e)}")
 
 
 @app.post("/register/confirm", tags=["accounts"])
 async def confirm_register(req: RegisterConfirmRequest):
-    logger.info(f"[REGISTER CONFIRM] payment_hash={req.payment_hash[:16]}...")
+    logger.info(f"[CONFIRM] Received raw payment_hash: '{req.payment_hash}' (len={len(req.payment_hash)})")
 
     if not verify_preimage(req.payment_hash, req.preimage):
-        logger.error("Invalid preimage provided")
+        logger.error("❌ Preimage verification failed")
         raise HTTPException(403, "Invalid preimage")
 
     if not is_payment_settled(req.payment_hash):
+        logger.error("❌ Payment not settled according to LND")
         raise HTTPException(402, "Payment not settled yet")
 
-    ph_hex = to_hex_hash(req.payment_hash)
+    lookup_hash = to_hex_hash(req.payment_hash)
+    logger.info(f"[CONFIRM] Looking up with normalized hash: {lookup_hash}")
 
     with get_db_conn() as conn:
         c = conn.cursor()
-        c.execute("SELECT api_key FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
+        c.execute("SELECT api_key FROM pending_topups WHERE payment_hash = ?", (lookup_hash,))
         row = c.fetchone()
 
-    if not row:
-        logger.error(f"No pending registration found for hash {ph_hex[:16]}...")
-        raise HTTPException(404, "Payment record not found (may have expired)")
+        if not row:
+            # Debug dump
+            c.execute("SELECT payment_hash FROM pending_topups")
+            existing = [r[0] for r in c.fetchall()]
+            logger.error(f"❌ No match. Existing pending hashes: {existing}")
+            raise HTTPException(404, "Payment record not found. Try registering again.")
 
     api_key = row[0]
 
-    # Create the account
     create_account(api_key, req.label)
 
-    # Cleanup
     with get_db_conn() as conn:
         c = conn.cursor()
-        c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
+        c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (lookup_hash,))
         mark_hash_used(req.payment_hash)
 
-    logger.info(f"🎉 Registration successful! New API key: {api_key[:20]}...")
+    logger.info(f"🎉 REGISTRATION SUCCESS! API Key: {api_key}")
 
     return {
         "status": "success",
