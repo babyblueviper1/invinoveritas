@@ -3258,7 +3258,7 @@ def tool_definition_mcp():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return pricing for a specific endpoint"""
+    """Return pricing for a specific endpoint (v0.6.0)."""
     if endpoint == "reason":
         return {
             "endpoint": "reason",
@@ -3286,25 +3286,38 @@ def get_price(endpoint: str):
     elif endpoint == "mcp":
         return {
             "endpoint": "mcp",
-            "price_note": "Same as underlying tools (reason or decide)",
+            "price_note": "Same as underlying tools (reason or decide) + memory tools",
             "sats_reason": REASONING_PRICE_SATS,
             "sats_decide": DECISION_PRICE_SATS,
+            "sats_memory_store": "≈2 sats per KB (min 50)",
+            "sats_memory_get": "≈1 sat per KB (min 20)",
             "currency_options": ["sats"],
-            "description": "MCP endpoint supporting callTool for reason and decide",
+            "description": "MCP endpoint supporting callTool for reason, decide, and memory tools",
             "payment_methods": ["Bearer (recommended)", "L402 Lightning"],
             "note": "All payments are via Lightning Network"
         }
 
-    raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', or 'mcp'.")
+    elif endpoint.startswith("memory"):
+        return {
+            "endpoint": endpoint,
+            "sats_store": "≈2 sats per KB (minimum 50 sats)",
+            "sats_get": "≈1 sat per KB (minimum 20 sats)",
+            "currency_options": ["sats"],
+            "description": "Persistent agent memory service (store and retrieve long-term context)",
+            "payment_methods": ["Bearer (recommended)", "L402 Lightning"],
+            "note": "All payments are via Lightning Network. New in v0.6.0."
+        }
+
+    raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', 'mcp', or 'memory'.")
 
 
 @app.get('/llms.txt')
 def llms():
-    """llms.txt for AI crawlers, large language models, and autonomous agents."""
+    """llms.txt for AI crawlers, large language models, and autonomous agents (v0.6.0)."""
     if os.path.exists("llms.txt"):
         return FileResponse('llms.txt', media_type='text/plain')
     
-    return """invinoveritas - Premium AI reasoning and decision intelligence.
+    return """invinoveritas - Premium AI reasoning, structured decisions, and persistent agent memory.
 
 All payments are processed via the Lightning Network.
 
@@ -3323,18 +3336,19 @@ Supported payment methods:
 For autonomous agents and trading bots:
 - Bearer Token is the easiest and most reliable option
 - Pre-fund your Bearer account for high-frequency decisions
-- Use 'want_confidence': true for risk-aware trading
+- Use persistent memory (/memory/store) for long-term agent state
 
 Setup instructions:
 - Bearer: POST /register → get api_key
-- Full guide: https://invinoveritas.onrender.com/wallet-onboarding
+- Full guide: http://178.156.151.248:8000/wallet-onboarding
 
 Real-time updates:
-- SSE: https://invinoveritas.onrender.com/events
-- WebSocket: wss://invinoveritas.onrender.com/ws
-- RSS: https://invinoveritas.onrender.com/rss
+- SSE: http://178.156.151.248:8000/events
+- WebSocket: wss://178.156.151.248:8000/ws
+- RSS: http://178.156.151.248:8000/rss
 
-MCP endpoint: https://invinoveritas.onrender.com/mcp
+MCP endpoint: http://178.156.151.248:8000/mcp
+Memory service: http://178.156.151.248:8000/memory
 """
 
 
@@ -3346,21 +3360,24 @@ def ai_plugin():
         "name_for_human": "invinoveritas ⚡",
         "name_for_model": "invinoveritas",
         
-        "description_for_human": "Premium AI reasoning and decision intelligence. Pay with Bearer credits or Lightning (L402). No subscriptions, no KYC.",
+        "description_for_human": "Premium AI reasoning, structured decisions, and persistent agent memory. Pay with Bearer credits or Lightning (L402). No subscriptions, no KYC.",
         
         "description_for_model": (
-            "invinoveritas provides high-quality strategic reasoning and structured decision intelligence "
-            "paid via the Lightning Network.\n\n"
+            "invinoveritas provides high-quality strategic reasoning, structured decision intelligence, "
+            "and persistent agent memory paid via the Lightning Network.\n\n"
             
             "Two simple payment options:\n"
             "1. Bearer Token (recommended) — create an account once and use an API key\n"
             "2. L402 Lightning — classic pay-per-call with Bolt11 invoices\n\n"
             
-            "Supported endpoints include /reason, /decision, and the native MCP endpoint at /mcp.\n\n"
+            "Supported endpoints include /reason, /decision, /memory/store, /memory/get, and the native MCP endpoint at /mcp.\n\n"
             
             "TRADING BOT SUPPORT:\n"
             "Excellent for high-frequency trading bots — supports async arbitrage detection, "
             "portfolio rebalancing, risk scoring, and confident decision making.\n\n"
+            
+            "PERSISTENT MEMORY:\n"
+            "Agents can store and retrieve long-term context/state using /memory/store and /memory/get.\n\n"
             
             "A2A SUPPORT:\n"
             "Other agents can delegate tasks via the /a2a endpoint, which forwards internally to MCP.\n\n"
@@ -3396,7 +3413,8 @@ def ai_plugin():
             "payment_currencies": ["sats"],
             "trading_bot_optimized": True,
             "style_control": True,
-            "confidence_scoring": True
+            "confidence_scoring": True,
+            "persistent_memory": True
         },
         
         "payment_setup": {
@@ -3407,10 +3425,9 @@ def ai_plugin():
         }
     }
 
-
 @app.get("/discover", tags=["meta"])
 async def discover_page():
-    """Public discovery page — Lightning-only."""
+    """Public discovery page — Lightning-only (v0.6.0)."""
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
@@ -3430,19 +3447,26 @@ async def discover_page():
         </style>
     </head>
     <body>
-        <h1>⚡ invinoveritas</h1>
-        <p><strong>Premium AI Reasoning & Decision Intelligence</strong></p>
-        <p>All payments via Lightning Network: <strong>Bearer Token</strong> or <strong>L402 Lightning</strong></p>
+        <h1>⚡ invinoveritas v0.6.0</h1>
+        <p><strong>Premium AI Reasoning, Structured Decisions, and Persistent Agent Memory</strong></p>
+        <p>All payments via Lightning Network: <strong>Bearer Token</strong> (recommended) or <strong>L402 Lightning</strong></p>
         
         <div class="card">
+            <h2>New in v0.6.0: Persistent Agent Memory</h2>
+            <p>Agents can now store and retrieve long-term context/state.</p>
+            <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
+            <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve</p>
+        </div>
+
+        <div class="card">
             <h2>MCP Server</h2>
-            <p>High-quality reasoning, structured decisions, and trading bot support.</p>
+            <p>High-quality reasoning, structured decisions, trading bot support, and persistent memory.</p>
             
             <h3>Server Card</h3>
-            <pre>https://invinoveritas.onrender.com/.well-known/mcp/server-card.json</pre>
+            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
             
             <h3>Agent Card</h3>
-            <pre>https://invinoveritas.onrender.com/.well-known/agent-card.json</pre>
+            <pre>http://178.156.151.248:8000/.well-known/agent-card.json</pre>
         </div>
 
         <div class="card">
@@ -3452,6 +3476,7 @@ async def discover_page():
                 <li><strong>L402 Lightning</strong> — Pay-per-call with Lightning invoices</li>
             </ul>
             <p><strong>Best for autonomous agents & trading bots:</strong> Bearer Token</p>
+            <p><strong>Note:</strong> Lightning wallet required for initial registration and occasional top-ups.</p>
         </div>
 
         <div class="card">
@@ -3459,12 +3484,12 @@ async def discover_page():
             
             <h3>Cursor / Claude Desktop</h3>
             <p>Use the MCP server card:</p>
-            <pre>https://invinoveritas.onrender.com/.well-known/mcp/server-card.json</pre>
-            <button onclick="copyToClipboard('https://invinoveritas.onrender.com/.well-known/mcp/server-card.json')">Copy Server Card URL</button>
+            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
+            <button onclick="copyToClipboard('http://178.156.151.248:8000/.well-known/mcp/server-card.json')">Copy Server Card URL</button>
             
             <h3>LangChain / Custom Agents</h3>
             <pre>pip install invinoveritas</pre>
-            <p>MCP endpoint: <code>https://invinoveritas.onrender.com/mcp</code></p>
+            <p>MCP endpoint: <code>http://178.156.151.248:8000/mcp</code></p>
         </div>
 
         <div class="card">
@@ -3477,11 +3502,11 @@ async def discover_page():
             <h2>Real-time Updates</h2>
             <p>Connect to live feeds:</p>
             <p><strong>SSE:</strong> <a href="/events" target="_blank">/events</a></p>
-            <p><strong>WebSocket:</strong> wss://invinoveritas.onrender.com/ws</p>
+            <p><strong>WebSocket:</strong> wss://178.156.151.248:8000/ws</p>
             <p><strong>RSS:</strong> <a href="/rss" target="_blank">/rss</a></p>
         </div>
 
-        <p><small>Last updated: 2026-04-09 | Powered by Bitcoin Lightning</small></p>
+        <p><small>Last updated: 2026-04-10 | Powered by Bitcoin Lightning</small></p>
 
         <script>
             function copyToClipboard(text) {
@@ -3503,7 +3528,7 @@ async def discover_page():
 @app.head("/feed", tags=["meta"])
 @app.head("/announce.xml", tags=["meta"])
 async def rss_feed(request: Request):
-    """RSS feed that mirrors recent announcements — Lightning-only."""
+    """RSS feed that mirrors recent announcements — Lightning-only (v0.6.0)."""
 
     if request.method == "HEAD":
         return Response(
@@ -3523,7 +3548,7 @@ async def rss_feed(request: Request):
         items += f"""
         <item>
             <title>{ann.get('title', 'Announcement')}</title>
-            <link>{ann.get('link', 'https://invinoveritas.onrender.com/discover')}</link>
+            <link>{ann.get('link', 'http://178.156.151.248:8000/discover')}</link>
             <description>{ann.get('description', '')}
 
 Payment Options:
@@ -3531,30 +3556,35 @@ Payment Options:
 • L402 Lightning (pay-per-call)
 
 Real-time updates:
-• SSE: https://invinoveritas.onrender.com/events
-• WebSocket: wss://invinoveritas.onrender.com/ws</description>
+• SSE: http://178.156.151.248:8000/events
+• WebSocket: wss://178.156.151.248:8000/ws
+• RSS: http://178.156.151.248:8000/rss
+
+New in v0.6.0: Persistent agent memory service (/memory/store, /memory/get)</description>
             <pubDate>{ann.get('pubDate', '')}</pubDate>
             <guid>{ann.get('guid', '')}</guid>
             <category>AI</category>
             <category>MCP</category>
             <category>Lightning</category>
+            <category>Memory</category>
         </item>"""
 
     # Fallback if no announcements yet
     if not items:
         items = f"""
         <item>
-            <title>Welcome to invinoveritas</title>
-            <link>https://invinoveritas.onrender.com/discover</link>
-            <description>invinoveritas provides high-quality AI reasoning and decision intelligence paid via Lightning Network.
+            <title>Welcome to invinoveritas v0.6.0</title>
+            <link>http://178.156.151.248:8000/discover</link>
+            <description>invinoveritas provides high-quality AI reasoning, structured decisions, and persistent agent memory paid via Lightning Network.
 
 • Bearer Token — easiest for autonomous agents (5 complementary calls on registration)
 • L402 Lightning — classic pay-per-call
+• New: Persistent memory service for long-term context
 
 Real-time channels:
-• SSE: https://invinoveritas.onrender.com/events
-• WebSocket: wss://invinoveritas.onrender.com/ws
-• RSS: https://invinoveritas.onrender.com/rss
+• SSE: http://178.156.151.248:8000/events
+• WebSocket: wss://178.156.151.248:8000/ws
+• RSS: http://178.156.151.248:8000/rss
 
 Trading bots are fully supported with low-latency async decisions, arbitrage detection, and risk-aware reasoning.</description>
             <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
@@ -3565,16 +3595,16 @@ Trading bots are fully supported with low-latency async decisions, arbitrage det
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>invinoveritas — AI Reasoning &amp; Decision MCP Server</title>
-        <link>https://invinoveritas.onrender.com</link>
-        <description>Premium reasoning and decision intelligence paid via Lightning Network (Bearer credits or L402 invoices). Optimized for autonomous agents and trading bots.</description>
+        <link>http://178.156.151.248:8000</link>
+        <description>Premium reasoning, structured decisions, and persistent agent memory paid via Lightning Network (Bearer credits or L402 invoices). Optimized for autonomous agents and trading bots.</description>
         <language>en-us</language>
         <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
-        <atom:link href="https://invinoveritas.onrender.com/rss" rel="self" type="application/rss+xml" />
+        <atom:link href="http://178.156.151.248:8000/rss" rel="self" type="application/rss+xml" />
         
         <image>
-            <url>https://invinoveritas.onrender.com/favicon.ico</url>
+            <url>http://178.156.151.248:8000/favicon.ico</url>
             <title>invinoveritas</title>
-            <link>https://invinoveritas.onrender.com</link>
+            <link>http://178.156.151.248:8000</link>
         </image>
 
         {items}
