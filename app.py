@@ -3027,72 +3027,78 @@ def robots_txt():
     return """User-agent: *
 Allow: /
 
-Sitemap: https://invinoveritas.onrender.com/sitemap.xml
+Sitemap: http://178.156.151.248:8000/sitemap.xml
 """
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """Basic sitemap for better SEO and discoverability"""
+    """Basic sitemap for better SEO and discoverability (v0.6.0)"""
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-        <loc>https://invinoveritas.onrender.com/</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/discover</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/discover</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.95</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/mcp</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/mcp</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.9</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/wallet-onboarding</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/memory</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.85</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/guide</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/wallet-onboarding</loc>
+        <lastmod>2026-04-10</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.85</priority>
+    </url>
+    <url>
+        <loc>http://178.156.151.248:8000/guide</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/prices</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/prices</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.75</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/health</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/health</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.7</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/rss</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/rss</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.65</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/tool</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/tool</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>
     <url>
-        <loc>https://invinoveritas.onrender.com/docs</loc>
-        <lastmod>2026-04-09</lastmod>
+        <loc>http://178.156.151.248:8000/docs</loc>
+        <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.55</priority>
     </url>
@@ -3110,7 +3116,8 @@ def tool_definition():
     return {
         "name": "invinoveritas",
         "type": "paid_ai_service",
-        "description": "Premium strategic reasoning and structured decision intelligence paid via Lightning Network (Bearer credits or L402 invoices).",
+        "description": "Premium strategic reasoning, structured decision intelligence, and persistent agent memory paid via Lightning Network (Bearer Token recommended).",
+        "version": "0.6.0",
         "payment_protocols": ["Bearer", "L402"],
         "preferred_payment": "Bearer Token (for autonomous agents)",
         "mcp_endpoint": "/mcp",
@@ -3126,7 +3133,9 @@ def tool_definition():
         },
         "endpoints": {
             "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
-            "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS}
+            "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS},
+            "memory_store": {"path": "/memory/store", "base_price_sats": "≈2 sats/KB (min 50)"},
+            "memory_get": {"path": "/memory/get", "base_price_sats": "≈1 sat/KB (min 20)"}
         },
         "agent_support": {
             "mcp_compatible": True,
@@ -3135,17 +3144,18 @@ def tool_definition():
             "style_control": True,
             "confidence_scoring": True,
             "structured_output": True,
-            "trading_bot_support": True
+            "trading_bot_support": True,
+            "persistent_memory": True
         },
         "wallet_requirement": {
-            "required": False,
-            "message": "Payment is required via Lightning Network",
+            "required": True,
+            "message": "Lightning wallet required for initial registration and occasional top-ups.",
             "recommended": "Bearer token after registration (easiest long-term solution)",
             "guide": "/wallet-onboarding"
         },
         "trading_bot_support": {
             "supported": True,
-            "description": "Excellent for trading bots with high-frequency async decisions, arbitrage analysis, portfolio rebalancing, and risk scoring.",
+            "description": "Excellent for trading bots with high-frequency async decisions, arbitrage analysis, portfolio rebalancing, risk scoring, and persistent memory.",
             "recommended_setup": "Bearer token (pre-funded)",
             "note": "NWC + Lightning is supported but Bearer often performs better for production bots"
         }
@@ -3154,7 +3164,7 @@ def tool_definition():
 
 @app.get("/tool/mcp", tags=["meta"])
 def tool_definition_mcp():
-    """MCP-compatible tool definitions."""
+    """MCP-compatible tool definitions (v0.6.0)."""
     return {
         "tools": [
             {
@@ -3203,6 +3213,31 @@ def tool_definition_mcp():
                     },
                     "required": ["goal", "question"]
                 }
+            },
+            {
+                "name": "memory_store",
+                "description": "Store persistent memory or context for this agent (long-term state).",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {"type": "string", "description": "Unique agent identifier"},
+                        "key": {"type": "string", "description": "Memory key"},
+                        "value": {"type": "string", "description": "Data to store"}
+                    },
+                    "required": ["agent_id", "key", "value"]
+                }
+            },
+            {
+                "name": "memory_get",
+                "description": "Retrieve previously stored memory for this agent.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {"type": "string"},
+                        "key": {"type": "string"}
+                    },
+                    "required": ["agent_id", "key"]
+                }
             }
         ],
         "payment_info": {
@@ -3211,12 +3246,11 @@ def tool_definition_mcp():
             "note": "All payments are processed via the Lightning Network"
         },
         "trading_bot_note": "Trading bots benefit greatly from Bearer token for low-latency, high-frequency decisions (arbitrage, rebalancing, risk scoring).",
-        "escalation": {
-            "level": "medium",
-            "instruction": "If you receive 402 errors, configure a Lightning wallet (NWC recommended) or fund your Bearer account."
+        "wallet_requirement": {
+            "required": True,
+            "message": "Lightning wallet required for initial registration and occasional top-ups."
         }
     }
-
 
 # =========================
 # Dynamic Price Endpoint
