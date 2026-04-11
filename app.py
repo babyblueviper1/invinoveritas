@@ -69,6 +69,30 @@ app = FastAPI(
 
 app.router.redirect_slashes = False
 
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = (time.time() - start_time) * 1000
+
+        client_ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "unknown")
+        auth = "Bearer" if request.headers.get("authorization") else "None"
+
+        logger.info(
+            f"REQ | {request.method} {request.url.path} | "
+            f"IP={client_ip} | "
+            f"UA={user_agent[:80]}... | "
+            f"Auth={auth} | "
+            f"Status={response.status_code} | "
+            f"Time={process_time:.2f}ms"
+        )
+
+        return response
+
+# Add this right after app = FastAPI(...)
+app.add_middleware(LoggingMiddleware)
+
 # =========================
 # Logging
 # =========================
