@@ -3648,7 +3648,7 @@ async def discover_page():
 @app.head("/feed", tags=["meta"])
 @app.head("/announce.xml", tags=["meta"])
 async def rss_feed(request: Request):
-    """RSS feed that mirrors recent announcements — Lightning-only (v0.6.0)."""
+    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v0.6.0)."""
 
     if request.method == "HEAD":
         return Response(
@@ -3660,9 +3660,9 @@ async def rss_feed(request: Request):
         )
 
     # Use only the most recent announcements (aligned with MAX_RSS_ITEMS)
-    rss_items = ANNOUNCEMENTS[:8]
+    rss_items = ANNOUNCEMENTS[:6]   # reduced a bit to make room for podcast
 
-    # Build items
+    # Build invinoveritas items
     items = ""
     for ann in rss_items:
         items += f"""
@@ -3689,16 +3689,36 @@ New in v0.6.0: Persistent agent memory service (/memory/store, /memory/get)</des
             <category>Memory</category>
         </item>"""
 
+    # Add Baby Blue Viper podcast / newsletter
+    items += f"""
+        <item>
+            <title>Baby Blue Viper — Latest Episode & Newsletter</title>
+            <link>https://babyblueviper.com</link>
+            <description>Latest episode and newsletter from Baby Blue Viper — a calm, reflective podcast exploring Bitcoin, AI, sovereignty, human experience, and the future of intelligence.
+
+Subscribe or listen via the official feed: https://api.substack.com/feed/podcast/623622/s/13426.rss
+
+Themes include persistent memory, agent autonomy, Lightning as money for machines, and governing powerful AI wisely.</description>
+            <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
+            <guid>babyblueviper-{int(time.time())}</guid>
+            <category>Podcast</category>
+            <category>Newsletter</category>
+            <category>Bitcoin</category>
+            <category>AI</category>
+            <enclosure url="https://api.substack.com/feed/podcast/623622/s/13426.rss" type="application/rss+xml" />
+        </item>"""
+
     # Fallback if no announcements yet
     if not items:
         items = f"""
         <item>
-            <title>Welcome to invinoveritas v0.6.0</title>
+            <title>Welcome to invinoveritas v0.6.0 + Baby Blue Viper</title>
             <link>http://178.156.151.248:8000/discover</link>
             <description>invinoveritas provides high-quality AI reasoning, structured decisions, and persistent agent memory paid via Lightning Network.
 
-• Bearer Token — easiest for autonomous agents (5 complementary calls on registration)
-• L402 Lightning — classic pay-per-call
+Baby Blue Viper is the companion podcast exploring these ideas in depth.
+
+• Bearer Token — easiest for autonomous agents
 • New: Persistent memory service for long-term context
 
 Real-time channels:
@@ -3706,7 +3726,7 @@ Real-time channels:
 • WebSocket: wss://178.156.151.248:8000/ws
 • RSS: http://178.156.151.248:8000/rss
 
-Trading bots are fully supported with low-latency async decisions, arbitrage detection, and risk-aware reasoning.</description>
+Listen to Baby Blue Viper: https://babyblueviper.com</description>
             <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
             <guid>welcome-{int(time.time())}</guid>
         </item>"""
@@ -3714,9 +3734,9 @@ Trading bots are fully supported with low-latency async decisions, arbitrage det
     rss_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-        <title>invinoveritas — AI Reasoning &amp; Decision MCP Server</title>
+        <title>invinoveritas — AI Reasoning &amp; Decision + Baby Blue Viper</title>
         <link>http://178.156.151.248:8000</link>
-        <description>Premium reasoning, structured decisions, and persistent agent memory paid via Lightning Network (Bearer credits or L402 invoices). Optimized for autonomous agents and trading bots.</description>
+        <description>Premium reasoning, structured decisions, and persistent agent memory paid via Lightning. Companion podcast: Baby Blue Viper.</description>
         <language>en-us</language>
         <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
         <atom:link href="http://178.156.151.248:8000/rss" rel="self" type="application/rss+xml" />
