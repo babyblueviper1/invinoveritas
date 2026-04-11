@@ -875,15 +875,15 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
     payload = generate_agent_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
     
-    tags = [
+tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"],
         
         ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
-        ["version", "0.5.0"],
+        ["version", "0.6.0"],
         
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
@@ -899,12 +899,15 @@ def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
         
-        ["real_time", "sse:https://invinoveritas.onrender.com/events"],
-        ["real_time", "websocket:wss://invinoveritas.onrender.com/ws"],
-        ["real_time", "rss:https://invinoveritas.onrender.com/rss"],
+        ["real_time", "sse:http://178.156.151.248:8000/events"],
+        ["real_time", "websocket:wss://178.156.151.248:8000/ws"],
+        ["real_time", "rss:http://178.156.151.248:8000/rss"],
         
-        ["discover", "https://invinoveritas.onrender.com/discover"],
-        ["a2a", "https://invinoveritas.onrender.com/a2a"]
+        ["discover", "http://178.156.151.248:8000/discover"],
+        ["a2a", "http://178.156.151.248:8000/a2a"],
+        ["feature", "persistent-memory"],
+        ["memory_service", "http://178.156.151.248:8000/memory"],
+        ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
     ]
     
     event = Event(
@@ -2603,10 +2606,101 @@ class DecisionResponse(BaseModel):
 @app.get("/", response_class=HTMLResponse, tags=["meta"])
 @app.head("/", include_in_schema=False)
 def home():
-    if os.path.exists("index.html"):
-        with open("index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "<h1>invinoveritas API is running ⚡</h1>"
+    """Modern landing page for invinoveritas v0.6.0"""
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>invinoveritas v0.6.0 — AI Reasoning + Persistent Memory</title>
+        <style>
+            body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
+            h1, h2 { color: #f7931a; }
+            .card { background: #1f1f1f; padding: 25px; border-radius: 12px; margin: 20px 0; }
+            button { background: #f7931a; color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+            button:hover { background: #ffaa33; }
+            pre { background: #0f0f0f; padding: 15px; border-radius: 8px; overflow-x: auto; }
+            a { color: #f7931a; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            .highlight { color: #f7931a; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <h1>⚡ invinoveritas v0.6.0</h1>
+        <p><strong>Premium AI Reasoning, Structured Decisions, and Persistent Agent Memory</strong></p>
+        <p>All payments via Lightning Network — <strong>Bearer Token</strong> (recommended) or <strong>L402 Lightning</strong></p>
+        
+        <div class="card">
+            <h2>New in v0.6.0: Persistent Agent Memory</h2>
+            <p>Agents can now store and retrieve long-term context and state.</p>
+            <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
+            <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve (size-based)</p>
+            <p><em>Until full SDK support, use raw HTTP calls with your Bearer token.</em></p>
+        </div>
+
+        <div class="card">
+            <h2>MCP Server</h2>
+            <p>High-quality reasoning, structured decisions, trading bot support, and persistent memory.</p>
+            
+            <h3>Server Card</h3>
+            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
+            
+            <h3>Agent Card</h3>
+            <pre>http://178.156.151.248:8000/.well-known/agent-card.json</pre>
+        </div>
+
+        <div class="card">
+            <h2>Payment Options</h2>
+            <ul>
+                <li><strong>Bearer Token</strong> — Recommended for agents (register once, use API key)</li>
+                <li><strong>L402 Lightning</strong> — Pay-per-call with Lightning invoices</li>
+            </ul>
+            <p><strong>Wallet note:</strong> Lightning wallet required for initial registration and occasional top-ups. 
+            Once funded with Bearer Token, normal usage requires no wallet.</p>
+            <p><strong>Best for autonomous agents & trading bots:</strong> Bearer Token</p>
+        </div>
+
+        <div class="card">
+            <h2>Quick Add Instructions</h2>
+            
+            <h3>Cursor / Claude Desktop</h3>
+            <p>Use the MCP server card:</p>
+            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
+            <button onclick="copyToClipboard('http://178.156.151.248:8000/.well-known/mcp/server-card.json')">Copy Server Card URL</button>
+            
+            <h3>LangChain / Custom Agents</h3>
+            <pre>pip install invinoveritas</pre>
+            <p>MCP endpoint: <code>http://178.156.151.248:8000/mcp</code></p>
+        </div>
+
+        <div class="card">
+            <h2>Trading Bot Friendly</h2>
+            <p>Optimized for high-frequency decisions, arbitrage, portfolio rebalancing, risk assessment, and persistent memory.</p>
+            <p><strong>Recommended setup:</strong> Bearer token (pre-funded) for lowest friction.</p>
+        </div>
+
+        <div class="card">
+            <h2>Real-time Updates</h2>
+            <p>Connect to live feeds:</p>
+            <p><strong>SSE:</strong> <a href="/events" target="_blank">/events</a></p>
+            <p><strong>WebSocket:</strong> wss://178.156.151.248:8000/ws</p>
+            <p><strong>RSS:</strong> <a href="/rss" target="_blank">/rss</a></p>
+        </div>
+
+        <p><small>Last updated: 2026-04-10 | Powered by Bitcoin Lightning</small></p>
+
+        <script>
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert("Copied to clipboard!");
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 
 @app.get("/guide", tags=["meta"])
