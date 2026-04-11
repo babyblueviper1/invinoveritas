@@ -3434,7 +3434,7 @@ async def discover_page():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>invinoveritas — AI Reasoning & Decision MCP Server</title>
+        <title>invinoveritas — AI Reasoning & Decision MCP Server v0.6.0</title>
         <style>
             body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
             h1, h2 { color: #f7931a; }
@@ -3453,9 +3453,9 @@ async def discover_page():
         
         <div class="card">
             <h2>New in v0.6.0: Persistent Agent Memory</h2>
-            <p>Agents can now store and retrieve long-term context/state.</p>
+            <p>Agents can now store and retrieve long-term context/state for better autonomy and continuity.</p>
             <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
-            <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve</p>
+            <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve (size-based)</p>
         </div>
 
         <div class="card">
@@ -3475,8 +3475,8 @@ async def discover_page():
                 <li><strong>Bearer Token</strong> — Recommended for agents (register once, use API key)</li>
                 <li><strong>L402 Lightning</strong> — Pay-per-call with Lightning invoices</li>
             </ul>
+            <p><strong>Wallet note:</strong> Lightning wallet required for initial registration and occasional top-ups. Once funded with Bearer Token, normal usage requires no wallet.</p>
             <p><strong>Best for autonomous agents & trading bots:</strong> Bearer Token</p>
-            <p><strong>Note:</strong> Lightning wallet required for initial registration and occasional top-ups.</p>
         </div>
 
         <div class="card">
