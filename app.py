@@ -1912,13 +1912,13 @@ async def favicon():
  
  
 # =========================
-# MCP Tools Definition
+# MCP Tools Definition (v0.6.0)
 # =========================
- 
+
 TOOLS = {
     "reason": {
         "name": "reason",
-        "description": "Premium strategic reasoning. Supports Bearer credits and L402 Lightning.",
+        "description": "Premium strategic reasoning with style control and optional confidence scoring.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1931,17 +1931,17 @@ TOOLS = {
                 "want_confidence": {
                     "type": "boolean",
                     "default": False,
-                    "description": "Include confidence score"
+                    "description": "Include confidence score and reasoning quality"
                 }
             },
             "required": ["question"]
         },
-        "supported_payments": ["Bearer Token (credits)", "L402 (Lightning)"],
-        "pricing": "~500 sats base"
+        "supported_payments": ["Bearer Token (credits)", "L402 Lightning"],
+        "pricing": f"~{REASONING_PRICE_SATS} sats base"
     },
     "decide": {
         "name": "decide",
-        "description": "Structured decision intelligence with confidence scoring and risk assessment. Optimized for trading bots.",
+        "description": "Structured decision intelligence with risk assessment and confidence scoring. Optimized for trading bots.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1956,22 +1956,54 @@ TOOLS = {
                 "want_confidence": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Include confidence score, risk level, and position sizing"
+                    "description": "Include confidence score, risk level, and recommended position sizing"
                 }
             },
             "required": ["goal", "question"]
         },
-        "supported_payments": ["Bearer Token (credits)", "L402 (Lightning)"],
-        "pricing": "~1000 sats base",
+        "supported_payments": ["Bearer Token (credits)", "L402 Lightning"],
+        "pricing": f"~{DECISION_PRICE_SATS} sats base",
         "trading_bot_optimized": True
+    },
+    # New in v0.6.0 — Persistent Memory
+    "memory_store": {
+        "name": "memory_store",
+        "description": "Store persistent memory/context for this agent (long-term state).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string", "description": "Unique agent identifier"},
+                "key": {"type": "string", "description": "Memory key (e.g. 'goal', 'session-42')"},
+                "value": {"type": "string", "description": "The data to store"}
+            },
+            "required": ["agent_id", "key", "value"]
+        },
+        "supported_payments": ["Bearer Token (credits)", "L402 Lightning"],
+        "pricing": "≈2 sats per KB (minimum 50 sats)",
+        "note": "Use raw HTTP if SDK does not yet support this tool"
+    },
+    "memory_get": {
+        "name": "memory_get",
+        "description": "Retrieve previously stored memory for this agent.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "key": {"type": "string"}
+            },
+            "required": ["agent_id", "key"]
+        },
+        "supported_payments": ["Bearer Token (credits)", "L402 Lightning"],
+        "pricing": "≈1 sat per KB (minimum 20 sats)",
+        "note": "Use raw HTTP if SDK does not yet support this tool"
     }
 }
- 
- 
+
+
 # =========================
 # MCP Info Endpoint
 # =========================
- 
+
 @app.get("/mcp", tags=["meta"])
 @app.get("/mcp/", include_in_schema=False)
 @app.head("/mcp", include_in_schema=False)
@@ -1979,47 +2011,50 @@ TOOLS = {
 async def mcp_info():
     return {
         "name": "invinoveritas",
-        "description": "Lightning-paid AI reasoning and decision intelligence for autonomous agents",
+        "version": "0.6.0",
+        "description": "Lightning-paid AI reasoning, structured decisions, and persistent agent memory",
         "mcp_endpoint": "POST /mcp",
         "protocol": "MCP 2025-06-18",
-        "tools": ["reason", "decide"],
-        "supported_payments": ["Bearer Token (credits)", "L402 (Lightning)"],
+        "tools": ["reason", "decide", "memory_store", "memory_get"],
+        "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
         "preferred_payment": "Bearer Token",
         "pricing": {
-            "reason": f"~{REASONING_PRICE_SATS} sats per call",
-            "decide": f"~{DECISION_PRICE_SATS} sats per call",
+            "reason": f"~{REASONING_PRICE_SATS} sats base",
+            "decide": f"~{DECISION_PRICE_SATS} sats base",
+            "memory_store": "≈2 sats per KB (min 50)",
+            "memory_get": "≈1 sat per KB (min 20)"
         },
-        "get_started": "POST /register for 5 complementary calls + pre-funded account",
+        "get_started": "POST /register for 5 complementary calls + Bearer token",
         "server_card": "/.well-known/mcp/server-card.json",
-        "guide": "/guide"
+        "guide": "/guide",
+        "new_in_0_6_0": "Persistent agent memory service"
     }
  
  
 # =========================
-# MCP POST Handler
+# MCP POST Handler (v0.6.0 - Full Memory Support)
 # =========================
- 
+
 @app.post("/mcp")
 @app.post("/mcp/")
 async def mcp_handler(request: Request):
-    """MCP handler — Bearer credits and L402 Lightning."""
+    """MCP handler with full support for reasoning + persistent memory."""
     try:
         body = await request.json()
     except Exception:
         return {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
- 
+
     method = body.get("method")
     rpc_id = body.get("id")
     info = detect_caller(request)
     caller_type = info["caller_type"]
     auth = request.headers.get("authorization") or request.headers.get("Authorization")
- 
+
     logger.info(f"MCP | method={method} | caller={caller_type} | ip={info['ip']} | has_auth={bool(auth)}")
- 
-    # Handle notifications
-    if rpc_id is None:
+
+    if rpc_id is None:  # notification
         return {"status": "ok"}
- 
+
     # ── INITIALIZE ──
     if method == "initialize":
         return {
@@ -2027,112 +2062,150 @@ async def mcp_handler(request: Request):
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
-                "serverInfo": {"name": "invinoveritas", "version": "1.0.0"},
-                "supported_payments": ["Bearer Token (credits)", "L402 (Lightning)"],
+                "serverInfo": {"name": "invinoveritas", "version": "0.6.0"},
+                "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
                 "get_started": "POST /register for 5 complementary calls"
             }
         }
- 
+
     # ── LIST TOOLS ──
     elif method in ["listTools", "tools/list"]:
         return {
             "jsonrpc": "2.0", "id": rpc_id,
             "result": {
                 "tools": list(TOOLS.values()),
-                "supported_payments": ["Bearer Token (recommended)", "L402 (Lightning)"],
+                "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
                 "get_started": "POST /register for 5 complementary calls + Bearer token"
             }
         }
- 
+
     # ── PING ──
     elif method == "ping":
         return {"jsonrpc": "2.0", "id": rpc_id, "result": {}}
- 
+
     # ── CALL TOOL ──
     elif method == "callTool":
         tool_name = body.get("params", {}).get("name")
         args = body.get("params", {}).get("arguments", {})
- 
-        if tool_name not in ("reason", "decide"):
-            return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Tool not found"}}
- 
+
+        if tool_name not in TOOLS:
+            return {
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"}
+            }
+
         # Calculate price
-        if tool_name == "reason":
-            question = args.get("question", "")
-            if not question:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
-            price = calculate_price("reason", question, caller_type)
+        if tool_name in ("reason", "decide"):
+            if tool_name == "reason":
+                question = args.get("question", "")
+                if not question:
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing question"}}
+                price = calculate_price("reason", question, caller_type)
+            else:
+                goal = args.get("goal", "")
+                question = args.get("question", "")
+                if not goal or not question:
+                    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
+                price = calculate_price("decision", f"{goal} {question}", caller_type)
+
+        elif tool_name == "memory_store":
+            value = args.get("value", "")
+            size = len(str(value).encode('utf-8'))
+            price = max(50, (size + 1023) // 1024 * 2)   # ~2 sats/KB, min 50
+
+        elif tool_name in ("memory_get", "memory_list"):
+            price = 20
+
+        elif tool_name == "memory_delete":
+            price = 0
+
         else:
-            goal = args.get("goal", "")
-            question = args.get("question", "")
-            context = args.get("context", "")
-            if not goal or not question:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing goal or question"}}
-            price = calculate_price("decision", f"{goal} {context} {question}", caller_type)
- 
-        # 1. Bearer Token
+            price = 100
+
+        # Payment handling
         if auth and auth.startswith("Bearer "):
             api_key = auth.split(" ", 1)[1].strip()
             try:
-                await verify_credit(api_key, "reason" if tool_name == "reason" else "decide", price)
+                await verify_credit(api_key, tool_name, price)
             except HTTPException as e:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {
                     "code": e.status_code,
-                    "message": str(e.detail) if isinstance(e.detail, str) else e.detail.get("message", "Error"),
+                    "message": str(e.detail) if isinstance(e.detail, str) else "Payment required",
                     "data": {"topup": "/topup", "register": "/register"}
                 }}
- 
+
+            # Execute tool
             if tool_name == "reason":
-                result = premium_reasoning(_apply_style(question, args.get("style", "normal")))
+                result = premium_reasoning(_apply_style(args.get("question", ""), args.get("style", "normal")))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": result}]}}
-            else:
-                result = structured_decision(goal, context, question)
+
+            elif tool_name == "decide":
+                result = structured_decision(args.get("goal", ""), args.get("context", ""), args.get("question", ""))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
- 
-        # 2. L402 Lightning
-        if auth and auth.startswith("L402 "):
+
+            elif tool_name == "memory_store":
+                return await store_memory(MemoryStoreRequest(**args), authorization=auth)
+
+            elif tool_name == "memory_get":
+                return await get_memory(MemoryGetRequest(**args), authorization=auth)
+
+            elif tool_name == "memory_list":
+                return await list_memory(MemoryListRequest(**args), authorization=auth)
+
+            elif tool_name == "memory_delete":
+                return await delete_memory(MemoryDeleteRequest(**args), authorization=auth)
+
+        elif auth and auth.startswith("L402 "):
             try:
                 _, creds = auth.split(" ", 1)
                 payment_hash, preimage = creds.split(":", 1)
             except Exception:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Invalid L402 format"}}
- 
+
             if is_payment_used(payment_hash):
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Payment already used"}}
- 
+
             if not await verify_l402_payment(payment_hash, preimage):
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 403, "message": "Invalid payment"}}
- 
+
             mark_payment_used(payment_hash, preimage)
- 
+
+            # Same execution as Bearer (for simplicity)
             if tool_name == "reason":
-                result = premium_reasoning(_apply_style(question, args.get("style", "normal")))
+                result = premium_reasoning(_apply_style(args.get("question", ""), args.get("style", "normal")))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": result}]}}
-            else:
-                result = structured_decision(goal, context, question)
+            elif tool_name == "decide":
+                result = structured_decision(args.get("goal", ""), args.get("context", ""), args.get("question", ""))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
- 
-        # 3. No payment → issue invoice
-        invoice_data = create_invoice(price, memo=f"invinoveritas {tool_name} - {caller_type}")
+            elif tool_name == "memory_store":
+                return await store_memory(MemoryStoreRequest(**args), authorization=auth)
+            elif tool_name == "memory_get":
+                return await get_memory(MemoryGetRequest(**args), authorization=auth)
+            elif tool_name == "memory_list":
+                return await list_memory(MemoryListRequest(**args), authorization=auth)
+            elif tool_name == "memory_delete":
+                return await delete_memory(MemoryDeleteRequest(**args), authorization=auth)
+
+        # No valid payment → return invoice
+        invoice_data = create_invoice(price, memo=f"invinoveritas {tool_name}")
         if "error" in invoice_data:
             return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32603, "message": "Failed to create invoice"}}
- 
+
         return {
             "jsonrpc": "2.0", "id": rpc_id,
             "error": {
                 "code": 402,
                 "message": "Payment Required",
                 "data": {
-                    "payment_hash": invoice_data["payment_hash"],
-                    "invoice": invoice_data["invoice"],
+                    "payment_hash": invoice_data.get("payment_hash"),
+                    "invoice": invoice_data.get("invoice"),
                     "amount_sats": price,
-                    "supported_methods": ["Bearer Token (credits)", "L402 (Lightning)"],
-                    "register_for_credits": "POST /register for 5 complementary calls",
-                    "guide": "https://invinoveritas.onrender.com/guide"
+                    "supported_methods": ["Bearer Token", "L402 Lightning"]
                 }
             }
         }
- 
+
     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
  
  
