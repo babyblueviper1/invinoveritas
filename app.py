@@ -2613,16 +2613,21 @@ def home():
 def payment_guide():
     """Payment guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "How to Pay for invinoveritas",
-        "description": "All payments are handled via the Lightning Network using Bearer credits or L402 invoices.",
+        "title": "How to Pay for invinoveritas (v0.6.0)",
+        "description": "All payments are handled via the Lightning Network using Bearer Token (recommended) or L402 Lightning invoices.",
 
         "supported_payments": {
             "bearer": {
                 "name": "Bearer Token (Recommended)",
-                "description": "Pre-funded credit account. Best for autonomous agents and trading bots.",
-                "flow": "POST /register → pay ~1000 sats via Lightning → get api_key + 5 complementary calls",
+                "description": "Pre-funded credit account. Best for autonomous agents, trading bots, and long-term use.",
+                "flow": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 5 complementary calls",
                 "usage": "Authorization: Bearer ivv_...",
-                "advantages": ["Simple long-term usage", "5 complementary calls on signup", "Fine-grained per-call billing"]
+                "advantages": [
+                    "Simple long-term usage",
+                    "5 complementary calls on signup",
+                    "Fine-grained per-call billing",
+                    "No wallet needed after initial setup"
+                ]
             },
             "l402": {
                 "name": "L402 Lightning (Pay-per-call)",
@@ -2631,6 +2636,12 @@ def payment_guide():
                 "wallets": ["Alby", "Zeus", "Mutiny", "Phoenix", "Breez"],
                 "advantages": ["Fully decentralized", "True micro-payments"]
             }
+        },
+
+        "wallet_requirement": {
+            "required": True,
+            "details": "A Lightning wallet is required for initial registration and occasional top-ups. "
+                       "Once your Bearer account is funded, normal API usage requires no wallet — just your api_key."
         },
 
         "important_note": "For smooth autonomous operation we strongly recommend using **Bearer Token** after registration.",
@@ -2654,7 +2665,8 @@ def payment_guide():
             "recommended": "Bearer Token (pre-funded)",
             "tips": [
                 "Pre-fund your Bearer account for uninterrupted high-frequency calls",
-                "Combine with 'want_confidence' for better risk-aware decisions"
+                "Combine with 'want_confidence' for better risk-aware decisions",
+                "Use persistent memory (/memory/store) for long-term agent state"
             ]
         },
 
@@ -2665,6 +2677,7 @@ def payment_guide():
             "guide": "/guide",
             "prices": "/prices",
             "mcp": "/mcp",
+            "memory": "/memory",
             "sdk": "https://pypi.org/project/invinoveritas/"
         },
 
@@ -2672,16 +2685,17 @@ def payment_guide():
             "1. Register with Lightning: POST /register",
             "2. Use your Bearer token for all calls",
             "3. Top up anytime via /topup (Lightning)",
-            "4. Monitor usage at /balance"
+            "4. Monitor usage at /balance",
+            "5. Try persistent memory at /memory/store"
         ],
 
-        "urgent_note": "Configure a Lightning wallet (NWC recommended) or use Bearer Token to avoid repeated 402 errors in autonomous mode."
+        "new_in_0_6_0": "Persistent agent memory service for long-term context and state"
     }
 
 
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
-    """Detailed pricing — Lightning only."""
+    """Detailed pricing — Lightning only (v0.6.0)."""
     return {
         "currency_options": ["sats"],
         "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
@@ -2698,6 +2712,16 @@ def get_all_prices():
                 "sats_base": DECISION_PRICE_SATS,
                 "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
                 "description": "Structured decision intelligence with risk assessment"
+            },
+            "memory_store": {
+                "sats_per_kb": 2,
+                "minimum": 50,
+                "description": "Store persistent memory/context for agents"
+            },
+            "memory_get": {
+                "sats_per_kb": 1,
+                "minimum": 20,
+                "description": "Retrieve stored memory"
             }
         },
 
@@ -2713,11 +2737,13 @@ def get_all_prices():
                 "Fast arbitrage detection",
                 "Portfolio rebalancing",
                 "Risk-aware decisions with confidence scoring",
-                "High-frequency async calls"
+                "High-frequency async calls",
+                "Persistent memory support"
             ]
         },
 
-        "note": "All payments are processed via the Lightning Network. New accounts receive 5 complementary calls.",
+        "note": "All payments are processed via the Lightning Network. New accounts receive 5 complementary calls. "
+                "Lightning wallet required for initial registration and occasional top-ups.",
         "last_updated": int(time.time())
     }
 
@@ -2727,18 +2753,25 @@ def get_all_prices():
 async def wallet_onboarding():
     """Payment onboarding guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "⚡ invinoveritas — Payment Onboarding Guide",
+        "title": "⚡ invinoveritas — Payment Onboarding Guide (v0.6.0)",
         "subtitle": "Simple Lightning-based payments: Bearer Token or L402 Invoices",
 
-        "introduction": "All payments are handled via the Lightning Network. The easiest and most recommended way is to register once with Lightning and use a Bearer Token for all future calls.",
+        "introduction": "All payments are handled via the Lightning Network. "
+                        "A Lightning wallet is required for initial registration and occasional top-ups. "
+                        "Once funded with a Bearer Token, normal API usage requires no wallet — just your api_key.",
 
         "payment_options": [
             {
                 "type": "Bearer Token (Recommended for long-term use)",
                 "description": "Create an account once and use an API key for all future calls.",
-                "setup": "POST /register → pay ~1000 sats via Lightning invoice → get api_key + 5 complementary calls",
+                "setup": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 5 complementary calls",
                 "usage": "Authorization: Bearer ivv_...",
-                "pros": ["Easiest for agents and trading bots", "5 complementary calls on signup", "Fine-grained per-call usage"],
+                "pros": [
+                    "Easiest for agents and trading bots",
+                    "5 complementary calls on signup",
+                    "Fine-grained per-call usage",
+                    "No wallet needed after initial setup"
+                ],
                 "recommended": True
             },
             {
@@ -2755,7 +2788,7 @@ async def wallet_onboarding():
             "tips": [
                 "Pre-fund your Bearer account for uninterrupted high-frequency calls",
                 "Combine with 'want_confidence' for better risk-aware decisions",
-                "Use NWC (Alby/Zeus/Mutiny) if you prefer direct Lightning payments"
+                "Use persistent memory (/memory/store) for long-term agent state"
             ]
         },
 
@@ -2766,6 +2799,7 @@ async def wallet_onboarding():
             "guide": "/guide",
             "prices": "/prices",
             "mcp": "/mcp",
+            "memory": "/memory",
             "sdk": "https://pypi.org/project/invinoveritas/"
         },
 
@@ -2773,10 +2807,15 @@ async def wallet_onboarding():
             "1. Register with Lightning: POST /register (~1000 sats)",
             "2. Use your Bearer token for all calls",
             "3. Top up anytime via /topup (Lightning)",
-            "4. Monitor usage at /balance"
+            "4. Monitor usage at /balance",
+            "5. Try persistent memory at /memory/store"
         ],
 
-        "urgent_note": "For smooth autonomous operation we strongly recommend using **Bearer Token** after registration. Configure a Lightning wallet (NWC recommended) to avoid repeated 402 errors."
+        "important_notes": [
+            "Lightning wallet required for initial registration and occasional top-ups",
+            "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
+            "New in v0.6.0: Persistent agent memory service for long-term context"
+        ]
     }
     
 # =========================
@@ -2797,20 +2836,21 @@ def home():
 # =========================
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with rich metadata for monitoring and autonomous agents."""
+    """Health check with rich metadata for monitoring and autonomous agents (v0.6.0)."""
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "version": "0.5.0",
+        "version": "0.6.0",
         "timestamp": int(time.time()),
 
         "api": {
-            "title": "Premium AI Reasoning & Decision Intelligence",
+            "title": "Premium AI Reasoning, Decision Intelligence & Persistent Memory",
             "protocols": ["Bearer", "L402"],
             "payment_currencies": ["sats"],
             "primary_users": "autonomous agents & trading bots",
             "mcp_support": True,
-            "a2a_support": True
+            "a2a_support": True,
+            "memory_support": True
         },
 
         "payment_methods": {
@@ -2825,7 +2865,7 @@ def health():
         "wallet_requirement": {
             "status": "PAYMENT_REQUIRED",
             "escalation_level": "medium",
-            "message": "Payment configuration is required for autonomous use.",
+            "message": "Lightning wallet required for initial registration and occasional top-ups.",
             "note": "Recommended: Register with Lightning to get a Bearer token (easiest long-term solution).",
             "recommended": "Bearer Token after /register",
             "guide": "/wallet-onboarding",
@@ -2838,7 +2878,8 @@ def health():
                 "arbitrage detection",
                 "portfolio rebalancing",
                 "risk assessment",
-                "high-frequency decisions"
+                "high-frequency decisions",
+                "persistent memory for state"
             ],
             "recommendation": "Bearer token (pre-funded) for best reliability",
             "note": "NWC + Lightning is supported but Bearer often performs better in production"
@@ -2876,7 +2917,8 @@ def health():
             "structured_output": True,
             "trading_bot_optimized": True,
             "a2a_delegation": True,
-            "real_time_updates": True
+            "real_time_updates": True,
+            "persistent_memory": True
         },
 
         "endpoints": {
@@ -2899,9 +2941,14 @@ def health():
             "mcp": {
                 "path": "/mcp",
                 "method": "POST",
-                "description": "Model Context Protocol (MCP) endpoint",
+                "description": "Model Context Protocol (MCP) endpoint with memory support",
                 "supports": ["initialize", "tools/list", "callTool", "ping"],
                 "payment_handling": "built-in support for Bearer and L402 Lightning"
+            },
+            "memory": {
+                "path": "/memory",
+                "description": "Persistent agent memory service (new in v0.6.0)",
+                "endpoints": ["/memory/store", "/memory/get", "/memory/list", "/memory/delete"]
             },
             "a2a": {
                 "path": "/a2a",
@@ -2934,6 +2981,7 @@ def health():
             "mcp_native": True,
             "a2a_support": True,
             "real_time_updates": True,
+            "persistent_memory": True,
             "sdk": {
                 "pypi": "https://pypi.org/project/invinoveritas/",
                 "providers": ["Bearer", "NWC", "LND"],
@@ -2945,6 +2993,7 @@ def health():
         "important_notes": [
             "All payments are processed via the Lightning Network",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
+            "Lightning wallet required for initial registration and occasional top-ups",
             "New accounts receive 5 complementary calls after registration",
             "Trading bots perform best with a pre-funded Bearer token",
             "Real-time updates available via SSE, WebSocket, and RSS"
@@ -2967,10 +3016,10 @@ def health():
             "guide": "/guide",
             "wallet_onboarding": "/wallet-onboarding",
             "register": "/register",
-            "health": "/health"
+            "health": "/health",
+            "memory": "/memory"
         }
     }
-
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
