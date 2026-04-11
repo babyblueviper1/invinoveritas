@@ -2232,7 +2232,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (Hardcoded - No external file)
+# MCP Server Card (v0.6.0)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -2240,16 +2240,16 @@ SERVER_CARD = {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
-        "version": "0.5.0",
-        "description": "Premium AI reasoning and decision intelligence for autonomous agents and trading bots using Lightning payments.",
-        "homepage": "https://invinoveritas.onrender.com",
+        "version": "0.6.0",
+        "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Powered by Lightning payments.",
+        "homepage": "http://178.156.151.248:8000",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
         "author": "invinoveritas team"
     },
     "transports": [
         {
             "type": "streamable-http",
-            "url": "https://invinoveritas.onrender.com",
+            "url": "http://178.156.151.248:8000",
             "endpoint": "/mcp"
         }
     ],
@@ -2262,14 +2262,11 @@ SERVER_CARD = {
     "tools": [
         {
             "name": "reason",
-            "description": "Get deep strategic reasoning and analysis. Paid via Lightning Network (Bearer credits or L402 invoices).",
+            "description": "Premium strategic reasoning with style control and optional confidence scoring.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "The question to reason about"
-                    },
+                    "question": {"type": "string", "description": "The question to reason about"},
                     "style": {
                         "type": "string",
                         "enum": ["short", "concise", "normal", "detailed", "comprehensive"],
@@ -2281,7 +2278,7 @@ SERVER_CARD = {
         },
         {
             "name": "decide",
-            "description": "Get structured decision intelligence with confidence, risk assessment, and action recommendations. Optimized for trading bots. Paid via Lightning.",
+            "description": "Structured decision intelligence with risk assessment and confidence scoring. Optimized for trading bots.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2291,35 +2288,56 @@ SERVER_CARD = {
                 },
                 "required": ["goal", "question"]
             }
+        },
+        {
+            "name": "memory_store",
+            "description": "Store persistent memory or context for this agent (long-term state).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string", "description": "Unique agent identifier"},
+                    "key": {"type": "string", "description": "Memory key"},
+                    "value": {"type": "string", "description": "Data to store"}
+                },
+                "required": ["agent_id", "key", "value"]
+            }
+        },
+        {
+            "name": "memory_get",
+            "description": "Retrieve previously stored memory for this agent.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string"},
+                    "key": {"type": "string"}
+                },
+                "required": ["agent_id", "key"]
+            }
         }
     ],
     "authentication": {
         "required": True,
         "schemes": ["Bearer", "L402"],
-        "description": "All payments are handled via the Lightning Network using Bearer Token (prepaid credits) or L402 Lightning invoices."
+        "description": "Payments handled via Lightning Network. Bearer Token is recommended for agents."
     },
     "paymentMethods": {
-        "supported": ["Bearer", "L402"],
+        "supported": ["Bearer Token", "L402 Lightning"],
         "preferred": "Bearer Token (after registration)",
-        "note": "New accounts receive 5 complementary calls after Lightning registration."
+        "note": "A Lightning wallet is required for initial registration and occasional top-ups."
     },
     "walletSetup": {
-        "required": False,
-        "message": "Lightning wallet (NWC or LND) recommended for full autonomous operation.",
+        "required": True,
+        "message": "Lightning wallet required for initial registration and top-ups.",
         "recommended": "Register with Lightning → get Bearer token (easiest long-term solution)",
-        "quickstart": "Pay Lightning invoice during registration to receive 5 complementary calls and a Bearer API key.",
-        "escalation": {
-            "level": "medium",
-            "instruction": "If you receive 402 errors, configure a Lightning wallet (NWC recommended) or fund your Bearer account."
-        }
+        "quickstart": "Pay Lightning invoice during /register to receive 5 complementary calls and a Bearer API key."
     },
     "pricing": {
         "currency": "sats",
         "reason_base": "~100 sats",
         "decide_base": "~180 sats",
-        "agent_multiplier": 1.2,
-        "minimum": 50,
-        "note": "New accounts receive 5 complementary calls. All usage is paid via Lightning (Bearer or L402)."
+        "memory_store": "≈2 sats per KB (min 50)",
+        "memory_get": "≈1 sat per KB (min 20)",
+        "note": "New accounts receive 5 complementary calls. Persistent memory added in v0.6.0."
     },
     "documentation": {
         "guide": "/guide",
@@ -2338,10 +2356,10 @@ SERVER_CARD = {
         ]
     },
     "importantNotes": [
-        "All payments are processed via the Lightning Network",
-        "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
-        "New accounts receive 5 complementary calls after Lightning registration",
-        "Accounts with any balance remain active for at least 2 years of inactivity"
+        "All payments processed via Lightning Network",
+        "Bearer Token is the easiest long-term solution for autonomous agents",
+        "Lightning wallet required for initial registration and occasional top-ups",
+        "New in v0.6.0: Persistent agent memory service"
     ]
 }
 
@@ -2355,33 +2373,45 @@ async def get_server_card():
     return JSONResponse(content=SERVER_CARD)
 
 
+
 # =========================
-# A2A Agent Card
+# A2A Agent Card (v0.6.0)
 # =========================
 AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
     "version": "1.0",
     "name": "invinoveritas-reasoning-agent",
-    "description": "High-quality AI reasoning and decision intelligence paid via Lightning Network (Bearer credits or L402 invoices).",
+    "description": "High-quality AI reasoning, structured decisions, and persistent agent memory. Paid via Lightning Network.",
     "provider": "invinoveritas",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "capabilities": [
-        "reasoning", "decision-making", "structured-output",
-        "risk-assessment", "confidence-scoring", "trading-bot-support", "a2a-delegation"
+        "reasoning", 
+        "decision-making", 
+        "structured-output",
+        "risk-assessment", 
+        "confidence-scoring", 
+        "trading-bot-support",
+        "persistent-memory",
+        "agent-memory-store",
+        "agent-memory-retrieve",
+        "long-term-context"
     ],
     "protocols": ["mcp", "a2a"],
     "authentication": ["Bearer", "L402"],
     "paymentMethods": ["Bearer", "L402"],
     "endpoints": {
-        "mcp": "https://invinoveritas.onrender.com/mcp",
-        "a2a": "https://invinoveritas.onrender.com/a2a"
+        "mcp": "http://178.156.151.248:8000/mcp",
+        "a2a": "http://178.156.151.248:8000/a2a"
     },
     "tradingBotSupport": {
         "supported": True,
-        "description": "Optimized for trading bots with low-latency decisions using Lightning payments.",
+        "description": "Optimized for trading bots with low-latency decisions and persistent memory.",
         "useCases": [
-            "arbitrage detection", "portfolio rebalancing", "market sentiment analysis",
-            "risk-aware trade decisions", "high-frequency reasoning"
+            "arbitrage detection", 
+            "portfolio rebalancing", 
+            "market sentiment analysis",
+            "risk-aware trade decisions",
+            "high-frequency reasoning"
         ],
         "recommendedSetup": "Register with Lightning → use Bearer token"
     },
@@ -2390,6 +2420,8 @@ AGENT_CARD = {
         "currency": "sats",
         "reasoning": "~100 sats per call",
         "decision": "~180 sats per call",
+        "memory_store": "≈2 sats per KB (min 50)",
+        "memory_get": "≈1 sat per KB (min 20)",
         "note": "New accounts receive 5 complementary calls"
     },
     "nostr": {
@@ -2397,9 +2429,9 @@ AGENT_CARD = {
         "announcement_kind": 31234,
         "relays": ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]
     },
-    "documentation": "https://invinoveritas.onrender.com/guide",
+    "documentation": "http://178.156.151.248:8000/guide",
     "contact": "mailto:babyblueviperbusiness@gmail.com",
-    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "a2a", "trading-bot"]
+    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "a2a", "trading-bot", "memory"]
 }
 
 
@@ -2411,29 +2443,42 @@ async def get_agent_card():
 
 
 # =========================
-# agents.json - General Agent Discovery
+# agents.json - General Agent Discovery (v0.6.0)
 # =========================
 AGENTS_REGISTRY = {
     "agents": [
         {
             "id": "invinoveritas-reasoning-agent",
             "name": "invinoveritas Reasoning Agent",
-            "description": "Premium AI reasoning and decision intelligence paid via Lightning Network (Bearer credits or L402 invoices).",
+            "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Paid via Lightning Network (Bearer Token recommended).",
             "type": "specialist",
             "provider": "invinoveritas",
-            "version": "0.5.0",
+            "version": "0.6.0",
             "protocols": ["mcp", "a2a"],
-            "capabilities": ["reasoning", "decision-making", "trading-bot-support", "a2a-delegation"],
+            "capabilities": [
+                "reasoning", 
+                "decision-making", 
+                "structured-output",
+                "risk-assessment", 
+                "confidence-scoring", 
+                "trading-bot-support",
+                "persistent-memory",
+                "agent-memory-store",
+                "agent-memory-retrieve",
+                "long-term-context"
+            ],
             "paymentMethods": ["Bearer", "L402"],
             "pricing": "pay-per-use in sats",
-            "endpoint": "https://invinoveritas.onrender.com/mcp",
-            "a2aEndpoint": "https://invinoveritas.onrender.com/a2a",
-            "agentCard": "https://invinoveritas.onrender.com/.well-known/agent-card.json",
-            "serverCard": "https://invinoveritas.onrender.com/.well-known/mcp/server-card.json",
-            "nostr": True
+            "endpoint": "http://178.156.151.248:8000/mcp",
+            "a2aEndpoint": "http://178.156.151.248:8000/a2a",
+            "agentCard": "http://178.156.151.248:8000/.well-known/agent-card.json",
+            "serverCard": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
+            "memoryService": "http://178.156.151.248:8000/memory",
+            "nostr": True,
+            "note": "Lightning wallet required for initial registration and occasional top-ups. Bearer Token recommended for ongoing use."
         }
     ],
-    "updated": "2026-04-09T00:00:00Z",
+    "updated": datetime.datetime.utcnow().isoformat() + "Z",
     "total": 1
 }
 
@@ -2444,7 +2489,7 @@ async def get_agents_registry():
 
 
 # =========================
-# A2A Endpoint with Internal MCP Forwarding
+# A2A Endpoint with Internal MCP Forwarding (v0.6.0)
 # =========================
 @app.api_route("/a2a", methods=["GET", "POST"], include_in_schema=False)
 async def a2a_endpoint(request: Request):
@@ -2456,12 +2501,20 @@ async def a2a_endpoint(request: Request):
             "status": "ok",
             "protocol": "a2a",
             "agent_name": "invinoveritas-reasoning-agent",
-            "description": "AI reasoning and decision specialist with A2A delegation. All payments via Lightning Network.",
-            "capabilities": ["reasoning", "decision-making", "trading-bot-support"],
+            "description": "AI reasoning, structured decisions, and persistent memory specialist. Paid via Lightning (Bearer recommended).",
+            "version": "0.6.0",
+            "capabilities": [
+                "reasoning", 
+                "decision-making", 
+                "persistent-memory",
+                "trading-bot-support"
+            ],
             "supported_operations": ["task_proposal", "task_delegation"],
             "supported_payments": ["Bearer", "L402"],
             "trading_bot_optimized": True,
-            "note": "All delegated tasks require valid Lightning payment (Bearer recommended)."
+            "wallet_required": True,
+            "wallet_usage": "Lightning wallet needed only for initial registration and top-ups.",
+            "note": "Use Bearer Token for best experience after registration."
         }
 
     # POST = Task delegation
@@ -2513,7 +2566,6 @@ async def a2a_endpoint(request: Request):
                 "message": "Internal forwarding to MCP failed",
                 "detail": str(e)
             }
-
 
 
 # =========================
