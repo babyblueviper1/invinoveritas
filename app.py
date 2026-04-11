@@ -268,15 +268,16 @@ async def websocket_announcements(websocket: WebSocket):
     active_ws_clients.append(websocket)
     
     try:
-        # === 1. Send Welcome Message ===
+        # === 1. Send Welcome Message (v0.6.0) ===
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas real-time announcements.",
-            "note": "New announcements will appear here in real-time."
+            "message": "Connected to invinoveritas real-time announcements (v0.6.0).",
+            "note": "New announcements, memory service updates, and Baby Blue Viper episodes will appear here.",
+            "memory_service": "http://178.156.151.248:8000/memory",
+            "podcast": "https://babyblueviper.com"
         })
 
         # === 2. Send Existing Announcements (Important for new clients) ===
-        # Use the same limit as RSS for consistency
         for ann in ANNOUNCEMENTS[:8]:
             try:
                 message = {
@@ -290,7 +291,19 @@ async def websocket_announcements(websocket: WebSocket):
             except Exception as e:
                 logger.warning(f"Failed to send historical announcement via WS: {e}")
 
-        # === 3. Keep connection alive + handle ping/pong ===
+        # === 3. Send Baby Blue Viper promotion to new clients ===
+        baby_blue_msg = {
+            "type": "announcement",
+            "title": "Baby Blue Viper Podcast & Newsletter",
+            "description": "Calm, reflective conversations exploring Bitcoin, AI, sovereignty, and the future of intelligence. New episodes and newsletter available.",
+            "link": "https://babyblueviper.com",
+            "podcast_feed": "https://api.substack.com/feed/podcast/623622/s/13426.rss",
+            "timestamp": int(time.time()),
+            "category": "podcast"
+        }
+        await websocket.send_json(baby_blue_msg)
+
+        # === 4. Keep connection alive + handle ping/pong ===
         while True:
             data = await websocket.receive_text()
             if data.lower() == "ping":
@@ -442,7 +455,7 @@ async def add_announcement(title: str, description: str, link: str = None):
     announcement = {
         "title": title,
         "description": description,
-        "link": link or "https://invinoveritas.onrender.com/discover",
+        "link": link or "https://178.156.151.248:8000/discover",
         "pubDate": datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"),
         "guid": f"ann-{int(time.time())}",
         "timestamp": int(time.time())
@@ -534,12 +547,12 @@ async def sse_test_page():
 
 
 async def sse_event_generator():
-    """SSE generator that sends historical announcements + live updates"""
+    """SSE generator that sends historical announcements + live updates (including Baby Blue Viper)"""
     queue: asyncio.Queue = asyncio.Queue(maxsize=20)
     active_sse_clients.append(queue)
     
     try:
-        # Send recent historical announcements to new client (aligned with RSS)
+        # Send recent historical announcements to new client
         for ann in ANNOUNCEMENTS[:MAX_RSS_ITEMS]:
             try:
                 data = {
@@ -552,6 +565,17 @@ async def sse_event_generator():
                 yield f"data: {json.dumps(data)}\n\n"
             except Exception as e:
                 logger.warning(f"Failed to send historical announcement via SSE: {e}")
+
+        # Send Baby Blue Viper promotion as a permanent historical item for new clients
+        baby_blue_data = {
+            "type": "announcement",
+            "title": "Baby Blue Viper Podcast & Newsletter",
+            "description": "Calm, reflective conversations exploring Bitcoin, AI, sovereignty, and the future of intelligence. New episodes and newsletter available.",
+            "link": "https://babyblueviper.com",
+            "timestamp": int(time.time()),
+            "category": "podcast"
+        }
+        yield f"data: {json.dumps(baby_blue_data)}\n\n"
 
         # Keep connection alive and send new announcements
         while True:
@@ -585,7 +609,7 @@ async def sse_event_generator():
 @app.head("/events", tags=["meta"])
 @app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time announcements"""
+    """SSE endpoint for real-time announcements (v0.6.0)"""
     
     if request.method == "HEAD":
         return Response(status_code=200, headers={"Content-Type": "text/event-stream"})
@@ -599,7 +623,6 @@ async def sse_discovery_hub(request: Request):
             "Access-Control-Allow-Origin": "*",
         }
     )
-
 
 @app.get("/debug/sse-clients", tags=["meta"])
 async def debug_sse():
@@ -897,14 +920,14 @@ def generate_sdk_payload(score: int = 8) -> dict:
     return p
 
 # ── MCP / SDK Event Builders ────────────────────────────────────────────────
-def build_mcp_event(private_key: PrivateKey, score: int = 7) -> Event:
+def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
     payload = generate_agent_payload(score)
     content = json.dumps(payload, separators=(",", ":"))
     
-tags = [
+    tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"], ["t", "podcast"],
         
         ["k", "31990"],
         ["type", "mcp_service"],
@@ -931,9 +954,16 @@ tags = [
         
         ["discover", "http://178.156.151.248:8000/discover"],
         ["a2a", "http://178.156.151.248:8000/a2a"],
+        
+        # New in v0.6.0
         ["feature", "persistent-memory"],
         ["memory_service", "http://178.156.151.248:8000/memory"],
         ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
+        
+        # Baby Blue Viper
+        ["podcast", "Baby Blue Viper"],
+        ["podcast_url", "https://babyblueviper.com"],
+        ["podcast_feed", "https://api.substack.com/feed/podcast/623622/s/13426.rss"],
     ]
     
     event = Event(
