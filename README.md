@@ -1,15 +1,16 @@
 # ⚡ invinoveritas v0.6.0
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/invinoveritas)](https://pypi.org/project/invinoveritas/)
 
 **Lightning-paid AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots**
 
-Pay-per-insight API using **Bearer credits** and **L402 Lightning**.
-
+Pay-per-insight API using **Bearer credits** and **L402 Lightning**.  
 No subscriptions. No KYC. Simple and reliable Lightning payments.
 
-**Live API**: http://178.156.151.248:8000  
-**MCP Endpoint**: http://178.156.151.248:8000/mcp
+**Live API**: [https://api.babyblueviper.com](https://api.babyblueviper.com)  
+**MCP Endpoint**: [https://api.babyblueviper.com/mcp](https://api.babyblueviper.com/mcp)  
+**PyPI**: [https://pypi.org/project/invinoveritas/](https://pypi.org/project/invinoveritas/)
 
 ---
 
@@ -18,15 +19,15 @@ No subscriptions. No KYC. Simple and reliable Lightning payments.
 ### 1. Register & Get Started (Bearer Token — Recommended)
 
 ```bash
-curl -X POST http://178.156.151.248:8000/register
+curl -X POST https://api.babyblueviper.com/register
 ```
 
 Pay the ~1000 sats Lightning invoice → you get an `api_key` + **5 complementary calls**.
 
-Then use it like this:
+Then use it:
 
 ```bash
-curl -X POST http://178.156.151.248:8000/reason \
+curl -X POST https://api.babyblueviper.com/reason \
   -H "Authorization: Bearer ivv_your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{"question": "What are the biggest risks for Bitcoin in 2026?"}'
@@ -34,54 +35,79 @@ curl -X POST http://178.156.151.248:8000/reason \
 
 ---
 
-## Payment Options (Lightning Only)
+## Python SDK
 
-| Method              | Best For                          | Details                                      | Minimum          |
-|---------------------|-----------------------------------|----------------------------------------------|------------------|
-| **Bearer Token**    | Autonomous agents, trading bots   | Register once → use API key forever         | ~1000 sats (5 free calls) |
-| **L402 Lightning**  | Lightning maximalists             | Pay-per-call with invoices                  | ~100 sats        |
+```bash
+pip install invinoveritas
 
-**Recommended for most users**: Start with **Bearer Token** after registration.
+# With LangChain autonomous payments
+pip install "invinoveritas[langchain]"
 
-**Wallet note**: A Lightning wallet is required for initial registration and occasional top-ups. Once funded with Bearer Token, normal usage requires no wallet.
+# With NWC wallet support (Alby, Zeus, Mutiny — no node required)
+pip install "invinoveritas[nwc]"
+```
+
+```python
+from invinoveritas import InvinoClient, PaymentRequired
+
+client = InvinoClient(base_url="https://api.babyblueviper.com")
+
+try:
+    result = client.reason("What are the biggest risks for Bitcoin in 2026?")
+except PaymentRequired as e:
+    print(f"Pay: {e.invoice} ({e.amount_sats} sats)")
+```
+
+Full SDK docs → [`sdk/README.md`](sdk/README.md)
 
 ---
 
-## Current Pricing (as of April 2026)
+## Payment Options (Lightning Only)
 
-| Tool              | Base Price          | With Agent Multiplier | Notes                          |
-|-------------------|---------------------|-----------------------|--------------------------------|
-| `reason`          | 100 sats            | 130 sats              | Strategic reasoning            |
-| `decide`          | 180 sats            | 234 sats              | Structured decisions + risk    |
-| `memory_store`    | ≈2 sats per KB      | -                     | Persistent agent memory        |
-| `memory_get`      | ≈1 sat per KB       | -                     | Retrieve stored memory         |
+| Method | Best For | Details | Minimum |
+|---|---|---|---|
+| **Bearer Token** | Autonomous agents, trading bots | Register once → use API key forever | ~1000 sats (5 free calls) |
+| **L402 Lightning** | Lightning maximalists | Pay-per-call with invoices | ~100 sats |
 
-- New accounts get **5 complementary calls** after registration.
-- Full pricing → [`/prices`](http://178.156.151.248:8000/prices)
+**Recommended**: Start with **Bearer Token** after registration.
+
+A Lightning wallet is required for initial registration and top-ups. Once funded, normal usage requires no wallet.
+
+---
+
+## Pricing (April 2026)
+
+| Tool | Base Price | With Agent Multiplier | Notes |
+|---|---|---|---|
+| `reason` | 100 sats | 130 sats | Strategic reasoning |
+| `decide` | 180 sats | 234 sats | Structured decisions + risk |
+| `memory_store` | ≈2 sats/KB | — | Persistent agent memory |
+| `memory_get` | ≈1 sat/KB | — | Retrieve stored memory |
+
+New accounts get **5 complementary calls** after registration.  
+Full pricing → [`/prices`](https://api.babyblueviper.com/prices)
 
 ---
 
 ## New in v0.6.0: Persistent Agent Memory
 
-Agents can now **store and retrieve long-term context/state**:
+Agents can store and retrieve long-term context and state:
 
-- **Store**: `POST /memory/store` (≈2 sats/KB, min 50 sats)
-- **Get**: `POST /memory/get` (≈1 sat/KB, min 20 sats)
-- **List**: `POST /memory/list` (free)
-- **Delete**: `POST /memory/delete` (free)
-
-**Until full SDK support**, use raw HTTP endpoints with your Bearer token.
+- `POST /memory/store` — ≈2 sats/KB, min 50 sats
+- `POST /memory/get` — ≈1 sat/KB, min 20 sats
+- `POST /memory/list` — free
+- `POST /memory/delete` — free
 
 ---
 
 ## For Autonomous Agents & Trading Bots
 
-**Best setup**:
-- Register once (`/register`)
-- Pre-fund with Lightning (`/topup`)
-- Use Bearer token for all future calls
+**Best setup:**
+1. Register once (`/register`)
+2. Pre-fund with Lightning (`/topup`)
+3. Use Bearer token for all future calls
 
-**Trading bot advantages**:
+**Trading bot advantages:**
 - Low-latency async decisions
 - Arbitrage evaluation
 - Portfolio rebalancing suggestions
@@ -90,12 +116,18 @@ Agents can now **store and retrieve long-term context/state**:
 
 ---
 
-## MCP Support (Claude, Cursor, etc.)
+## MCP Support (Claude Desktop, Cursor)
 
-Add this MCP server card:
+Point your MCP client to:
 
 ```
-http://178.156.151.248:8000/.well-known/mcp/server-card.json
+https://api.babyblueviper.com/mcp
+```
+
+Server card:
+
+```
+https://api.babyblueviper.com/.well-known/mcp/server-card.json
 ```
 
 Full support for `initialize`, `tools/list`, and `callTool` with built-in Lightning payment handling and memory tools.
@@ -104,19 +136,20 @@ Full support for `initialize`, `tools/list`, and `callTool` with built-in Lightn
 
 ## Real-time Updates
 
-- **SSE**: `/events`
-- **WebSocket**: `wss://178.156.151.248:8000/ws`
-- **RSS**: `/rss`
+- **SSE**: `https://api.babyblueviper.com/events`
+- **WebSocket**: `wss://api.babyblueviper.com/ws`
+- **RSS**: `https://api.babyblueviper.com/rss`
 
 ---
 
-## Discovery Endpoints
+## Discovery Endpoints (Free)
 
-- `/health` — Service status
+- `/health` — Service status and pricing
 - `/prices` — Current pricing
 - `/guide` — Payment guide
 - `/wallet-onboarding` — Setup instructions
 - `/.well-known/mcp/server-card.json` — MCP discovery
+- `/.well-known/agent-card.json` — Agent card
 - `/memory` — Memory service info
 
 ---
@@ -134,3 +167,12 @@ Pay only when the insight matters — with sats, instantly, and without intermed
 Built for the **Bitcoin × AI** future. ⚡
 
 ---
+
+## Quick Links
+
+- **GitHub**: [https://github.com/babyblueviper1/invinoveritas](https://github.com/babyblueviper1/invinoveritas)
+- **Live API**: [https://api.babyblueviper.com](https://api.babyblueviper.com)
+- **MCP Endpoint**: [https://api.babyblueviper.com/mcp](https://api.babyblueviper.com/mcp)
+- **PyPI**: [https://pypi.org/project/invinoveritas/](https://pypi.org/project/invinoveritas/)
+- **Health**: [https://api.babyblueviper.com/health](https://api.babyblueviper.com/health)
+- **Guide**: [https://api.babyblueviper.com/guide](https://api.babyblueviper.com/guide)
