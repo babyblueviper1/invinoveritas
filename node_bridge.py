@@ -124,6 +124,69 @@ def verify_preimage(payment_hash: str, preimage: str) -> bool:
 
 
 # =========================
+# Outbound Payments (Marketplace seller payouts)
+# =========================
+def pay_bolt11(bolt11: str, memo: str = "payout") -> Dict[str, Any]:
+    """
+    Pay an outbound Lightning invoice via the VPS bridge.
+    Used for marketplace seller payouts (90% of sale price).
+    Returns {"payment_hash": ..., "preimage": ...} or {"error": ...}
+    """
+    if not bolt11 or not bolt11.startswith("ln"):
+        return {"error": "Invalid bolt11 invoice"}
+
+    try:
+        url = f"{NODE_URL.rstrip('/')}/pay-invoice"
+        data = _make_request("POST", url, json_data={"bolt11": bolt11, "memo": memo}, timeout=30)
+        if "error" in data:
+            return data
+        return {
+            "payment_hash": data.get("payment_hash", ""),
+            "preimage": data.get("preimage", ""),
+        }
+    except Exception as e:
+        print(f"pay_bolt11 error: {e}")
+        return {"error": f"Payment failed: {str(e)}"}
+
+
+def fetch_lnurl_invoice(lightning_address: str, amount_sats: int) -> Dict[str, Any]:
+    """
+    Resolve a Lightning Address (user@domain.com) or LNURL to a bolt11 invoice.
+    Returns {"bolt11": ...} or {"error": ...}
+    """
+    try:
+        if "@" in lightning_address:
+            user, domain = lightning_address.split("@", 1)
+            lnurl_url = f"https://{domain}/.well-known/lnurlp/{user}"
+        else:
+            lnurl_url = lightning_address
+
+        resp = requests.get(lnurl_url, timeout=10)
+        resp.raise_for_status()
+        meta = resp.json()
+
+        callback = meta.get("callback")
+        min_sendable = meta.get("minSendable", 1000)  # millisats
+        max_sendable = meta.get("maxSendable", 10_000_000_000)
+
+        amount_msats = amount_sats * 1000
+        if not (min_sendable <= amount_msats <= max_sendable):
+            return {"error": f"Amount {amount_sats} sats out of range for this address"}
+
+        invoice_resp = requests.get(callback, params={"amount": amount_msats}, timeout=10)
+        invoice_resp.raise_for_status()
+        invoice_data = invoice_resp.json()
+        bolt11 = invoice_data.get("pr") or invoice_data.get("invoice")
+        if not bolt11:
+            return {"error": "No invoice returned from Lightning address"}
+        return {"bolt11": bolt11}
+
+    except Exception as e:
+        print(f"fetch_lnurl_invoice error: {e}")
+        return {"error": f"Failed to fetch invoice from Lightning address: {str(e)}"}
+
+
+# =========================
 # Optional: Bridge Health Check
 # =========================
 def check_bridge_health() -> bool:

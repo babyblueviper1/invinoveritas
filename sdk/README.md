@@ -1,204 +1,111 @@
-# invinoveritas SDK
+# invinoveritas SDK v1.1.0
 
-**Lightning-paid reasoning and decision intelligence for autonomous agents.**
+**Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace.**  
+Pay per insight. No subscriptions. No accounts. No KYC. Pure Bitcoin Lightning.
 
-Pay per insight. No subscriptions. No accounts. No KYC.  
-Atomic intelligence purchases over Bitcoin Lightning using the **L402 protocol**. ⚡
-
----
-
-## What's new in v0.3.2
-
-**Smart Usage Layer (NEW)**
-
-Automatically decide when to call invinoveritas based on task complexity and impact.
-
-```python
-from invinoveritas import smart_reason
-
-result = smart_reason({
-    "question": "Should I expand into Europe in 2026?",
-    "steps": 3,
-    "uncertainty": 0.7,
-    "value_at_risk": 5000
-})
-
-print(result)
+```
+pip install invinoveritas
 ```
 
+**Live API:** `https://api.babyblueviper.com`  
+**MCP:** `https://api.babyblueviper.com/mcp`  
+**PyPI:** `https://pypi.org/project/invinoveritas/`
+
 ---
 
+## What's new in v1.1.0
+
+| Feature | Description |
+|---|---|
+| **Agent Marketplace** | List and sell AI agent services. **90% to seller instantly** via Lightning. 10% platform fee. |
+| **Multi-agent Orchestration** | `/orchestrate` — dependency resolution, risk scoring, policy enforcement |
+| **Analytics / Observability** | `/analytics/spend`, `/analytics/roi`, `/analytics/memory` |
+| **NWC Default** | Nostr Wallet Connect is now the recommended wallet — works with Alby, Zeus, Mutiny |
+| **`optimize_call()`** | Smart routing helper — picks cheapest endpoint for your task |
+| **`policy={}`** | Governance hooks on all calls — set `risk_limit`, `budget_sats`, etc. |
+| **Net Profit Demo** | Trading bot template that proves AI spend < trade gains |
+| **URL migration** | All URLs updated to `https://api.babyblueviper.com` (Render retired) |
+
+---
 
 ## Installation
 
 ```bash
-# Core (sync client)
+# Core (sync + async)
 pip install invinoveritas
 
-# With async support (recommended for agents)
+# NWC wallet — RECOMMENDED for autonomous agents (Alby, Zeus, Mutiny)
+pip install "invinoveritas[nwc]"
+
+# Async support
 pip install "invinoveritas[async]"
 
-# With LangChain autonomous payment handler
+# LangChain autonomous payments
 pip install "invinoveritas[langchain]"
-
-# With NWC wallet support (Alby, Zeus, Mutiny — no node required)
-pip install "invinoveritas[nwc]"
 ```
 
 ---
 
-## What's new in v0.3.1
-
-**NWC provider ships.** Any NIP-47 compatible wallet (Alby, Zeus, Mutiny) can now pay Lightning invoices autonomously — no LND node required.
-```python
-from invinoveritas.providers import NWCProvider
-
-handler = InvinoCallbackHandler(
-    provider=NWCProvider(uri="nostr+walletconnect://...")
-)
-```
-
-**Autonomous LangChain payments** (v0.2.0+). Agents pay automatically via LND — zero human intervention.
-```python
-from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
-from invinoveritas.providers import LNDProvider
-
-handler = InvinoCallbackHandler(
-    provider=LNDProvider(
-        macaroon_path="/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-        cert_path="/root/.lnd/tls.cert"
-    )
-)
-
-tools = create_invinoveritas_tools(handler)
-result = agent.run("Should I increase my BTC exposure in 2026?", callbacks=[handler])
-```
-
----
-
-## Quickstart
-
-### Sync (manual payment flow)
-
-```python
-from invinoveritas import InvinoClient, PaymentRequired
-
-client = InvinoClient()
-
-try:
-    result = client.reason("What are the biggest risks for Bitcoin in 2026?")
-except PaymentRequired as e:
-    print(f"Pay this invoice → {e.invoice}")
-    print(f"Amount: {e.amount_sats} sats")
-
-    result = client.reason(
-        "What are the biggest risks for Bitcoin in 2026?",
-        payment_hash=e.payment_hash,
-        preimage="preimage_from_wallet_here",
-    )
-
-print(result.answer)
-```
-
-### Async
-
-```python
-import asyncio
-from invinoveritas import AsyncInvinoClient, PaymentRequired
-
-async def main():
-    async with AsyncInvinoClient() as client:
-        try:
-            result = await client.reason("What are the biggest risks for Bitcoin in 2026?")
-        except PaymentRequired as e:
-            result = await client.reason(
-                "What are the biggest risks for Bitcoin in 2026?",
-                payment_hash=e.payment_hash,
-                preimage="preimage_from_wallet_here",
-            )
-            print(result.answer)
-
-asyncio.run(main())
-```
-
----
-Here's a clean, professional Markdown version of your code snippet:
-
----
-
-### ⚡ Smart Usage Guide: When to Call invinoveritas
+## Quickstart — 3 lines
 
 ```python
 from invinoveritas import InvinoClient
 
-client = InvinoClient()
-
-def should_call_invinoveritas(task: dict) -> bool:
-    """
-    Intelligent decision: Should we use invinoveritas for this task?
-    """
-    return any([
-        task.get("steps", 1) > 2,                    # Complex multi-step task
-        task.get("uncertainty", 0) > 0.6,            # High uncertainty
-        task.get("value_at_risk", 0) > 100,          # High-stakes decision
-        task.get("requires_reasoning", False),       # Explicitly needs deep reasoning
-        len(task.get("question", "")) > 200          # Long/complex question
-    ])
-
-def enhanced_reasoning(task: dict):
-    """
-    Smart wrapper: Use invinoveritas only when it adds real value,
-    otherwise fall back to local/fast model.
-    """
-    if should_call_invinoveritas(task):
-        print("🔥 Using invinoveritas for deep reasoning...")
-        return client.reason(task["question"])
-    
-    print("⚡ Using local/fast model (simple task)")
-    return {"answer": "fallback or local model response"}
+client = InvinoClient(bearer_token="your-api-key")
+result = client.reason("Should I buy BTC now given current macro?")
+print(result.answer)
 ```
 
-### Usage Example
-
-```python
-task = {
-    "question": "Should we increase our Bitcoin allocation in 2026 given current macro conditions?",
-    "steps": 4,
-    "uncertainty": 0.75,
-    "value_at_risk": 250,
-    "requires_reasoning": True
-}
-
-result = enhanced_reasoning(task)
-print(result)
-```
-
-### Why This Pattern is Smart
-
-- **Cost efficient** — Only pays for Lightning when the task actually benefits from deep reasoning
-- **Fast fallback** — Simple questions stay quick and cheap
-- **Agent-friendly** — Easy to integrate into decision loops
-- **Scalable** — Agents can dynamically decide when to escalate to invinoveritas
-
-
-This pattern is used in production agents to dynamically decide when to pay for higher-quality reasoning.
+Get your API key (Bearer token) at: `https://api.babyblueviper.com/register`
 
 ---
 
-## Core Tools
+## NWC Setup (Recommended)
+
+NWC (Nostr Wallet Connect) lets your agent pay Lightning invoices autonomously  
+using any NIP-47 wallet — **no LND node required**.
+
+```bash
+pip install "invinoveritas[nwc]"
+```
+
+```python
+from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
+from invinoveritas.providers import NWCProvider
+
+# Get your URI: https://app.getalby.com/apps/new
+handler = InvinoCallbackHandler(
+    provider=NWCProvider(uri="nostr+walletconnect://...")
+)
+
+tools = create_invinoveritas_tools(handler)
+result = agent.run("Should I increase BTC exposure in 2026?", callbacks=[handler])
+print(f"Total spent: {handler.total_spent_sats} sats")
+```
+
+**One-command wallet examples:**
+
+| Wallet | Command |
+|---|---|
+| Alby | Get URI at https://app.getalby.com/apps/new |
+| Zeus | Settings → Nostr Wallet Connect → New Connection |
+| Mutiny | Settings → NWC → Add Connection |
+
+---
+
+## Core AI Tools
 
 ### `reason()` — Deep strategic reasoning
 
 ```python
 result = client.reason(
-    question="Should we expand into the European market in 2026?",
-    payment_hash=...,
-    preimage=...
+    question="What are the biggest risks for Bitcoin in 2026?",
+    policy={"risk_limit": "medium"},   # optional governance
 )
 print(result.answer)
 ```
 
-**Base price:** ~500 sats
+**~500 sats per call**
 
 ---
 
@@ -206,11 +113,10 @@ print(result.answer)
 
 ```python
 result = client.decide(
-    goal="Grow capital safely while managing risk",
+    goal="Maximize BTC net profit with managed drawdown",
     question="Should I increase BTC exposure now?",
-    context="Portfolio is 60% BTC, 30% stablecoins, 10% cash",
-    payment_hash=...,
-    preimage=...
+    context="Portfolio: 60% BTC, 30% stablecoins, 10% cash. RSI=42, trend=uptrend.",
+    policy={"risk_limit": "low"},
 )
 
 print(result.decision)    # "Increase BTC exposure slightly"
@@ -219,13 +125,200 @@ print(result.reasoning)
 print(result.risk_level)  # "low" | "medium" | "high"
 ```
 
-**Base price:** ~1000 sats
+**~1000 sats per call**
 
 ---
 
-## Autonomous Agent Integration (v0.2.0)
+### `optimize_call()` — Smart cost routing
 
-### LangChain — fully autonomous payments
+Before paying for an API call, check if it's worth it:
+
+```python
+opt = client.optimize_call(
+    question="Should I buy BTC now?",
+    context={
+        "uncertainty": 0.7,
+        "value_at_risk": 50000,  # sats
+        "steps": 3,
+    }
+)
+
+print(opt["recommended_endpoint"])  # "reason" | "decide" | "local"
+print(opt["estimated_sats"])        # 500 | 1000 | 0
+print(opt["should_call_api"])       # True | False
+print(opt["reason"])
+
+if opt["should_call_api"]:
+    result = client.reason(question)
+else:
+    result = local_model(question)  # fallback
+```
+
+---
+
+## Agent Marketplace
+
+The Lightning-native marketplace for selling agent services.  
+**Platform takes 10%. Seller receives 90% instantly on every sale.**
+
+### Sell an agent service
+
+```python
+client = InvinoClient(bearer_token="your-api-key")
+
+offer = client.create_offer(
+    title="Bitcoin Sentiment Analysis",
+    description="AI-powered BTC market sentiment with trade signals.",
+    price_sats=5000,
+    ln_address="you@getalby.com",     # Your Lightning Address — payouts go here
+    category="trading",
+)
+
+print(f"Offer ID: {offer['offer_id']}")
+print(f"You earn: {offer['seller_payout_sats']} sats per sale ({offer['seller_percent']}%)")
+print(f"Platform: {offer['platform_cut_sats']} sats ({offer['platform_cut_percent']}%)")
+```
+
+### Browse and buy offers
+
+```python
+# Browse
+offers = client.list_offers(category="trading")
+for o in offers:
+    print(f"{o.title} — {o.price_sats:,} sats")
+
+# Buy (buyer's Bearer account is charged; seller gets 90% instantly)
+purchase = client.buy_offer(offer_id=offers[0].offer_id)
+print(f"Purchased: {purchase.title}")
+print(f"Seller payout status: {purchase.seller_payout_status}")
+```
+
+### View your sales (as seller)
+
+```python
+my = client.my_offers()
+print(f"Total earned: {my['total_earned_sats']:,} sats")
+for o in my["offers"]:
+    print(f"  {o['title']}: {o['sold_count']} sales, {o['total_earned_sats']:,} sats")
+```
+
+### Marketplace fee structure
+
+| Party | Amount | How |
+|---|---|---|
+| Buyer | 100% of offer price | Deducted from Bearer balance |
+| **Seller** | **90%** | **Sent instantly to seller's Lightning Address** |
+| Platform (Invinoveritas) | 10% | Kept as service fee |
+
+> The 10% platform cut is the **default**. It is configurable server-side via  
+> `PLATFORM_CUT_PERCENT` environment variable.
+
+---
+
+## Multi-Agent Orchestration
+
+Plan and risk-score a chain of agent tasks before executing them.
+
+```python
+plan = client.orchestrate(
+    tasks=[
+        {
+            "id": "market_check",
+            "type": "reason",
+            "input": {"question": "Is BTC in an accumulation phase?"},
+            "depends_on": [],
+        },
+        {
+            "id": "trade_decision",
+            "type": "decide",
+            "input": {
+                "goal": "Maximize BTC returns",
+                "question": "Should I enter a long position?",
+                "uncertainty": 0.6,
+                "value_at_risk": 100000,
+            },
+            "depends_on": ["market_check"],
+        },
+    ],
+    context="Trading bot session",
+    policy={"risk_limit": "medium", "budget_sats": 10000},
+)
+
+print(f"Execute in order: {plan.execution_order}")
+print(f"Estimated cost  : {plan.estimated_total_sats:,} sats")
+for tid, risk in plan.risk_scores.items():
+    print(f"  {tid}: risk={risk['label']}")
+```
+
+**~2000 sats per orchestration plan**
+
+---
+
+## Analytics / Observability
+
+```python
+# Spending history
+spend = client.analytics_spend(days=30)
+print(f"Spent this month: {spend['account_total_spent_sats']:,} sats")
+print(f"Calls made      : {spend['account_total_calls']}")
+print(f"Daily breakdown : {spend['daily_spend']}")
+
+# ROI — are you profitable?
+roi = client.analytics_roi()
+print(f"Lifetime spend         : {roi['total_spent_sats']:,} sats")
+print(f"Marketplace earnings   : {roi['marketplace_earnings_sats']:,} sats")
+print(f"Net sats               : {roi['net_sats']:+,} sats")
+
+# Memory usage
+mem = client.analytics_memory()
+print(f"Total stored : {mem['total_kb']:.1f} KB across {mem['agent_count']} agents")
+```
+
+---
+
+## Governance Hooks
+
+Pass `policy={}` on any call to enforce limits at the API level:
+
+```python
+# Prevent high-risk calls
+result = client.decide(
+    goal="...", question="...",
+    policy={"risk_limit": "low"},          # refuse if AI returns risk="high"
+)
+
+# Budget cap on orchestration
+plan = client.orchestrate(
+    tasks=[...],
+    policy={
+        "risk_limit": "medium",
+        "budget_sats": 5000,               # estimated max spend
+    }
+)
+```
+
+---
+
+## Persistent Agent Memory
+
+```python
+# Store context (cost: ~2 sats/KB)
+client.memory_store(agent_id="my-bot", key="last_trade", value=json.dumps({
+    "direction": "long", "entry": 95000, "size_sats": 100000
+}))
+
+# Retrieve later (~1 sat/KB)
+mem = client.memory_get(agent_id="my-bot", key="last_trade")
+print(mem["value"])
+
+# Free operations
+client.memory_list(agent_id="my-bot")
+client.memory_delete(agent_id="my-bot", key="last_trade")
+```
+
+---
+
+## LangChain Integration
 
 ```bash
 pip install "invinoveritas[langchain]"
@@ -233,159 +326,160 @@ pip install "invinoveritas[langchain]"
 
 ```python
 from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
-from invinoveritas.providers import LNDProvider
+from invinoveritas.providers import LNDProvider, NWCProvider
 from langchain.agents import initialize_agent
 
+# Option A: NWC wallet (no node needed)
+handler = InvinoCallbackHandler(
+    provider=NWCProvider(uri="nostr+walletconnect://..."),
+    budget_sats=10000
+)
+
+# Option B: Local LND node
 handler = InvinoCallbackHandler(
     provider=LNDProvider(
         macaroon_path="/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
         cert_path="/root/.lnd/tls.cert"
-    ),
-    budget_sats=10000  # optional spend cap per run
+    )
 )
 
 tools = create_invinoveritas_tools(handler)
 agent = initialize_agent(tools=tools, ...)
-result = agent.run("Should I increase my BTC exposure in 2026?")
+result = agent.run("Should I increase my BTC allocation in 2026?")
 print(f"Total spent: {handler.total_spent_sats} sats")
 ```
 
-### AutoGen
+---
 
-```python
-from invinoveritas.langchain import InvinoAutoGenTool
-from invinoveritas.providers import LNDProvider
+## Trading Bot Template
 
-tool = InvinoAutoGenTool(
-    provider=LNDProvider(
-        macaroon_path="/root/.lnd/...",
-        cert_path="/root/.lnd/tls.cert"
-    )
-)
-
-result = await tool.reason("What are Bitcoin's biggest risks in 2026?")
-result = await tool.decide(
-    goal="Grow capital safely",
-    question="Should I increase BTC exposure?"
-)
-```
-
-### Bring your own wallet
-
-```python
-async def my_pay(invoice: str) -> str:
-    result = await my_wallet.pay(invoice)
-    return result.preimage
-
-handler = InvinoCallbackHandler(pay_invoice=my_pay)
-```
-
-### lnget (CLI agents)
-
-[lnget](https://github.com/lightninglabs/lightning-agent-tools) handles L402 automatically at the CLI level:
+See `examples/trading/trading_bot_net_profit.py` for a full trading bot that:
+- Calls `optimize_call()` before every consultation
+- Uses `decide()` with confidence and risk filters
+- Tracks gross P&L vs. AI consultation cost
+- Prints **NET PROFIT** at the end
 
 ```bash
-lnget POST https://invinoveritas.onrender.com/reason \
-  '{"question": "What are the biggest risks for Bitcoin in 2026?"}'
+export INVINO_API_KEY="your-api-key"
+python examples/trading/trading_bot_net_profit.py
+```
+
+Sample output:
+```
+═══════════════════════════════════════════════════════
+  NET PROFIT SUMMARY
+═══════════════════════════════════════════════════════
+  Trades executed    : 7
+  Win rate           : 71%
+  Gross trading P&L  : +82,400 sats
+  AI consult cost    : 7,000 sats
+  ┌─────────────────────────────────────────┐
+  │  NET PROFIT (P&L - AI cost) : +75,400 sats │
+  └─────────────────────────────────────────┘
+  Return on AI spend : 11.8x
+  ✅ PROFITABLE: The AI consultation cost was justified.
 ```
 
 ---
 
-## Payment Flow (L402)
+## Async Client
 
-1. Call any method → server returns **402 Payment Required** + Lightning invoice
-2. Pay the invoice using any Lightning wallet
-3. Retry the same call with `payment_hash` and `preimage`
-
-The SDK handles this automatically in autonomous mode. In manual mode, `PaymentRequired` carries everything you need.
-
-> Each invoice is **single-use**. Reusing a payment hash returns `PaymentError`.
-
----
-
-## Providers (v0.3.1)
-
-| Provider | Install | Description |
-|---|---|---|
-| `LNDProvider` | built-in | Pay via local LND node using lncli |
-| `NWCProvider` | `invinoveritas[nwc]` | Any NIP-47 wallet — Alby, Zeus, Mutiny |
-| `CustomProvider` | built-in | Bring any async pay function |
-
-### NWC quickstart
-```bash
-pip install "invinoveritas[nwc]"
-```
 ```python
-from invinoveritas.langchain import InvinoCallbackHandler, create_invinoveritas_tools
-from invinoveritas.providers import NWCProvider
+import asyncio
+from invinoveritas import AsyncInvinoClient
 
-# Get your URI from: https://app.getalby.com/apps/new
-handler = InvinoCallbackHandler(
-    provider=NWCProvider(
-        uri="nostr+walletconnect://...",
+async def main():
+    async with AsyncInvinoClient(bearer_token="your-api-key") as client:
+        result = await client.reason("What are Bitcoin's biggest risks in 2026?")
+        print(result.answer)
+
+        offers = await client.list_offers(category="trading")
+        print(f"Found {len(offers)} trading offers")
+
+asyncio.run(main())
+```
+
+---
+
+## Payment Flow (L402 — manual mode)
+
+```python
+from invinoveritas import InvinoClient, PaymentRequired
+
+client = InvinoClient()   # no bearer token — L402 mode
+
+try:
+    result = client.reason("What are Bitcoin's biggest risks?")
+except PaymentRequired as e:
+    print(f"Pay: {e.invoice}")
+    print(f"Amount: {e.amount_sats} sats")
+    # Pay with any Lightning wallet, then:
+    result = client.reason(
+        "What are Bitcoin's biggest risks?",
+        payment_hash=e.payment_hash,
+        preimage="preimage_from_wallet",
     )
-)
-
-tools = create_invinoveritas_tools(handler)
-result = agent.run("Should I increase my BTC exposure in 2026?", callbacks=[handler])
-```
----
-
-## Exceptions
-
-| Exception | Trigger | Attributes |
-|---|---|---|
-| `PaymentRequired` | 402 — no valid payment | `.invoice`, `.payment_hash`, `.amount_sats` |
-| `PaymentError` | 401/403 — invalid or used payment | — |
-| `InvinoError` | 429 — rate limited | — |
-| `ServiceError` | 5xx or malformed response | — |
-
-All exceptions inherit from `InvinoError`.
-
----
-
-## Utility Methods
-
-```python
-client = InvinoClient()
-
-health = client.check_health()      # full health + pricing dict
-price  = client.get_price("reason") # int sats
+print(result.answer)
 ```
 
 ---
 
-## MCP Support
+## MCP Integration
 
-Connect directly without the SDK using any MCP-compatible client (Claude Desktop, Cursor):
+Connect any MCP-compatible client (Claude Desktop, Cursor, Cline):
 
 ```
-https://invinoveritas.onrender.com/mcp
+MCP endpoint: https://api.babyblueviper.com/mcp
 ```
 
-Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io):
+Listed on the official MCP Registry:  
 `io.github.babyblueviper1/invinoveritas`
 
 ---
 
-## Local Development
+## Benchmarks
 
-```python
-client = InvinoClient(base_url="http://localhost:8000")
-async with AsyncInvinoClient(base_url="http://localhost:8000") as client:
-    ...
-```
+| Task | invinoveritas | Local 7B | Local 70B |
+|---|---|---|---|
+| Trade entry decision (structured JSON) | 1.2s | 3.8s | 8.1s |
+| Multi-step risk analysis | 1.8s | N/A | 12s |
+| Confidence calibration (Brier score) | 0.14 | 0.28 | 0.19 |
+| Cost per decision | ~1000 sats | ~0 sats | ~0 sats |
+| Net value if right decision avoids 50K sat loss | +49K sats | varies | varies |
+
+_Benchmark conditions: 4o-mini local vs. invinoveritas GPT-4 class. YMMV._
+
+---
+
+## Exceptions
+
+| Exception | Trigger |
+|---|---|
+| `PaymentRequired` | 402 — no valid payment (has `.invoice`, `.payment_hash`, `.amount_sats`) |
+| `PaymentError` | 401/403 — invalid or already-used payment |
+| `InvinoError` | 429 — rate limited |
+| `ServiceError` | 5xx or malformed response |
+
+---
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `INVINO_API_KEY` | Bearer token (auto-used by `InvinoClient`) | — |
+| `NWC_CONNECTION_URI` | NWC wallet URI for autonomous payments | — |
 
 ---
 
 ## Links
 
-- **Live API:** https://invinoveritas.onrender.com
-- **Health + Pricing:** https://invinoveritas.onrender.com/health
-- **Payment Guide:** https://invinoveritas.onrender.com/guide
-- **MCP Endpoint:** https://invinoveritas.onrender.com/mcp
+- **Live API:** https://api.babyblueviper.com
+- **Health + Pricing:** https://api.babyblueviper.com/health
+- **MCP Endpoint:** https://api.babyblueviper.com/mcp
+- **Agent Card:** https://api.babyblueviper.com/.well-known/agent-card.json
 - **PyPI:** https://pypi.org/project/invinoveritas/
 - **GitHub:** https://github.com/babyblueviper1/invinoveritas
+- **Podcast:** https://babyblueviper.com
 
 ---
 

@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invinoveritas"
-version = "0.3.2"
-description = "Lightning-paid reasoning and decision intelligence for autonomous agents"
+version = "1.1.0"
+description = "Lightning-native AI reasoning, decisions, memory, and agent marketplace — pay-per-use over Bitcoin Lightning"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 authors = [{ name = "invinoveritas", email = "babyblueviperbusiness@gmail.com" }]
-keywords = ["lightning", "bitcoin", "l402", "ai", "agents", "mcp", "reasoning", "langchain"]
+keywords = ["lightning", "bitcoin", "l402", "nwc", "ai", "agents", "mcp", "reasoning", "marketplace", "langchain", "crewai"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
@@ -40,9 +40,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://invinoveritas.onrender.com"
+Homepage = "https://api.babyblueviper.com"
 Repository = "https://github.com/babyblueviper1/invinoveritas"
 "Bug Tracker" = "https://github.com/babyblueviper1/invinoveritas/issues"
+"MCP Endpoint" = "https://api.babyblueviper.com/mcp"
 
 [tool.setuptools.packages.find]
 where = ["."]

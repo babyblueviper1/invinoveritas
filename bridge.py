@@ -301,15 +301,14 @@ class SettleTopupRequest(BaseModel):
 
 class VerifyRequest(BaseModel):
     api_key: str = Field(..., min_length=10)
-    tool: str = Field(..., pattern="^(reason|decide)$")
+    tool: str = Field(..., pattern="^(reason|decide|memory_store|memory_get)$")
     price_sats: int = Field(..., gt=0)
-
 
 # =========================
 # Registration - FIXED
 # =========================
 @app.post("/register", tags=["accounts"])
-@limiter.limit("10/minute")
+@limiter.limit("1000/minute")
 async def register(req: RegisterRequest, request: Request):
     api_key = generate_api_key()
     logger.info(f"New registration started → api_key: {api_key[:15]}...")
@@ -397,7 +396,7 @@ async def confirm_register(req: RegisterConfirmRequest):
 # Top-up
 # =========================
 @app.post("/topup", tags=["accounts"])
-@limiter.limit("10/minute")
+@limiter.limit("1000/minute")
 async def topup(req: TopupRequest, request: Request):
     # Verify API key exists
     with get_db_conn() as conn:
@@ -495,7 +494,7 @@ async def get_balance(api_key: str):
 
 
 @app.post("/verify", tags=["accounts"])
-@limiter.limit("30/minute")
+@limiter.limit("2000/minute")
 async def verify_account(req: VerifyRequest, request: Request):
     """Debit account before tool execution (free call → paid balance)."""
     now = int(time.time())
@@ -527,10 +526,11 @@ async def verify_account(req: VerifyRequest, request: Request):
             (req.price_sats, now, req.price_sats, req.api_key, req.price_sats)
         )
         if c.rowcount == 0:
+            # Fix: Call fetchone only once
             c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
-            current = c.fetchone()[0] if c.fetchone() else 0
+            row = c.fetchone()
+            current = row[0] if row else 0
             raise HTTPException(402, f"Insufficient balance. Need {req.price_sats} sats (you have {current})")
-
         c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
         new_balance = c.fetchone()[0]
 
@@ -565,6 +565,48 @@ async def verify_preimage_endpoint(req: VerifyPreimageRequest):
 # =========================
 # Health
 # =========================
+class PayInvoiceRequest(BaseModel):
+    bolt11: str = Field(..., description="bolt11 Lightning invoice to pay")
+    memo: str = Field(default="payout", max_length=100)
+
+
+@app.post("/pay-invoice", tags=["lightning"])
+async def pay_invoice_endpoint(req: PayInvoiceRequest):
+    """
+    Pay an outbound bolt11 invoice via lncli.
+    Used internally for marketplace seller payouts (90% cut).
+    """
+    if not req.bolt11.startswith("ln"):
+        raise HTTPException(400, "Invalid bolt11 invoice")
+
+    try:
+        result = safe_lncli(
+            ["payinvoice", "--pay_req", req.bolt11, "--force"],
+            timeout=60
+        )
+        if not result:
+            raise HTTPException(502, "lncli payinvoice failed or returned no output")
+
+        payment_hash = result.get("payment_hash", "")
+        preimage = result.get("payment_preimage", "")
+        status = result.get("status", "")
+
+        if status.upper() not in ("SUCCEEDED", ""):
+            raise HTTPException(502, f"Payment status: {status}")
+
+        logger.info(f"Outbound payment succeeded: {payment_hash[:16]}...")
+        return {
+            "status": "paid",
+            "payment_hash": payment_hash,
+            "preimage": preimage,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"pay_invoice error: {e}")
+        raise HTTPException(500, f"Payment failed: {str(e)}")
+
+
 @app.get("/health", tags=["meta"])
 async def health():
     return {
@@ -572,7 +614,7 @@ async def health():
         "service": "invinoveritas Lightning Bridge",
         "lnd_connected": lnd_ready(),
         "supported_payments": ["Lightning (L402)", "Bearer Token (Credits)"],
-        "version": "0.6.0-lightning-only",
+        "version": "1.1.0",
         "timestamp": int(time.time())
     }
 

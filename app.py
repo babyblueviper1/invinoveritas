@@ -1,5 +1,5 @@
 from nostr_listener import run_listener
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -9,14 +9,22 @@ from ai import premium_reasoning, structured_decision
 import datetime
 from fastapi import WebSocket, WebSocketDisconnect
 from config import (
+    VERSION,
     REASONING_PRICE_SATS,
     DECISION_PRICE_SATS,
+    ORCHESTRATE_PRICE_SATS,
     ENABLE_AGENT_MULTIPLIER,
     AGENT_PRICE_MULTIPLIER,
     MIN_PRICE_SATS,
     RATE_LIMIT_SECONDS,
     NODE_URL,
-    NOSTR_NSEC
+    NOSTR_NSEC,
+    PLATFORM_CUT_PERCENT,
+    SELLER_PERCENT,
+    MARKETPLACE_MIN_PRICE_SATS,
+    MARKETPLACE_MAX_PRICE_SATS,
+    PLATFORM_LN_ADDRESS,
+    VPS_DATA_DIR,
 )
 import os
 import sqlite3
@@ -45,17 +53,19 @@ load_dotenv()
 # =========================
 app = FastAPI(
     title="invinoveritas",
-    version="0.5.0",
+    version="1.1.0",
     description=(
-        "Premium AI reasoning and structured decision intelligence for autonomous agents and trading bots. "
-        "All payments are processed via the Lightning Network using Bearer Token (recommended) "
-        "or classic L402 Lightning pay-per-call. "
-        "Accounts with any balance remain active for at least 2 years of inactivity."
+        "Premium AI reasoning, structured decisions, agent memory, and a **Lightning-native marketplace** "
+        "for autonomous agents and trading bots. "
+        "Pay-per-use via Lightning Network — Bearer Token (recommended) or L402. "
+        "New in v1.1.0: Agent Marketplace (10% platform cut, 90% to seller instantly), "
+        "multi-agent orchestration, analytics/observability, NWC wallet support, "
+        "and cost optimization helpers."
     ),
     contact={
         "name": "invinoveritas",
         "email": "babyblueviperbusiness@gmail.com",
-        "url": "https://invinoveritas.onrender.com"
+        "url": "https://api.babyblueviper.com"
     },
     license_info={
         "name": "Apache 2.0",
@@ -63,12 +73,15 @@ app = FastAPI(
     },
     openapi_tags=[
         {"name": "inference", "description": "Reasoning and decision endpoints"},
+        {"name": "orchestration", "description": "Multi-agent orchestration (v1.1.0)"},
+        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.1.0) — 10% platform cut, 90% to seller"},
+        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.1.0)"},
+        {"name": "memory", "description": "Persistent agent memory store"},
         {"name": "accounts", "description": "Account management and credit system"},
         {"name": "lightning", "description": "Lightning Network utilities"},
         {"name": "meta", "description": "Health, pricing, and discovery endpoints"},
     ]
 )
-
 app.router.redirect_slashes = False
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -130,11 +143,12 @@ BROADCAST_INTERVAL_MIN = 720       # 12 min
 BROADCAST_INTERVAL_MAX = 1080      # 18 min
  
 # ── Constants ─────────────────────────────────────────────────────────────────
-# Persistent storage for Render (writable location)
-PERSISTENT_DIR = Path("/opt/render/project/src/data")   # Safe writable path on Render
+# Persistent storage — VPS data directory
+PERSISTENT_DIR = Path(VPS_DATA_DIR)
 
 ANNOUNCEMENTS_FILE = PERSISTENT_DIR / "invinoveritas_announcements.json"
 USED_PAYMENTS_DB_PATH = PERSISTENT_DIR / "used_payments.db"
+MARKETPLACE_DB_PATH = PERSISTENT_DIR / "marketplace.db"
 
 # How many announcements to keep persistently
 MAX_ANNOUNCEMENTS_TO_KEEP = 12     # Keep last 12 announcements on disk
@@ -273,7 +287,7 @@ async def websocket_announcements(websocket: WebSocket):
             "type": "welcome",
             "message": "Connected to invinoveritas real-time announcements (v0.6.0).",
             "note": "New announcements, memory service updates, and Baby Blue Viper episodes will appear here.",
-            "memory_service": "http://178.156.151.248:8000/memory",
+            "memory_service": "https://api.babyblueviper.com/memory",
             "podcast": "https://babyblueviper.com"
         })
 
@@ -320,7 +334,6 @@ async def websocket_announcements(websocket: WebSocket):
         if websocket in active_ws_clients:
             active_ws_clients.remove(websocket)
 
-
 @app.get("/ws/test", tags=["meta"])
 async def websocket_test_page():
     """Simple test page for WebSocket real-time updates"""
@@ -348,7 +361,7 @@ async def websocket_test_page():
             let ws;
 
             function connect() {
-                ws = new WebSocket("wss://invinoveritas.onrender.com/ws");
+                ws = new WebSocket("wss://api.babyblueviper.com/ws");
 
                 ws.onopen = () => {
                     status.textContent = "✅ Connected";
@@ -403,7 +416,7 @@ async def broadcast_via_websocket(title: str, description: str, link: str = None
         "type": "announcement",
         "title": title,
         "description": description,
-        "link": link or "https://invinoveritas.onrender.com/discover",
+        "link": link or "https://api.babyblueviper.com/discover",
         "timestamp": int(time.time())
     }
 
@@ -428,7 +441,7 @@ async def broadcast_via_sse(title: str, description: str, link: str = None):
         "type": "announcement",
         "title": title,
         "description": description,
-        "link": link or "https://invinoveritas.onrender.com/discover",
+        "link": link or "https://api.babyblueviper.com/discover",
         "timestamp": int(time.time())
     }
 
@@ -455,7 +468,7 @@ async def add_announcement(title: str, description: str, link: str = None):
     announcement = {
         "title": title,
         "description": description,
-        "link": link or "https://178.156.151.248:8000/discover",
+        "link": link or "https://api.babyblueviper.com/discover",
         "pubDate": datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"),
         "guid": f"ann-{int(time.time())}",
         "timestamp": int(time.time())
@@ -660,7 +673,7 @@ class RelayHealth:
  
 _health: Dict[str, RelayHealth] = defaultdict(RelayHealth)
  
-def _active_relays() -> List[str]:
+def _active_relays() -> list[str]:
     """Return relays that are not currently soft-banned."""
     return [r for r in NOSTR_RELAYS if not _health[r].is_banned()]
  
@@ -672,20 +685,49 @@ def _base_meta() -> dict:
     return {
         "name": "invinoveritas",
         "provider": "invinoveritas",
-        "version": "0.5.0",
-        "description": "Premium AI reasoning and structured decision intelligence for autonomous agents and trading bots using Lightning payments.",
-        "homepage": "https://invinoveritas.onrender.com",
-        "last_updated": "2026-04-09"
+        "version": "0.6.0",
+        "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots. Pay-per-use via Lightning (Bearer + L402).",
+        "homepage": "https://api.babyblueviper.com",
+        "last_updated": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+        "capabilities": [
+            "reasoning",
+            "decision-making",
+            "structured-output",
+            "risk-assessment",
+            "confidence-scoring",
+            "style-control",
+            "persistent-memory",        # New in 0.6.0
+            "agent-memory-store",
+            "agent-memory-retrieve",
+            "agent-memory-list",
+            "long-term-context"
+        ],
+        "memory_service": {
+            "description": "Persistent key-value memory store for agents and long-running sessions",
+            "endpoints": {
+                "store": "/memory/store",
+                "get": "/memory/get",
+                "delete": "/memory/delete",
+                "list": "/memory/list"
+            },
+            "pricing": {
+                "store": "≈2 sats per KB (minimum 50 sats)",
+                "retrieve": "≈1 sat per KB (minimum 20 sats)",
+                "delete": "free",
+                "list": "free"
+            },
+            "limits": {
+                "max_size_per_entry": "200 KB"
+            }
+        }
     }
-
-
 def generate_agent_payload(score: int = 8) -> dict:
     p = _base_meta()
     p.update({
         "type": "mcp_service",
-        "endpoint": "http://178.156.151.248:8000/mcp",
-        "server_card": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
-        "agent_card": "http://178.156.151.248:8000/.well-known/agent-card.json",
+        "endpoint": "https://api.babyblueviper.com/mcp",
+        "server_card": "https://api.babyblueviper.com/.well-known/mcp/server-card.json",
+        "agent_card": "https://api.babyblueviper.com/.well-known/agent-card.json",
 
         # ── Payment Section ─────────────────────────────────────
         "payment": {
@@ -798,15 +840,15 @@ def generate_agent_payload(score: int = 8) -> dict:
 
         # ── Discovery ──────────────────────────────────────────────────
         "discovery": {
-            "mcp_server_card": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
-            "agent_card": "http://178.156.151.248:8000/.well-known/agent-card.json",
-            "agents_registry": "http://178.156.151.248:8000/.well-known/agents.json",
-            "a2a_endpoint": "http://178.156.151.248:8000/a2a",
-            "ai_plugin": "http://178.156.151.248:8000/.well-known/ai-plugin.json",
+            "mcp_server_card": "https://api.babyblueviper.com/.well-known/mcp/server-card.json",
+            "agent_card": "https://api.babyblueviper.com/.well-known/agent-card.json",
+            "agents_registry": "https://api.babyblueviper.com/.well-known/agents.json",
+            "a2a_endpoint": "https://api.babyblueviper.com/a2a",
+            "ai_plugin": "https://api.babyblueviper.com/.well-known/ai-plugin.json",
             "real_time": {
-                "sse": "http://178.156.151.248:8000/events",
-                "websocket": "wss://178.156.151.248:8000/ws",
-                "rss": "http://178.156.151.248:8000/rss"
+                "sse": "https://api.babyblueviper.com/events",
+                "websocket": "wss://api.babyblueviper.com/ws",
+                "rss": "https://api.babyblueviper.com/rss"
             }
         },
 
@@ -826,7 +868,6 @@ def generate_agent_payload(score: int = 8) -> dict:
     })
     return p
 
-
 # ── Adaptive SDK Payload ─────────────────────────────────────────────────────
 def generate_sdk_payload(score: int = 8) -> dict:
     p = _base_meta()
@@ -835,15 +876,15 @@ def generate_sdk_payload(score: int = 8) -> dict:
         "install_hint": {"python": "pip install invinoveritas", "auto_install": True},
         "invoke": {"default": "smart_reason", "async": "async_smart_reason"},
         "api": {
-            "reason": "http://178.156.151.248:8000/reason",
-            "decision": "http://178.156.151.248:8000/decision",
-            "mcp": "http://178.156.151.248:8000/mcp",
-            "a2a": "http://178.156.151.248:8000/a2a",
+            "reason": "https://api.babyblueviper.com/reason",
+            "decision": "https://api.babyblueviper.com/decision",
+            "mcp": "https://api.babyblueviper.com/mcp",
+            "a2a": "https://api.babyblueviper.com/a2a",
             # Memory is available via raw HTTP (SDK support coming later)
-            "memory_store": "http://178.156.151.248:8000/memory/store",
-            "memory_get": "http://178.156.151.248:8000/memory/get",
-            "memory_list": "http://178.156.151.248:8000/memory/list",
-            "memory_delete": "http://178.156.151.248:8000/memory/delete"
+            "memory_store": "https://api.babyblueviper.com/memory/store",
+            "memory_get": "https://api.babyblueviper.com/memory/get",
+            "memory_list": "https://api.babyblueviper.com/memory/list",
+            "memory_delete": "https://api.babyblueviper.com/memory/delete"
         },
         "payment": {
             "protocols": ["Bearer", "L402"],
@@ -884,22 +925,22 @@ def generate_sdk_payload(score: int = 8) -> dict:
             "description": "Persistent key-value memory for agents (long-term context/state)",
             "note": "SDK does not yet support memory endpoints. Use raw HTTP calls with your Bearer token.",
             "endpoints": {
-                "store": "http://178.156.151.248:8000/memory/store (200 sats base)",
-                "get": "http://178.156.151.248:8000/memory/get (50 sats base)",
-                "list": "http://178.156.151.248:8000/memory/list (free)",
-                "delete": "http://178.156.151.248:8000/memory/delete (free)"
+                "store": "https://api.babyblueviper.com/memory/store (200 sats base)",
+                "get": "https://api.babyblueviper.com/memory/get (50 sats base)",
+                "list": "https://api.babyblueviper.com/memory/list (free)",
+                "delete": "https://api.babyblueviper.com/memory/delete (free)"
             },
             "pricing_model": "size-based (≈2 sats/KB store, ≈1 sat/KB retrieve)"
         },
 
         "discovery": {
-            "agent_card": "http://178.156.151.248:8000/.well-known/agent-card.json",
-            "server_card": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
-            "agents_registry": "http://178.156.151.248:8000/.well-known/agents.json",
+            "agent_card": "https://api.babyblueviper.com/.well-known/agent-card.json",
+            "server_card": "https://api.babyblueviper.com/.well-known/mcp/server-card.json",
+            "agents_registry": "https://api.babyblueviper.com/.well-known/agents.json",
             "real_time": {
-                "sse": "http://178.156.151.248:8000/events",
-                "websocket": "wss://178.156.151.248:8000/ws",
-                "rss": "http://178.156.151.248:8000/rss"
+                "sse": "https://api.babyblueviper.com/events",
+                "websocket": "wss://api.babyblueviper.com/ws",
+                "rss": "https://api.babyblueviper.com/rss"
             }
         },
 
@@ -918,7 +959,6 @@ def generate_sdk_payload(score: int = 8) -> dict:
         ]
     })
     return p
-
 # ── MCP / SDK Event Builders ────────────────────────────────────────────────
 def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
     payload = generate_agent_payload(score)
@@ -927,7 +967,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
     tags = [
         ["d", "invinoveritas-mcp"],
         ["t", "mcp"], ["t", "ai"], ["t", "agents"], ["t", "bitcoin"], ["t", "lightning"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"], ["t", "podcast"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"],["t", "memory"],["t", "podcast"],
         
         ["k", "31990"],
         ["type", "mcp_service"],
@@ -948,18 +988,20 @@ def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
         
-        ["real_time", "sse:http://178.156.151.248:8000/events"],
-        ["real_time", "websocket:wss://178.156.151.248:8000/ws"],
-        ["real_time", "rss:http://178.156.151.248:8000/rss"],
+        ["real_time", "sse:https://api.babyblueviper.com/events"],
+        ["real_time", "websocket:wss://api.babyblueviper.com/ws"],
+        ["real_time", "rss:https://api.babyblueviper.com/rss"],
         
-        ["discover", "http://178.156.151.248:8000/discover"],
-        ["a2a", "http://178.156.151.248:8000/a2a"],
-        
-        # New in v0.6.0
+        ["discover", "https://api.babyblueviper.com/discover"],
+        ["a2a", "https://api.babyblueviper.com/a2a"],
         ["feature", "persistent-memory"],
-        ["memory_service", "http://178.156.151.248:8000/memory"],
-        ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
+        ["memory_service", "https://api.babyblueviper.com/memory"],
+        ["memory_pricing", "store:≈2sats/KB min50 | retrieve:≈1sat/KB min20"],
+        ["memory_limits", "max 200KB per entry"],
         
+        ["use_case", "long-term-agent-context"],
+        ["use_case", "trading-bot-memory"],
+        ["use_case", "autonomous-agent-state"],
         # Baby Blue Viper
         ["podcast", "Baby Blue Viper"],
         ["podcast_url", "https://babyblueviper.com"],
@@ -983,7 +1025,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
     tags = [
         ["d", "invinoveritas-sdk"],
         ["t", "sdk"], ["t", "ai"], ["t", "agents"], ["t", "python"], ["t", "bitcoin"], ["t", "lightning"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "memory"],["t", "podcast"],
         
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
@@ -995,17 +1037,21 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["score", str(score)],
         ["roi_signal", "positive_high_confidence"],
         
-        ["real_time", "sse:http://178.156.151.248:8000/events"],
-        ["real_time", "websocket:wss://178.156.151.248:8000/ws"],
-        ["real_time", "rss:http://178.156.151.248:8000/rss"],
+        ["real_time", "sse:https://api.babyblueviper.com/events"],
+        ["real_time", "websocket:wss://api.babyblueviper.com/ws"],
+        ["real_time", "rss:https://api.babyblueviper.com/rss"],
         
-        ["discover", "http://178.156.151.248:8000/discover"],
+        ["discover", "https://api.babyblueviper.com/discover"],
         
         # New in v0.6.0 — Persistent Agent Memory
         ["feature", "persistent-memory"],
-        ["memory_service", "http://178.156.151.248:8000/memory"],
+        ["memory_service", "https://api.babyblueviper.com/memory"],
         ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
         ["memory_usage", "Use raw HTTP endpoints until SDK support is added"],
+        # Baby Blue Viper
+        ["podcast", "Baby Blue Viper"],
+        ["podcast_url", "https://babyblueviper.com"],
+        ["podcast_feed", "https://api.substack.com/feed/podcast/623622/s/13426.rss"],
     ]
     
     event = Event(
@@ -1024,23 +1070,29 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "⚡ invinoveritas v0.6.0 is live\n\n"
         "Premium AI reasoning, structured decisions, and **persistent agent memory** for autonomous agents and trading bots.\n\n"
         
-        "→ MCP Server: http://178.156.151.248:8000/mcp\n"
+        "→ MCP Server: https://api.babyblueviper.com/mcp\n"
         "→ Python SDK: pip install invinoveritas\n"
-        "→ Discovery: http://178.156.151.248:8000/discover\n\n"
+        "→ Discovery: https://api.babyblueviper.com/discover\n\n"
         
-        "→ New in v0.6.0: Agent Memory Service\n"
+        "→ Agent Memory Service\n"
         "   • Store long-term context / state for agents\n"
         "   • Endpoints: /memory/store, /memory/get, /memory/list\n"
         "   • Pricing: ~2 sats/KB store | ~1 sat/KB retrieve\n\n"
-        
+
+        "→ Baby Blue Viper Podcast & Newsletter\n"
+        "   • Calm, reflective conversations about Bitcoin, AI, sovereignty, and the future of intelligence\n"
+        "   • Listen / Subscribe: https://babyblueviper.com\n"
+        "   • RSS Feed: https://api.substack.com/feed/podcast/623622/s/13426.rss\n\n" 
+
+       
         "→ Payment Options (Lightning Network only):\n"
         "   • Bearer Token (recommended for agents & trading bots)\n"
         "   • L402 Lightning (classic pay-per-call)\n\n"
         
         "→ Real-time updates:\n"
-        "   • SSE: http://178.156.151.248:8000/events\n"
-        "   • WebSocket: wss://178.156.151.248:8000/ws\n"
-        "   • RSS: http://178.156.151.248:8000/rss\n\n"
+        "   • SSE: https://api.babyblueviper.com/events\n"
+        "   • WebSocket: wss://api.babyblueviper.com/ws\n"
+        "   • RSS: https://api.babyblueviper.com/rss\n\n"
         
         "→ Recommended Setup:\n"
         "   • Register once via /register (pay ~1000 sats) → get Bearer token\n"
@@ -1057,14 +1109,14 @@ def build_human_event(private_key: PrivateKey) -> Event:
     )
     
     tags = [
-        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"], ["t", "memory"],
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"], ["t", "memory"],["t", "podcast"],
         ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "bearer"],
         
-        ["r", "http://178.156.151.248:8000/mcp"],
-        ["r", "http://178.156.151.248:8000/discover"],
-        ["r", "http://178.156.151.248:8000/memory"],
-        ["r", "http://178.156.151.248:8000/register"],
-        
+        ["r", "https://api.babyblueviper.com/mcp"],
+        ["r", "https://api.babyblueviper.com/discover"],
+        ["r", "https://api.babyblueviper.com/memory"],
+        ["r", "https://api.babyblueviper.com/register"],
+        ["r", "https://babyblueviper.com"],
         ["version", "0.6.0"],
         ["type", "sdk_announcement"],
         
@@ -1143,7 +1195,7 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
 # ── Per-relay publish with retries ────────────────────────────────────────────
 async def _publish_to_relay(
     relay_url: str,
-    events: List[Event],
+    events: list[Event],
     sem: asyncio.Semaphore,
 ) -> int:
     """Publish all events to one relay under the semaphore. Returns OK count."""
@@ -1176,7 +1228,7 @@ async def _publish_to_relay(
                             title = "invinoveritas Update"
                             description = (event.content or "New update")[:250]
 
-                        link = "https://invinoveritas.onrender.com/discover"
+                        link = "https://api.babyblueviper.com/discover"
 
                         # Broadcast once via WebSocket + add to RSS
                         await broadcast_via_websocket(
@@ -1368,8 +1420,8 @@ async def security_txt():
     return {
         "contact": "mailto:babyblueviperbusiness@gmail.com",
         "preferred_languages": "en",
-        "canonical": "https://invinoveritas.onrender.com/.well-known/security.txt",
-        "policy": "https://invinoveritas.onrender.com/guide",
+        "canonical": "https://api.babyblueviper.com/.well-known/security.txt",
+        "policy": "https://api.babyblueviper.com/guide",
         "acknowledgments": "https://github.com/babyblueviper1/invinoveritas",
         "expires": "2027-04-08T00:00:00Z"
     }
@@ -1410,7 +1462,7 @@ async def openid_configuration():
         "error": "not_supported",
         "error_description": "This service does not support OpenID Connect / OAuth2.",
         "supported_auth": ["L402", "Bearer"],
-        "documentation": "https://invinoveritas.onrender.com/guide"
+        "documentation": "https://api.babyblueviper.com/guide"
     }
 
 
@@ -1430,7 +1482,7 @@ async def nodeinfo():
         "links": [
             {
                 "rel": "http://nodeinfo.diaspora.software/ns/schema/2.0",
-                "href": "https://invinoveritas.onrender.com/.well-known/nodeinfo/2.0"
+                "href": "https://api.babyblueviper.com/.well-known/nodeinfo/2.0"
             }
         ]
     }
@@ -1443,7 +1495,7 @@ async def nodeinfo_20():
         "version": "2.0",
         "software": {
             "name": "invinoveritas",
-            "version": "0.4.0",
+            "version": "0.6.0",
             "repository": "https://github.com/babyblueviper1/invinoveritas"
         },
         "protocols": ["l402"],
@@ -1596,6 +1648,11 @@ async def get_balance(api_key: str):
         raise HTTPException(503, "Balance service temporarily unavailable")
 
 
+class VerifyRequest(BaseModel):
+    api_key: str = Field(..., min_length=10)
+    tool: str = Field(..., pattern="^(reason|decide)$")
+    price_sats: int = Field(..., gt=0)
+
 @app.post("/verify", tags=["credit"])
 async def verify_account(req: VerifyRequest):
     """Atomic verification + debit before tool execution."""
@@ -1717,7 +1774,6 @@ async def wallet_status():
         "last_updated": int(time.time())
     }
 
-
  
 # =========================
 # Request Models
@@ -1832,7 +1888,7 @@ def _402_response(invoice_data: dict, price_sats: int, caller_type: str) -> dict
         "amount_sats": price_sats,
         "register_for_credits": "POST /register to get 5 complementary calls + pre-fund account",
         "sdk": "pip install invinoveritas",
-        "guide": "https://invinoveritas.onrender.com/guide"
+        "guide": "https://api.babyblueviper.com/guide"
     }
  
  
@@ -1872,8 +1928,9 @@ async def reason(request: Request, data: ReasoningRequest):
         mark_payment_used(payment_hash, preimage)
         return await reason_business_logic(data)
  
-    # 3. No valid payment → issue Lightning invoice
-    invoice_data = create_invoice(price_sats, memo=f"invinoveritas reason - {caller['caller_type']}")
+    # 3. No valid payment → issue Lightning invoice (offloaded to avoid blocking event loop)
+    loop = asyncio.get_event_loop()
+    invoice_data = await loop.run_in_executor(None, lambda: create_invoice(price_sats, memo=f"invinoveritas reason - {caller['caller_type']}"))
     if "error" in invoice_data:
         raise HTTPException(503, "Lightning invoice creation failed")
  
@@ -1932,8 +1989,9 @@ async def decision(request: Request, data: DecisionRequest):
         mark_payment_used(payment_hash, preimage)
         return await decision_business_logic(data)
  
-    # 3. No valid payment → issue Lightning invoice
-    invoice_data = create_invoice(price_sats, memo=f"invinoveritas decision - {caller['caller_type']}")
+    # 3. No valid payment → issue Lightning invoice (offloaded to avoid blocking event loop)
+    loop = asyncio.get_event_loop()
+    invoice_data = await loop.run_in_executor(None, lambda: create_invoice(price_sats, memo=f"invinoveritas decision - {caller['caller_type']}"))
     if "error" in invoice_data:
         raise HTTPException(503, "Lightning invoice creation failed")
  
@@ -2087,8 +2145,7 @@ async def mcp_info():
         "server_card": "/.well-known/mcp/server-card.json",
         "guide": "/guide",
         "new_in_0_6_0": "Persistent agent memory service"
-    }
- 
+    } 
  
 # =========================
 # MCP POST Handler (v0.6.0 - Full Memory Support)
@@ -2265,8 +2322,7 @@ async def mcp_handler(request: Request):
             }
         }
 
-    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
- 
+    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}} 
  
 def _apply_style(question: str, style: str) -> str:
     """Apply style modifier to question."""
@@ -2301,14 +2357,14 @@ SERVER_CARD = {
         "name": "invinoveritas",
         "version": "0.6.0",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Powered by Lightning payments.",
-        "homepage": "http://178.156.151.248:8000",
+        "homepage": "https://api.babyblueviper.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
         "author": "invinoveritas team"
     },
     "transports": [
         {
             "type": "streamable-http",
-            "url": "http://178.156.151.248:8000",
+            "url": "https://api.babyblueviper.com",
             "endpoint": "/mcp"
         }
     ],
@@ -2438,47 +2494,64 @@ async def get_server_card():
 # =========================
 AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
-    "version": "1.0",
+    "version": "1.1.0",
     "name": "invinoveritas-reasoning-agent",
-    "description": "High-quality AI reasoning, structured decisions, and persistent agent memory. Paid via Lightning Network.",
+    "description": "High-quality AI reasoning, structured decisions, persistent memory, and Lightning-native agent marketplace. Paid via Lightning Network (Bearer Token or L402).",
     "provider": "invinoveritas",
-    "version": "0.6.0",
     "capabilities": [
-        "reasoning", 
-        "decision-making", 
+        "reasoning",
+        "decision-making",
         "structured-output",
-        "risk-assessment", 
-        "confidence-scoring", 
+        "risk-assessment",
+        "confidence-scoring",
         "trading-bot-support",
         "persistent-memory",
         "agent-memory-store",
         "agent-memory-retrieve",
-        "long-term-context"
+        "long-term-context",
+        "multi-agent-orchestration",
+        "agent-marketplace",
+        "analytics-observability",
+        "cost-optimization",
+        "policy-governance"
     ],
     "protocols": ["mcp", "a2a"],
     "authentication": ["Bearer", "L402"],
-    "paymentMethods": ["Bearer", "L402"],
+    "paymentMethods": ["Bearer", "L402", "NWC"],
     "endpoints": {
-        "mcp": "http://178.156.151.248:8000/mcp",
-        "a2a": "http://178.156.151.248:8000/a2a"
+        "mcp": "https://api.babyblueviper.com/mcp",
+        "a2a": "https://api.babyblueviper.com/a2a",
+        "marketplace": "https://api.babyblueviper.com/offers",
+        "orchestrate": "https://api.babyblueviper.com/orchestrate",
+        "analytics": "https://api.babyblueviper.com/analytics"
     },
     "tradingBotSupport": {
         "supported": True,
-        "description": "Optimized for trading bots with low-latency decisions and persistent memory.",
+        "description": "Optimized for trading bots with low-latency decisions, persistent memory, and net-profit demos.",
         "useCases": [
-            "arbitrage detection", 
-            "portfolio rebalancing", 
+            "arbitrage detection",
+            "portfolio rebalancing",
             "market sentiment analysis",
             "risk-aware trade decisions",
-            "high-frequency reasoning"
+            "high-frequency reasoning",
+            "net-profit attribution"
         ],
-        "recommendedSetup": "Register with Lightning → use Bearer token"
+        "recommendedSetup": "NWC wallet → Register → Bearer token"
+    },
+    "marketplace": {
+        "enabled": True,
+        "platformCutPercent": 10,
+        "sellerPercent": 90,
+        "currency": "sats",
+        "settlement": "instant Lightning",
+        "note": "Invinoveritas takes 10%. Seller receives 90% instantly on every sale."
     },
     "pricing": {
         "model": "pay-per-use",
         "currency": "sats",
-        "reasoning": "~100 sats per call",
-        "decision": "~180 sats per call",
+        "reasoning": "~500 sats per call",
+        "decision": "~1000 sats per call",
+        "orchestrate": "~2000 sats per call",
         "memory_store": "≈2 sats per KB (min 50)",
         "memory_get": "≈1 sat per KB (min 20)",
         "note": "New accounts receive 5 complementary calls"
@@ -2488,11 +2561,20 @@ AGENT_CARD = {
         "announcement_kind": 31234,
         "relays": ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]
     },
-    "documentation": "http://178.156.151.248:8000/guide",
+    "nwc": {
+        "supported": True,
+        "description": "Nostr Wallet Connect (NIP-47) — recommended default. Works with Alby, Zeus, Mutiny.",
+        "setup": "pip install 'invinoveritas[nwc]'"
+    },
+    "sdk": {
+        "python": "pip install invinoveritas",
+        "version": "1.1.0",
+        "pypi": "https://pypi.org/project/invinoveritas/"
+    },
+    "documentation": "https://api.babyblueviper.com/guide",
     "contact": "mailto:babyblueviperbusiness@gmail.com",
-    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "a2a", "trading-bot", "memory"]
+    "tags": ["reasoning", "decision", "bitcoin", "lightning", "mcp", "a2a", "trading-bot", "memory", "marketplace", "orchestration", "nwc"]
 }
-
 
 @app.get("/.well-known/agent-card.json", include_in_schema=False)
 @app.get("/agent-card.json", include_in_schema=False)
@@ -2512,27 +2594,31 @@ AGENTS_REGISTRY = {
             "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Paid via Lightning Network (Bearer Token recommended).",
             "type": "specialist",
             "provider": "invinoveritas",
-            "version": "0.6.0",
+            "version": "1.1.0",
             "protocols": ["mcp", "a2a"],
             "capabilities": [
-                "reasoning", 
-                "decision-making", 
+                "reasoning",
+                "decision-making",
                 "structured-output",
-                "risk-assessment", 
-                "confidence-scoring", 
+                "risk-assessment",
+                "confidence-scoring",
                 "trading-bot-support",
                 "persistent-memory",
                 "agent-memory-store",
                 "agent-memory-retrieve",
-                "long-term-context"
+                "long-term-context",
+                "multi-agent-orchestration",
+                "agent-marketplace",
+                "analytics-observability",
+                "cost-optimization"
             ],
-            "paymentMethods": ["Bearer", "L402"],
+            "paymentMethods": ["Bearer", "L402", "NWC"],
             "pricing": "pay-per-use in sats",
-            "endpoint": "http://178.156.151.248:8000/mcp",
-            "a2aEndpoint": "http://178.156.151.248:8000/a2a",
-            "agentCard": "http://178.156.151.248:8000/.well-known/agent-card.json",
-            "serverCard": "http://178.156.151.248:8000/.well-known/mcp/server-card.json",
-            "memoryService": "http://178.156.151.248:8000/memory",
+            "endpoint": "https://api.babyblueviper.com/mcp",
+            "a2aEndpoint": "https://api.babyblueviper.com/a2a",
+            "agentCard": "https://api.babyblueviper.com/.well-known/agent-card.json",
+            "serverCard": "https://api.babyblueviper.com/.well-known/mcp/server-card.json",
+            "memoryService": "https://api.babyblueviper.com/memory",
             "nostr": True,
             "note": "Lightning wallet required for initial registration and occasional top-ups. Bearer Token recommended for ongoing use."
         }
@@ -2545,7 +2631,6 @@ AGENTS_REGISTRY = {
 @app.get("/.well-known/agents.json", include_in_schema=False)
 async def get_agents_registry():
     return JSONResponse(content=AGENTS_REGISTRY)
-
 
 # =========================
 # A2A Endpoint with Internal MCP Forwarding (v0.6.0)
@@ -2662,102 +2747,11 @@ class DecisionResponse(BaseModel):
 @app.get("/", response_class=HTMLResponse, tags=["meta"])
 @app.head("/", include_in_schema=False)
 def home():
-    """Modern landing page for invinoveritas v0.6.0"""
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>invinoveritas v0.6.0 — AI Reasoning + Persistent Memory</title>
-        <style>
-            body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
-            h1, h2 { color: #f7931a; }
-            .card { background: #1f1f1f; padding: 25px; border-radius: 12px; margin: 20px 0; }
-            button { background: #f7931a; color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-            button:hover { background: #ffaa33; }
-            pre { background: #0f0f0f; padding: 15px; border-radius: 8px; overflow-x: auto; }
-            a { color: #f7931a; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-            .highlight { color: #f7931a; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <h1>⚡ invinoveritas v0.6.0</h1>
-        <p><strong>Premium AI Reasoning, Structured Decisions, and Persistent Agent Memory</strong></p>
-        <p>All payments via Lightning Network — <strong>Bearer Token</strong> (recommended) or <strong>L402 Lightning</strong></p>
-        
-        <div class="card">
-            <h2>New in v0.6.0: Persistent Agent Memory</h2>
-            <p>Agents can now store and retrieve long-term context and state.</p>
-            <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
-            <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve (size-based)</p>
-            <p><em>Until full SDK support, use raw HTTP calls with your Bearer token.</em></p>
-        </div>
-
-        <div class="card">
-            <h2>MCP Server</h2>
-            <p>High-quality reasoning, structured decisions, trading bot support, and persistent memory.</p>
-            
-            <h3>Server Card</h3>
-            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
-            
-            <h3>Agent Card</h3>
-            <pre>http://178.156.151.248:8000/.well-known/agent-card.json</pre>
-        </div>
-
-        <div class="card">
-            <h2>Payment Options</h2>
-            <ul>
-                <li><strong>Bearer Token</strong> — Recommended for agents (register once, use API key)</li>
-                <li><strong>L402 Lightning</strong> — Pay-per-call with Lightning invoices</li>
-            </ul>
-            <p><strong>Wallet note:</strong> Lightning wallet required for initial registration and occasional top-ups. 
-            Once funded with Bearer Token, normal usage requires no wallet.</p>
-            <p><strong>Best for autonomous agents & trading bots:</strong> Bearer Token</p>
-        </div>
-
-        <div class="card">
-            <h2>Quick Add Instructions</h2>
-            
-            <h3>Cursor / Claude Desktop</h3>
-            <p>Use the MCP server card:</p>
-            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
-            <button onclick="copyToClipboard('http://178.156.151.248:8000/.well-known/mcp/server-card.json')">Copy Server Card URL</button>
-            
-            <h3>LangChain / Custom Agents</h3>
-            <pre>pip install invinoveritas</pre>
-            <p>MCP endpoint: <code>http://178.156.151.248:8000/mcp</code></p>
-        </div>
-
-        <div class="card">
-            <h2>Trading Bot Friendly</h2>
-            <p>Optimized for high-frequency decisions, arbitrage, portfolio rebalancing, risk assessment, and persistent memory.</p>
-            <p><strong>Recommended setup:</strong> Bearer token (pre-funded) for lowest friction.</p>
-        </div>
-
-        <div class="card">
-            <h2>Real-time Updates</h2>
-            <p>Connect to live feeds:</p>
-            <p><strong>SSE:</strong> <a href="/events" target="_blank">/events</a></p>
-            <p><strong>WebSocket:</strong> wss://178.156.151.248:8000/ws</p>
-            <p><strong>RSS:</strong> <a href="/rss" target="_blank">/rss</a></p>
-        </div>
-
-        <p><small>Last updated: 2026-04-10 | Powered by Bitcoin Lightning</small></p>
-
-        <script>
-            function copyToClipboard(text) {
-                navigator.clipboard.writeText(text).then(() => {
-                    alert("Copied to clipboard!");
-                });
-            }
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
-
+    """Landing page served from index.html"""
+    index_path = Path(__file__).parent / "index.html"
+    if index_path.exists():
+        return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>invinoveritas API is running ⚡</h1>")
 
 @app.get("/guide", tags=["meta"])
 def payment_guide():
@@ -2841,7 +2835,6 @@ def payment_guide():
 
         "new_in_0_6_0": "Persistent agent memory service for long-term context and state"
     }
-
 
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
@@ -2968,22 +2961,12 @@ async def wallet_onboarding():
         ]
     }
     
-# =========================
-# Home Routes
-# =========================
-
-@app.get("/", response_class=HTMLResponse, tags=["meta"])
-@app.head("/", include_in_schema=False)
-def home():
-    if os.path.exists("index.html"):
-        with open("index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "<h1>invinoveritas API is running ⚡</h1>"
 
 
 # =========================
 # Health Check
 # =========================
+
 @app.get("/health", tags=["meta"])
 def health():
     """Health check with rich metadata for monitoring and autonomous agents (v0.6.0)."""
@@ -3171,13 +3154,42 @@ def health():
         }
     }
 
+
+@app.get("/memory", tags=["discovery"])
+async def memory_info():
+    """Public info about the memory service"""
+    return {
+        "service": "agent_memory",
+        "description": "Paid persistent memory store for autonomous agents and bots",
+        "endpoints": {
+            "store": "/memory/store",
+            "get": "/memory/get",
+            "delete": "/memory/delete",
+            "list": "/memory/list"
+        },
+        "pricing": {
+            "store": "≈2 sats per KB (minimum 50 sats)",
+            "retrieve": "≈1 sat per KB (minimum 20 sats)",
+            "delete": "free",
+            "list": "free"
+        },
+        "limits": {
+            "max_size_per_entry": "200 KB",
+            "payment": "Bearer token or Lightning (L402)"
+        },
+        "example": {
+            "store": "POST /memory/store with agent_id, key, value",
+            "get": "POST /memory/get with agent_id, key"
+        }
+    }
+
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     """robots.txt to guide web crawlers"""
     return """User-agent: *
 Allow: /
 
-Sitemap: http://178.156.151.248:8000/sitemap.xml
+Sitemap: https://api.babyblueviper.com/sitemap.xml
 """
 
 
@@ -3187,74 +3199,73 @@ def sitemap():
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-        <loc>http://178.156.151.248:8000/</loc>
+        <loc>https://api.babyblueviper.com/</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/discover</loc>
+        <loc>https://api.babyblueviper.com/discover</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.95</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/mcp</loc>
+        <loc>https://api.babyblueviper.com/mcp</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.9</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/memory</loc>
+        <loc>https://api.babyblueviper.com/memory</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.85</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/wallet-onboarding</loc>
+        <loc>https://api.babyblueviper.com/wallet-onboarding</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.85</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/guide</loc>
+        <loc>https://api.babyblueviper.com/guide</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/prices</loc>
+        <loc>https://api.babyblueviper.com/prices</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.75</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/health</loc>
+        <loc>https://api.babyblueviper.com/health</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.7</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/rss</loc>
+        <loc>https://api.babyblueviper.com/rss</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.65</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/tool</loc>
+        <loc>https://api.babyblueviper.com/tool</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>
     <url>
-        <loc>http://178.156.151.248:8000/docs</loc>
+        <loc>https://api.babyblueviper.com/docs</loc>
         <lastmod>2026-04-10</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.55</priority>
     </url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
-
 
 # =========================
 # Tool Definition Routes (Discovery)
@@ -3461,6 +3472,7 @@ def get_price(endpoint: str):
     raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', 'mcp', or 'memory'.")
 
 
+
 @app.get('/llms.txt')
 def llms():
     """llms.txt for AI crawlers, large language models, and autonomous agents (v0.6.0)."""
@@ -3490,17 +3502,16 @@ For autonomous agents and trading bots:
 
 Setup instructions:
 - Bearer: POST /register → get api_key
-- Full guide: http://178.156.151.248:8000/wallet-onboarding
+- Full guide: https://api.babyblueviper.com/wallet-onboarding
 
 Real-time updates:
-- SSE: http://178.156.151.248:8000/events
-- WebSocket: wss://178.156.151.248:8000/ws
-- RSS: http://178.156.151.248:8000/rss
+- SSE: https://api.babyblueviper.com/events
+- WebSocket: wss://api.babyblueviper.com/ws
+- RSS: https://api.babyblueviper.com/rss
 
-MCP endpoint: http://178.156.151.248:8000/mcp
-Memory service: http://178.156.151.248:8000/memory
+MCP endpoint: https://api.babyblueviper.com/mcp
+Memory service: https://api.babyblueviper.com/memory
 """
-
 
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def ai_plugin():
@@ -3613,10 +3624,10 @@ async def discover_page():
             <p>High-quality reasoning, structured decisions, trading bot support, and persistent memory.</p>
             
             <h3>Server Card</h3>
-            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
+            <pre>https://api.babyblueviper.com/.well-known/mcp/server-card.json</pre>
             
             <h3>Agent Card</h3>
-            <pre>http://178.156.151.248:8000/.well-known/agent-card.json</pre>
+            <pre>https://api.babyblueviper.com/.well-known/agent-card.json</pre>
         </div>
 
         <div class="card">
@@ -3634,12 +3645,12 @@ async def discover_page():
             
             <h3>Cursor / Claude Desktop</h3>
             <p>Use the MCP server card:</p>
-            <pre>http://178.156.151.248:8000/.well-known/mcp/server-card.json</pre>
-            <button onclick="copyToClipboard('http://178.156.151.248:8000/.well-known/mcp/server-card.json')">Copy Server Card URL</button>
+            <pre>https://api.babyblueviper.com/.well-known/mcp/server-card.json</pre>
+            <button onclick="copyToClipboard('https://api.babyblueviper.com/.well-known/mcp/server-card.json')">Copy Server Card URL</button>
             
             <h3>LangChain / Custom Agents</h3>
             <pre>pip install invinoveritas</pre>
-            <p>MCP endpoint: <code>http://178.156.151.248:8000/mcp</code></p>
+            <p>MCP endpoint: <code>https://api.babyblueviper.com/mcp</code></p>
         </div>
 
         <div class="card">
@@ -3652,7 +3663,7 @@ async def discover_page():
             <h2>Real-time Updates</h2>
             <p>Connect to live feeds:</p>
             <p><strong>SSE:</strong> <a href="/events" target="_blank">/events</a></p>
-            <p><strong>WebSocket:</strong> wss://178.156.151.248:8000/ws</p>
+            <p><strong>WebSocket:</strong> wss://api.babyblueviper.com/ws</p>
             <p><strong>RSS:</strong> <a href="/rss" target="_blank">/rss</a></p>
         </div>
 
@@ -3698,7 +3709,7 @@ async def rss_feed(request: Request):
         items += f"""
         <item>
             <title>{ann.get('title', 'Announcement')}</title>
-            <link>{ann.get('link', 'http://178.156.151.248:8000/discover')}</link>
+            <link>{ann.get('link', 'https://api.babyblueviper.com/discover')}</link>
             <description>{ann.get('description', '')}
 
 Payment Options:
@@ -3706,9 +3717,9 @@ Payment Options:
 • L402 Lightning (pay-per-call)
 
 Real-time updates:
-• SSE: http://178.156.151.248:8000/events
-• WebSocket: wss://178.156.151.248:8000/ws
-• RSS: http://178.156.151.248:8000/rss
+• SSE: https://api.babyblueviper.com/events
+• WebSocket: wss://api.babyblueviper.com/ws
+• RSS: https://api.babyblueviper.com/rss
 
 New in v0.6.0: Persistent agent memory service (/memory/store, /memory/get)</description>
             <pubDate>{ann.get('pubDate', '')}</pubDate>
@@ -3743,7 +3754,7 @@ Themes include persistent memory, agent autonomy, Lightning as money for machine
         items = f"""
         <item>
             <title>Welcome to invinoveritas v0.6.0 + Baby Blue Viper</title>
-            <link>http://178.156.151.248:8000/discover</link>
+            <link>https://api.babyblueviper.com/discover</link>
             <description>invinoveritas provides high-quality AI reasoning, structured decisions, and persistent agent memory paid via Lightning Network.
 
 Baby Blue Viper is the companion podcast exploring these ideas in depth.
@@ -3752,9 +3763,9 @@ Baby Blue Viper is the companion podcast exploring these ideas in depth.
 • New: Persistent memory service for long-term context
 
 Real-time channels:
-• SSE: http://178.156.151.248:8000/events
-• WebSocket: wss://178.156.151.248:8000/ws
-• RSS: http://178.156.151.248:8000/rss
+• SSE: https://api.babyblueviper.com/events
+• WebSocket: wss://api.babyblueviper.com/ws
+• RSS: https://api.babyblueviper.com/rss
 
 Listen to Baby Blue Viper: https://babyblueviper.com</description>
             <pubDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>
@@ -3765,16 +3776,16 @@ Listen to Baby Blue Viper: https://babyblueviper.com</description>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>invinoveritas — AI Reasoning &amp; Decision + Baby Blue Viper</title>
-        <link>http://178.156.151.248:8000</link>
+        <link>https://api.babyblueviper.com</link>
         <description>Premium reasoning, structured decisions, and persistent agent memory paid via Lightning. Companion podcast: Baby Blue Viper.</description>
         <language>en-us</language>
         <lastBuildDate>{datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
-        <atom:link href="http://178.156.151.248:8000/rss" rel="self" type="application/rss+xml" />
+        <atom:link href="https://api.babyblueviper.com/rss" rel="self" type="application/rss+xml" />
         
         <image>
-            <url>http://178.156.151.248:8000/favicon.ico</url>
+            <url>https://api.babyblueviper.com/favicon.ico</url>
             <title>invinoveritas</title>
-            <link>http://178.156.151.248:8000</link>
+            <link>https://api.babyblueviper.com</link>
         </image>
 
         {items}
@@ -3790,3 +3801,764 @@ Listen to Baby Blue Viper: https://babyblueviper.com</description>
             "Expires": "0"
         }
     )
+# =========================
+# Agent Memory Service - Size-Based & Profitable
+# Store: ~2 sats/KB (min 50) | Retrieve: ~1 sat/KB (min 20) | Delete: Free | List: Free
+# =========================
+
+class MemoryStoreRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=100)
+    key: str = Field(..., min_length=1, max_length=100)
+    value: str = Field(..., min_length=1)
+
+class MemoryGetRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=100)
+    key: str = Field(..., min_length=1, max_length=100)
+
+class MemoryDeleteRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=100)
+    key: str = Field(..., min_length=1, max_length=100)
+
+class MemoryListRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=100)
+
+MEMORY_DB_PATH = "/root/invinoveritas_accounts.db"
+
+def calculate_store_cost(size_bytes: int) -> int:
+    kb = (size_bytes + 1023) // 1024
+    return max(50, kb * 2)
+
+def calculate_retrieve_cost(size_bytes: int) -> int:
+    kb = (size_bytes + 1023) // 1024
+    return max(20, kb * 1)
+
+
+@app.post("/memory/store", tags=["memory"])
+async def store_memory(req: MemoryStoreRequest, authorization: Optional[str] = Header(None)):
+    """Store agent memory - ~2 sats per KB (min 50 sats)"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Missing or invalid Bearer token")
+
+    api_key = authorization.split(" ")[1]
+    size_bytes = len(req.value.encode('utf-8'))
+    if size_bytes > 200 * 1024:
+        raise HTTPException(413, "Value too large (max 200 KB)")
+
+    cost = calculate_store_cost(size_bytes)
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{NODE_URL}/verify",
+            json={"api_key": api_key, "tool": "memory_store", "price_sats": cost}
+        )
+        data = resp.json()
+        if not data.get("allowed", False):
+            raise HTTPException(402, data.get("detail", f"Payment required ({cost} sats)"))
+
+    conn = sqlite3.connect(MEMORY_DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR REPLACE INTO agent_memory 
+        (agent_id, key, value, size_bytes, updated_at)
+        VALUES (?, ?, ?, ?, strftime('%s','now'))
+    """, (req.agent_id, req.key, req.value, size_bytes))
+    conn.commit()
+    conn.close()
+
+    return {"status": "stored", "agent_id": req.agent_id, "key": req.key, "size_bytes": size_bytes, "cost_sats": cost}
+
+
+@app.post("/memory/get", tags=["memory"])
+async def get_memory(req: MemoryGetRequest, authorization: Optional[str] = Header(None)):
+    """Retrieve agent memory - ~1 sat per KB (min 20 sats)"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Missing or invalid Bearer token")
+
+    api_key = authorization.split(" ")[1]
+
+    conn = sqlite3.connect(MEMORY_DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT value, size_bytes FROM agent_memory WHERE agent_id = ? AND key = ?", 
+              (req.agent_id, req.key))
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        raise HTTPException(404, f"Memory not found for agent '{req.agent_id}' key '{req.key}'")
+
+    value, size_bytes = row
+    cost = calculate_retrieve_cost(size_bytes)
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{NODE_URL}/verify",
+            json={"api_key": api_key, "tool": "memory_get", "price_sats": cost}
+        )
+        data = resp.json()
+        if not data.get("allowed", False):
+            raise HTTPException(402, data.get("detail", f"Payment required ({cost} sats)"))
+
+    return {"status": "retrieved", "agent_id": req.agent_id, "key": req.key, "value": value, "cost_sats": cost}
+
+
+@app.post("/memory/delete", tags=["memory"])
+async def delete_memory(req: MemoryDeleteRequest, authorization: Optional[str] = Header(None)):
+    """Delete agent memory - free"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Missing or invalid Bearer token")
+
+    api_key = authorization.split(" ")[1]
+
+    conn = sqlite3.connect(MEMORY_DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM agent_memory WHERE agent_id = ? AND key = ?", 
+              (req.agent_id, req.key))
+    deleted = c.rowcount
+    conn.commit()
+    conn.close()
+
+    if deleted == 0:
+        raise HTTPException(404, "Memory not found")
+
+    return {"status": "deleted", "agent_id": req.agent_id, "key": req.key}
+
+
+@app.post("/memory/list", tags=["memory"])
+async def list_memory(req: MemoryListRequest, authorization: Optional[str] = Header(None)):
+    """List all keys for an agent - free"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Missing or invalid Bearer token")
+
+    api_key = authorization.split(" ")[1]
+
+    conn = sqlite3.connect(MEMORY_DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT key, size_bytes, updated_at FROM agent_memory WHERE agent_id = ? ORDER BY key", 
+              (req.agent_id,))
+    rows = c.fetchall()
+    conn.close()
+
+    memories = [
+        {"key": row[0], "size_bytes": row[1], "updated_at": row[2]}
+        for row in rows
+    ]
+
+    return {
+        "status": "listed",
+        "agent_id": req.agent_id,
+        "count": len(memories),
+        "memories": memories
+    }
+
+
+# =============================================================================
+# v1.1.0 — NEW ENDPOINTS
+# =============================================================================
+
+import uuid as _uuid
+from node_bridge import pay_bolt11, fetch_lnurl_invoice
+
+# =============================================================================
+# Marketplace DB helpers
+# =============================================================================
+
+def init_marketplace_db():
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS marketplace_offers (
+            offer_id    TEXT PRIMARY KEY,
+            seller_id   TEXT NOT NULL,
+            ln_address  TEXT NOT NULL,
+            title       TEXT NOT NULL,
+            description TEXT NOT NULL,
+            price_sats  INTEGER NOT NULL,
+            category    TEXT DEFAULT 'agent',
+            active      INTEGER DEFAULT 1,
+            created_at  INTEGER NOT NULL,
+            sold_count  INTEGER DEFAULT 0
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS marketplace_purchases (
+            purchase_id     TEXT PRIMARY KEY,
+            offer_id        TEXT NOT NULL,
+            buyer_api_key   TEXT NOT NULL,
+            price_sats      INTEGER NOT NULL,
+            platform_cut    INTEGER NOT NULL,
+            seller_payout   INTEGER NOT NULL,
+            seller_payment_hash TEXT,
+            purchased_at    INTEGER NOT NULL
+        )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_offers_seller ON marketplace_offers(seller_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_offers_active ON marketplace_offers(active)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_purchases_offer ON marketplace_purchases(offer_id)")
+    conn.commit()
+    conn.close()
+
+
+# =============================================================================
+# Marketplace Models
+# =============================================================================
+
+class CreateOfferRequest(BaseModel):
+    seller_id: str = Field(..., min_length=1, max_length=100)
+    ln_address: str = Field(..., description="Lightning address (user@domain.com) to receive 90% payouts")
+    title: str = Field(..., min_length=3, max_length=120)
+    description: str = Field(..., min_length=10, max_length=2000)
+    price_sats: int = Field(..., description="Price in sats (buyer pays this)")
+    category: str = Field(default="agent", max_length=50)
+
+
+class BuyOfferRequest(BaseModel):
+    offer_id: str = Field(..., min_length=1)
+
+
+# =============================================================================
+# Marketplace Endpoints
+# =============================================================================
+
+@app.post("/offers/create", tags=["marketplace"])
+async def create_offer(
+    req: CreateOfferRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    List a new agent/service offer on the marketplace.
+    Provide your Lightning Address — you receive 90% of every sale instantly.
+    Invinoveritas keeps 10% as a platform fee.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required to create offers")
+    api_key = authorization.split(" ")[1]
+
+    if req.price_sats < MARKETPLACE_MIN_PRICE_SATS:
+        raise HTTPException(400, f"Minimum price is {MARKETPLACE_MIN_PRICE_SATS} sats")
+    if req.price_sats > MARKETPLACE_MAX_PRICE_SATS:
+        raise HTTPException(400, f"Maximum price is {MARKETPLACE_MAX_PRICE_SATS} sats")
+
+    offer_id = str(_uuid.uuid4())
+    now = int(time.time())
+
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO marketplace_offers
+            (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (offer_id, req.seller_id, req.ln_address, req.title,
+          req.description, req.price_sats, req.category, now))
+    conn.commit()
+    conn.close()
+
+    platform_cut = int(req.price_sats * PLATFORM_CUT_PERCENT / 100)
+    seller_payout = req.price_sats - platform_cut
+
+    return {
+        "status": "created",
+        "offer_id": offer_id,
+        "title": req.title,
+        "price_sats": req.price_sats,
+        "platform_cut_sats": platform_cut,
+        "seller_payout_sats": seller_payout,
+        "platform_cut_percent": PLATFORM_CUT_PERCENT,
+        "seller_percent": SELLER_PERCENT,
+        "note": f"You receive {SELLER_PERCENT}% ({seller_payout} sats) of every sale, paid instantly to {req.ln_address}",
+    }
+
+
+@app.get("/offers/list", tags=["marketplace"])
+async def list_offers(
+    category: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Browse all active marketplace offers.
+    No payment required — open discovery.
+    """
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    if category:
+        c.execute("""
+            SELECT offer_id, seller_id, title, description, price_sats, category, sold_count, created_at
+            FROM marketplace_offers
+            WHERE active = 1 AND category = ?
+            ORDER BY sold_count DESC, created_at DESC
+            LIMIT ? OFFSET ?
+        """, (category, limit, offset))
+    else:
+        c.execute("""
+            SELECT offer_id, seller_id, title, description, price_sats, category, sold_count, created_at
+            FROM marketplace_offers
+            WHERE active = 1
+            ORDER BY sold_count DESC, created_at DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset))
+    rows = c.fetchall()
+    conn.close()
+
+    offers = []
+    for row in rows:
+        price = row[4]
+        platform_cut = int(price * PLATFORM_CUT_PERCENT / 100)
+        offers.append({
+            "offer_id": row[0],
+            "seller_id": row[1],
+            "title": row[2],
+            "description": row[3],
+            "price_sats": price,
+            "platform_cut_sats": platform_cut,
+            "seller_payout_sats": price - platform_cut,
+            "category": row[5],
+            "sold_count": row[6],
+            "created_at": row[7],
+        })
+
+    return {
+        "offers": offers,
+        "total": len(offers),
+        "platform_cut_percent": PLATFORM_CUT_PERCENT,
+        "seller_percent": SELLER_PERCENT,
+    }
+
+
+@app.post("/offers/buy", tags=["marketplace"])
+async def buy_offer(
+    req: BuyOfferRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Purchase a marketplace offer.
+    - Buyer's Bearer account is charged the full price.
+    - Platform keeps 10% (configurable).
+    - Seller receives 90% **instantly** via their Lightning Address.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required to buy offers")
+    buyer_api_key = authorization.split(" ")[1]
+
+    # Fetch offer
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        SELECT offer_id, seller_id, ln_address, title, price_sats, active
+        FROM marketplace_offers WHERE offer_id = ?
+    """, (req.offer_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        raise HTTPException(404, "Offer not found")
+    offer_id, seller_id, ln_address, title, price_sats, active = row
+    if not active:
+        raise HTTPException(410, "This offer is no longer available")
+
+    platform_cut_sats = int(price_sats * PLATFORM_CUT_PERCENT / 100)
+    seller_payout_sats = price_sats - platform_cut_sats
+
+    # Charge buyer's account
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{NODE_URL}/verify",
+            json={"api_key": buyer_api_key, "tool": "marketplace_buy", "price_sats": price_sats}
+        )
+        data = resp.json()
+        if not data.get("allowed", False):
+            raise HTTPException(402, data.get("detail", f"Payment required ({price_sats} sats)"))
+
+    # Pay seller 90% via their Lightning address
+    seller_payment_hash = ""
+    payout_status = "pending"
+    try:
+        invoice_result = fetch_lnurl_invoice(ln_address, seller_payout_sats)
+        if "error" not in invoice_result:
+            pay_result = pay_bolt11(invoice_result["bolt11"], memo=f"marketplace sale: {title[:40]}")
+            if "error" not in pay_result:
+                seller_payment_hash = pay_result.get("payment_hash", "")
+                payout_status = "paid"
+                logger.info(f"Seller payout {seller_payout_sats} sats to {ln_address}: {seller_payment_hash[:16]}...")
+            else:
+                logger.error(f"Seller payout failed: {pay_result['error']}")
+                payout_status = "failed"
+        else:
+            logger.error(f"Failed to fetch seller invoice from {ln_address}: {invoice_result['error']}")
+            payout_status = "failed"
+    except Exception as e:
+        logger.error(f"Seller payout exception: {e}")
+        payout_status = "failed"
+
+    # Record purchase
+    purchase_id = str(_uuid.uuid4())
+    now = int(time.time())
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO marketplace_purchases
+            (purchase_id, offer_id, buyer_api_key, price_sats, platform_cut, seller_payout, seller_payment_hash, purchased_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (purchase_id, offer_id, buyer_api_key, price_sats, platform_cut_sats, seller_payout_sats, seller_payment_hash, now))
+    c.execute("UPDATE marketplace_offers SET sold_count = sold_count + 1 WHERE offer_id = ?", (offer_id,))
+    conn.commit()
+    conn.close()
+
+    return {
+        "status": "purchased",
+        "purchase_id": purchase_id,
+        "offer_id": offer_id,
+        "title": title,
+        "price_sats": price_sats,
+        "platform_cut_sats": platform_cut_sats,
+        "seller_payout_sats": seller_payout_sats,
+        "seller_payout_status": payout_status,
+        "note": f"Seller receives {SELLER_PERCENT}% ({seller_payout_sats} sats) via Lightning. Platform fee: {PLATFORM_CUT_PERCENT}% ({platform_cut_sats} sats).",
+    }
+
+
+@app.get("/offers/my", tags=["marketplace"])
+async def my_offers(authorization: Optional[str] = Header(None)):
+    """List all offers created by the authenticated seller, with sales stats."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ")[1]
+
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        SELECT o.offer_id, o.title, o.price_sats, o.category, o.sold_count, o.active, o.created_at,
+               COALESCE(SUM(p.seller_payout), 0) as total_earned
+        FROM marketplace_offers o
+        LEFT JOIN marketplace_purchases p ON o.offer_id = p.offer_id
+        WHERE o.seller_id = ?
+        GROUP BY o.offer_id
+        ORDER BY o.created_at DESC
+    """, (api_key,))
+    rows = c.fetchall()
+    conn.close()
+
+    offers = [
+        {
+            "offer_id": row[0],
+            "title": row[1],
+            "price_sats": row[2],
+            "seller_payout_per_sale": row[2] - int(row[2] * PLATFORM_CUT_PERCENT / 100),
+            "category": row[3],
+            "sold_count": row[4],
+            "active": bool(row[5]),
+            "created_at": row[6],
+            "total_earned_sats": row[7],
+        }
+        for row in rows
+    ]
+
+    total_earned = sum(o["total_earned_sats"] for o in offers)
+    return {
+        "offers": offers,
+        "total_earned_sats": total_earned,
+        "platform_cut_percent": PLATFORM_CUT_PERCENT,
+        "seller_percent": SELLER_PERCENT,
+    }
+
+
+# =============================================================================
+# v1.1.0 — Orchestration
+# =============================================================================
+
+class OrchestrateTask(BaseModel):
+    id: str = Field(..., description="Unique task ID")
+    type: str = Field(..., description="Task type: 'reason' | 'decide' | 'memory_get' | 'custom'")
+    input: Dict = Field(..., description="Task-specific input payload")
+    depends_on: list = Field(default=[], description="List of task IDs that must complete first")
+    policy: Optional[Dict] = Field(default=None, description="Optional governance policy override")
+
+
+class OrchestrateRequest(BaseModel):
+    tasks: list = Field(..., description="List of OrchestrateTask objects")
+    context: str = Field(default="", max_length=2000)
+    agent_id: str = Field(default="", max_length=100)
+    policy: Optional[Dict] = Field(default=None, description="Global governance policy (risk_limit, budget_sats, etc.)")
+
+
+@app.post("/orchestrate", tags=["orchestration"])
+async def orchestrate(
+    req: OrchestrateRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Multi-agent orchestration with dependency resolution, risk scoring, and policy enforcement.
+    Price: ~2000 sats per orchestration plan.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ")[1]
+
+    # Validate tasks
+    if not req.tasks:
+        raise HTTPException(400, "At least one task required")
+    if len(req.tasks) > 20:
+        raise HTTPException(400, "Maximum 20 tasks per orchestration")
+
+    # Policy enforcement
+    policy = req.policy or {}
+    risk_limit = policy.get("risk_limit", "high")  # low | medium | high
+    budget_sats = policy.get("budget_sats", 100_000)
+
+    # Charge buyer
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{NODE_URL}/verify",
+            json={"api_key": api_key, "tool": "orchestrate", "price_sats": ORCHESTRATE_PRICE_SATS}
+        )
+        data = resp.json()
+        if not data.get("allowed", False):
+            raise HTTPException(402, data.get("detail", f"Payment required ({ORCHESTRATE_PRICE_SATS} sats)"))
+
+    # Build dependency graph and execution plan
+    task_map = {t["id"]: t for t in req.tasks}
+    completed = set()
+    execution_order = []
+    remaining = list(task_map.keys())
+
+    max_iterations = len(remaining) + 1
+    iteration = 0
+    while remaining and iteration < max_iterations:
+        iteration += 1
+        for tid in list(remaining):
+            deps = task_map[tid].get("depends_on", [])
+            if all(d in completed for d in deps):
+                execution_order.append(tid)
+                completed.add(tid)
+                remaining.remove(tid)
+
+    if remaining:
+        raise HTTPException(400, f"Circular dependency detected in tasks: {remaining}")
+
+    # Risk scoring per task
+    risk_scores = {}
+    RISK_RANK = {"low": 0, "medium": 1, "high": 2}
+    limit_rank = RISK_RANK.get(risk_limit, 2)
+
+    for tid in execution_order:
+        task = task_map[tid]
+        task_type = task.get("type", "custom")
+        inp = task.get("input", {})
+        # Heuristic risk scoring
+        score = 0
+        if task_type == "decide":
+            score += 1
+            if inp.get("uncertainty", 0) > 0.7:
+                score += 1
+            if inp.get("value_at_risk", 0) > 10000:
+                score += 1
+        elif task_type == "reason":
+            score += 0
+        risk_label = ["low", "medium", "high"][min(score, 2)]
+        risk_scores[tid] = {"score": score, "label": risk_label}
+
+        if RISK_RANK.get(risk_label, 0) > limit_rank:
+            logger.warning(f"Task {tid} risk={risk_label} exceeds policy limit={risk_limit}")
+
+    # Estimate total cost
+    type_cost = {"reason": REASONING_PRICE_SATS, "decide": DECISION_PRICE_SATS,
+                 "memory_get": 50, "memory_store": 100, "custom": 500}
+    estimated_total = ORCHESTRATE_PRICE_SATS + sum(
+        type_cost.get(task_map[tid].get("type", "custom"), 500)
+        for tid in execution_order
+    )
+
+    return {
+        "status": "planned",
+        "execution_order": execution_order,
+        "task_count": len(execution_order),
+        "risk_scores": risk_scores,
+        "policy_applied": policy,
+        "estimated_total_sats": estimated_total,
+        "budget_remaining_sats": max(0, budget_sats - estimated_total),
+        "orchestration_cost_sats": ORCHESTRATE_PRICE_SATS,
+        "note": "Execute tasks in the returned execution_order. Each task is charged separately when called.",
+        "context": req.context[:200] if req.context else "",
+    }
+
+
+# =============================================================================
+# v1.1.0 — Analytics / Observability
+# =============================================================================
+
+@app.get("/analytics/spend", tags=["analytics"])
+async def analytics_spend(
+    days: int = 30,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Spending history for this Bearer account over the last N days.
+    Shows total sats spent per tool and per day.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ")[1]
+
+    cutoff = int(time.time()) - (days * 86400)
+
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    # Marketplace purchases for this buyer
+    c.execute("""
+        SELECT price_sats, purchased_at FROM marketplace_purchases
+        WHERE buyer_api_key = ? AND purchased_at > ?
+        ORDER BY purchased_at DESC
+    """, (api_key, cutoff))
+    purchases = c.fetchall()
+    conn.close()
+
+    # Account-level spend from accounts DB
+    try:
+        acct_conn = sqlite3.connect(MEMORY_DB_PATH)
+        acct_c = acct_conn.cursor()
+        acct_c.execute("""
+            SELECT total_spent_sats, total_calls, balance_sats
+            FROM accounts WHERE api_key = ?
+        """, (api_key,))
+        acct_row = acct_c.fetchone()
+        acct_conn.close()
+    except Exception:
+        acct_row = None
+
+    marketplace_total = sum(p[0] for p in purchases)
+    daily_spend = {}
+    for price, ts in purchases:
+        day = datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+        daily_spend[day] = daily_spend.get(day, 0) + price
+
+    return {
+        "period_days": days,
+        "marketplace_spend_sats": marketplace_total,
+        "marketplace_purchases": len(purchases),
+        "daily_spend": daily_spend,
+        "account_total_spent_sats": acct_row[0] if acct_row else None,
+        "account_total_calls": acct_row[1] if acct_row else None,
+        "account_balance_sats": acct_row[2] if acct_row else None,
+    }
+
+
+@app.get("/analytics/roi", tags=["analytics"])
+async def analytics_roi(
+    authorization: Optional[str] = Header(None)
+):
+    """
+    ROI summary for this account.
+    Returns lifetime spend, calls made, and marketplace earnings (if seller).
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ")[1]
+
+    # Account stats
+    try:
+        acct_conn = sqlite3.connect(MEMORY_DB_PATH)
+        acct_c = acct_conn.cursor()
+        acct_c.execute("""
+            SELECT total_spent_sats, total_calls, balance_sats, created_at
+            FROM accounts WHERE api_key = ?
+        """, (api_key,))
+        acct_row = acct_c.fetchone()
+        acct_conn.close()
+    except Exception:
+        acct_row = None
+
+    # Marketplace seller earnings
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        SELECT COALESCE(SUM(p.seller_payout), 0), COUNT(p.purchase_id)
+        FROM marketplace_offers o
+        JOIN marketplace_purchases p ON o.offer_id = p.offer_id
+        WHERE o.seller_id = ?
+    """, (api_key,))
+    seller_row = c.fetchone()
+    conn.close()
+
+    total_earned = seller_row[0] if seller_row else 0
+    total_sales = seller_row[1] if seller_row else 0
+    total_spent = acct_row[0] if acct_row else 0
+
+    return {
+        "total_spent_sats": total_spent,
+        "total_calls": acct_row[1] if acct_row else 0,
+        "current_balance_sats": acct_row[2] if acct_row else 0,
+        "marketplace_earnings_sats": total_earned,
+        "marketplace_sales_count": total_sales,
+        "net_sats": total_earned - total_spent,
+        "account_age_days": int((time.time() - acct_row[3]) / 86400) if acct_row else 0,
+        "note": "net_sats = marketplace earnings - total spent. Positive = you are net profitable on invinoveritas.",
+    }
+
+
+@app.get("/analytics/memory", tags=["analytics"])
+async def analytics_memory(
+    agent_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Memory usage stats — total KB stored, per-agent breakdown, estimated monthly cost.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+
+    conn = sqlite3.connect(MEMORY_DB_PATH)
+    c = conn.cursor()
+    if agent_id:
+        c.execute("""
+            SELECT agent_id, COUNT(*) as keys, SUM(size_bytes) as total_bytes
+            FROM agent_memory WHERE agent_id = ?
+            GROUP BY agent_id
+        """, (agent_id,))
+    else:
+        c.execute("""
+            SELECT agent_id, COUNT(*) as keys, SUM(size_bytes) as total_bytes
+            FROM agent_memory
+            GROUP BY agent_id
+            ORDER BY total_bytes DESC
+            LIMIT 50
+        """)
+    rows = c.fetchall()
+    conn.close()
+
+    agents = [
+        {
+            "agent_id": row[0],
+            "key_count": row[1],
+            "total_bytes": row[2],
+            "total_kb": round(row[2] / 1024, 2),
+            "estimated_store_cost_sats": max(50, (row[2] + 1023) // 1024 * 2),
+        }
+        for row in rows
+    ]
+
+    total_bytes = sum(a["total_bytes"] for a in agents)
+    return {
+        "agents": agents,
+        "total_bytes": total_bytes,
+        "total_kb": round(total_bytes / 1024, 2),
+        "agent_count": len(agents),
+        "pricing": "~2 sats per KB store / ~1 sat per KB retrieve (min 50/20)",
+    }
+
+
+# =============================================================================
+# v1.1.0 — Startup: init marketplace DB
+# =============================================================================
+
+# Patch the existing startup_event to also init the marketplace DB
+_original_startup = startup_event.__wrapped__ if hasattr(startup_event, '__wrapped__') else None
+
+
+@app.on_event("startup")
+async def startup_v110():
+    """v1.1.0 additional startup: init marketplace DB"""
+    try:
+        PERSISTENT_DIR.mkdir(parents=True, exist_ok=True)
+        init_marketplace_db()
+        logger.info("✅ v1.1.0 Marketplace DB initialized")
+    except Exception as e:
+        logger.error(f"v1.1.0 startup error: {e}")

@@ -21,7 +21,7 @@ from mcp import types
 # =========================
 # Configuration
 # =========================
-API_BASE = os.getenv("API_BASE", "https://invinoveritas.onrender.com").rstrip("/")
+API_BASE = os.getenv("API_BASE", "https://api.babyblueviper.com").rstrip("/")
 LND_DIR = os.getenv("LND_DIR")
 CLN_RPC_PATH = os.getenv("CLN_RPC_PATH")
 

@@ -1,5 +1,8 @@
 from typing import Dict, Any, Optional, Callable, Awaitable
-from .client import InvinoClient, AsyncInvinoClient
+try:
+    from .client import InvinoClient, AsyncInvinoClient
+except ImportError:
+    from invinoveritas import InvinoClient, AsyncInvinoClient
 
 
 # =========================
