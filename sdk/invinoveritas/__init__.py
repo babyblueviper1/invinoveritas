@@ -294,7 +294,7 @@ class InvinoClient:
             result = client.orchestrate([
                 {"id": "t1", "type": "reason",
                  "input": {"question": "Is BTC in accumulation?"}, "depends_on": []},
-                {"id": "t2", "type": "decide",
+                {"id": "t2", "type": "decision",
                  "input": {"goal": "...", "question": "..."}, "depends_on": ["t1"]},
             ])
             for tid in result.execution_order:
@@ -398,7 +398,7 @@ class InvinoClient:
 
         Returns:
             {
-                "recommended_endpoint": "reason" | "decide" | "local",
+                "recommended_endpoint": "reason" | "decision" | "local",
                 "estimated_sats": int,
                 "reason": str,
                 "should_call_api": bool,
@@ -464,7 +464,7 @@ class InvinoClient:
             }
         else:
             return {
-                "recommended_endpoint": "decide",
+                "recommended_endpoint": "decision",
                 "estimated_sats": 1000,
                 "should_call_api": True,
                 "reason": f"High stakes: {', '.join(reasons)}. Use decide() for structured output.",

@@ -131,7 +131,7 @@ plan = client.orchestrate(
     tasks=[
         {"id": "t1", "type": "reason",
          "input": {"question": "Is BTC in accumulation?"}, "depends_on": []},
-        {"id": "t2", "type": "decide",
+        {"id": "t2", "type": "decision",
          "input": {"goal": "...", "question": "Enter long?"}, "depends_on": ["t1"]},
     ],
     policy={"risk_limit": "medium", "budget_sats": 10000},

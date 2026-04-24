@@ -230,7 +230,7 @@ plan = client.orchestrate(
         },
         {
             "id": "trade_decision",
-            "type": "decide",
+            "type": "decision",
             "input": {
                 "goal": "Maximize BTC returns",
                 "question": "Should I enter a long position?",
@@ -355,7 +355,7 @@ print(f"Total spent: {handler.total_spent_sats} sats")
 
 See `examples/trading/trading_bot_net_profit.py` for a full trading bot that:
 - Calls `optimize_call()` before every consultation
-- Uses `decide()` with confidence and risk filters
+- Uses `client.decide()` (calls /decision) with confidence and risk filters
 - Tracks gross P&L vs. AI consultation cost
 - Prints **NET PROFIT** at the end
 

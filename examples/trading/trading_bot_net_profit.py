@@ -2,7 +2,7 @@
 Trading Bot Net Profit Demo — invinoveritas + Lightning
 ========================================================
 Shows how to build a trading bot that:
-  1. Uses invinoveritas /decide before every trade
+  1. Uses invinoveritas /decision before every trade
   2. Tracks invinoveritas spend against realized P&L
   3. Proves NET PROFIT: trade gains > AI consultation cost
 

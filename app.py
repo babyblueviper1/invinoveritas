@@ -4263,7 +4263,7 @@ async def my_offers(authorization: Optional[str] = Header(None)):
 
 class OrchestrateTask(BaseModel):
     id: str = Field(..., description="Unique task ID")
-    type: str = Field(..., description="Task type: 'reason' | 'decide' | 'memory_get' | 'custom'")
+    type: str = Field(..., description="Task type: 'reason' | 'decision' | 'memory_get' | 'custom'")
     input: Dict = Field(..., description="Task-specific input payload")
     depends_on: list = Field(default=[], description="List of task IDs that must complete first")
     policy: Optional[Dict] = Field(default=None, description="Optional governance policy override")
@@ -4341,7 +4341,7 @@ async def orchestrate(
         inp = task.get("input", {})
         # Heuristic risk scoring
         score = 0
-        if task_type == "decide":
+        if task_type in ("decide", "decision"):
             score += 1
             if inp.get("uncertainty", 0) > 0.7:
                 score += 1
@@ -4356,7 +4356,7 @@ async def orchestrate(
             logger.warning(f"Task {tid} risk={risk_label} exceeds policy limit={risk_limit}")
 
     # Estimate total cost
-    type_cost = {"reason": REASONING_PRICE_SATS, "decide": DECISION_PRICE_SATS,
+    type_cost = {"reason": REASONING_PRICE_SATS, "decide": DECISION_PRICE_SATS, "decision": DECISION_PRICE_SATS,
                  "memory_get": 50, "memory_store": 100, "custom": 500}
     estimated_total = ORCHESTRATE_PRICE_SATS + sum(
         type_cost.get(task_map[tid].get("type", "custom"), 500)
