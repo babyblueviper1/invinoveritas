@@ -202,7 +202,7 @@ Get your NWC URI from [Alby](https://app.getalby.com/apps/new), Zeus, or any NIP
 | Tool | Price | Notes |
 |---|---|---|
 | `reason` | ~500 sats | Deep strategic reasoning |
-| `decide` | ~1000 sats | Structured decision + confidence + risk |
+| `decision` | ~1000 sats | Structured decision + confidence + risk |
 | `orchestrate` | ~2000 sats | Multi-agent plan with risk scoring |
 | `memory_store` | ~2 sats/KB | Min 50 sats |
 | `memory_get` | ~1 sat/KB | Min 20 sats |

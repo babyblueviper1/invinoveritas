@@ -143,7 +143,7 @@ opt = client.optimize_call(
     }
 )
 
-print(opt["recommended_endpoint"])  # "reason" | "decide" | "local"
+print(opt["recommended_endpoint"])  # "reason" | "decision" | "local"
 print(opt["estimated_sats"])        # 500 | 1000 | 0
 print(opt["should_call_api"])       # True | False
 print(opt["reason"])
