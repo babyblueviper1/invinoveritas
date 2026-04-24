@@ -62,8 +62,8 @@ OPENAI_API_KEY=sk-...
 NODE_URL=http://127.0.0.1:8081
 
 # Marketplace
-PLATFORM_CUT_PERCENT=10.0
-PLATFORM_LN_ADDRESS=your@getalby.com    # platform Lightning Address for 10% cut
+PLATFORM_CUT_PERCENT=5.0
+PLATFORM_LN_ADDRESS=your@getalby.com    # platform Lightning Address for 5% cut
 MARKETPLACE_MIN_PRICE_SATS=1000
 ```
 
@@ -267,7 +267,7 @@ git add examples/trading/trading_bot_net_profit.py
 
 git commit -m "feat: v1.1.0 — marketplace, orchestration, analytics, NWC defaults
 
-- Agent Marketplace: /offers/create|list|buy|my (10% platform, 90% seller instant)
+- Agent Marketplace: /offers/create|list|buy|my (5% platform, 95% seller instant)
 - Multi-agent orchestration: /orchestrate with dependency graph + risk scoring
 - Analytics: /analytics/spend, /analytics/roi, /analytics/memory
 - optimize_call() SDK helper for cost routing

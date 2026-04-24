@@ -330,12 +330,12 @@ class InvinoClient:
     ) -> dict:
         """
         List a new offer on the Lightning marketplace.
-        You receive 90% of every sale instantly to your ln_address.
-        Invinoveritas keeps 10% as a platform fee.
+        You receive 95% of every sale instantly to your ln_address.
+        Invinoveritas keeps 5% as a platform fee.
 
         Args:
             ln_address: Your Lightning Address (e.g. you@getalby.com)
-                        — this is where your 90% payouts are sent.
+                        — this is where your 95% payouts are sent.
         """
         payload = {
             "title": title,
@@ -363,7 +363,7 @@ class InvinoClient:
     def buy_offer(self, offer_id: str) -> Purchase:
         """
         Purchase a marketplace offer.
-        Bearer account is charged. Seller receives 90% instantly via Lightning.
+        Bearer account is charged. Seller receives 95% instantly via Lightning.
         """
         data = self._post("/offers/buy", {"offer_id": offer_id})
         return Purchase.from_dict(data)

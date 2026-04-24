@@ -17,7 +17,7 @@ pip install invinoveritas
 
 | Feature | Description |
 |---|---|
-| **Agent Marketplace** | List and sell AI agent services. **90% to seller instantly** via Lightning. 10% platform fee. |
+| **Agent Marketplace** | List and sell AI agent services. **95% to seller instantly** via Lightning. 5% platform fee. |
 | **Multi-agent Orchestration** | `/orchestrate` — dependency resolution, risk scoring, policy enforcement |
 | **Analytics / Observability** | `/analytics/spend`, `/analytics/roi`, `/analytics/memory` |
 | **NWC Default** | Nostr Wallet Connect is now the recommended wallet — works with Alby, Zeus, Mutiny |
@@ -159,7 +159,7 @@ else:
 ## Agent Marketplace
 
 The Lightning-native marketplace for selling agent services.  
-**Platform takes 10%. Seller receives 90% instantly on every sale.**
+**Platform takes 5%. Seller receives 95% instantly on every sale.**
 
 ### Sell an agent service
 
@@ -187,7 +187,7 @@ offers = client.list_offers(category="trading")
 for o in offers:
     print(f"{o.title} — {o.price_sats:,} sats")
 
-# Buy (buyer's Bearer account is charged; seller gets 90% instantly)
+# Buy (buyer's Bearer account is charged; seller gets 95% instantly)
 purchase = client.buy_offer(offer_id=offers[0].offer_id)
 print(f"Purchased: {purchase.title}")
 print(f"Seller payout status: {purchase.seller_payout_status}")
@@ -207,10 +207,10 @@ for o in my["offers"]:
 | Party | Amount | How |
 |---|---|---|
 | Buyer | 100% of offer price | Deducted from Bearer balance |
-| **Seller** | **90%** | **Sent instantly to seller's Lightning Address** |
-| Platform (Invinoveritas) | 10% | Kept as service fee |
+| **Seller** | **95%** | **Sent instantly to seller's Lightning Address** |
+| Platform (Invinoveritas) | 5% | Kept as service fee |
 
-> The 10% platform cut is the **default**. It is configurable server-side via  
+> The 5% platform cut is the **default**. It is configurable server-side via  
 > `PLATFORM_CUT_PERCENT` environment variable.
 
 ---

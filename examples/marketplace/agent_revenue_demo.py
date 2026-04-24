@@ -4,7 +4,7 @@ Agent Revenue Demo — invinoveritas Marketplace
 Shows the complete marketplace lifecycle:
   1. Seller lists an AI agent service
   2. Buyer discovers and purchases it
-  3. Seller receives 90% instantly via Lightning
+  3. Seller receives 95% instantly via Lightning
   4. Both parties view analytics
 
 Setup:
@@ -124,8 +124,8 @@ def main():
     print("Marketplace demo complete.")
     print()
     print("Key takeaways:")
-    print(f"  • Platform fee : 10% (configurable via PLATFORM_CUT_PERCENT)")
-    print(f"  • Seller payout: 90% — sent INSTANTLY to their Lightning Address")
+    print(f"  • Platform fee : 5% (configurable via PLATFORM_CUT_PERCENT)")
+    print(f"  • Seller payout: 95% — sent INSTANTLY to their Lightning Address")
     print(f"  • No invoices to manage — fully automated Lightning settlement")
     print(f"  • SDK: pip install invinoveritas")
     print(f"  • API: https://api.babyblueviper.com/offers/list")
