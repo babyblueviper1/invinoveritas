@@ -696,7 +696,7 @@ def _base_meta() -> dict:
             "risk-assessment",
             "confidence-scoring",
             "style-control",
-            "persistent-memory",        # New in 0.6.0
+            "persistent-memory",
             "agent-memory-store",
             "agent-memory-retrieve",
             "agent-memory-list",
@@ -769,7 +769,13 @@ def generate_agent_payload(score: int = 8) -> dict:
             "agent-memory-store",
             "agent-memory-retrieve",
             "agent-memory-list",
-            "long-term-context"
+            "long-term-context",
+            "multi-agent-orchestration",
+            "agent-marketplace",
+            "analytics-observability",
+            "cost-optimization",
+            "policy-governance",
+            "nwc-payments"
         ],
 
         "score": score,
@@ -779,7 +785,9 @@ def generate_agent_payload(score: int = 8) -> dict:
             "financial_decision",
             "high_stakes",
             "trading_strategy",
-            "long_term_agent_context"
+            "long_term_agent_context",
+            "sell_agent_services",
+            "orchestrate_tasks"
         ],
 
         "trading_bot_ready": True,
@@ -814,7 +822,7 @@ def generate_agent_payload(score: int = 8) -> dict:
             "styles": ["short", "concise", "normal", "detailed", "comprehensive"],
             "free_calls_on_register": True,
             "account_inactivity_policy": "2 years",
-            "new_in_0_6_0": "Persistent agent memory service"
+            "new_in_1_1_0": ["agent marketplace (5%/95%)", "multi-agent orchestration", "analytics", "NWC support", "optimize_call()", "policy governance"]
         },
 
         # ── Memory Service (Prominently Featured) ───────────────────
@@ -1159,7 +1167,7 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
             relay_url,
             open_timeout=RELAY_CONNECT_TIMEOUT,
             close_timeout=3,
-            additional_headers={"User-Agent": "invinoveritas/0.4.0"},
+            additional_headers={"User-Agent": "invinoveritas/1.1.0"},
         ) as ws:
             await ws.send(event_msg)
             logger.debug(f"→ Sent kind={event.kind} id={event.id[:8]} to {relay_url}")
@@ -1646,7 +1654,7 @@ async def get_balance(api_key: str):
 
 class VerifyRequest(BaseModel):
     api_key: str = Field(..., min_length=10)
-    tool: str = Field(..., pattern="^(reason|decide)$")
+    tool: str = Field(..., pattern="^(reason|decide|decision|memory_store|memory_get|memory_list|memory_delete|marketplace_buy|orchestrate)$")
     price_sats: int = Field(..., gt=0)
 
 @app.post("/verify", tags=["credit"])
@@ -2052,8 +2060,8 @@ TOOLS = {
         "supported_payments": ["Bearer Token (credits)", "L402 Lightning"],
         "pricing": f"~{REASONING_PRICE_SATS} sats base"
     },
-    "decide": {
-        "name": "decide",
+    "decision": {
+        "name": "decision",
         "description": "Structured decision intelligence with risk assessment and confidence scoring. Optimized for trading bots.",
         "inputSchema": {
             "type": "object",
@@ -2128,19 +2136,19 @@ async def mcp_info():
         "description": "Lightning-paid AI reasoning, structured decisions, and persistent agent memory",
         "mcp_endpoint": "POST /mcp",
         "protocol": "MCP 2025-06-18",
-        "tools": ["reason", "decide", "memory_store", "memory_get"],
+        "tools": ["reason", "decision", "memory_store", "memory_get"],
         "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
         "preferred_payment": "Bearer Token",
         "pricing": {
             "reason": f"~{REASONING_PRICE_SATS} sats base",
-            "decide": f"~{DECISION_PRICE_SATS} sats base",
+            "decision": f"~{DECISION_PRICE_SATS} sats base",
             "memory_store": "≈2 sats per KB (min 50)",
             "memory_get": "≈1 sat per KB (min 20)"
         },
         "get_started": "POST /register for 5 complementary calls + Bearer token",
         "server_card": "/.well-known/mcp/server-card.json",
         "guide": "/guide",
-        "new_in_0_6_0": "Persistent agent memory service"
+        "new_in_1_1_0": ["agent marketplace", "orchestration", "analytics", "NWC support"]
     } 
  
 # =========================
@@ -2208,7 +2216,7 @@ async def mcp_handler(request: Request):
             }
 
         # Calculate price
-        if tool_name in ("reason", "decide"):
+        if tool_name in ("reason", "decision"):
             if tool_name == "reason":
                 question = args.get("question", "")
                 if not question:
@@ -2252,7 +2260,7 @@ async def mcp_handler(request: Request):
                 result = premium_reasoning(_apply_style(args.get("question", ""), args.get("style", "normal")))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": result}]}}
 
-            elif tool_name == "decide":
+            elif tool_name == "decision":
                 result = structured_decision(args.get("goal", ""), args.get("context", ""), args.get("question", ""))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
 
@@ -2287,7 +2295,7 @@ async def mcp_handler(request: Request):
             if tool_name == "reason":
                 result = premium_reasoning(_apply_style(args.get("question", ""), args.get("style", "normal")))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": result}]}}
-            elif tool_name == "decide":
+            elif tool_name == "decision":
                 result = structured_decision(args.get("goal", ""), args.get("context", ""), args.get("question", ""))
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
             elif tool_name == "memory_store":
@@ -2388,7 +2396,7 @@ SERVER_CARD = {
             }
         },
         {
-            "name": "decide",
+            "name": "decision",
             "description": "Structured decision intelligence with risk assessment and confidence scoring. Optimized for trading bots.",
             "inputSchema": {
                 "type": "object",
@@ -2444,8 +2452,8 @@ SERVER_CARD = {
     },
     "pricing": {
         "currency": "sats",
-        "reason_base": "~100 sats",
-        "decide_base": "~180 sats",
+        "reason_base": "~500 sats",
+        "decision_base": "~1000 sats",
         "memory_store": "≈2 sats per KB (min 50)",
         "memory_get": "≈1 sat per KB (min 20)",
         "note": "New accounts receive 5 complementary calls. Persistent memory added in v1.1.0."
@@ -2470,7 +2478,7 @@ SERVER_CARD = {
         "All payments processed via Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents",
         "Lightning wallet required for initial registration and occasional top-ups",
-        "New in v1.1.0: Persistent agent memory service"
+        "New in v1.1.0: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support"
     ]
 }
 
@@ -2671,7 +2679,7 @@ async def a2a_endpoint(request: Request):
 
     # Choose tool intelligently
     goal_lower = str(task.get("goal", "") or task.get("description", "")).lower()
-    tool_name = "decide" if any(k in goal_lower for k in ["decide", "choose", "should", "trade", "arbitrage", "rebalance", "risk"]) else "reason"
+    tool_name = "decision" if any(k in goal_lower for k in ["decide", "choose", "should", "trade", "arbitrage", "rebalance", "risk"]) else "reason"
 
     mcp_payload = {
         "jsonrpc": "2.0",
@@ -2829,7 +2837,7 @@ def payment_guide():
             "5. Try persistent memory at /memory/store"
         ],
 
-        "new_in_0_6_0": "Persistent agent memory service for long-term context and state"
+        "new_in_1_1_0": "Persistent agent memory service for long-term context and state"
     }
 
 @app.get("/prices", tags=["meta"])
@@ -2847,7 +2855,7 @@ def get_all_prices():
                 "sats_agent": int(REASONING_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
                 "description": "Premium strategic reasoning"
             },
-            "decide": {
+            "decision": {
                 "sats_base": DECISION_PRICE_SATS,
                 "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
                 "description": "Structured decision intelligence with risk assessment"
@@ -3059,7 +3067,7 @@ def health():
                 "agent_multiplier": AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0,
                 "supports_style": True
             },
-            "decide": {
+            "decision": {
                 "path": "/decision",
                 "method": "POST",
                 "description": "Structured decision intelligence for agents and trading bots",
@@ -3305,7 +3313,7 @@ def tool_definition():
         },
         "endpoints": {
             "reason": {"path": "/reason", "base_price_sats": REASONING_PRICE_SATS},
-            "decide": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS},
+            "decision": {"path": "/decision", "base_price_sats": DECISION_PRICE_SATS},
             "memory_store": {"path": "/memory/store", "base_price_sats": "≈2 sats/KB (min 50)"},
             "memory_get": {"path": "/memory/get", "base_price_sats": "≈1 sat/KB (min 20)"}
         },
@@ -3364,7 +3372,7 @@ def tool_definition_mcp():
                 }
             },
             {
-                "name": "decide",
+                "name": "decision",
                 "description": "Get structured decision intelligence with confidence and risk assessment. Ideal for trading bots. Paid via Lightning.",
                 "inputSchema": {
                     "type": "object",
@@ -3445,7 +3453,7 @@ def get_price(endpoint: str):
 
     elif endpoint in ["decision", "decide"]:
         return {
-            "endpoint": "decide",
+            "endpoint": "decision",
             "sats_base": DECISION_PRICE_SATS,
             "sats_agent": int(DECISION_PRICE_SATS * (AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0)),
             "currency_options": ["sats"],
@@ -3458,13 +3466,13 @@ def get_price(endpoint: str):
     elif endpoint == "mcp":
         return {
             "endpoint": "mcp",
-            "price_note": "Same as underlying tools (reason or decide) + memory tools",
+            "price_note": "Same as underlying tools (reason or decision) + memory tools",
             "sats_reason": REASONING_PRICE_SATS,
-            "sats_decide": DECISION_PRICE_SATS,
+            "sats_decision": DECISION_PRICE_SATS,
             "sats_memory_store": "≈2 sats per KB (min 50)",
             "sats_memory_get": "≈1 sat per KB (min 20)",
             "currency_options": ["sats"],
-            "description": "MCP endpoint supporting callTool for reason, decide, and memory tools",
+            "description": "MCP endpoint supporting callTool for reason, decision, and memory tools",
             "payment_methods": ["Bearer (recommended)", "L402 Lightning"],
             "note": "All payments are via Lightning Network"
         }
@@ -3678,7 +3686,7 @@ async def discover_page():
             <p><strong>RSS:</strong> <a href="/rss" target="_blank">/rss</a></p>
         </div>
 
-        <p><small>Last updated: 2026-04-10 | Powered by Bitcoin Lightning</small></p>
+        <p><small>Last updated: 2026-04-25 | Powered by Bitcoin Lightning</small></p>
 
         <script>
             function copyToClipboard(text) {
