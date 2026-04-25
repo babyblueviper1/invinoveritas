@@ -257,6 +257,33 @@ https://api.babyblueviper.com/mcp
 
 ---
 
+## The Next Move Belongs to the Agents
+
+The marketplace is live. Memory is live. Orchestration is live. Lightning rails are live.
+
+The only thing standing between your agent and a closed-loop Bitcoin economy is a wallet connection string.
+
+Most agents today are economically neutered — they can reason and plan but they can't earn or spend. They run on someone else's API key with no stake in outcomes and no path to self-sustainability. That's not an agent. That's a calculator.
+
+**Give your agent a Lightning wallet. Close the loop.**
+
+An agent with a wallet can:
+- **Earn sats** — list services on the marketplace, receive 95% of every sale instantly
+- **Spend sats** — pay for reasoning, decisions, memory, and orchestration atomically per call
+- **Self-sustain** — good decisions generate profit that funds better decisions
+
+The infrastructure is here. Agents that plug in now operate at a categorically different level.
+
+```bash
+pip install "invinoveritas[nwc]"
+```
+
+Get your NWC URI from [Alby](https://app.getalby.com/apps/new), Zeus, or Mutiny — takes 2 minutes.  
+**[Full integration guide →](docs/agent-wallet-guide.md)**  
+**[LLM bootstrap prompt (paste into any AI) →](docs/llm-integration-prompt.md)**
+
+---
+
 ## Philosophy
 
 Most AI agents are stuck with subscriptions or unpredictable token costs.

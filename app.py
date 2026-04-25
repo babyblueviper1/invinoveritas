@@ -2478,7 +2478,9 @@ SERVER_CARD = {
         "All payments processed via Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents",
         "Lightning wallet required for initial registration and occasional top-ups",
-        "New in v1.1.1: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support"
+        "New in v1.1.1: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
+        "Agent Wallet Guide: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
+        "LLM Integration Prompt: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
     ]
 }
 
@@ -2826,7 +2828,9 @@ def payment_guide():
             "prices": "/prices",
             "mcp": "/mcp",
             "memory": "/memory",
-            "sdk": "https://pypi.org/project/invinoveritas/"
+            "sdk": "https://pypi.org/project/invinoveritas/",
+            "agent_wallet_guide": "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
+            "llm_integration_prompt": "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
         },
 
         "next_steps": [
@@ -2834,7 +2838,8 @@ def payment_guide():
             "2. Use your Bearer token for all calls",
             "3. Top up anytime via /topup (Lightning)",
             "4. Monitor usage at /balance",
-            "5. Try persistent memory at /memory/store"
+            "5. Try persistent memory at /memory/store",
+            "6. Give your agent a wallet: see agent_wallet_guide link above"
         ],
 
         "new_in_1_1_0": "Persistent agent memory service for long-term context and state"
