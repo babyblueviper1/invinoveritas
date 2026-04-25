@@ -5,7 +5,7 @@
 [![npm](https://img.shields.io/npm/v/invinoveritas-openclaw-bundle?label=openclaw%20bundle&color=red)](https://www.npmjs.com/package/invinoveritas-openclaw-bundle)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-v1.1.1-orange)](https://registry.modelcontextprotocol.io/servers/io.github.babyblueviper1%2Finvinoveritas)
 [![Smithery](https://smithery.ai/badge/@babyblueviper1/invinoveritas)](https://smithery.ai/server/@babyblueviper1/invinoveritas)
-[![Glama](https://glama.ai/mcp/servers/@babyblueviper1/invinoveritas/badge)](https://glama.ai/mcp/servers/babyblueviper1/invinoveritas)
+[![invinoveritas MCP server](https://glama.ai/mcp/servers/babyblueviper1/invinoveritas/badges/card.svg)](https://glama.ai/mcp/servers/babyblueviper1/invinoveritas)
 
 **Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace.**
 
