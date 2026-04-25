@@ -25,7 +25,7 @@ except ImportError:
     _HTTPX_AVAILABLE = False
 
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 BASE_URL = "https://api.babyblueviper.com"
 
 
