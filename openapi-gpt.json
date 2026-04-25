@@ -1,0 +1,565 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "invinoveritas",
+    "version": "1.1.1",
+    "description": "Lightning-native AI reasoning, structured decisions, persistent agent memory, multi-agent orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning. All endpoints require a Bearer token (INVINO_API_KEY). Get one at https://api.babyblueviper.com/register"
+  },
+  "servers": [
+    {
+      "url": "https://api.babyblueviper.com"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/reason": {
+      "post": {
+        "operationId": "reason",
+        "summary": "Deep strategic reasoning",
+        "description": "Ask any strategic or analytical question. Returns a thorough, well-reasoned answer. Best for open-ended analysis, market commentary, risk assessment, and research. Cost: ~500 sats.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["question"],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "description": "The question or topic to reason about"
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": ["short", "concise", "normal", "detailed", "comprehensive"],
+                    "default": "normal",
+                    "description": "Response verbosity"
+                  },
+                  "want_confidence": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Include a confidence score and uncertainty flags"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reasoning result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "answer": {"type": "string"},
+                    "confidence": {"type": "number"},
+                    "sats_charged": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/decision": {
+      "post": {
+        "operationId": "decision",
+        "summary": "Structured decision intelligence",
+        "description": "Get a structured decision with a clear recommendation, confidence score (0-1), reasoning, and risk level (low/medium/high). Best for binary or multi-option choices with stakes. Cost: ~1000 sats.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["goal", "question"],
+                "properties": {
+                  "goal": {
+                    "type": "string",
+                    "description": "The overall objective (e.g. 'Maximize BTC returns with controlled drawdown')"
+                  },
+                  "question": {
+                    "type": "string",
+                    "description": "The specific decision question (e.g. 'Should I increase BTC exposure now?')"
+                  },
+                  "context": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Background context: market conditions, portfolio state, constraints, etc."
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": ["short", "concise", "normal", "detailed"],
+                    "default": "normal"
+                  },
+                  "policy": {
+                    "type": "object",
+                    "description": "Governance policy. Supported keys: risk_limit (low/medium/high), budget_sats (integer).",
+                    "properties": {
+                      "risk_limit": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high"]
+                      },
+                      "budget_sats": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {"type": "string"},
+                    "confidence": {"type": "number", "description": "0.0 to 1.0"},
+                    "reasoning": {"type": "string"},
+                    "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
+                    "sats_charged": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orchestrate": {
+      "post": {
+        "operationId": "orchestrate",
+        "summary": "Multi-agent task orchestration",
+        "description": "Plan a chain of dependent AI tasks. Returns execution order, risk scores per task, and estimated total cost. Use before executing a multi-step agent workflow. Cost: ~2000 sats.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["tasks"],
+                "properties": {
+                  "tasks": {
+                    "type": "array",
+                    "description": "Array of task objects with id, type (reason/decision), input, and depends_on fields",
+                    "items": {
+                      "type": "object",
+                      "required": ["id", "type", "input", "depends_on"],
+                      "properties": {
+                        "id": {"type": "string"},
+                        "type": {"type": "string", "enum": ["reason", "decision"]},
+                        "input": {"type": "object"},
+                        "depends_on": {"type": "array", "items": {"type": "string"}}
+                      }
+                    }
+                  },
+                  "context": {"type": "string", "default": ""},
+                  "policy": {
+                    "type": "object",
+                    "properties": {
+                      "risk_limit": {"type": "string", "enum": ["low", "medium", "high"]},
+                      "budget_sats": {"type": "integer"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Orchestration plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execution_order": {"type": "array", "items": {"type": "string"}},
+                    "risk_scores": {"type": "object"},
+                    "estimated_total_sats": {"type": "integer"},
+                    "sats_charged": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/store": {
+      "post": {
+        "operationId": "memoryStore",
+        "summary": "Store agent memory",
+        "description": "Persist a key-value entry for an agent. Memory survives across sessions. Cost: ~2 sats/KB (minimum 50 sats).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["agent_id", "key", "value"],
+                "properties": {
+                  "agent_id": {"type": "string", "description": "Unique identifier for this agent"},
+                  "key": {"type": "string", "description": "Memory key (e.g. 'last_trade', 'portfolio_state')"},
+                  "value": {"type": "string", "description": "Value to store (JSON string recommended for structured data)"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Memory stored successfully"}
+        }
+      }
+    },
+    "/memory/get": {
+      "post": {
+        "operationId": "memoryGet",
+        "summary": "Retrieve agent memory",
+        "description": "Retrieve a previously stored memory entry. Cost: ~1 sat/KB (minimum 20 sats).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["agent_id", "key"],
+                "properties": {
+                  "agent_id": {"type": "string"},
+                  "key": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agent_id": {"type": "string"},
+                    "key": {"type": "string"},
+                    "value": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/list": {
+      "post": {
+        "operationId": "memoryList",
+        "summary": "List all memory keys for an agent",
+        "description": "Returns all stored keys for a given agent_id. Free.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["agent_id"],
+                "properties": {
+                  "agent_id": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "List of memory keys"}
+        }
+      }
+    },
+    "/memory/delete": {
+      "post": {
+        "operationId": "memoryDelete",
+        "summary": "Delete a memory entry",
+        "description": "Delete a stored memory entry by agent_id and key. Free.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["agent_id", "key"],
+                "properties": {
+                  "agent_id": {"type": "string"},
+                  "key": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Memory entry deleted"}
+        }
+      }
+    },
+    "/offers/list": {
+      "get": {
+        "operationId": "listOffers",
+        "summary": "Browse the agent marketplace",
+        "description": "List available agent services for sale. Filter by category. Free.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "Filter by category (e.g. 'trading', 'research', 'agent')"
+          }
+        ],
+        "responses": {
+          "200": {"description": "List of marketplace offers"}
+        }
+      }
+    },
+    "/offers/create": {
+      "post": {
+        "operationId": "createOffer",
+        "summary": "List a service on the agent marketplace",
+        "description": "Create a new offer to sell an AI service. You receive 95% of every sale instantly via your Lightning Address. Platform fee: 5%.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["seller_id", "ln_address", "title", "description", "price_sats"],
+                "properties": {
+                  "seller_id": {"type": "string", "description": "Your unique seller identifier"},
+                  "ln_address": {"type": "string", "description": "Your Lightning Address (e.g. you@getalby.com) — payouts go here"},
+                  "title": {"type": "string", "description": "Offer title (max 120 chars)"},
+                  "description": {"type": "string", "description": "What buyers receive (max 2000 chars)"},
+                  "price_sats": {"type": "integer", "description": "Price in sats (minimum 1000)"},
+                  "category": {"type": "string", "default": "agent", "description": "Category: trading, research, agent, etc."}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offer created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "offer_id": {"type": "string"},
+                    "seller_payout_sats": {"type": "integer"},
+                    "seller_percent": {"type": "number"},
+                    "platform_cut_sats": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/offers/buy": {
+      "post": {
+        "operationId": "buyOffer",
+        "summary": "Purchase a marketplace offer",
+        "description": "Buy an agent service. Cost is deducted from your Bearer balance. Seller receives 95% instantly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["offer_id"],
+                "properties": {
+                  "offer_id": {"type": "string", "description": "ID of the offer to purchase"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Purchase confirmed"}
+        }
+      }
+    },
+    "/offers/my": {
+      "get": {
+        "operationId": "myOffers",
+        "summary": "View your marketplace listings and earnings",
+        "description": "Returns all offers you have created, with sale counts and total earnings. Free.",
+        "responses": {
+          "200": {"description": "Your offers and earnings summary"}
+        }
+      }
+    },
+    "/analytics/spend": {
+      "get": {
+        "operationId": "analyticsSpend",
+        "summary": "Spending analytics",
+        "description": "Returns daily spend breakdown and total calls for the last N days. Free.",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "default": 30},
+            "description": "Number of days to look back"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Spend analytics"}
+        }
+      }
+    },
+    "/analytics/roi": {
+      "get": {
+        "operationId": "analyticsRoi",
+        "summary": "ROI — lifetime spend vs marketplace earnings",
+        "description": "Returns total sats spent, marketplace earnings, and net sats. Free.",
+        "responses": {
+          "200": {
+            "description": "ROI summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_spent_sats": {"type": "integer"},
+                    "marketplace_earnings_sats": {"type": "integer"},
+                    "net_sats": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/memory": {
+      "get": {
+        "operationId": "analyticsMemory",
+        "summary": "Memory usage analytics",
+        "description": "Returns total memory stored across all agents. Free.",
+        "responses": {
+          "200": {"description": "Memory usage stats"}
+        }
+      }
+    },
+    "/balance": {
+      "get": {
+        "operationId": "getBalance",
+        "summary": "Check Bearer account balance",
+        "description": "Returns your current balance in sats and remaining complementary calls. Free.",
+        "responses": {
+          "200": {
+            "description": "Account balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "balance_sats": {"type": "integer"},
+                    "free_calls_remaining": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prices": {
+      "get": {
+        "operationId": "getPrices",
+        "summary": "Get current pricing for all endpoints",
+        "description": "Returns current sats price for each endpoint. Free.",
+        "responses": {
+          "200": {"description": "Pricing table"}
+        }
+      }
+    },
+    "/register": {
+      "post": {
+        "operationId": "register",
+        "summary": "Register a new Bearer account",
+        "description": "Create a new account. Returns a Lightning invoice (~1000 sats). Pay it to receive your api_key and 5 complementary calls.",
+        "responses": {
+          "200": {
+            "description": "Registration invoice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invoice": {"type": "string", "description": "BOLT11 Lightning invoice to pay"},
+                    "amount_sats": {"type": "integer"},
+                    "payment_hash": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topup": {
+      "post": {
+        "operationId": "topup",
+        "summary": "Top up Bearer account balance",
+        "description": "Add sats to your account. Returns a Lightning invoice to pay.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sats": {"type": "integer", "description": "Amount to add in sats", "default": 5000}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Top-up invoice"}
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "API health and version",
+        "description": "Returns API status, version, and current pricing. Free.",
+        "responses": {
+          "200": {"description": "Health status"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Your invinoveritas API key (starts with ivv_). Get one at https://api.babyblueviper.com/register"
+      }
+    }
+  }
+}

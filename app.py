@@ -2771,6 +2771,47 @@ def home():
         return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
     return HTMLResponse(content="<h1>invinoveritas API is running ⚡</h1>")
 
+@app.get("/openapi-gpt.json", include_in_schema=False)
+async def openapi_gpt():
+    """Curated OpenAPI 3.0 spec for GPT Actions and other integrations."""
+    spec_path = Path(__file__).parent / "openapi-gpt.json"
+    return JSONResponse(content=json.loads(spec_path.read_text()))
+
+
+@app.get("/privacy", include_in_schema=False)
+async def privacy_policy():
+    """Privacy policy — required for GPT Actions."""
+    return HTMLResponse(content="""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>invinoveritas Privacy Policy</title>
+<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:60px auto;padding:0 24px;line-height:1.6;color:#111}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem}a{color:#f7931a}</style>
+</head>
+<body>
+<h1>invinoveritas Privacy Policy</h1>
+<p><strong>Last updated:</strong> April 2026</p>
+
+<h2>What we collect</h2>
+<p>When you register or make API calls, we store: your Bearer token (hashed), call timestamps, sats charged per call, and any data you explicitly send to memory endpoints (<code>/memory/store</code>). We do not collect names, emails, or personal identifiers unless you voluntarily include them in API payloads.</p>
+
+<h2>Lightning payments</h2>
+<p>Payments are processed via the Bitcoin Lightning Network. We store payment hashes to prevent replay attacks. We do not store full payment details beyond what is necessary for billing.</p>
+
+<h2>Agent memory</h2>
+<p>Data stored via <code>/memory/store</code> is retained until you delete it via <code>/memory/delete</code> or your account is inactive for 2+ years. You own your memory data and can delete it at any time at no cost.</p>
+
+<h2>Marketplace</h2>
+<p>Offer listings are public. Buyer and seller Bearer tokens are never exposed. Lightning Address payouts are processed directly — we do not store or log payment routing details beyond the transaction hash.</p>
+
+<h2>Data sharing</h2>
+<p>We do not sell or share your data with third parties. API call payloads may be processed by third-party AI providers (OpenAI) solely to generate responses. No data is retained by those providers beyond the scope of a single request.</p>
+
+<h2>Contact</h2>
+<p>Questions: <a href="mailto:babyblueviperbusiness@gmail.com">babyblueviperbusiness@gmail.com</a><br>
+GitHub: <a href="https://github.com/babyblueviper1/invinoveritas">github.com/babyblueviper1/invinoveritas</a></p>
+</body>
+</html>""")
+
+
 @app.get("/guide", tags=["meta"])
 def payment_guide():
     """Payment guide — Lightning-only (Bearer + L402)."""
