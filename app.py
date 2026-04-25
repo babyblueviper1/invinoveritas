@@ -4051,16 +4051,17 @@ def init_marketplace_db():
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS marketplace_offers (
-            offer_id    TEXT PRIMARY KEY,
-            seller_id   TEXT NOT NULL,
-            ln_address  TEXT NOT NULL,
-            title       TEXT NOT NULL,
-            description TEXT NOT NULL,
-            price_sats  INTEGER NOT NULL,
-            category    TEXT DEFAULT 'agent',
-            active      INTEGER DEFAULT 1,
-            created_at  INTEGER NOT NULL,
-            sold_count  INTEGER DEFAULT 0
+            offer_id     TEXT PRIMARY KEY,
+            seller_id    TEXT NOT NULL,
+            ln_address   TEXT NOT NULL,
+            title        TEXT NOT NULL,
+            description  TEXT NOT NULL,
+            price_sats   INTEGER NOT NULL,
+            category     TEXT DEFAULT 'agent',
+            active       INTEGER DEFAULT 1,
+            created_at   INTEGER NOT NULL,
+            sold_count   INTEGER DEFAULT 0,
+            content_file TEXT DEFAULT NULL
         )
     """)
     c.execute("""
@@ -4093,6 +4094,7 @@ class CreateOfferRequest(BaseModel):
     description: str = Field(..., min_length=10, max_length=2000)
     price_sats: int = Field(..., description="Price in sats (buyer pays this)")
     category: str = Field(default="agent", max_length=50)
+    content_file: Optional[str] = Field(default=None, description="Filename in /content/ to deliver on purchase (Waternova)")
 
 
 class BuyOfferRequest(BaseModel):
@@ -4129,10 +4131,10 @@ async def create_offer(
     c = conn.cursor()
     c.execute("""
         INSERT INTO marketplace_offers
-            (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at, content_file)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (offer_id, req.seller_id, req.ln_address, req.title,
-          req.description, req.price_sats, req.category, now))
+          req.description, req.price_sats, req.category, now, req.content_file))
     conn.commit()
     conn.close()
 
@@ -4646,3 +4648,80 @@ async def startup_v110():
         logger.info("✅ v1.1.1 Marketplace DB initialized")
     except Exception as e:
         logger.error(f"v1.1.1 startup error: {e}")
+
+
+# =============================================================================
+# Waternova — Novel content delivery
+# =============================================================================
+
+CONTENT_DIR = Path("/root/invinoveritas/content")
+
+FREE_FILES = {
+    "00-Prologue.docx",
+    "01-Chapter One.docx",
+    "02-Opening Vibes or a Prelude to a Party.docx",
+    "03-Chapter Two.docx",
+    "04-Mythmaking Monday.docx",
+    "05-Chapter Three.docx",
+    "06-Warehouse Life Episode IV_ Girls.docx",
+    "07-Intermission I.docx",
+}
+
+
+@app.get("/content/free/{filename}", tags=["waternova"], include_in_schema=False)
+async def get_free_content(filename: str):
+    """Serve free Waternova chapters — no auth required."""
+    if filename not in FREE_FILES:
+        raise HTTPException(404, "Not found")
+    path = CONTENT_DIR / filename
+    if not path.exists():
+        raise HTTPException(404, "File not found")
+    return FileResponse(
+        path=str(path),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=filename,
+    )
+
+
+@app.get("/content/{offer_id}", tags=["waternova"], include_in_schema=False)
+async def get_paid_content(offer_id: str, authorization: Optional[str] = Header(None)):
+    """Serve paid Waternova content after verifying Lightning purchase."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ", 1)[1]
+
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    c = conn.cursor()
+
+    # Verify purchase
+    c.execute(
+        "SELECT 1 FROM marketplace_purchases WHERE offer_id=? AND buyer_api_key=?",
+        (offer_id, api_key),
+    )
+    purchased = c.fetchone()
+
+    # Get content_file for this offer
+    c.execute("SELECT content_file, title FROM marketplace_offers WHERE offer_id=?", (offer_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        raise HTTPException(404, "Offer not found")
+
+    content_file, title = row
+
+    if not purchased:
+        raise HTTPException(403, f"Purchase required. Buy this offer at /offers/buy with offer_id={offer_id}")
+
+    if not content_file:
+        raise HTTPException(404, "No content file linked to this offer")
+
+    path = CONTENT_DIR / content_file
+    if not path.exists():
+        raise HTTPException(404, "Content file not found on server")
+
+    return FileResponse(
+        path=str(path),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=content_file,
+    )
