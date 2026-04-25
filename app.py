@@ -1006,6 +1006,8 @@ def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["memory_service", "https://api.babyblueviper.com/memory"],
         ["memory_pricing", "store:≈2sats/KB min50 | retrieve:≈1sat/KB min20"],
         ["memory_limits", "max 200KB per entry"],
+        ["agent_wallet_guide", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
+        ["llm_integration_prompt", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
         
         ["use_case", "long-term-agent-context"],
         ["use_case", "trading-bot-memory"],
@@ -1050,7 +1052,9 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["real_time", "rss:https://api.babyblueviper.com/rss"],
         
         ["discover", "https://api.babyblueviper.com/discover"],
-        
+        ["agent_wallet_guide", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
+        ["llm_integration_prompt", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
+
         # New in v1.1.1 — Persistent Agent Memory
         ["feature", "persistent-memory"],
         ["memory_service", "https://api.babyblueviper.com/memory"],
@@ -1102,6 +1106,12 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "   • Bearer Token — best for agents & trading bots\n"
         "   • L402 — classic pay-per-call\n\n"
 
+        "→ Give your agent a real Lightning wallet (2 min setup):\n"
+        "   https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md\n\n"
+
+        "→ Paste this into Claude / GPT / Cursor to integrate in one shot:\n"
+        "   https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md\n\n"
+
         "→ Real-time updates:\n"
         "   • SSE: https://api.babyblueviper.com/events\n"
         "   • WebSocket: wss://api.babyblueviper.com/ws\n\n"
@@ -1111,25 +1121,27 @@ def build_human_event(private_key: PrivateKey) -> Event:
 
         "Pay only when decisions matter. Pure Lightning. No subscriptions."
     )
-    
+
     tags = [
-        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"], ["t", "memory"],["t", "podcast"],
-        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "bearer"],
-        
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "sdk"], ["t", "mcp"], ["t", "memory"], ["t", "podcast"],
+        ["t", "trading"], ["t", "arbitrage"], ["t", "financial"], ["t", "bearer"], ["t", "nwc"],
+
         ["r", "https://api.babyblueviper.com/mcp"],
         ["r", "https://api.babyblueviper.com/discover"],
         ["r", "https://api.babyblueviper.com/memory"],
         ["r", "https://api.babyblueviper.com/register"],
         ["r", "https://babyblueviper.com"],
+        ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
+        ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
         ["version", "1.1.1"],
         ["type", "sdk_announcement"],
-        
+
         ["payment", "Bearer,L402"],
         ["payment_preferred", "Bearer"],
         ["currency", "sats"],
-        
+
         ["wallet_options", "Bearer,NWC,LND"],
-        ["recommended_setup", "Bearer token after registration"]
+        ["recommended_setup", "NWC via Alby/Zeus/Mutiny — no node needed"]
     ]
     
     event = Event(
