@@ -1,5 +1,5 @@
 {
-  "name": "@invinoveritas/openclaw-bundle",
+  "name": "invinoveritas-openclaw-bundle",
   "version": "1.1.1",
   "description": "OpenClaw bundle for invinoveritas — Lightning-native AI reasoning, decisions, memory, and agent marketplace",
   "keywords": ["openclaw", "openclaw-plugin", "clawhub", "bitcoin", "lightning", "ai", "agents", "mcp", "reasoning", "marketplace"],

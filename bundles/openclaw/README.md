@@ -6,7 +6,7 @@ Pay-per-use via Bitcoin Lightning. No subscriptions. No KYC.
 ## Install
 
 ```bash
-openclaw plugins install @invinoveritas/openclaw-bundle
+openclaw plugins install invinoveritas-openclaw-bundle
 ```
 
 Or install directly from GitHub:
