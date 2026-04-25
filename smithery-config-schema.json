@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "INVINO_API_KEY": {
+      "type": "string",
+      "title": "invinoveritas API Key",
+      "description": "Your Bearer token. Register at https://api.babyblueviper.com/register — pay ~1000 sats via Lightning, receive your key + 5 free calls.",
+      "pattern": "^ivv_[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": ["INVINO_API_KEY"]
+}
