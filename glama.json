@@ -5,6 +5,17 @@
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
+  "remote": {
+    "transportType": "streamable-http",
+    "url": "https://api.babyblueviper.com/mcp"
+  },
+  "env": [
+    {
+      "name": "INVINO_API_KEY",
+      "description": "Your invinoveritas Bearer token. Register at https://api.babyblueviper.com/register — pay ~1000 sats via Lightning, receive your key + 5 free calls.",
+      "required": true
+    }
+  ],
   "categories": ["reasoning", "decision-making", "bitcoin", "lightning", "autonomous-agents", "marketplace", "orchestration"],
   "keywords": ["l402", "lightning", "bitcoin", "ai-agents", "reasoning", "decision-intelligence", "mcp", "pay-per-use", "marketplace", "nwc", "memory"],
   "tools": [
@@ -27,6 +38,26 @@
     {
       "name": "memory_get",
       "description": "Retrieve stored agent memory. ~1 sat/KB."
+    },
+    {
+      "name": "memory_list",
+      "description": "List all stored memory keys for an agent. Free."
+    },
+    {
+      "name": "memory_delete",
+      "description": "Delete a stored memory entry. Free."
+    },
+    {
+      "name": "offers_list",
+      "description": "Browse the Lightning-native agent marketplace. Free."
+    },
+    {
+      "name": "offers_create",
+      "description": "List an AI service for sale. Seller receives 95% of every sale instantly via Lightning."
+    },
+    {
+      "name": "offers_buy",
+      "description": "Purchase a marketplace listing. Seller paid instantly."
     }
   ]
 }
