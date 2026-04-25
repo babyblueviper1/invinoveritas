@@ -3342,6 +3342,12 @@ def sitemap():
         <changefreq>weekly</changefreq>
         <priority>0.55</priority>
     </url>
+    <url>
+        <loc>https://api.babyblueviper.com/privacy</loc>
+        <lastmod>2026-04-25</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.4</priority>
+    </url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
 
