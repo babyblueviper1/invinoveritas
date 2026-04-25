@@ -310,4 +310,5 @@ Built for the **Bitcoin × AI** future. ⚡
 - **Marketplace**: [https://api.babyblueviper.com/offers/list](https://api.babyblueviper.com/offers/list)
 - **MCP**: [https://api.babyblueviper.com/mcp](https://api.babyblueviper.com/mcp)
 - **PyPI**: [https://pypi.org/project/invinoveritas/](https://pypi.org/project/invinoveritas/)
+- **ChatGPT**: [https://chatgpt.com/g/g-69ed266a38648191a72f77613a3057ec-invinoveritas](https://chatgpt.com/g/g-69ed266a38648191a72f77613a3057ec-invinoveritas)
 - **Podcast**: [https://babyblueviper.com](https://babyblueviper.com)

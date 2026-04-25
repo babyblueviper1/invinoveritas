@@ -2883,7 +2883,8 @@ def payment_guide():
             "memory": "/memory",
             "sdk": "https://pypi.org/project/invinoveritas/",
             "agent_wallet_guide": "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
-            "llm_integration_prompt": "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
+            "llm_integration_prompt": "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md",
+            "chatgpt": "https://chatgpt.com/g/g-69ed266a38648191a72f77613a3057ec-invinoveritas"
         },
 
         "next_steps": [
