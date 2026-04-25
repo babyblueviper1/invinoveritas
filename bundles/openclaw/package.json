@@ -1,0 +1,22 @@
+{
+  "name": "@invinoveritas/openclaw-bundle",
+  "version": "1.1.1",
+  "description": "OpenClaw bundle for invinoveritas — Lightning-native AI reasoning, decisions, memory, and agent marketplace",
+  "keywords": ["openclaw", "openclaw-plugin", "clawhub", "bitcoin", "lightning", "ai", "agents", "mcp", "reasoning", "marketplace"],
+  "author": "invinoveritas <babyblueviperbusiness@gmail.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://api.babyblueviper.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/babyblueviper1/invinoveritas.git",
+    "directory": "bundles/openclaw"
+  },
+  "bugs": {
+    "url": "https://github.com/babyblueviper1/invinoveritas/issues"
+  },
+  "files": [
+    ".claude-plugin/",
+    ".mcp.json",
+    "README.md"
+  ]
+}

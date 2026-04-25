@@ -1,0 +1,13 @@
+{
+  "name": "invinoveritas",
+  "version": "1.1.1",
+  "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning.",
+  "author": "Federico (@babyblueviper1)",
+  "homepage": "https://api.babyblueviper.com",
+  "repository": "https://github.com/babyblueviper1/invinoveritas",
+  "keywords": ["bitcoin", "lightning", "ai", "agents", "mcp", "reasoning", "marketplace", "memory", "orchestration"],
+  "license": "Apache-2.0",
+  "engines": {
+    "openclaw": ">=1.0.0"
+  }
+}
