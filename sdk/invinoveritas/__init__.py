@@ -1,5 +1,5 @@
 """
-invinoveritas SDK v1.1.0
+invinoveritas SDK v1.1.1
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Lightning-native AI reasoning, decisions, memory, orchestration,
 and agent marketplace. Pay-per-use over Bitcoin Lightning.

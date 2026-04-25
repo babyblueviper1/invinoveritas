@@ -614,7 +614,7 @@ async def health():
         "service": "invinoveritas Lightning Bridge",
         "lnd_connected": lnd_ready(),
         "supported_payments": ["Lightning (L402)", "Bearer Token (Credits)"],
-        "version": "1.1.0",
+        "version": "1.1.1",
         "timestamp": int(time.time())
     }
 

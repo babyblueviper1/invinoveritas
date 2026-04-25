@@ -1,4 +1,4 @@
-# ⚡ invinoveritas v1.1.0
+# ⚡ invinoveritas v1.1.1
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/invinoveritas)](https://pypi.org/project/invinoveritas/)
@@ -14,7 +14,7 @@ No subscriptions. No KYC. No stablecoins. Pure Lightning.
 
 ---
 
-## What's New in v1.1.0
+## What's New in v1.1.1
 
 | Feature | Description |
 |---|---|

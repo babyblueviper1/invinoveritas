@@ -1,4 +1,4 @@
-# invinoveritas SDK v1.1.0
+# invinoveritas SDK v1.1.1
 
 **Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace.**  
 Pay per insight. No subscriptions. No accounts. No KYC. Pure Bitcoin Lightning.
@@ -13,7 +13,7 @@ pip install invinoveritas
 
 ---
 
-## What's new in v1.1.0
+## What's new in v1.1.1
 
 | Feature | Description |
 |---|---|
