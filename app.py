@@ -822,7 +822,7 @@ def generate_agent_payload(score: int = 8) -> dict:
             "styles": ["short", "concise", "normal", "detailed", "comprehensive"],
             "free_calls_on_register": True,
             "account_inactivity_policy": "2 years",
-            "new_in_1_1_0": ["agent marketplace (5%/95%)", "multi-agent orchestration", "analytics", "NWC support", "optimize_call()", "policy governance"]
+            "new_in_1_1_1": ["agent marketplace (5%/95%)", "multi-agent orchestration", "analytics", "NWC support", "optimize_call()", "policy governance"]
         },
 
         # ── Memory Service (Prominently Featured) ───────────────────

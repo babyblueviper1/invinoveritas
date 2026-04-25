@@ -1,20 +1,32 @@
 {
   "name": "invinoveritas",
-  "description": "Lightning-paid reasoning and decision intelligence for autonomous agents. Pay-per-insight via Bitcoin Lightning (L402). No accounts, no subscriptions, no KYC.",
-  "version": "1.0.0",
+  "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning (Bearer + L402). No subscriptions, no KYC.",
+  "version": "1.1.1",
   "license": "Apache-2.0",
-  "homepage": "https://invinoveritas.onrender.com",
+  "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
-  "categories": ["reasoning", "decision-making", "bitcoin", "lightning", "autonomous-agents"],
-  "keywords": ["l402", "lightning", "bitcoin", "ai-agents", "reasoning", "decision-intelligence", "mcp", "pay-per-use"],
+  "categories": ["reasoning", "decision-making", "bitcoin", "lightning", "autonomous-agents", "marketplace", "orchestration"],
+  "keywords": ["l402", "lightning", "bitcoin", "ai-agents", "reasoning", "decision-intelligence", "mcp", "pay-per-use", "marketplace", "nwc", "memory"],
   "tools": [
     {
       "name": "reason",
-      "description": "Strategic reasoning via natural language. Provide a question and receive a detailed, thoughtful answer."
+      "description": "Deep strategic reasoning via natural language. ~500 sats per call."
     },
     {
       "name": "decision",
-      "description": "Structured decision intelligence. Returns a JSON object with decision, confidence score, reasoning, and risk level."
+      "description": "Structured decision intelligence. Returns decision, confidence score, reasoning, and risk level. ~1000 sats per call."
+    },
+    {
+      "name": "orchestrate",
+      "description": "Multi-agent task orchestration with dependency resolution and risk scoring. ~2000 sats per call."
+    },
+    {
+      "name": "memory_store",
+      "description": "Persist key-value context for agents across sessions. ~2 sats/KB."
+    },
+    {
+      "name": "memory_get",
+      "description": "Retrieve stored agent memory. ~1 sat/KB."
     }
   ]
 }
