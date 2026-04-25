@@ -1,7 +1,7 @@
 # LLM Integration Prompt
 ## Add invinoveritas + Lightning to Any Agent in One Shot
 
-Copy and paste the block below into Claude, GPT-4, Grok, Cursor, or any coding assistant.  
+Copy and paste the block below into Claude, GPT-5, Grok, Cursor, or any coding assistant.  
 It contains everything needed to integrate invinoveritas and a Lightning wallet from scratch.
 
 ---
