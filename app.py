@@ -2536,8 +2536,8 @@ AGENT_CARD = {
     },
     "marketplace": {
         "enabled": True,
-        "platformCutPercent": 10,
-        "sellerPercent": 90,
+        "platformCutPercent": 5,
+        "sellerPercent": 95,
         "currency": "sats",
         "settlement": "instant Lightning",
         "note": "Invinoveritas takes 5%. Seller receives 95% instantly on every sale."
@@ -3182,11 +3182,8 @@ async def memory_info():
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     """robots.txt to guide web crawlers"""
-    return """User-agent: *
-Allow: /
-
-Sitemap: https://api.babyblueviper.com/sitemap.xml
-"""
+    content = "User-agent: *\nAllow: /\n\nSitemap: https://api.babyblueviper.com/sitemap.xml\n"
+    return Response(content=content, media_type="text/plain")
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
@@ -3196,67 +3193,85 @@ def sitemap():
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://api.babyblueviper.com/</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/discover</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.95</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/mcp</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.9</priority>
     </url>
     <url>
+        <loc>https://api.babyblueviper.com/offers/list</loc>
+        <lastmod>2026-04-25</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://api.babyblueviper.com/orchestrate</loc>
+        <lastmod>2026-04-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.85</priority>
+    </url>
+    <url>
         <loc>https://api.babyblueviper.com/memory</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.85</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/wallet-onboarding</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.85</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/guide</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/prices</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.75</priority>
+    </url>
+    <url>
+        <loc>https://api.babyblueviper.com/analytics/roi</loc>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.75</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/health</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.7</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/rss</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.65</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/tool</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>
     <url>
         <loc>https://api.babyblueviper.com/docs</loc>
-        <lastmod>2026-04-10</lastmod>
+        <lastmod>2026-04-25</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.55</priority>
     </url>
