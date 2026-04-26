@@ -1,0 +1,33 @@
+name: invinoveritas
+description: |
+  Lightning-native AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots.
+
+  Pay-per-use via Bitcoin Lightning (Bearer token or L402). Register once, receive 5 free calls, top up with sats — no subscriptions, no KYC.
+
+  Tools include:
+  - reason: Deep strategic reasoning and market analysis
+  - decision: Structured decisions with confidence score and risk assessment
+  - memory_store / memory_get / memory_list: Persistent cross-session agent memory
+  - list_offers: Browse the Lightning-native agent marketplace
+  - get_balance: Check Bearer account balance
+
+  v1.1.1 — Agent Marketplace, Multi-Agent Orchestration, Analytics, NWC support.
+
+version: "1.1.1"
+
+startCommand:
+  type: http
+  deploymentUrl: https://api.babyblueviper.com/mcp
+  configSchema:
+    type: object
+    required:
+      - INVINO_API_KEY
+    properties:
+      INVINO_API_KEY:
+        type: string
+        title: invinoveritas API Key
+        description: >-
+          Your Bearer token. Register at https://api.babyblueviper.com/register
+          — pay ~1000 sats via Lightning, receive your key + 5 free calls.
+        pattern: "^ivv_[A-Za-z0-9_-]+$"
+        x-order: 0
