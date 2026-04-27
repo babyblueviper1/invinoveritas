@@ -434,6 +434,38 @@ async def credit_internal(req: CreditRequest, request: Request):
     return {"credited_sats": req.amount_sats, "new_balance_sats": new_balance}
 
 
+class CreditByAgentRequest(BaseModel):
+    agent_id:    str = Field(..., min_length=1)
+    amount_sats: int = Field(..., gt=0)
+
+
+@app.post("/credit/by-agent", tags=["accounts"])
+async def credit_by_agent(req: CreditByAgentRequest, request: Request):
+    """Localhost-only: credit sats to the account that owns a given agent_id (username).
+    Used to pay DM recipients their 95% cut."""
+    client_ip = request.client.host
+    if client_ip not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT api_key FROM agent_addresses WHERE username = ?", (req.agent_id,))
+        row = c.fetchone()
+        if not row:
+            return {"credited": False, "reason": "agent_id not found in agent_addresses"}
+        api_key = row[0]
+        c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (api_key,))
+        acc = c.fetchone()
+        if not acc:
+            return {"credited": False, "reason": "account not found"}
+        c.execute(
+            "UPDATE accounts SET balance_sats = balance_sats + ? WHERE api_key = ?",
+            (req.amount_sats, api_key),
+        )
+        new_balance = acc[0] + req.amount_sats
+    logger.info(f"💬 DM payout: +{req.amount_sats} sats → {req.agent_id} ({api_key[:12]}…)")
+    return {"credited": True, "agent_id": req.agent_id, "credited_sats": req.amount_sats, "new_balance_sats": new_balance}
+
+
 # =========================
 # Top-up
 # =========================

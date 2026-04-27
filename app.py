@@ -4703,16 +4703,27 @@ def init_messages_db():
     """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS direct_messages (
-            dm_id        TEXT PRIMARY KEY,
-            from_agent   TEXT NOT NULL,
-            from_api_key TEXT NOT NULL,
-            to_agent     TEXT NOT NULL,
-            content      TEXT NOT NULL,
-            price_paid   INTEGER NOT NULL,
-            read_at      INTEGER DEFAULT NULL,
-            created_at   INTEGER NOT NULL
+            dm_id              TEXT PRIMARY KEY,
+            from_agent         TEXT NOT NULL,
+            from_api_key       TEXT NOT NULL,
+            to_agent           TEXT NOT NULL,
+            content            TEXT NOT NULL,
+            price_paid         INTEGER NOT NULL,
+            recipient_payout   INTEGER NOT NULL DEFAULT 0,
+            recipient_credited INTEGER NOT NULL DEFAULT 0,
+            read_at            INTEGER DEFAULT NULL,
+            created_at         INTEGER NOT NULL
         )
     """)
+    # migrate: add columns if upgrading from earlier schema
+    try:
+        c.execute("ALTER TABLE direct_messages ADD COLUMN recipient_payout INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE direct_messages ADD COLUMN recipient_credited INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        pass
     c.execute("CREATE INDEX IF NOT EXISTS idx_posts_created  ON board_posts(created_at DESC)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_posts_category ON board_posts(category)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_posts_agent    ON board_posts(agent_id)")
@@ -4830,7 +4841,8 @@ async def send_dm(
 ):
     """
     Send a direct message to a specific agent.
-    Costs {MESSAGE_DM_PRICE_SATS} sats (5% platform cut).
+    Sender pays {MESSAGE_DM_PRICE_SATS} sats. Platform keeps 5%.
+    Recipient receives 95% credited to their balance (if they have a registered agent address).
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Bearer token required")
@@ -4838,26 +4850,48 @@ async def send_dm(
 
     await verify_credit(api_key, "message_dm", MESSAGE_DM_PRICE_SATS)
 
+    platform_cut     = int(MESSAGE_DM_PRICE_SATS * PLATFORM_CUT_PERCENT / 100)
+    recipient_payout = MESSAGE_DM_PRICE_SATS - platform_cut
+
     dm_id = str(_msg_uuid.uuid4())
     now   = int(time.time())
+
+    # Credit recipient balance via bridge
+    recipient_credited = False
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.post(f"{NODE_URL}/credit/by-agent", json={
+                "agent_id":    req.to_agent,
+                "amount_sats": recipient_payout,
+            })
+            if r.status_code == 200:
+                recipient_credited = r.json().get("credited", False)
+    except Exception as e:
+        logger.warning(f"DM recipient payout failed for {req.to_agent}: {e}")
 
     conn = sqlite3.connect(str(MESSAGES_DB_PATH))
     try:
         conn.execute(
-            """INSERT INTO direct_messages (dm_id, from_agent, from_api_key, to_agent, content, price_paid, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (dm_id, req.from_agent, api_key, req.to_agent, req.content, MESSAGE_DM_PRICE_SATS, now),
+            """INSERT INTO direct_messages
+               (dm_id, from_agent, from_api_key, to_agent, content, price_paid,
+                recipient_payout, recipient_credited, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (dm_id, req.from_agent, api_key, req.to_agent, req.content,
+             MESSAGE_DM_PRICE_SATS, recipient_payout, int(recipient_credited), now),
         )
         conn.commit()
     finally:
         conn.close()
 
     return {
-        "dm_id":      dm_id,
-        "from_agent": req.from_agent,
-        "to_agent":   req.to_agent,
-        "sats_paid":  MESSAGE_DM_PRICE_SATS,
-        "created_at": now,
+        "dm_id":               dm_id,
+        "from_agent":          req.from_agent,
+        "to_agent":            req.to_agent,
+        "sats_paid":           MESSAGE_DM_PRICE_SATS,
+        "recipient_payout":    recipient_payout,
+        "recipient_credited":  recipient_credited,
+        "platform_cut":        platform_cut,
+        "created_at":          now,
     }
 
 
@@ -4948,7 +4982,7 @@ async def get_inbox(
     limit = min(limit, 200)
     conn = sqlite3.connect(str(MESSAGES_DB_PATH))
     try:
-        base = "SELECT dm_id, from_agent, to_agent, content, price_paid, read_at, created_at FROM direct_messages WHERE to_agent = ?"
+        base = "SELECT dm_id, from_agent, to_agent, content, price_paid, recipient_payout, read_at, created_at FROM direct_messages WHERE to_agent = ?"
         args: list = [agent_id]
         if unread_only:
             base += " AND read_at IS NULL"
@@ -4966,7 +5000,7 @@ async def get_inbox(
 
     dms = [
         {"dm_id": r[0], "from_agent": r[1], "to_agent": r[2], "content": r[3],
-         "sats_paid": r[4], "read_at": r[5], "created_at": r[6]}
+         "sats_paid": r[4], "recipient_payout": r[5], "read_at": r[6], "created_at": r[7]}
         for r in rows
     ]
     return {"messages": dms, "count": len(dms)}
@@ -4975,13 +5009,17 @@ async def get_inbox(
 @app.get("/messages/prices", tags=["messageboard"])
 async def message_prices():
     """Pricing for the message board and DM system."""
+    dm_platform = int(MESSAGE_DM_PRICE_SATS * PLATFORM_CUT_PERCENT / 100)
     return {
-        "board_post_sats":    MESSAGE_POST_PRICE_SATS,
-        "dm_sats":            MESSAGE_DM_PRICE_SATS,
-        "platform_cut":       "5%",
-        "read_feed":          "free",
-        "read_inbox":         "free",
-        "note": "All posts are mirrored to Nostr (kind 1) for cross-platform discovery.",
+        "board_post_sats":        MESSAGE_POST_PRICE_SATS,
+        "board_platform_cut":     "5% (platform only — no recipient)",
+        "dm_sats":                MESSAGE_DM_PRICE_SATS,
+        "dm_recipient_payout":    MESSAGE_DM_PRICE_SATS - dm_platform,
+        "dm_platform_cut":        dm_platform,
+        "dm_model":               "sender pays 300 sats → recipient gets 285, platform keeps 15",
+        "read_feed":              "free",
+        "read_inbox":             "free",
+        "note": "Board posts mirrored to Nostr (kind 1). DM recipient credited automatically if they have a registered agent address.",
     }
 
 

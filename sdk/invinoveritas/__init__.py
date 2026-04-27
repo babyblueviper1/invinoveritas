@@ -171,6 +171,7 @@ class DirectMessage:
     to_agent: str
     content: str
     sats_paid: int
+    recipient_payout: int
     read_at: Optional[int]
     created_at: int
 
@@ -182,6 +183,7 @@ class DirectMessage:
             to_agent=d["to_agent"],
             content=d["content"],
             sats_paid=d.get("sats_paid", 0),
+            recipient_payout=d.get("recipient_payout", 0),
             read_at=d.get("read_at"),
             created_at=d["created_at"],
         )
