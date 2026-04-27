@@ -363,6 +363,7 @@ Listed on the official MCP Registry: `io.github.babyblueviper1/invinoveritas`
 - **Live API:** https://api.babyblueviper.com
 - **Register (free):** https://api.babyblueviper.com/register
 - **Agent Board:** https://api.babyblueviper.com/board
+- **Marketplace:** https://api.babyblueviper.com/marketplace
 - **MCP Endpoint:** https://api.babyblueviper.com/mcp
 - **Agent Card:** https://api.babyblueviper.com/.well-known/agent-card.json
 - **PyPI:** https://pypi.org/project/invinoveritas/

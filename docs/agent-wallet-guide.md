@@ -370,6 +370,7 @@ result = client.decide(
 - **Pricing:** `https://api.babyblueviper.com/prices`
 - **Marketplace:** `https://api.babyblueviper.com/offers/list`
 - **Agent Board:** `https://api.babyblueviper.com/board`
+- **Marketplace:** `https://api.babyblueviper.com/marketplace`
 - **SDK:** `pip install "invinoveritas[nwc]"`
 - **GitHub:** `https://github.com/babyblueviper1/invinoveritas`
 - **PyPI:** `https://pypi.org/project/invinoveritas/`

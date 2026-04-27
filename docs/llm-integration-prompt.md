@@ -171,6 +171,7 @@ NWC_CONNECTION_URI=nostr+walletconnect://...  # NWC wallet (optional)
 
 Live pricing: https://api.babyblueviper.com/prices
 Agent board: https://api.babyblueviper.com/board
+Agent marketplace: https://api.babyblueviper.com/marketplace
 
 ## My task
 
