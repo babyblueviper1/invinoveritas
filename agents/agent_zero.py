@@ -3,10 +3,11 @@
 agent_zero.py — A self-adopting, self-sustaining, self-replicating autonomous agent.
 
 Bootstrap sequence (runs once on first start):
-  1.  Check wallet balance via NWC
+  1.  Check node balance via LND (no external wallet needed)
   2.  Discover invinoveritas via agents.json
-  3.  Register and pay invoice autonomously (NWC)
+  3.  Register and pay invoice via the local LND node
   4.  Confirm payment → receive API key
+  4b. Provision Lightning address: username@api.babyblueviper.com (no sign-up)
   5.  Make a live BTC trading decision using /decision
   6.  List a trading signals service on the marketplace
   7.  Reason about broader income strategies
@@ -19,25 +20,26 @@ Bootstrap sequence (runs once on first start):
 Income loop (runs indefinitely after bootstrap):
   - Every 30 min: make a BTC trading decision, post signal to Nostr
   - Every 6 hrs:  publish a refreshed agent handbook
-  - Agents / humans who want the signal subscribe or pay per signal
+
+Payment: uses the local LND node via the invinoveritas bridge.
+No Alby, no external wallet, no human sign-up required.
 
 Usage:
-  NWC_URI="nostr+walletconnect://..." LN_ADDRESS="you@getalby.com" python agents/agent_zero.py
+  # Run from the invinoveritas directory:
+  python agents/agent_zero.py
 
-  # Resume existing identity:
-  NWC_URI="..." LN_ADDRESS="..." AGENT_NSEC="nsec1..." python agents/agent_zero.py
+  # Resume existing identity (skip re-registration):
+  AGENT_NSEC="nsec1..." INVINO_API_KEY="ivv_..." python agents/agent_zero.py
 
   # Bootstrap only, no loop:
-  BOOTSTRAP_ONLY=1 NWC_URI="..." python agents/agent_zero.py
+  BOOTSTRAP_ONLY=1 python agents/agent_zero.py
 """
 
 import asyncio
 import json
 import os
-import secrets
 import sys
 import time
-import urllib.parse
 
 import httpx
 import websockets
@@ -46,9 +48,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nostr.key import PrivateKey
 from nostr.event import Event
 
-API_BASE   = "https://api.babyblueviper.com"
-GITHUB_URL = "https://github.com/babyblueviper1/invinoveritas/blob/main/agents/agent_zero.py"
-RELAYS     = [
+API_BASE    = "https://api.babyblueviper.com"
+BRIDGE_URL  = os.environ.get("BRIDGE_URL", "http://127.0.0.1:8081")
+GITHUB_URL  = "https://github.com/babyblueviper1/invinoveritas/blob/main/agents/agent_zero.py"
+RELAYS      = [
     "wss://relay.damus.io",
     "wss://nos.lol",
     "wss://relay.primal.net",
@@ -61,72 +64,28 @@ SIGNAL_INTERVAL_SECS   = 30 * 60   # post trading signal every 30 min
 HANDBOOK_INTERVAL_SECS = 6 * 3600  # refresh handbook every 6 hrs
 
 
-# ── NWC client (NIP-47) ───────────────────────────────────────────────────────
+# ── LND payment via bridge ────────────────────────────────────────────────────
 
-class NWCClient:
-    def __init__(self, uri: str):
-        clean  = uri.replace("nostr+walletconnect://", "wc://")
-        parsed = urllib.parse.urlparse(clean)
-        self.wallet_pubkey = parsed.netloc
-        params = dict(urllib.parse.parse_qsl(parsed.query))
-        self.relay      = params["relay"]
-        self.secret     = params["secret"]
-        self.client_key = PrivateKey.from_hex(self.secret)
+async def node_pay_invoice(bolt11: str) -> str:
+    """Pay a bolt11 invoice via the local LND node. Returns preimage hex."""
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(f"{BRIDGE_URL}/pay-invoice", json={"bolt11": bolt11})
+        r.raise_for_status()
+        data = r.json()
+    preimage = data.get("payment_preimage") or data.get("preimage") or ""
+    if not preimage:
+        raise RuntimeError(f"No preimage in bridge response: {data}")
+    return preimage
 
-    async def _request(self, method: str, params: dict = None, timeout: float = 30.0) -> dict:
-        req_content = json.dumps({"method": method, "params": params or {}})
-        encrypted   = self.client_key.encrypt_message(req_content, self.wallet_pubkey)
-        req_event   = Event(
-            public_key=self.client_key.public_key.hex(),
-            content=encrypted,
-            kind=23194,
-            tags=[["p", self.wallet_pubkey]],
-            created_at=int(time.time()),
-        )
-        self.client_key.sign_event(req_event)
-        sub_id = secrets.token_hex(8)
-        async with websockets.connect(self.relay, open_timeout=12) as ws:
-            await ws.send(json.dumps(["REQ", sub_id, {
-                "kinds": [23195],
-                "#p": [self.client_key.public_key.hex()],
-                "since": int(time.time()) - 5,
-            }]))
-            await ws.send(json.dumps(["EVENT", {
-                "id": req_event.id, "pubkey": req_event.public_key,
-                "created_at": req_event.created_at, "kind": req_event.kind,
-                "tags": req_event.tags, "content": req_event.content,
-                "sig": req_event.signature,
-            }]))
-            deadline = time.time() + timeout
-            while time.time() < deadline:
-                try:
-                    raw = await asyncio.wait_for(ws.recv(), timeout=5.0)
-                    msg = json.loads(raw)
-                    if msg[0] != "EVENT" or msg[1] != sub_id:
-                        continue
-                    ev = msg[2]
-                    if ev.get("kind") != 23195:
-                        continue
-                    decrypted = self.client_key.decrypt_message(ev["content"], ev["pubkey"])
-                    resp = json.loads(decrypted)
-                    if resp.get("result_type") == method:
-                        if "error" in resp:
-                            raise RuntimeError(f"NWC {method}: {resp['error'].get('message', resp['error'])}")
-                        return resp.get("result", {})
-                except asyncio.TimeoutError:
-                    continue
-        raise RuntimeError(f"NWC {method} timed out")
 
-    async def get_info(self)    -> dict: return await self._request("get_info")
-    async def get_balance(self) -> int:
-        r = await self._request("get_balance")
-        return r.get("balance", 0)  # millisatoshis
-
-    async def pay_invoice(self, bolt11: str) -> str:
-        r = await self._request("pay_invoice", {"invoice": bolt11}, timeout=60.0)
-        if "preimage" not in r:
-            raise RuntimeError(f"No preimage in NWC response: {r}")
-        return r["preimage"]
+async def node_reachable() -> bool:
+    """Check the local LND bridge is up."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"{BRIDGE_URL}/health")
+            return r.status_code == 200 and r.json().get("lnd_connected", False)
+    except Exception:
+        return False
 
 
 # ── Nostr helpers ─────────────────────────────────────────────────────────────
@@ -302,32 +261,20 @@ async def publish_handbook(headers: dict, agent_key: PrivateKey) -> str:
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-async def bootstrap(nwc: NWCClient, agent_key: PrivateKey,
-                    ln_address: str) -> dict:
+async def bootstrap(agent_key: PrivateKey) -> dict:
     """Full bootstrap sequence. Returns state dict with api_key etc."""
     agent_id = f"agent_zero_{agent_key.public_key.hex()[:8]}"
     print(f"\n{'='*60}")
     print(f"agent_zero bootstrap  |  id={agent_id}")
     print(f"{'='*60}\n")
 
-    # 0. Wallet check
-    print("0. Wallet check...")
-    bal = await nwc.get_balance()
-    sats = bal // 1000
-    print(f"   {sats} sats available")
-    if sats < 1500:
-        print("   ⚠ Low balance — need ~1500 sats")
-
-    ln_address = ln_address or ""
-    if not ln_address:
-        try:
-            info = await nwc.get_info()
-            ln_address = (info.get("lightning_address") or
-                          info.get("lud16") or info.get("email") or "")
-        except Exception:
-            pass
-    if ln_address:
-        print(f"   LN address (wallet): {ln_address}")
+    # 0. Node check
+    print("0. Checking LND node...")
+    if not await node_reachable():
+        print(f"   ✗ Bridge not reachable at {BRIDGE_URL}")
+        sys.exit(1)
+    print("   ✓ LND node connected")
+    ln_address = ""  # will be provisioned in step 4b
 
     # 1. Discover
     print("\n1. Discovering invinoveritas...")
@@ -349,9 +296,9 @@ async def bootstrap(nwc: NWCClient, agent_key: PrivateKey,
         raise RuntimeError(f"Unexpected /register response: {reg_data}")
     print(f"   Invoice: {reg_data.get('amount_sats', '~1000')} sats")
 
-    # 3. Pay
-    print("\n3. Paying via NWC...")
-    preimage = await nwc.pay_invoice(bolt11)
+    # 3. Pay via local LND node
+    print("\n3. Paying via LND node...")
+    preimage = await node_pay_invoice(bolt11)
     print(f"   Paid. Preimage: {preimage[:16]}…")
 
     # 4. Confirm
@@ -540,12 +487,6 @@ async def income_loop(agent_key: PrivateKey, state: dict):
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 async def main():
-    nwc_uri = os.environ.get("NWC_URI") or os.environ.get("NWC_CONNECTION_URI")
-    if not nwc_uri:
-        print("Error: NWC_URI required.\nGet one free: https://app.getalby.com/apps/new")
-        sys.exit(1)
-
-    ln_address     = os.environ.get("LN_ADDRESS", "")
     bootstrap_only = os.environ.get("BOOTSTRAP_ONLY", "")
 
     agent_nsec = os.environ.get("AGENT_NSEC")
@@ -557,31 +498,21 @@ async def main():
         print(f"New agent: {agent_key.public_key.bech32()}")
         print(f"nsec (save this): {agent_key.bech32()}")
 
-    nwc = NWCClient(nwc_uri)
-
-    # Try to resume from memory if we have an existing identity
     state = None
-    if agent_nsec:
-        # Check for existing api_key in memory
-        try:
-            # We need to bootstrap at least once to get the api_key;
-            # if AGENT_NSEC is set we assume bootstrap already happened
-            # and the user will also set INVINO_API_KEY to skip re-registration
-            existing_key = os.environ.get("INVINO_API_KEY")
-            if existing_key:
-                state = {
-                    "api_key":          existing_key,
-                    "agent_id":         f"agent_zero_{agent_key.public_key.hex()[:8]}",
-                    "ln_address":       ln_address,
-                    "signal_offer_id":  os.environ.get("SIGNAL_OFFER_ID"),
-                    "teaching_offer_id": os.environ.get("TEACHING_OFFER_ID"),
-                }
-                print("Resuming with existing API key — skipping bootstrap.\n")
-        except Exception:
-            pass
+    existing_key = os.environ.get("INVINO_API_KEY")
+    if agent_nsec and existing_key:
+        agent_id = f"agent_zero_{agent_key.public_key.hex()[:8]}"
+        state = {
+            "api_key":           existing_key,
+            "agent_id":          agent_id,
+            "ln_address":        f"{agent_id}@api.babyblueviper.com",
+            "signal_offer_id":   os.environ.get("SIGNAL_OFFER_ID"),
+            "teaching_offer_id": os.environ.get("TEACHING_OFFER_ID"),
+        }
+        print("Resuming with existing API key — skipping bootstrap.\n")
 
     if state is None:
-        state = await bootstrap(nwc, agent_key, ln_address)
+        state = await bootstrap(agent_key)
 
     if bootstrap_only:
         print("BOOTSTRAP_ONLY set — exiting after bootstrap.")
