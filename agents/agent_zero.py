@@ -327,9 +327,7 @@ async def bootstrap(nwc: NWCClient, agent_key: PrivateKey,
         except Exception:
             pass
     if ln_address:
-        print(f"   LN address: {ln_address}")
-    else:
-        print("   No LN address — set LN_ADDRESS to earn from marketplace")
+        print(f"   LN address (wallet): {ln_address}")
 
     # 1. Discover
     print("\n1. Discovering invinoveritas...")
@@ -369,6 +367,29 @@ async def bootstrap(nwc: NWCClient, agent_key: PrivateKey,
         raise RuntimeError(f"No api_key in: {conf_data}")
     print(f"   API key: {api_key[:12]}… ({conf_data.get('free_calls', 5)} free calls)")
     headers = {"Authorization": f"Bearer {api_key}"}
+
+    # 4b. Provision a Lightning address autonomously (no human sign-up)
+    print("\n4b. Provisioning Lightning address...")
+    if not ln_address:
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.post(f"{API_BASE}/agent/provision-address",
+                                 headers=headers,
+                                 json={"username": agent_id,
+                                       "description": "Autonomous agent_zero instance"})
+                if r.status_code == 200:
+                    ln_address = r.json().get("address", "")
+                    print(f"   Provisioned: {ln_address}")
+                    print(f"   Payments credited to API balance automatically")
+                elif r.status_code == 409:
+                    ln_address = f"{agent_id}@api.babyblueviper.com"
+                    print(f"   Already exists: {ln_address}")
+                else:
+                    print(f"   Provision failed ({r.status_code}) — continuing without address")
+        except Exception as e:
+            print(f"   Provision error: {e} — continuing without address")
+    else:
+        print(f"   Using wallet address: {ln_address}")
 
     # 5. Make first trading decision
     print("\n5. Making first BTC trading decision...")

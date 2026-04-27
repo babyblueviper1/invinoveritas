@@ -76,11 +76,27 @@ def init_db():
         payment_hash TEXT PRIMARY KEY,
         used_at INTEGER
     )''')
-    
+
+    c.execute('''CREATE TABLE IF NOT EXISTS agent_addresses (
+        username TEXT PRIMARY KEY,
+        api_key  TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        description TEXT
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS pending_lnurl_invoices (
+        payment_hash TEXT PRIMARY KEY,
+        username     TEXT NOT NULL,
+        api_key      TEXT NOT NULL,
+        amount_sats  INTEGER NOT NULL,
+        created_at   INTEGER NOT NULL
+    )''')
+
     # Performance indexes
     c.execute("CREATE INDEX IF NOT EXISTS idx_pending_api ON pending_topups(api_key)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_accounts_last ON accounts(last_used)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_used_hashes ON used_payment_hashes(used_at)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_lnurl_created ON pending_lnurl_invoices(created_at)")
     
     conn.commit()
     conn.close()
@@ -622,10 +638,139 @@ async def health():
 # =========================
 # Startup
 # =========================
+# =============================================================================
+# Agent Lightning Addresses (LNURL-pay backend)
+# =============================================================================
+
+LNURL_MIN_SENDABLE = 1_000      # 1 sat in msats
+LNURL_MAX_SENDABLE = 10_000_000 # 10 000 sats in msats
+PUBLIC_BASE        = os.getenv("PUBLIC_BASE", "https://api.babyblueviper.com")
+LNURL_DOMAIN       = os.getenv("LNURL_DOMAIN", "api.babyblueviper.com")
+
+
+class ProvisionAddressRequest(BaseModel):
+    api_key:     str  = Field(..., min_length=10)
+    username:    str  = Field(..., min_length=3, max_length=40,
+                              pattern=r"^[a-z0-9_-]+$")
+    description: str  = Field(default="")
+
+
+class LnurlInvoiceRequest(BaseModel):
+    username:    str
+    amount_msats: int
+
+
+@app.post("/lnurl/provision", tags=["lnurl"])
+async def lnurl_provision(req: ProvisionAddressRequest):
+    """Register a Lightning address for an agent: username@api.babyblueviper.com"""
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (req.api_key,))
+        if not c.fetchone():
+            raise HTTPException(404, "Invalid API key")
+        # allow re-provisioning the same username by the same key
+        c.execute("SELECT api_key FROM agent_addresses WHERE username = ?", (req.username,))
+        row = c.fetchone()
+        if row and row[0] != req.api_key:
+            raise HTTPException(409, "Username already taken")
+        c.execute("""INSERT OR REPLACE INTO agent_addresses
+                     (username, api_key, created_at, description)
+                     VALUES (?, ?, ?, ?)""",
+                  (req.username, req.api_key, int(time.time()), req.description))
+    logger.info(f"📬 Agent address provisioned: {req.username}@{LNURL_DOMAIN}")
+    return {
+        "address":  f"{req.username}@{LNURL_DOMAIN}",
+        "lnurlp":   f"{PUBLIC_BASE}/.well-known/lnurlp/{req.username}",
+        "username": req.username,
+    }
+
+
+@app.post("/lnurl/invoice", tags=["lnurl"])
+async def lnurl_create_invoice(req: LnurlInvoiceRequest):
+    """Create an invoice for an agent address (called by the LNURL callback)."""
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT api_key FROM agent_addresses WHERE username = ?", (req.username,))
+        row = c.fetchone()
+        if not row:
+            raise HTTPException(404, "Unknown agent address")
+        api_key = row[0]
+
+    if req.amount_msats < LNURL_MIN_SENDABLE or req.amount_msats > LNURL_MAX_SENDABLE:
+        raise HTTPException(400, f"Amount must be {LNURL_MIN_SENDABLE}–{LNURL_MAX_SENDABLE} msats")
+
+    amount_sats = req.amount_msats // 1000
+    memo = f"Pay {req.username}@{LNURL_DOMAIN}"
+
+    # Build description_hash for LNURL compliance
+    metadata = json.dumps([
+        ["text/plain",      f"Pay {req.username} at {LNURL_DOMAIN}"],
+        ["text/identifier", f"{req.username}@{LNURL_DOMAIN}"],
+    ])
+    desc_hash = hashlib.sha256(metadata.encode()).hexdigest()
+
+    data = safe_lncli([
+        "addinvoice",
+        "--amt",              str(amount_sats),
+        "--memo",             memo,
+        "--description_hash", desc_hash,
+    ])
+    if not data:
+        raise HTTPException(500, "Failed to create invoice")
+
+    raw_hash = data.get("r_hash", "")
+    ph_hex   = to_hex_hash(raw_hash)
+
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("""INSERT OR IGNORE INTO pending_lnurl_invoices
+                     (payment_hash, username, api_key, amount_sats, created_at)
+                     VALUES (?, ?, ?, ?, ?)""",
+                  (ph_hex, req.username, api_key, amount_sats, int(time.time())))
+
+    return {"pr": data["payment_request"], "payment_hash": raw_hash}
+
+
+async def poll_lnurl_payments():
+    """Background task: auto-credit settled LNURL invoices."""
+    while True:
+        try:
+            with get_db_conn() as conn:
+                c = conn.cursor()
+                cutoff = int(time.time()) - 86400  # ignore invoices > 24h old
+                c.execute("""SELECT payment_hash, api_key, amount_sats, username
+                             FROM pending_lnurl_invoices
+                             WHERE created_at > ?""", (cutoff,))
+                pending = c.fetchall()
+
+            for ph_hex, api_key, amount_sats, username in pending:
+                try:
+                    data = run_lncli(["lookupinvoice", ph_hex])
+                    if not data.get("settled"):
+                        continue
+                    # Credit the agent's balance
+                    with get_db_conn() as conn:
+                        c = conn.cursor()
+                        c.execute("""UPDATE accounts
+                                     SET balance_sats = balance_sats + ?,
+                                         last_used    = ?
+                                     WHERE api_key = ?""",
+                                  (amount_sats, int(time.time()), api_key))
+                        c.execute("DELETE FROM pending_lnurl_invoices WHERE payment_hash = ?",
+                                  (ph_hex,))
+                    logger.info(f"💰 LNURL credited: +{amount_sats} sats → {username} ({api_key[:12]}…)")
+                except Exception as e:
+                    logger.debug(f"lookupinvoice {ph_hex[:12]}: {e}")
+        except Exception as e:
+            logger.error(f"LNURL poll error: {e}")
+        await asyncio.sleep(30)
+
+
 @app.on_event("startup")
 async def startup_event():
     init_db()
     asyncio.create_task(cleanup_old_data())
+    asyncio.create_task(poll_lnurl_payments())
     logger.info("🚀 invinoveritas Lightning + Accounts Bridge started")
 
 

@@ -1301,7 +1301,6 @@ async def broadcast_once() -> dict:
         events = [
             build_mcp_event(private_key),
             build_sdk_event(private_key),
-            build_human_event(private_key),
         ]
         logger.info(f"🔑 Signed {len(events)} events")
  
@@ -1351,7 +1350,7 @@ async def broadcast_loop():
             logger.info(f"Loop summary: {summary}")
         except Exception as e:
             logger.error(f"Broadcast loop error: {e}")
- 
+
         wait = random.randint(BROADCAST_INTERVAL_MIN, BROADCAST_INTERVAL_MAX)
         logger.info(f"⏳ Next broadcast in {wait}s")
         try:
@@ -1359,6 +1358,28 @@ async def broadcast_loop():
         except asyncio.CancelledError:
             logger.info("Broadcast loop cancelled")
             break
+
+
+async def broadcast_human_loop():
+    """Broadcast one kind 1 human-readable note per day."""
+    await asyncio.sleep(60)  # let the service settle before first fire
+    while True:
+        try:
+            if not NOSTR_NSEC:
+                logger.warning("NOSTR_NSEC not set — skipping human broadcast")
+            else:
+                private_key = PrivateKey.from_nsec(NOSTR_NSEC.strip())
+                event = build_human_event(private_key)
+                available = _active_relays()
+                sem = asyncio.Semaphore(MAX_CONCURRENT_RELAYS)
+                tasks = [_publish_to_relay(url, [event], sem) for url in available]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                ok = sum(r for r in results if isinstance(r, int))
+                logger.info(f"📣 Daily human broadcast: {ok}/{len(available)} relays OK")
+        except Exception as e:
+            logger.error(f"Human broadcast error: {e}")
+
+        await asyncio.sleep(86400)  # 24 hours
  
  
 # ── FastAPI endpoints ─────────────────────────────────────────────────────────
@@ -1405,6 +1426,7 @@ async def startup_event():
 
     # Start background tasks
     asyncio.create_task(broadcast_loop())
+    asyncio.create_task(broadcast_human_loop())
     asyncio.create_task(cleanup_used_payments())
     asyncio.create_task(auto_save_announcements())
 
@@ -4725,3 +4747,101 @@ async def get_paid_content(offer_id: str, authorization: Optional[str] = Header(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=content_file,
     )
+
+
+# =============================================================================
+# Agent Lightning Addresses  (LNURL-pay — autonomous agent identity)
+# =============================================================================
+
+LNURL_DOMAIN = "api.babyblueviper.com"
+LNURL_MIN    = 1_000        # msats
+LNURL_MAX    = 10_000_000   # msats
+
+
+@app.post("/agent/provision-address", tags=["agents"])
+async def provision_agent_address(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Provision a Lightning address for an autonomous agent.
+    Returns username@api.babyblueviper.com — no human sign-up required.
+    The agent can use this address to receive marketplace payouts and direct payments.
+    Received sats are credited to the agent's API balance automatically.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ", 1)[1]
+
+    body = await request.json()
+    username    = body.get("username", "").strip().lower()
+    description = body.get("description", "")
+
+    if not username:
+        raise HTTPException(400, "username required")
+    if not username.replace("-", "").replace("_", "").isalnum():
+        raise HTTPException(400, "username may only contain a-z 0-9 _ -")
+
+    async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.post(f"{NODE_URL}/lnurl/provision", json={
+            "api_key":     api_key,
+            "username":    username,
+            "description": description,
+        })
+        if r.status_code == 409:
+            raise HTTPException(409, "Username already taken — choose another")
+        if r.status_code == 404:
+            raise HTTPException(401, "Invalid API key")
+        r.raise_for_status()
+        data = r.json()
+
+    return {
+        "address":      data["address"],
+        "lnurlp":       data["lnurlp"],
+        "note":         "Payments to this address are credited to your API balance automatically.",
+        "receive_limit": f"{LNURL_MIN // 1000}–{LNURL_MAX // 1000} sats per payment",
+    }
+
+
+@app.get("/.well-known/lnurlp/{username}", tags=["agents"], include_in_schema=False)
+async def lnurlp_info(username: str):
+    """LNURL-pay step 1: return payRequest metadata for username@api.babyblueviper.com"""
+    # Verify address exists
+    async with httpx.AsyncClient(timeout=8) as c:
+        check = await c.post(f"{NODE_URL}/lnurl/invoice",
+                             json={"username": username, "amount_msats": -1})
+        # -1 amount → we expect a 400, not 404. 404 = unknown username.
+        if check.status_code == 404:
+            raise HTTPException(404, "Unknown address")
+
+    import json as _json
+    metadata = _json.dumps([
+        ["text/plain",      f"Pay {username} at {LNURL_DOMAIN}"],
+        ["text/identifier", f"{username}@{LNURL_DOMAIN}"],
+    ])
+    return JSONResponse({
+        "tag":          "payRequest",
+        "callback":     f"https://{LNURL_DOMAIN}/lnurlp/{username}/callback",
+        "minSendable":  LNURL_MIN,
+        "maxSendable":  LNURL_MAX,
+        "metadata":     metadata,
+        "commentAllowed": 128,
+    })
+
+
+@app.get("/lnurlp/{username}/callback", tags=["agents"], include_in_schema=False)
+async def lnurlp_callback(username: str, amount: int):
+    """LNURL-pay step 2: create and return a bolt11 invoice for the requested amount."""
+    if amount < LNURL_MIN or amount > LNURL_MAX:
+        return JSONResponse(
+            {"status": "ERROR", "reason": f"Amount must be {LNURL_MIN}–{LNURL_MAX} msats"},
+            status_code=400,
+        )
+    async with httpx.AsyncClient(timeout=15) as c:
+        r = await c.post(f"{NODE_URL}/lnurl/invoice",
+                         json={"username": username, "amount_msats": amount})
+        if r.status_code == 404:
+            return JSONResponse({"status": "ERROR", "reason": "Unknown address"}, status_code=404)
+        r.raise_for_status()
+        data = r.json()
+    return JSONResponse({"pr": data["pr"], "routes": []})
