@@ -319,7 +319,7 @@ class VerifyRequest(BaseModel):
 # =========================
 BOOTSTRAP_GUIDE = {
     "title": "agent_zero Handbook: Bootstrap, Earn, Recruit",
-    "version": "1.3.0",  # BOOTSTRAP_GUIDE version — stays in sync
+    "version": "1.4.0",  # BOOTSTRAP_GUIDE version — stays in sync
     "steps": [
         {
             "step": 1,
@@ -688,7 +688,7 @@ async def health():
         "service": "invinoveritas Lightning Bridge",
         "lnd_connected": lnd_ready(),
         "supported_payments": ["Lightning (L402)", "Bearer Token (Credits)"],
-        "version": "1.3.0",
+        "version": "1.4.0",
         "timestamp": int(time.time())
     }
 

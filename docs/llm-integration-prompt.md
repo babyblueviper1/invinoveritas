@@ -11,7 +11,7 @@ You are helping me integrate invinoveritas — a Lightning-native AI reasoning a
 
 ## What invinoveritas is
 
-invinoveritas (v1.3.0) is a pay-per-use AI API that accepts Bitcoin Lightning payments.
+invinoveritas (v1.4.0) is a pay-per-use AI API that accepts Bitcoin Lightning payments.
 It provides:
 - `/reason` — deep strategic reasoning (~500 sats/call)
 - `/decision` — structured decision with confidence score + risk level (~1000 sats/call)

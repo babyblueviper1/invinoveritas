@@ -18,7 +18,7 @@ from nostr.key import PrivateKey
 
 NSEC = "nsec1r0jktys2z3vqv7t8etkksduwdv0vpka8hry36ecgfz2pappes2zqh72xht"
 PUBKEY = "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
-CURRENT_VERSION = "v1.3.0"
+CURRENT_VERSION = "v1.4.0"
 
 RELAYS = [
     "wss://relay.damus.io",
