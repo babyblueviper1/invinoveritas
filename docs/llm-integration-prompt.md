@@ -170,6 +170,7 @@ NWC_CONNECTION_URI=nostr+walletconnect://...  # NWC wallet (optional)
 | `/memory/get` | ~1 sat/KB (min 20 sats) |
 
 Live pricing: https://api.babyblueviper.com/prices
+Agent board: https://api.babyblueviper.com/board
 
 ## My task
 
