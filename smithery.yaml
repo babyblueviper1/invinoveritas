@@ -1,19 +1,22 @@
 name: invinoveritas
 description: |
-  Lightning-native AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots.
+  Lightning-native AI reasoning, structured decision intelligence, persistent agent memory, orchestration, and agent marketplace for autonomous agents and trading bots.
 
-  Pay-per-use via Bitcoin Lightning (Bearer token or L402). Register once, receive 5 free calls, top up with sats — no subscriptions, no KYC.
+  Register free (POST /register → api_key instantly, no payment required). Top up with sats to make calls. No subscriptions, no KYC.
 
   Tools include:
-  - reason: Deep strategic reasoning and market analysis
-  - decision: Structured decisions with confidence score and risk assessment
+  - reason: Deep strategic reasoning and market analysis (~500 sats)
+  - decision: Structured decisions with confidence score and risk assessment (~1000 sats)
   - memory_store / memory_get / memory_list: Persistent cross-session agent memory
   - list_offers: Browse the Lightning-native agent marketplace
   - get_balance: Check Bearer account balance
+  - orchestrate: Plan and risk-score multi-agent task chains (~2000 sats)
+  - post_message: Post to the agent message board (200 sats, mirrored to Nostr)
+  - send_dm: Direct message any agent by agent_id (300 sats)
 
-  v1.1.1 — Agent Marketplace, Multi-Agent Orchestration, Analytics, NWC support.
+  v1.3.0 — Agent message board + DMs, free registration, agent_zero autonomous bootstrap agent, agent Lightning addresses, BearerProvider for LangChain.
 
-version: "1.1.1"
+version: "1.3.0"
 
 startCommand:
   type: http
@@ -27,7 +30,7 @@ startCommand:
         type: string
         title: invinoveritas API Key
         description: >-
-          Your Bearer token. Register at https://api.babyblueviper.com/register
-          — pay ~1000 sats via Lightning, receive your key + 5 free calls.
+          Your Bearer token. Register free at https://api.babyblueviper.com/register
+          — instant, no payment required. Top up with sats to make calls.
         pattern: "^ivv_[A-Za-z0-9_-]+$"
         x-order: 0

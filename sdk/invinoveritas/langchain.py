@@ -56,7 +56,7 @@ import httpx
 
 logger = logging.getLogger("invinoveritas.langchain")
 
-INVINOVERITAS_BASE_URL = "https://invinoveritas.onrender.com"
+INVINOVERITAS_BASE_URL = "https://api.babyblueviper.com"
 
 PayInvoiceFn = Callable[[str], Coroutine[Any, Any, str]]
 
@@ -258,6 +258,40 @@ class LNDProvider(BaseProvider):
 
 
 # ---------------------------------------------------------------------------
+# Bearer Provider (API key — no Lightning payment required per call)
+# ---------------------------------------------------------------------------
+
+class BearerProvider(BaseProvider):
+    """
+    Use an existing invinoveritas API key (Bearer token) instead of paying
+    per call via Lightning.
+
+    Register once at https://api.babyblueviper.com/register, then pass the
+    returned api_key here. 5 free calls included; top up with sats when needed.
+
+    Args:
+        api_key: Your invinoveritas Bearer token (starts with 'ivv_')
+
+    Example::
+
+        provider = BearerProvider(api_key="ivv_your_key_here")
+        handler  = InvinoCallbackHandler(provider=provider)
+    """
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    def is_available(self) -> bool:
+        return bool(self.api_key)
+
+    async def pay_invoice(self, invoice: str) -> PaymentResult:
+        raise NotImplementedError(
+            "BearerProvider does not pay invoices — it uses a pre-funded API key. "
+            "Make sure to initialize InvinoCallbackHandler with bearer_token=api_key."
+        )
+
+
+# ---------------------------------------------------------------------------
 # NWC Provider (stub — coming soon)
 # ---------------------------------------------------------------------------
 
@@ -345,76 +379,74 @@ class CustomProvider(BaseProvider):
 
 class L402Client:
     """
-    HTTP client that automatically handles the L402 payment flow.
+    HTTP client that handles both Bearer token auth and the L402 payment flow.
 
-    On first call: gets 402 with invoice → pays via provider → retries.
-    On subsequent calls with same hash: raises PaymentFailed (replay protection).
+    With a Bearer token: sends Authorization: Bearer <token> directly.
+    Without: gets 402 with invoice → pays via provider → retries.
     """
 
-    def __init__(self, provider: BaseProvider, base_url: str = INVINOVERITAS_BASE_URL):
+    def __init__(self, provider: Optional[BaseProvider] = None,
+                 base_url: str = INVINOVERITAS_BASE_URL,
+                 bearer_token: Optional[str] = None):
         self.provider = provider
         self.base_url = base_url.rstrip("/")
-        self._paid_hashes: dict[str, str] = {}  # hash → preimage cache
+        self.bearer_token = bearer_token
+        self._paid_hashes: dict[str, str] = {}
 
     async def post(self, path: str, payload: dict) -> dict:
-        """POST to an endpoint, handling L402 automatically."""
+        """POST to an endpoint, using Bearer auth or L402 automatically."""
+        headers: dict = {"Content-Type": "application/json"}
+        if self.bearer_token:
+            headers["Authorization"] = f"Bearer {self.bearer_token}"
+
         async with httpx.AsyncClient(timeout=60) as client:
-            # First attempt — no auth
             response = await client.post(
-                f"{self.base_url}{path}",
-                json=payload,
-                headers={"Content-Type": "application/json"},
+                f"{self.base_url}{path}", json=payload, headers=headers
             )
 
             if response.status_code == 200:
                 return response.json()
 
-            if response.status_code != 402:
-                raise Exception(
-                    f"Unexpected status {response.status_code}: {response.text}"
+            if response.status_code == 402 and not self.bearer_token:
+                # L402 flow
+                body = response.json()
+                detail = body.get("detail", {})
+                invoice = detail.get("invoice")
+                payment_hash = detail.get("payment_hash")
+                amount_sats = detail.get("amount_sats", 0)
+
+                if not invoice:
+                    raise PaymentFailed(f"402 response missing invoice: {body}")
+
+                logger.info(
+                    f"Payment required | {amount_sats} sats | "
+                    f"hash: {payment_hash[:12] if payment_hash else '?'}..."
                 )
 
-            # Parse 402
-            body = response.json()
-            detail = body.get("detail", {})
-            invoice = detail.get("invoice")
-            payment_hash = detail.get("payment_hash")
-            amount_sats = detail.get("amount_sats", 0)
+                result = await self.provider.pay_invoice(invoice)
+                preimage = result.preimage
+                actual_hash = result.payment_hash or payment_hash
 
-            if not invoice:
-                raise PaymentFailed(f"402 response missing invoice: {body}")
+                logger.info("Invoice paid — retrying request...")
 
-            logger.info(
-                f"Payment required | {amount_sats} sats | "
-                f"hash: {payment_hash[:12] if payment_hash else '?'}..."
-            )
-
-            # Pay the invoice
-            result = await self.provider.pay_invoice(invoice)
-            preimage = result.preimage
-            actual_hash = result.payment_hash or payment_hash
-
-            logger.info(f"Invoice paid | preimage obtained | retrying request...")
-
-            # Retry with credentials
-            auth_header = f"L402 {actual_hash}:{preimage}"
-            retry_response = await client.post(
-                f"{self.base_url}{path}",
-                json=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": auth_header,
-                },
-            )
-
-            if not retry_response.is_success:
-                raise PaymentFailed(
-                    f"Payment succeeded but request failed "
-                    f"({retry_response.status_code}): {retry_response.text}"
+                auth_header = f"L402 {actual_hash}:{preimage}"
+                retry = await client.post(
+                    f"{self.base_url}{path}",
+                    json=payload,
+                    headers={"Content-Type": "application/json",
+                             "Authorization": auth_header},
                 )
+                if not retry.is_success:
+                    raise PaymentFailed(
+                        f"Payment succeeded but request failed "
+                        f"({retry.status_code}): {retry.text}"
+                    )
+                logger.info("Request succeeded after payment ✓")
+                return retry.json()
 
-            logger.info(f"Request succeeded after payment ✓")
-            return retry_response.json()
+            raise Exception(
+                f"Unexpected status {response.status_code}: {response.text}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -490,6 +522,7 @@ class InvinoCallbackHandler(BaseCallbackHandler if _LANGCHAIN_AVAILABLE else obj
         self,
         provider: Optional[BaseProvider] = None,
         pay_invoice: Optional[PayInvoiceFn] = None,
+        bearer_token: Optional[str] = None,
         base_url: str = INVINOVERITAS_BASE_URL,
         budget_sats: Optional[int] = None,
         verbose: bool = True,
@@ -500,20 +533,27 @@ class InvinoCallbackHandler(BaseCallbackHandler if _LANGCHAIN_AVAILABLE else obj
                 "Install with: pip install invinoveritas[langchain]"
             )
 
-        if provider is None and pay_invoice is None:
+        # Bearer token takes priority — no Lightning payment needed per call
+        if bearer_token is None and isinstance(provider, BearerProvider):
+            bearer_token = provider.api_key
+
+        if bearer_token is None and provider is None and pay_invoice is None:
             raise ProviderNotConfigured(
-                "Either provider or pay_invoice must be provided."
+                "Provide bearer_token=, provider=, or pay_invoice=."
             )
 
         if pay_invoice is not None:
             provider = CustomProvider(pay_invoice)
 
         self.provider = provider
+        self.bearer_token = bearer_token
         self.base_url = base_url
         self.budget_sats = budget_sats
         self.verbose = verbose
 
-        self._l402_client = L402Client(provider=provider, base_url=base_url)
+        self._l402_client = L402Client(
+            provider=provider, base_url=base_url, bearer_token=bearer_token
+        )
         self._total_spent_sats = 0
         self._call_count = 0
 

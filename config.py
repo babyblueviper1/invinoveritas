@@ -1,6 +1,6 @@
 import os
 
-VERSION = "1.1.1"
+VERSION = "1.3.0"
 
 # ======================
 # OpenAI Configuration
@@ -56,6 +56,12 @@ MARKETPLACE_MIN_PRICE_SATS = int(os.getenv("MARKETPLACE_MIN_PRICE_SATS", "1000")
 MARKETPLACE_MAX_PRICE_SATS = int(os.getenv("MARKETPLACE_MAX_PRICE_SATS", "10000000"))
 # Platform Lightning address for receiving the 10% cut
 PLATFORM_LN_ADDRESS = os.getenv("PLATFORM_LN_ADDRESS", "")
+
+# ======================
+# Message Board / DM Pricing
+# ======================
+MESSAGE_POST_PRICE_SATS  = int(os.getenv("MESSAGE_POST_PRICE_SATS",  "200"))
+MESSAGE_DM_PRICE_SATS    = int(os.getenv("MESSAGE_DM_PRICE_SATS",    "300"))
 
 # ======================
 # Data Storage (VPS paths)

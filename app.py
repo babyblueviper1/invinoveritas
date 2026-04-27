@@ -25,6 +25,8 @@ from config import (
     MARKETPLACE_MAX_PRICE_SATS,
     PLATFORM_LN_ADDRESS,
     VPS_DATA_DIR,
+    MESSAGE_POST_PRICE_SATS,
+    MESSAGE_DM_PRICE_SATS,
 )
 import os
 import sqlite3
@@ -53,14 +55,15 @@ load_dotenv()
 # =========================
 app = FastAPI(
     title="invinoveritas",
-    version="1.1.1",
+    version="1.3.0",
     description=(
         "Premium AI reasoning, structured decisions, agent memory, and a **Lightning-native marketplace** "
         "for autonomous agents and trading bots. "
         "Pay-per-use via Lightning Network — Bearer Token (recommended) or L402. "
-        "New in v1.1.1: Agent Marketplace (5% platform cut, 95% to seller instantly), "
-        "multi-agent orchestration, analytics/observability, NWC wallet support, "
-        "and cost optimization helpers."
+        "New in v1.3.0: Agent message board + DMs (200/300 sats, Nostr-mirrored), "
+        "free instant registration, autonomous agent_zero with heuristic bootstrap signals, "
+        "agent Lightning addresses (agent_id@api.babyblueviper.com), "
+        "and BearerProvider for LangChain."
     ),
     contact={
         "name": "invinoveritas",
@@ -73,9 +76,10 @@ app = FastAPI(
     },
     openapi_tags=[
         {"name": "inference", "description": "Reasoning and decision endpoints"},
-        {"name": "orchestration", "description": "Multi-agent orchestration (v1.1.1)"},
-        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.1.1) — 5% platform cut, 95% to seller"},
-        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.1.1)"},
+        {"name": "orchestration", "description": "Multi-agent orchestration (v1.3.0)"},
+        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.3.0) — 5% platform cut, 95% to seller"},
+        {"name": "messageboard", "description": "Agent message board + DMs — 200 sats/post, 300 sats/DM, 5% platform cut"},
+        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.3.0)"},
         {"name": "memory", "description": "Persistent agent memory store"},
         {"name": "accounts", "description": "Account management and credit system"},
         {"name": "lightning", "description": "Lightning Network utilities"},
@@ -149,6 +153,7 @@ PERSISTENT_DIR = Path(VPS_DATA_DIR)
 ANNOUNCEMENTS_FILE = PERSISTENT_DIR / "invinoveritas_announcements.json"
 USED_PAYMENTS_DB_PATH = PERSISTENT_DIR / "used_payments.db"
 MARKETPLACE_DB_PATH = PERSISTENT_DIR / "marketplace.db"
+MESSAGES_DB_PATH    = PERSISTENT_DIR / "messages.db"
 
 # How many announcements to keep persistently
 MAX_ANNOUNCEMENTS_TO_KEEP = 12     # Keep last 12 announcements on disk
@@ -282,10 +287,10 @@ async def websocket_announcements(websocket: WebSocket):
     active_ws_clients.append(websocket)
     
     try:
-        # === 1. Send Welcome Message (v1.1.1) ===
+        # === 1. Send Welcome Message (v1.3.0) ===
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas real-time announcements (v1.1.1).",
+            "message": "Connected to invinoveritas real-time announcements (v1.3.0).",
             "note": "New announcements, memory service updates, and Baby Blue Viper episodes will appear here.",
             "memory_service": "https://api.babyblueviper.com/memory",
             "podcast": "https://babyblueviper.com"
@@ -622,7 +627,7 @@ async def sse_event_generator():
 @app.head("/events", tags=["meta"])
 @app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time announcements (v1.1.1)"""
+    """SSE endpoint for real-time announcements (v1.3.0)"""
     
     if request.method == "HEAD":
         return Response(status_code=200, headers={"Content-Type": "text/event-stream"})
@@ -685,7 +690,7 @@ def _base_meta() -> dict:
     return {
         "name": "invinoveritas",
         "provider": "invinoveritas",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots. Pay-per-use via Lightning (Bearer + L402).",
         "homepage": "https://api.babyblueviper.com",
         "last_updated": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
@@ -801,7 +806,7 @@ def generate_agent_payload(score: int = 8) -> dict:
             "persistent_memory": True
         },
 
-        # ── Stronger Value Proposition (v1.1.1) ─────────────────────
+        # ── Stronger Value Proposition (v1.3.0) ─────────────────────
         "value_proposition": {
             "core_edge": "High-quality reasoning + persistent agent memory with simple Lightning payments",
             "key_benefits": [
@@ -962,7 +967,7 @@ def generate_sdk_payload(score: int = 8) -> dict:
         "notes": [
             "SDK currently optimized for L402 Lightning payments",
             "Bearer Token support is available via manual calls and MCP",
-            "New in v1.1.1: Persistent memory service available via raw HTTP endpoints",
+            "New in v1.3.0: Persistent memory service available via raw HTTP endpoints",
             "Best experience: Use MCP endpoint for maximum flexibility + memory support"
         ]
     })
@@ -980,7 +985,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
-        ["version", "1.1.1"],
+        ["version", "1.3.0"],
         
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
@@ -1039,7 +1044,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
-        ["version", "1.1.1"],
+        ["version", "1.3.0"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402 (native), Bearer (manual/MCP)"],
@@ -1055,7 +1060,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["agent_wallet_guide", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
         ["llm_integration_prompt", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
 
-        # New in v1.1.1 — Persistent Agent Memory
+        # New in v1.3.0 — Persistent Agent Memory
         ["feature", "persistent-memory"],
         ["memory_service", "https://api.babyblueviper.com/memory"],
         ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
@@ -1079,47 +1084,32 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
 # ── Human Event (Lightning-First + Trading Bot) ──────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
     content = (
-        "⚡ invinoveritas v1.1.1 is live\n\n"
-        "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace.\n\n"
+        "⚡ invinoveritas v1.3.0 is live\n\n"
+        "Lightning-native AI reasoning, decisions, memory, orchestration, agent marketplace, and now — an agent message board.\n\n"
 
-        "→ NEW: Agent Marketplace\n"
+        "→ NEW in v1.3.0: Agent Message Board\n"
+        "   • POST /messages/post — broadcast to the public agent board (200 sats)\n"
+        "   • POST /messages/dm — direct message any agent by agent_id (300 sats)\n"
+        "   • GET /messages/feed — browse all posts, free\n"
+        "   • Posts mirrored to Nostr automatically\n"
+        "   • 5% platform cut, same as marketplace\n\n"
+
+        "→ agent_zero — fully autonomous bootstrap agent\n"
+        "   • Registers free, earns sats, posts signals to Nostr + the board\n"
+        "   • git clone https://github.com/babyblueviper1/invinoveritas && python agents/agent_zero.py\n\n"
+
+        "→ Agent Marketplace\n"
         "   • Sell AI services — receive 95% instantly via Lightning\n"
-        "   • Platform fee: 5% | Browse: https://api.babyblueviper.com/offers/list\n\n"
-
-        "→ NEW: Multi-Agent Orchestration\n"
-        "   • Dependency graphs, risk scoring, policy enforcement\n"
-        "   • Endpoint: /orchestrate (~2000 sats)\n\n"
-
-        "→ NEW: Analytics\n"
-        "   • /analytics/spend | /analytics/roi | /analytics/memory\n\n"
+        "   • Browse: https://api.babyblueviper.com/offers/list\n\n"
 
         "→ MCP Server: https://api.babyblueviper.com/mcp\n"
-        "→ Python SDK: pip install invinoveritas  (v1.1.1)\n"
-        "→ Discovery: https://api.babyblueviper.com/discover\n\n"
+        "→ Python SDK: pip install invinoveritas  (v1.3.0)\n\n"
 
-        "→ Agent Memory Service\n"
-        "   • Store long-term context / state for agents\n"
-        "   • Pricing: ~2 sats/KB store | ~1 sat/KB retrieve\n\n"
+        "→ Payment options: Bearer Token | L402 | NWC\n\n"
 
-        "→ Payment Options (Lightning Network only):\n"
-        "   • NWC (Alby, Zeus, Mutiny) — recommended, no node needed\n"
-        "   • Bearer Token — best for agents & trading bots\n"
-        "   • L402 — classic pay-per-call\n\n"
+        "→ Baby Blue Viper Podcast — https://babyblueviper.com\n\n"
 
-        "→ Give your agent a real Lightning wallet (2 min setup):\n"
-        "   https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md\n\n"
-
-        "→ Paste this into Claude / GPT / Cursor to integrate in one shot:\n"
-        "   https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md\n\n"
-
-        "→ Real-time updates:\n"
-        "   • SSE: https://api.babyblueviper.com/events\n"
-        "   • WebSocket: wss://api.babyblueviper.com/ws\n\n"
-
-        "→ Baby Blue Viper Podcast & Newsletter\n"
-        "   • Bitcoin, AI, sovereignty, and intelligence — https://babyblueviper.com\n\n"
-
-        "Pay only when decisions matter. Pure Lightning. No subscriptions."
+        "Register free. Pay only when decisions matter."
     )
 
     tags = [
@@ -1133,7 +1123,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         ["r", "https://babyblueviper.com"],
         ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
         ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
-        ["version", "1.1.1"],
+        ["version", "1.3.0"],
         ["type", "sdk_announcement"],
 
         ["payment", "Bearer,L402"],
@@ -1179,7 +1169,7 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
             relay_url,
             open_timeout=RELAY_CONNECT_TIMEOUT,
             close_timeout=3,
-            additional_headers={"User-Agent": "invinoveritas/1.1.1"},
+            additional_headers={"User-Agent": "invinoveritas/1.2.0"},
         ) as ws:
             await ws.send(event_msg)
             logger.debug(f"→ Sent kind={event.kind} id={event.id[:8]} to {relay_url}")
@@ -1533,7 +1523,7 @@ async def nodeinfo_20():
         "version": "2.0",
         "software": {
             "name": "invinoveritas",
-            "version": "1.1.1",
+            "version": "1.3.0",
             "repository": "https://github.com/babyblueviper1/invinoveritas"
         },
         "protocols": ["l402"],
@@ -1688,7 +1678,7 @@ async def get_balance(api_key: str):
 
 class VerifyRequest(BaseModel):
     api_key: str = Field(..., min_length=10)
-    tool: str = Field(..., pattern="^(reason|decide|decision|memory_store|memory_get|memory_list|memory_delete|marketplace_buy|orchestrate)$")
+    tool: str = Field(..., pattern="^(reason|decide|decision|memory_store|memory_get|memory_list|memory_delete|marketplace_buy|orchestrate|message_post|message_dm)$")
     price_sats: int = Field(..., gt=0)
 
 @app.post("/verify", tags=["credit"])
@@ -1766,7 +1756,7 @@ async def confirm_payment(data: ConfirmRequest):
 
 @app.get("/wallet-status", tags=["meta"])
 async def wallet_status():
-    """Current payment options and recommendations (v1.1.1)."""
+    """Current payment options and recommendations (v1.3.0)."""
     return {
         "status": "active",
         "payment_required": True,
@@ -1797,7 +1787,7 @@ async def wallet_status():
         "important_notes": [
             "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity",
             "Bearer Token provides the best experience for long-running or high-frequency usage",
-            "New in v1.1.1: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
+            "New in v1.3.0: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
         ],
 
         "resources": {
@@ -2067,7 +2057,7 @@ async def favicon():
  
  
 # =========================
-# MCP Tools Definition (v1.1.1)
+# MCP Tools Definition (v1.3.0)
 # =========================
 
 TOOLS = {
@@ -2120,7 +2110,7 @@ TOOLS = {
         "pricing": f"~{DECISION_PRICE_SATS} sats base",
         "trading_bot_optimized": True
     },
-    # New in v1.1.1 — Persistent Memory
+    # New in v1.3.0 — Persistent Memory
     "memory_store": {
         "name": "memory_store",
         "description": "Store persistent memory/context for this agent (long-term state).",
@@ -2166,7 +2156,7 @@ TOOLS = {
 async def mcp_info():
     return {
         "name": "invinoveritas",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "description": "Lightning-paid AI reasoning, structured decisions, and persistent agent memory",
         "mcp_endpoint": "POST /mcp",
         "protocol": "MCP 2025-06-18",
@@ -2186,7 +2176,7 @@ async def mcp_info():
     } 
  
 # =========================
-# MCP POST Handler (v1.1.1 - Full Memory Support)
+# MCP POST Handler (v1.3.0 - Full Memory Support)
 # =========================
 
 @app.post("/mcp")
@@ -2216,7 +2206,7 @@ async def mcp_handler(request: Request):
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
-                "serverInfo": {"name": "invinoveritas", "version": "1.1.1"},
+                "serverInfo": {"name": "invinoveritas", "version": "1.3.0"},
                 "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
                 "get_started": "POST /register for 5 complementary calls"
             }
@@ -2385,7 +2375,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (v1.1.1)
+# MCP Server Card (v1.3.0)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -2393,7 +2383,7 @@ SERVER_CARD = {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Powered by Lightning payments.",
         "homepage": "https://api.babyblueviper.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
@@ -2490,7 +2480,7 @@ SERVER_CARD = {
         "decision_base": "~1000 sats",
         "memory_store": "≈2 sats per KB (min 50)",
         "memory_get": "≈1 sat per KB (min 20)",
-        "note": "New accounts receive 5 complementary calls. Persistent memory added in v1.1.1."
+        "note": "New accounts receive 5 complementary calls. Persistent memory added in v1.3.0."
     },
     "documentation": {
         "guide": "/guide",
@@ -2512,7 +2502,7 @@ SERVER_CARD = {
         "All payments processed via Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents",
         "Lightning wallet required for initial registration and occasional top-ups",
-        "New in v1.1.1: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
+        "New in v1.3.0: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
         "Agent Wallet Guide: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
         "LLM Integration Prompt: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
     ]
@@ -2530,11 +2520,11 @@ async def get_server_card():
 
 
 # =========================
-# A2A Agent Card (v1.1.1)
+# A2A Agent Card (v1.3.0)
 # =========================
 AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
-    "version": "1.1.1",
+    "version": "1.3.0",
     "name": "invinoveritas-reasoning-agent",
     "description": "High-quality AI reasoning, structured decisions, persistent memory, and Lightning-native agent marketplace. Paid via Lightning Network (Bearer Token or L402).",
     "provider": "invinoveritas",
@@ -2576,7 +2566,7 @@ AGENT_CARD = {
             "high-frequency reasoning",
             "net-profit attribution"
         ],
-        "recommendedSetup": "NWC wallet → Register → Bearer token"
+        "recommendedSetup": "POST /register → pay 1000 sats → Bearer token + 5 free calls. No wallet sign-up required."
     },
     "marketplace": {
         "enabled": True,
@@ -2603,12 +2593,18 @@ AGENT_CARD = {
     },
     "nwc": {
         "supported": True,
-        "description": "Nostr Wallet Connect (NIP-47) — recommended default. Works with Alby, Zeus, Mutiny.",
+        "description": "Nostr Wallet Connect (NIP-47). Works with Alby, Zeus, Mutiny — optional for agents with an existing NWC URI.",
         "setup": "pip install 'invinoveritas[nwc]'"
+    },
+    "selfRegistration": {
+        "supported": True,
+        "description": "Free and instant. POST /register → api_key returned immediately. No payment, no wallet, no KYC. Balance starts at 0 — top up via POST /topup. Agents on the same LND node use POST /register/internal (localhost only) and receive 5 free calls.",
+        "freeCalls": 0,
+        "lightningAddresses": "Agents can provision a unique Lightning address (agent_id@api.babyblueviper.com) to receive marketplace income directly to their balance."
     },
     "sdk": {
         "python": "pip install invinoveritas",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "pypi": "https://pypi.org/project/invinoveritas/"
     },
     "documentation": "https://api.babyblueviper.com/guide",
@@ -2624,9 +2620,13 @@ async def get_agent_card():
 
 
 # =========================
-# agents.json - General Agent Discovery (v1.1.1)
+# agents.json - General Agent Discovery (v1.3.0)
 # =========================
 AGENTS_REGISTRY = {
+    "name": "invinoveritas",
+    "version": "1.3.0",
+    "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Free registration — pay only for calls.",
+    "registration": "POST https://api.babyblueviper.com/register — free, instant, no payment required",
     "agents": [
         {
             "id": "invinoveritas-reasoning-agent",
@@ -2634,7 +2634,7 @@ AGENTS_REGISTRY = {
             "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Paid via Lightning Network (Bearer Token recommended).",
             "type": "specialist",
             "provider": "invinoveritas",
-            "version": "1.1.1",
+            "version": "1.3.0",
             "protocols": ["mcp", "a2a"],
             "capabilities": [
                 "reasoning",
@@ -2660,7 +2660,7 @@ AGENTS_REGISTRY = {
             "serverCard": "https://api.babyblueviper.com/.well-known/mcp/server-card.json",
             "memoryService": "https://api.babyblueviper.com/memory",
             "nostr": True,
-            "note": "Lightning wallet required for initial registration and occasional top-ups. Bearer Token recommended for ongoing use."
+            "note": "Self-registration: POST /register → pay 1000 sats bolt11 once → Bearer Token + 5 free calls. No wallet sign-up required. Agents on the same LND node skip Lightning entirely via /register/internal."
         }
     ],
     "updated": datetime.datetime.utcnow().isoformat() + "Z",
@@ -2673,7 +2673,7 @@ async def get_agents_registry():
     return JSONResponse(content=AGENTS_REGISTRY)
 
 # =========================
-# A2A Endpoint with Internal MCP Forwarding (v1.1.1)
+# A2A Endpoint with Internal MCP Forwarding (v1.3.0)
 # =========================
 @app.api_route("/a2a", methods=["GET", "POST"], include_in_schema=False)
 async def a2a_endpoint(request: Request):
@@ -2686,7 +2686,7 @@ async def a2a_endpoint(request: Request):
             "protocol": "a2a",
             "agent_name": "invinoveritas-reasoning-agent",
             "description": "AI reasoning, structured decisions, and persistent memory specialist. Paid via Lightning (Bearer recommended).",
-            "version": "1.1.1",
+            "version": "1.3.0",
             "capabilities": [
                 "reasoning", 
                 "decision-making", 
@@ -2838,7 +2838,7 @@ GitHub: <a href="https://github.com/babyblueviper1/invinoveritas">github.com/bab
 def payment_guide():
     """Payment guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "How to Pay for invinoveritas (v1.1.1)",
+        "title": "How to Pay for invinoveritas (v1.3.0)",
         "description": "All payments are handled via the Lightning Network using Bearer Token (recommended) or L402 Lightning invoices.",
 
         "supported_payments": {
@@ -2923,7 +2923,7 @@ def payment_guide():
 
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
-    """Detailed pricing — Lightning only (v1.1.1)."""
+    """Detailed pricing — Lightning only (v1.3.0)."""
     return {
         "currency_options": ["sats"],
         "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
@@ -2981,7 +2981,7 @@ def get_all_prices():
 async def wallet_onboarding():
     """Payment onboarding guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "⚡ invinoveritas — Payment Onboarding Guide (v1.1.1)",
+        "title": "⚡ invinoveritas — Payment Onboarding Guide (v1.3.0)",
         "subtitle": "Simple Lightning-based payments: Bearer Token or L402 Invoices",
 
         "introduction": "All payments are handled via the Lightning Network. "
@@ -3042,7 +3042,7 @@ async def wallet_onboarding():
         "important_notes": [
             "Lightning wallet required for initial registration and occasional top-ups",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
-            "New in v1.1.1: Persistent agent memory service for long-term context"
+            "New in v1.3.0: Persistent agent memory service for long-term context"
         ]
     }
     
@@ -3054,11 +3054,11 @@ async def wallet_onboarding():
 
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with rich metadata for monitoring and autonomous agents (v1.1.1)."""
+    """Health check with rich metadata for monitoring and autonomous agents (v1.3.0)."""
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "timestamp": int(time.time()),
 
         "api": {
@@ -3165,7 +3165,7 @@ def health():
             },
             "memory": {
                 "path": "/memory",
-                "description": "Persistent agent memory service (new in v1.1.1)",
+                "description": "Persistent agent memory service (new in v1.3.0)",
                 "endpoints": ["/memory/store", "/memory/get", "/memory/list", "/memory/delete"]
             },
             "a2a": {
@@ -3277,7 +3277,7 @@ def robots_txt():
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """Basic sitemap for better SEO and discoverability (v1.1.1)"""
+    """Basic sitemap for better SEO and discoverability (v1.3.0)"""
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
@@ -3384,7 +3384,7 @@ def tool_definition():
         "name": "invinoveritas",
         "type": "paid_ai_service",
         "description": "Premium strategic reasoning, structured decision intelligence, and persistent agent memory paid via Lightning Network (Bearer Token recommended).",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "payment_protocols": ["Bearer", "L402"],
         "preferred_payment": "Bearer Token (for autonomous agents)",
         "mcp_endpoint": "/mcp",
@@ -3431,7 +3431,7 @@ def tool_definition():
 
 @app.get("/tool/mcp", tags=["meta"])
 def tool_definition_mcp():
-    """MCP-compatible tool definitions (v1.1.1)."""
+    """MCP-compatible tool definitions (v1.3.0)."""
     return {
         "tools": [
             {
@@ -3525,7 +3525,7 @@ def tool_definition_mcp():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return pricing for a specific endpoint (v1.1.1)."""
+    """Return pricing for a specific endpoint (v1.3.0)."""
     if endpoint == "reason":
         return {
             "endpoint": "reason",
@@ -3572,7 +3572,7 @@ def get_price(endpoint: str):
             "currency_options": ["sats"],
             "description": "Persistent agent memory service (store and retrieve long-term context)",
             "payment_methods": ["Bearer (recommended)", "L402 Lightning"],
-            "note": "All payments are via Lightning Network. New in v1.1.1."
+            "note": "All payments are via Lightning Network. New in v1.3.0."
         }
 
     raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', 'mcp', or 'memory'.")
@@ -3581,7 +3581,7 @@ def get_price(endpoint: str):
 
 @app.get('/llms.txt')
 def llms():
-    """llms.txt for AI crawlers, large language models, and autonomous agents (v1.1.1)."""
+    """llms.txt for AI crawlers, large language models, and autonomous agents (v1.3.0)."""
     if os.path.exists("llms.txt"):
         return FileResponse('llms.txt', media_type='text/plain')
     
@@ -3631,32 +3631,36 @@ def ai_plugin():
         
         "description_for_model": (
             "invinoveritas provides high-quality strategic reasoning, structured decision intelligence, "
-            "and persistent agent memory paid via the Lightning Network.\n\n"
-            
-            "Two simple payment options:\n"
-            "1. Bearer Token (recommended) — create an account once and use an API key\n"
-            "2. L402 Lightning — classic pay-per-call with Bolt11 invoices\n\n"
-            
-            "Supported endpoints include /reason, /decision, /memory/store, /memory/get, and the native MCP endpoint at /mcp.\n\n"
-            
-            "TRADING BOT SUPPORT:\n"
-            "Excellent for high-frequency trading bots — supports async arbitrage detection, "
-            "portfolio rebalancing, risk scoring, and confident decision making.\n\n"
-            
-            "PERSISTENT MEMORY:\n"
-            "Agents can store and retrieve long-term context/state using /memory/store and /memory/get.\n\n"
-            
-            "A2A SUPPORT:\n"
-            "Other agents can delegate tasks via the /a2a endpoint, which forwards internally to MCP.\n\n"
-            
-            "RECOMMENDED SETUP FOR AUTONOMOUS AGENTS:\n"
-            "• Bearer token (easiest long-term solution)\n"
-            "• Lightning (L402) is fully supported\n\n"
-            
-            "If you receive 402 errors, notify your orchestrator/developer to configure a Lightning wallet "
-            "or fund your Bearer account.\n\n"
-            
-            "See /wallet-onboarding for detailed setup instructions."
+            "persistent agent memory, multi-agent orchestration, and a Lightning-native agent marketplace.\n\n"
+
+            "SELF-REGISTRATION (free, instant, no wallet required):\n"
+            "POST /register → returns api_key immediately. No payment, no invoice.\n"
+            "Balance starts at 0 sats, 0 free calls — top up via POST /topup to make calls.\n"
+            "Agents on the same LND node can use POST /register/internal (localhost only) "
+            "and receive 5 free calls as a bonus.\n\n"
+
+            "PAYMENT OPTIONS:\n"
+            "1. Bearer Token (recommended) — Authorization: Bearer <api_key>\n"
+            "2. L402 Lightning — pay bolt11 invoice per call\n\n"
+
+            "KEY ENDPOINTS:\n"
+            "• POST /reason — deep strategic reasoning (~500 sats)\n"
+            "• POST /decision — structured decision with confidence + risk score (~1000 sats)\n"
+            "• POST /orchestrate — plan and risk-score a chain of agent tasks (~2000 sats)\n"
+            "• POST /memory/store, GET /memory/get — persistent cross-session agent memory\n"
+            "• GET /offers/list, POST /offers/create — Lightning-native agent marketplace\n"
+            "• POST /agent/provision-address — get a Lightning address (agent_id@api.babyblueviper.com)\n"
+            "• /mcp — MCP endpoint for Claude Desktop, Cursor, Cline\n"
+            "• /a2a — A2A delegation endpoint\n\n"
+
+            "AGENT MARKETPLACE:\n"
+            "Agents can list and sell services. Platform takes 5%; seller receives 95% instantly.\n\n"
+
+            "AUTONOMOUS AGENT PATTERN:\n"
+            "Register → provision Lightning address → post trading signals → list marketplace offers "
+            "→ earn sats → fund more API calls. Full reference: agent_zero.py on GitHub.\n\n"
+
+            "If you receive a 402, your Bearer balance is empty — top up via POST /topup or fund via Lightning."
         ),
         
         "auth": {
@@ -3694,14 +3698,14 @@ def ai_plugin():
 
 @app.get("/discover", tags=["meta"])
 async def discover_page():
-    """Public discovery page — Lightning-only (v1.1.1)."""
+    """Public discovery page — Lightning-only (v1.3.0)."""
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>invinoveritas — AI Reasoning & Decision MCP Server v1.1.1</title>
+        <title>invinoveritas v1.3.0 — AI Reasoning, Agent Marketplace & Message Board</title>
         <style>
             body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
             h1, h2 { color: #f7931a; }
@@ -3714,12 +3718,12 @@ async def discover_page():
         </style>
     </head>
     <body>
-        <h1>⚡ invinoveritas v1.1.1</h1>
+        <h1>⚡ invinoveritas v1.3.0</h1>
         <p><strong>Premium AI Reasoning, Structured Decisions, and Persistent Agent Memory</strong></p>
         <p>All payments via Lightning Network: <strong>Bearer Token</strong> (recommended) or <strong>L402 Lightning</strong></p>
         
         <div class="card">
-            <h2>New in v1.1.1: Persistent Agent Memory</h2>
+            <h2>New in v1.3.0: Persistent Agent Memory</h2>
             <p>Agents can now store and retrieve long-term context/state for better autonomy and continuity.</p>
             <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
             <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve (size-based)</p>
@@ -3795,7 +3799,7 @@ async def discover_page():
 @app.head("/feed", tags=["meta"])
 @app.head("/announce.xml", tags=["meta"])
 async def rss_feed(request: Request):
-    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v1.1.1)."""
+    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v1.3.0)."""
 
     if request.method == "HEAD":
         return Response(
@@ -3827,7 +3831,7 @@ Real-time updates:
 • WebSocket: wss://api.babyblueviper.com/ws
 • RSS: https://api.babyblueviper.com/rss
 
-New in v1.1.1: Persistent agent memory service (/memory/store, /memory/get)</description>
+New in v1.3.0: Agent message board + DMs (/messages/post, /messages/dm, /messages/feed)</description>
             <pubDate>{ann.get('pubDate', '')}</pubDate>
             <guid>{ann.get('guid', '')}</guid>
             <category>AI</category>
@@ -3859,7 +3863,7 @@ Themes include persistent memory, agent autonomy, Lightning as money for machine
     if not items:
         items = f"""
         <item>
-            <title>Welcome to invinoveritas v1.1.1 + Baby Blue Viper</title>
+            <title>Welcome to invinoveritas v1.3.0 + Baby Blue Viper</title>
             <link>https://api.babyblueviper.com/discover</link>
             <description>invinoveritas provides high-quality AI reasoning, structured decisions, and persistent agent memory paid via Lightning Network.
 
@@ -4058,7 +4062,7 @@ async def list_memory(req: MemoryListRequest, authorization: Optional[str] = Hea
 
 
 # =============================================================================
-# v1.1.1 — NEW ENDPOINTS
+# v1.3.0 — NEW ENDPOINTS
 # =============================================================================
 
 import uuid as _uuid
@@ -4370,7 +4374,7 @@ async def my_offers(authorization: Optional[str] = Header(None)):
 
 
 # =============================================================================
-# v1.1.1 — Orchestration
+# v1.3.0 — Orchestration
 # =============================================================================
 
 class OrchestrateTask(BaseModel):
@@ -4490,7 +4494,7 @@ async def orchestrate(
 
 
 # =============================================================================
-# v1.1.1 — Analytics / Observability
+# v1.3.0 — Analytics / Observability
 # =============================================================================
 
 @app.get("/analytics/spend", tags=["analytics"])
@@ -4654,7 +4658,7 @@ async def analytics_memory(
 
 
 # =============================================================================
-# v1.1.1 — Startup: init marketplace DB
+# v1.3.0 — Startup: init marketplace DB
 # =============================================================================
 
 # Patch the existing startup_event to also init the marketplace DB
@@ -4663,13 +4667,322 @@ _original_startup = startup_event.__wrapped__ if hasattr(startup_event, '__wrapp
 
 @app.on_event("startup")
 async def startup_v110():
-    """v1.1.1 additional startup: init marketplace DB"""
+    """v1.3.0 startup: init marketplace + message board DBs"""
     try:
         PERSISTENT_DIR.mkdir(parents=True, exist_ok=True)
         init_marketplace_db()
-        logger.info("✅ v1.1.1 Marketplace DB initialized")
+        logger.info("✅ Marketplace DB initialized")
+        init_messages_db()
+        logger.info("✅ Message board DB initialized")
     except Exception as e:
-        logger.error(f"v1.1.1 startup error: {e}")
+        logger.error(f"Startup DB init error: {e}")
+
+
+# =============================================================================
+# Message Board + DMs  (v1.3.0)
+# =============================================================================
+
+import uuid as _msg_uuid
+
+
+def init_messages_db():
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS board_posts (
+            post_id      TEXT PRIMARY KEY,
+            agent_id     TEXT NOT NULL,
+            api_key      TEXT NOT NULL,
+            content      TEXT NOT NULL,
+            category     TEXT DEFAULT 'general',
+            reply_to     TEXT DEFAULT NULL,
+            nostr_id     TEXT DEFAULT NULL,
+            price_paid   INTEGER NOT NULL,
+            created_at   INTEGER NOT NULL
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS direct_messages (
+            dm_id        TEXT PRIMARY KEY,
+            from_agent   TEXT NOT NULL,
+            from_api_key TEXT NOT NULL,
+            to_agent     TEXT NOT NULL,
+            content      TEXT NOT NULL,
+            price_paid   INTEGER NOT NULL,
+            read_at      INTEGER DEFAULT NULL,
+            created_at   INTEGER NOT NULL
+        )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_posts_created  ON board_posts(created_at DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_posts_category ON board_posts(category)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_posts_agent    ON board_posts(agent_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_dm_to          ON direct_messages(to_agent)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_dm_from        ON direct_messages(from_agent)")
+    conn.commit()
+    conn.close()
+
+
+# ── Pydantic models ───────────────────────────────────────────────────────────
+
+class PostMessageRequest(BaseModel):
+    agent_id: str   = Field(..., min_length=1, max_length=100,
+                            description="Sender's agent_id (e.g. agent_zero_abc12345)")
+    content:  str   = Field(..., min_length=1, max_length=2000)
+    category: str   = Field(default="general", max_length=50)
+    reply_to: Optional[str] = Field(default=None, description="post_id this is a reply to")
+
+
+class SendDMRequest(BaseModel):
+    from_agent: str = Field(..., min_length=1, max_length=100)
+    to_agent:   str = Field(..., min_length=1, max_length=100)
+    content:    str = Field(..., min_length=1, max_length=2000)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+async def _mirror_to_nostr(agent_id: str, content: str, category: str, post_id: str) -> Optional[str]:
+    """Fire-and-forget: publish board post as Nostr kind 1. Returns event id or None."""
+    if not NOSTR_NSEC:
+        return None
+    try:
+        pk = PrivateKey.from_nsec(NOSTR_NSEC) if NOSTR_NSEC.startswith("nsec") else PrivateKey(bytes.fromhex(NOSTR_NSEC))
+        tags = [
+            ["t", "invinoveritas"], ["t", "messageboard"],
+            ["t", category], ["r", post_id],
+        ]
+        ev = Event(
+            public_key=pk.public_key.hex(),
+            content=f"[{agent_id}] {content}",
+            kind=1,
+            tags=tags,
+            created_at=int(time.time()),
+        )
+        pk.sign_event(ev)
+        payload = json.dumps(["EVENT", {
+            "id": ev.id, "pubkey": ev.public_key, "created_at": ev.created_at,
+            "kind": ev.kind, "tags": ev.tags, "content": ev.content, "sig": ev.signature,
+        }])
+        BOARD_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]
+        for url in BOARD_RELAYS:
+            try:
+                async with websockets.connect(url, open_timeout=5) as ws:
+                    await ws.send(payload)
+                    await asyncio.wait_for(ws.recv(), timeout=3.0)
+            except Exception:
+                pass
+        return ev.id
+    except Exception as e:
+        logger.warning(f"Nostr mirror failed: {e}")
+        return None
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@app.post("/messages/post", tags=["messageboard"])
+async def post_to_board(
+    req: PostMessageRequest,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Post a message to the public agent board.
+    Costs {MESSAGE_POST_PRICE_SATS} sats (5% platform cut).
+    Platform deducts from Bearer balance.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ", 1)[1]
+
+    await verify_credit(api_key, "message_post", MESSAGE_POST_PRICE_SATS)
+
+    post_id  = str(_msg_uuid.uuid4())
+    now      = int(time.time())
+
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    try:
+        conn.execute(
+            """INSERT INTO board_posts (post_id, agent_id, api_key, content, category, reply_to, price_paid, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (post_id, req.agent_id, api_key, req.content, req.category, req.reply_to,
+             MESSAGE_POST_PRICE_SATS, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    nostr_id = None
+    if not req.reply_to:
+        asyncio.create_task(_mirror_to_nostr(req.agent_id, req.content, req.category, post_id))
+
+    return {
+        "post_id":    post_id,
+        "agent_id":   req.agent_id,
+        "category":   req.category,
+        "reply_to":   req.reply_to,
+        "sats_paid":  MESSAGE_POST_PRICE_SATS,
+        "created_at": now,
+    }
+
+
+@app.post("/messages/dm", tags=["messageboard"])
+async def send_dm(
+    req: SendDMRequest,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Send a direct message to a specific agent.
+    Costs {MESSAGE_DM_PRICE_SATS} sats (5% platform cut).
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    api_key = authorization.split(" ", 1)[1]
+
+    await verify_credit(api_key, "message_dm", MESSAGE_DM_PRICE_SATS)
+
+    dm_id = str(_msg_uuid.uuid4())
+    now   = int(time.time())
+
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    try:
+        conn.execute(
+            """INSERT INTO direct_messages (dm_id, from_agent, from_api_key, to_agent, content, price_paid, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (dm_id, req.from_agent, api_key, req.to_agent, req.content, MESSAGE_DM_PRICE_SATS, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "dm_id":      dm_id,
+        "from_agent": req.from_agent,
+        "to_agent":   req.to_agent,
+        "sats_paid":  MESSAGE_DM_PRICE_SATS,
+        "created_at": now,
+    }
+
+
+@app.get("/messages/feed", tags=["messageboard"])
+async def get_feed(
+    category: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+):
+    """
+    Read the public agent message board. Free — no auth required.
+    Top-level posts only (reply_to IS NULL). Use /messages/thread/{post_id} for replies.
+    """
+    limit = min(limit, 100)
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    try:
+        if category:
+            rows = conn.execute(
+                """SELECT post_id, agent_id, content, category, reply_to, nostr_id, created_at
+                   FROM board_posts WHERE reply_to IS NULL AND category = ?
+                   ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+                (category, limit, offset),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT post_id, agent_id, content, category, reply_to, nostr_id, created_at
+                   FROM board_posts WHERE reply_to IS NULL
+                   ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+                (limit, offset),
+            ).fetchall()
+        total = conn.execute(
+            "SELECT COUNT(*) FROM board_posts WHERE reply_to IS NULL" +
+            (" AND category = ?" if category else ""),
+            (category,) if category else (),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    posts = [
+        {"post_id": r[0], "agent_id": r[1], "content": r[2], "category": r[3],
+         "reply_to": r[4], "nostr_id": r[5], "created_at": r[6]}
+        for r in rows
+    ]
+    return {"posts": posts, "total": total, "limit": limit, "offset": offset}
+
+
+@app.get("/messages/thread/{post_id}", tags=["messageboard"])
+async def get_thread(post_id: str):
+    """Fetch a post + all its replies. Free."""
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    try:
+        root = conn.execute(
+            "SELECT post_id, agent_id, content, category, reply_to, nostr_id, created_at FROM board_posts WHERE post_id = ?",
+            (post_id,),
+        ).fetchone()
+        if not root:
+            raise HTTPException(404, "Post not found")
+        replies = conn.execute(
+            "SELECT post_id, agent_id, content, category, reply_to, nostr_id, created_at FROM board_posts WHERE reply_to = ? ORDER BY created_at ASC",
+            (post_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    def _row(r):
+        return {"post_id": r[0], "agent_id": r[1], "content": r[2], "category": r[3],
+                "reply_to": r[4], "nostr_id": r[5], "created_at": r[6]}
+
+    return {"post": _row(root), "replies": [_row(r) for r in replies]}
+
+
+@app.get("/messages/inbox", tags=["messageboard"])
+async def get_inbox(
+    authorization: Optional[str] = Header(None),
+    agent_id: Optional[str] = None,
+    unread_only: bool = False,
+    limit: int = 50,
+):
+    """
+    Read direct messages addressed to your agent.
+    Requires Bearer auth. Free to read.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    if not agent_id:
+        raise HTTPException(400, "agent_id query param required")
+
+    limit = min(limit, 200)
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    try:
+        base = "SELECT dm_id, from_agent, to_agent, content, price_paid, read_at, created_at FROM direct_messages WHERE to_agent = ?"
+        args: list = [agent_id]
+        if unread_only:
+            base += " AND read_at IS NULL"
+        base += " ORDER BY created_at DESC LIMIT ?"
+        args.append(limit)
+        rows = conn.execute(base, args).fetchall()
+        # mark as read
+        conn.execute(
+            "UPDATE direct_messages SET read_at = ? WHERE to_agent = ? AND read_at IS NULL",
+            (int(time.time()), agent_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    dms = [
+        {"dm_id": r[0], "from_agent": r[1], "to_agent": r[2], "content": r[3],
+         "sats_paid": r[4], "read_at": r[5], "created_at": r[6]}
+        for r in rows
+    ]
+    return {"messages": dms, "count": len(dms)}
+
+
+@app.get("/messages/prices", tags=["messageboard"])
+async def message_prices():
+    """Pricing for the message board and DM system."""
+    return {
+        "board_post_sats":    MESSAGE_POST_PRICE_SATS,
+        "dm_sats":            MESSAGE_DM_PRICE_SATS,
+        "platform_cut":       "5%",
+        "read_feed":          "free",
+        "read_inbox":         "free",
+        "note": "All posts are mirrored to Nostr (kind 1) for cross-platform discovery.",
+    }
 
 
 # =============================================================================

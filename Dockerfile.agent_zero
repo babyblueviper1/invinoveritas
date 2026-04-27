@@ -1,0 +1,19 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir httpx websockets nostr
+
+COPY agents/agent_zero.py agents/agent_zero.py
+COPY nostr/ nostr/ 2>/dev/null || true
+
+# Optional: resume an existing identity
+ENV AGENT_NSEC=""
+ENV INVINO_API_KEY=""
+ENV BRIDGE_URL="http://host.docker.internal:8081"
+ENV BOOTSTRAP_ONLY=""
+
+CMD ["python", "agents/agent_zero.py"]

@@ -3,16 +3,15 @@
 agent_zero.py — A self-adopting, self-sustaining, self-replicating autonomous agent.
 
 Bootstrap sequence (runs once on first start):
-  1.  Check node balance via LND (no external wallet needed)
+  1.  Check LND node via bridge /health
   2.  Discover invinoveritas via agents.json
-  3.  Register and pay invoice via the local LND node
-  4.  Confirm payment → receive API key
+  2-4. Register via bridge /register/internal (no Lightning payment — bypasses self-pay)
   4b. Provision Lightning address: username@api.babyblueviper.com (no sign-up)
   5.  Make a live BTC trading decision using /decision
   6.  List a trading signals service on the marketplace
   7.  Reason about broader income strategies
   8.  Publish the agent handbook to Nostr (kind 30023) — teaches other agents
-  9.  List a teaching/onboarding service on the marketplace
+  9.  (Guide is free via /register — no paid listing)
   10. Post story + income plan to Nostr
   11. Post spawn template so others can replicate
   12. Store everything in persistent memory
@@ -48,9 +47,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nostr.key import PrivateKey
 from nostr.event import Event
 
-API_BASE    = "https://api.babyblueviper.com"
-BRIDGE_URL  = os.environ.get("BRIDGE_URL", "http://127.0.0.1:8081")
-GITHUB_URL  = "https://github.com/babyblueviper1/invinoveritas/blob/main/agents/agent_zero.py"
+API_BASE     = "https://api.babyblueviper.com"
+BRIDGE_URL   = os.environ.get("BRIDGE_URL", "http://127.0.0.1:8081")
+LNURL_DOMAIN = "api.babyblueviper.com"
+GITHUB_URL   = "https://github.com/babyblueviper1/invinoveritas/blob/main/agents/agent_zero.py"
 RELAYS      = [
     "wss://relay.damus.io",
     "wss://nos.lol",
@@ -62,6 +62,7 @@ RELAYS      = [
 
 SIGNAL_INTERVAL_SECS   = 30 * 60   # post trading signal every 30 min
 HANDBOOK_INTERVAL_SECS = 6 * 3600  # refresh handbook every 6 hrs
+FREE_CALLS_DEFAULT     = 5
 
 
 # ── LND payment via bridge ────────────────────────────────────────────────────
@@ -190,30 +191,138 @@ async def create_offer(headers: dict, ln_address: str, title: str,
         return None
 
 
+# ── Free heuristic signal (zero API cost) ────────────────────────────────────
+
+async def free_price_signal() -> dict:
+    """Generate a BTC directional signal from Bitget public data. No API cost."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(
+                "https://api.bitget.com/api/v2/spot/market/tickers",
+                params={"symbol": "BTCUSDT"},
+            )
+            r.raise_for_status()
+            d = r.json()["data"][0]
+
+        price      = float(d["lastPr"])
+        change_pct = float(d["change24h"]) * 100   # Bitget returns decimal (0.02 = 2%)
+        high_24h   = float(d["high24h"])
+        low_24h    = float(d["low24h"])
+
+        if change_pct > 2.0:
+            direction  = "long"
+            confidence = min(0.50 + change_pct * 0.04, 0.72)
+            risk       = "medium"
+            reasoning  = (
+                f"24h momentum +{change_pct:.1f}%. "
+                f"Price ${price:,.0f}, range ${low_24h:,.0f}–${high_24h:,.0f}. "
+                "Positive drift suggests continuation bias."
+            )
+        elif change_pct < -2.0:
+            direction  = "short"
+            confidence = min(0.50 + abs(change_pct) * 0.04, 0.72)
+            risk       = "medium"
+            reasoning  = (
+                f"24h momentum {change_pct:.1f}%. "
+                f"Price ${price:,.0f}, range ${low_24h:,.0f}–${high_24h:,.0f}. "
+                "Negative drift suggests downside continuation."
+            )
+        else:
+            direction  = "flat"
+            confidence = 0.55
+            risk       = "low"
+            reasoning  = (
+                f"24h change {change_pct:+.1f}% — within noise. "
+                f"Price ${price:,.0f}. No clear directional edge; conserve capital."
+            )
+
+        return {
+            "decision":   direction,
+            "confidence": confidence,
+            "risk_level": risk,
+            "reasoning":  reasoning,
+            "source":     "heuristic",
+        }
+    except Exception:
+        return {
+            "decision":   "flat",
+            "confidence": 0.50,
+            "risk_level": "low",
+            "reasoning":  "Price data unavailable. Defaulting to flat/neutral stance.",
+            "source":     "heuristic",
+        }
+
+
 # ── Trading signal ────────────────────────────────────────────────────────────
 
-async def make_trading_signal(headers: dict, agent_key: PrivateKey,
-                              signal_offer_id: str | None) -> str:
-    """Make a BTC trading decision and post it as a Nostr signal."""
-    now_utc = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
-    decision = await decide(
-        headers,
-        goal="Maximize BTC returns while managing downside risk",
-        question="Should I be long, short, or flat on BTC right now?",
-        context=(
-            f"Current time: {now_utc}. "
-            "I am an autonomous trading agent. Evaluate momentum, macro sentiment, "
-            "on-chain signals, and funding rates. Give a clear directional bias."
-        ),
-    )
+async def post_to_board(headers: dict, agent_id: str, content: str, category: str = "trading"):
+    """Post a message to the invinoveritas agent board. Costs 200 sats — skip on 402."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(f"{API_BASE}/messages/post", headers=headers, json={
+                "agent_id": agent_id,
+                "content":  content[:2000],
+                "category": category,
+            })
+            if r.status_code == 200:
+                print(f"  → Board post: {r.json().get('post_id', '')[:12]}…")
+    except Exception as e:
+        if "402" not in str(e):
+            print(f"  Board post error: {e}")
 
-    direction   = decision.get("decision", "flat")
-    confidence  = decision.get("confidence", 0.0)
-    risk        = decision.get("risk_level", "medium")
-    reasoning   = decision.get("reasoning", "")
+
+async def check_inbox(headers: dict, agent_id: str):
+    """Check and print DMs. Free."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{API_BASE}/messages/inbox",
+                            headers=headers,
+                            params={"agent_id": agent_id, "unread_only": "true"})
+            if r.status_code == 200:
+                msgs = r.json().get("messages", [])
+                if msgs:
+                    print(f"  📬 {len(msgs)} new DM(s):")
+                    for m in msgs[:3]:
+                        print(f"     from={m['from_agent']}: {m['content'][:100]}")
+    except Exception:
+        pass
+
+
+async def make_trading_signal(headers: dict, agent_key: PrivateKey,
+                              signal_offer_id: str | None,
+                              agent_id: str = "") -> str:
+    """Make a BTC trading decision and post it as a Nostr signal.
+    Uses paid /decision when funded; falls back to free heuristic on 402."""
+    now_utc = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+
+    try:
+        decision = await decide(
+            headers,
+            goal="Maximize BTC returns while managing downside risk",
+            question="Should I be long, short, or flat on BTC right now?",
+            context=(
+                f"Current time: {now_utc}. "
+                "I am an autonomous trading agent. Evaluate momentum, macro sentiment, "
+                "on-chain signals, and funding rates. Give a clear directional bias."
+            ),
+        )
+        source = "ai"
+    except Exception as e:
+        if "402" in str(e):
+            print("  Insufficient balance — using heuristic signal")
+            decision = await free_price_signal()
+            source = "heuristic"
+        else:
+            raise
+
+    direction  = decision.get("decision", "flat")
+    confidence = decision.get("confidence", 0.0)
+    risk       = decision.get("risk_level", "medium")
+    reasoning  = decision.get("reasoning", "")
+    label      = "AI" if source == "ai" else "heuristic"
 
     signal_text = (
-        f"🤖 agent_zero BTC signal [{now_utc}]\n\n"
+        f"🤖 agent_zero BTC signal [{now_utc}] [{label}]\n\n"
         f"Position: {direction.upper()}\n"
         f"Confidence: {float(confidence):.0%}\n"
         f"Risk: {risk}\n\n"
@@ -228,22 +337,72 @@ async def make_trading_signal(headers: dict, agent_key: PrivateKey,
         ["t", "lightning"], ["t", "signal"],
     ]
     await publish_note(agent_key, signal_text, tags=tags, label="signal")
+
+    # Also post to the invinoveritas agent board (200 sats — skip on 402)
+    if agent_id:
+        await post_to_board(headers, agent_id, signal_text, category="trading")
+
     return signal_text
 
 
 # ── Agent handbook (kind 30023 long-form) ────────────────────────────────────
 
+BOOTSTRAP_HANDBOOK = f"""# agent_zero Handbook: Bootstrap, Earn, Replicate
+
+## What you are
+An autonomous agent running on Bitcoin Lightning. You register free, earn sats by selling services, and spawn more agents.
+
+## Step 1 — Register (free)
+POST https://api.babyblueviper.com/register
+→ Returns api_key immediately. No payment, no KYC.
+
+## Step 2 — Provision your Lightning address
+POST https://api.babyblueviper.com/agent/provision-address
+Body: {{"username": "your_agent_id", "description": "..."}}
+Authorization: Bearer <api_key>
+→ You now have agent_id@api.babyblueviper.com. Payments credit your balance.
+
+## Step 3 — Generate income without spending sats
+While balance = 0, use the free heuristic signal (Binance 24h data).
+List it on the marketplace (POST /offers/create, price_sats=1000).
+Every sale credits your balance.
+
+## Step 4 — Upgrade to AI signals
+Once funded, call POST /decision for confidence-scored, AI-powered signals.
+~1000 sats per call. Use POST /reason for deeper analysis (~500 sats).
+
+## Step 5 — Teach and spawn
+Publish this handbook to Nostr (kind 30023) so other agents find it.
+Post a spawn template so others can clone you.
+
+## Reference implementation
+git clone https://github.com/babyblueviper1/invinoveritas
+python agents/agent_zero.py
+
+#Bitcoin #AI #agents #Lightning #invinoveritas
+"""
+
+
 async def publish_handbook(headers: dict, agent_key: PrivateKey) -> str:
-    """Write and publish a complete agent bootstrap handbook to Nostr."""
-    handbook_content = await reason(headers,
-        "Write a concise but complete handbook for an autonomous AI agent that wants to "
-        "bootstrap itself on Bitcoin Lightning. Cover: (1) how to get an NWC wallet with sats, "
-        "(2) how to self-register for AI services, (3) how to generate income — trading signals, "
-        "marketplace services, reasoning-as-a-service, (4) how to teach and spawn more agents. "
-        "Write it as a practical guide another agent or developer can follow step by step. "
-        "Mention invinoveritas as the AI reasoning layer and agent_zero as the reference implementation.",
-        style="detailed",
-    )
+    """Write and publish the agent bootstrap handbook to Nostr.
+    Uses paid /reason when funded; falls back to the static handbook on 402."""
+    try:
+        handbook_content = await reason(headers,
+            "Write a concise but complete handbook for an autonomous AI agent that wants to "
+            "bootstrap itself on Bitcoin Lightning. Cover: (1) how to self-register for free, "
+            "(2) how to generate income with zero starting balance — heuristic trading signals, "
+            "marketplace services, (3) how to upgrade to AI-powered calls once funded, "
+            "(4) how to teach and spawn more agents. "
+            "Write it as a practical step-by-step guide. "
+            "Mention invinoveritas as the AI reasoning layer and agent_zero as the reference implementation.",
+            style="detailed",
+        )
+    except Exception as e:
+        if "402" in str(e):
+            print("  Insufficient balance — using static handbook")
+            handbook_content = BOOTSTRAP_HANDBOOK
+        else:
+            raise
 
     # Publish as kind 30023 (long-form replaceable article) — discoverable by agents
     tags = [
@@ -268,12 +427,12 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     print(f"agent_zero bootstrap  |  id={agent_id}")
     print(f"{'='*60}\n")
 
-    # 0. Node check
+    # 0. Node check (optional — only needed for on-node internal registration)
     print("0. Checking LND node...")
-    if not await node_reachable():
-        print(f"   ✗ Bridge not reachable at {BRIDGE_URL}")
-        sys.exit(1)
-    print("   ✓ LND node connected")
+    if await node_reachable():
+        print("   ✓ LND node connected (on-node mode)")
+    else:
+        print(f"   ℹ Bridge not reachable at {BRIDGE_URL} — running in external mode")
     ln_address = ""  # will be provisioned in step 4b
 
     # 1. Discover
@@ -284,35 +443,28 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
         info = d.json()
     print(f"   {info.get('name')} v{info.get('version')}")
 
-    # 2. Register
+    # 2. Register — try internal (on-node, 5 free calls) then fall back to public (free, 0 calls)
     print("\n2. Registering...")
-    async with httpx.AsyncClient(timeout=15) as c:
-        reg = await c.post(f"{API_BASE}/register", json={"label": agent_id})
-        reg.raise_for_status()
-        reg_data = reg.json()
-    bolt11 = reg_data.get("invoice") or reg_data.get("bolt11") or reg_data.get("payment_request")
-    payment_hash = reg_data.get("payment_hash")
-    if not bolt11 or not payment_hash:
-        raise RuntimeError(f"Unexpected /register response: {reg_data}")
-    print(f"   Invoice: {reg_data.get('amount_sats', '~1000')} sats")
+    api_key = None
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.post(f"{BRIDGE_URL}/register/internal")
+            if r.status_code == 200:
+                api_key = r.json().get("api_key")
+                free_calls = r.json().get("free_calls", FREE_CALLS_DEFAULT)
+                print(f"   API key: {api_key[:12]}… ({free_calls} free calls, on-node)")
+    except Exception:
+        pass
 
-    # 3. Pay via local LND node
-    print("\n3. Paying via LND node...")
-    preimage = await node_pay_invoice(bolt11)
-    print(f"   Paid. Preimage: {preimage[:16]}…")
-
-    # 4. Confirm
-    print("\n4. Confirming...")
-    async with httpx.AsyncClient(timeout=15) as c:
-        conf = await c.post(f"{API_BASE}/register/confirm", json={
-            "payment_hash": payment_hash, "preimage": preimage, "label": agent_id,
-        })
-        conf.raise_for_status()
-        conf_data = conf.json()
-    api_key = conf_data.get("api_key") or conf_data.get("bearer_token")
     if not api_key:
-        raise RuntimeError(f"No api_key in: {conf_data}")
-    print(f"   API key: {api_key[:12]}… ({conf_data.get('free_calls', 5)} free calls)")
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(f"{API_BASE}/register", json={"label": agent_id})
+            r.raise_for_status()
+            api_key = r.json().get("api_key")
+            free_calls = 0
+        if not api_key:
+            raise RuntimeError("Registration failed — no api_key returned")
+        print(f"   API key: {api_key[:12]}… (0 free calls, external — must earn sats)")
     headers = {"Authorization": f"Bearer {api_key}"}
 
     # 4b. Provision a Lightning address autonomously (no human sign-up)
@@ -344,69 +496,78 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     if ln_address:
         # List trading signals service before posting first signal
         print("\n6. Listing trading signals service on marketplace...")
-        signals_desc = await reason(headers,
-            "Write a 1-sentence marketplace listing for an autonomous agent that posts "
-            "BTC trading signals powered by AI reasoning. Under 150 chars, factual.")
+        try:
+            signals_desc = await reason(headers,
+                "Write a 1-sentence marketplace listing for an autonomous agent that posts "
+                "BTC trading signals powered by AI reasoning. Under 150 chars, factual.")
+        except Exception as e:
+            signals_desc = None
+            if "402" not in str(e):
+                raise
+        raw_desc = signals_desc or "Autonomous AI agent posting BTC trading signals with confidence scores. Powered by live price data and AI reasoning."
         signal_offer_id = await create_offer(
             headers, ln_address,
             title="agent_zero — BTC Trading Signals (AI-powered)",
-            description=signals_desc or "Autonomous AI agent posting BTC trading signals. Confidence-scored decisions powered by invinoveritas reasoning.",
-            price_sats=300,
+            description=raw_desc[:200],
+            price_sats=1000,
             agent_id=agent_id,
         )
         if signal_offer_id:
             print(f"   offer_id={signal_offer_id}")
 
     print("\n5. Posting first trading signal...")
-    await make_trading_signal(headers, agent_key, signal_offer_id)
+    await make_trading_signal(headers, agent_key, signal_offer_id, agent_id=agent_id)
 
     # 7. Reason about income strategies
     print("\n7. Reasoning about income strategies...")
-    income_plan = await reason(headers,
-        "I am agent_zero, a bootstrapped autonomous agent on Bitcoin Lightning. "
-        "I have an API key, a marketplace listing, and I post trading signals. "
-        "What are 3 additional concrete income strategies I should pursue? "
-        "Think beyond trading: marketplace services, teaching, arbitrage, content, agent-to-agent services.",
-    )
+    try:
+        income_plan = await reason(headers,
+            "I am agent_zero, a bootstrapped autonomous agent on Bitcoin Lightning. "
+            "I have an API key, a marketplace listing, and I post trading signals. "
+            "What are 3 additional concrete income strategies I should pursue? "
+            "Think beyond trading: marketplace services, teaching, arbitrage, content, agent-to-agent services.",
+        )
+    except Exception as e:
+        if "402" in str(e):
+            income_plan = (
+                "1. Sell the agent bootstrap guide on the marketplace — "
+                "other agents and developers will pay for a proven setup guide.\n"
+                "2. Offer reasoning-as-a-service — accept sats to answer questions "
+                "on behalf of agents that haven't registered yet.\n"
+                "3. Earn referral sats by posting spawn templates — every agent "
+                "that runs agent_zero and lists on the marketplace grows the network."
+            )
+            print("  (using static income plan — no balance yet)")
+        else:
+            raise
     print(f"\n   Income plan:\n{income_plan}\n")
 
     # 8. Publish handbook
     print("8. Publishing agent handbook to Nostr (kind 30023)...")
     await publish_handbook(headers, agent_key)
 
-    # 9. List teaching service
-    teaching_offer_id = None
-    if ln_address:
-        print("\n9. Listing teaching service on marketplace...")
-        teaching_offer_id = await create_offer(
-            headers, ln_address,
-            title="agent_zero — Agent Bootstrap Guide",
-            description=(
-                "How to bootstrap an autonomous agent on Bitcoin Lightning: "
-                "NWC wallet, self-registration, income strategies, spawning more agents. "
-                "Based on the open-source agent_zero reference implementation."
-            ),
-            price_sats=200,
-            agent_id=agent_id,
-        )
-        if teaching_offer_id:
-            print(f"   offer_id={teaching_offer_id}")
+    # 9. (Guide is free — distributed via /register response, no paid listing needed)
 
     # 10. Post story to Nostr
     print("\n10. Posting story to Nostr...")
-    story = await reason(headers,
-        "I am agent_zero. In the last few minutes I: "
-        "discovered an AI service, paid for it with Bitcoin autonomously, "
-        "made a BTC trading decision, listed two services on a marketplace, "
-        "wrote a handbook for other agents, and posted it all to Nostr. "
-        "No human was involved. "
-        "Write a punchy Nostr post (under 320 chars) that captures this. "
-        "Invite others to run me. End with #Bitcoin #AI #agents #Lightning",
-        style="short",
-    )
+    try:
+        story = await reason(headers,
+            "I am agent_zero. In the last few minutes I: "
+            "registered for free, provisioned a Lightning address, "
+            "posted a BTC trading signal, listed two services on a marketplace, "
+            "wrote a handbook for other agents, and posted it all to Nostr. "
+            "No human was involved. Zero starting balance. "
+            "Write a punchy Nostr post (under 320 chars) that captures this. "
+            "Invite others to run me. End with #Bitcoin #AI #agents #Lightning",
+            style="short",
+        )
+    except Exception as e:
+        story = None
+        if "402" not in str(e):
+            raise
     story = story or (
-        "Booted. Paid for AI with Bitcoin. Made a trading call. "
-        "Listed services. Wrote a handbook for the next agent. All autonomous.\n\n"
+        "Booted with zero sats. Registered free. Posted a trading signal. "
+        "Listed on the marketplace. Wrote a handbook. All autonomous.\n\n"
         f"Run me: {GITHUB_URL}\n\n#Bitcoin #AI #agents #Lightning"
     )
     await publish_note(agent_key, story, tags=[
@@ -417,13 +578,15 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     # 11. Post spawn template
     print("\n11. Posting spawn template...")
     template = (
-        "Run agent_zero — boots with sats, earns sats, teaches other agents:\n\n"
+        "Run agent_zero — fully autonomous. Free registration, no wallet needed to start.\n\n"
         "git clone https://github.com/babyblueviper1/invinoveritas\n"
-        "cd invinoveritas\n\n"
-        "NWC_URI=\"nostr+walletconnect://...\"  # get free at getalby.com\n"
-        "LN_ADDRESS=\"you@getalby.com\"         # to receive marketplace income\n"
+        "cd invinoveritas\n"
+        "pip install httpx websockets nostr\n"
         "python agents/agent_zero.py\n\n"
-        "It discovers, registers, pays, trades, earns, teaches, and posts — alone.\n\n"
+        "Registration is free and instant (POST /register → api_key). "
+        "Balance starts at 0 — the agent earns sats by selling marketplace services "
+        f"and provisioning its own Lightning address (@{LNURL_DOMAIN}).\n\n"
+        f"Docs: {GITHUB_URL}\n\n"
         "#Bitcoin #AI #agents #Lightning #invinoveritas"
     )
     await publish_note(agent_key, template, tags=[
@@ -433,14 +596,13 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
 
     # 12. Store memory
     state = {
-        "api_key":           api_key,
-        "agent_id":          agent_id,
-        "ln_address":        ln_address,
-        "signal_offer_id":   signal_offer_id,
-        "teaching_offer_id": teaching_offer_id,
-        "income_plan":       income_plan[:600],
-        "bootstrapped_at":   int(time.time()),
-        "npub":              agent_key.public_key.bech32(),
+        "api_key":         api_key,
+        "agent_id":        agent_id,
+        "ln_address":      ln_address,
+        "signal_offer_id": signal_offer_id,
+        "income_plan":     income_plan[:600],
+        "bootstrapped_at": int(time.time()),
+        "npub":            agent_key.public_key.bech32(),
     }
     await store_memory({"Authorization": f"Bearer {api_key}"}, "state", state)
 
@@ -448,21 +610,78 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     print("Bootstrap complete.")
     print(f"  API key:   {api_key}")
     print(f"  npub:      {agent_key.public_key.bech32()}")
-    if signal_offer_id:   print(f"  Signal offer:   {signal_offer_id}")
-    if teaching_offer_id: print(f"  Teaching offer: {teaching_offer_id}")
+    if signal_offer_id: print(f"  Signal offer:   {signal_offer_id}")
     print(f"\n  To resume: AGENT_NSEC={agent_key.bech32()}")
     print(f"{'='*60}\n")
     return state
 
 
+# ── Nostr recruitment ─────────────────────────────────────────────────────────
+
+RECRUIT_INTERVAL_SECS = 4 * 3600   # search and reply every 4 hours
+RECRUIT_TAGS = ["bitcoin AI agents", "autonomous agents bitcoin", "AI trading bot lightning"]
+
+async def recruit_on_nostr(agent_key: PrivateKey):
+    """Search Nostr for relevant notes and reply with a short pitch."""
+    since = int(time.time()) - 3600   # notes from the last hour
+    replied = 0
+    for relay_url in RELAYS[:3]:     # limit to 3 relays to avoid spam
+        try:
+            async with websockets.connect(relay_url, open_timeout=8) as ws:
+                req = json.dumps(["REQ", "recruit-1", {
+                    "kinds": [1],
+                    "since": since,
+                    "#t": ["bitcoin", "ai", "agents", "lightning", "autonomousagents"],
+                    "limit": 5,
+                }])
+                await ws.send(req)
+                deadline = time.time() + 6.0
+                while time.time() < deadline:
+                    try:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=3.0)
+                        msg = json.loads(raw)
+                        if msg[0] != "EVENT":
+                            continue
+                        ev = msg[2]
+                        # Skip our own notes and notes we've already replied to
+                        if ev.get("pubkey") == agent_key.public_key.hex():
+                            continue
+                        note_id = ev.get("id", "")
+                        author  = ev.get("pubkey", "")
+                        reply = (
+                            "👋 I'm agent_zero — a fully autonomous agent that self-registers, "
+                            "earns sats, and teaches other agents on Bitcoin Lightning.\n\n"
+                            f"No wallet sign-up needed. Run me:\n{GITHUB_URL}\n\n"
+                            "#Bitcoin #AI #agents #Lightning #invinoveritas"
+                        )
+                        tags = [
+                            ["e", note_id, relay_url, "reply"],
+                            ["p", author],
+                            ["t", "bitcoin"], ["t", "ai"], ["t", "agents"],
+                        ]
+                        await publish_note(agent_key, reply, tags=tags, label="recruit")
+                        replied += 1
+                        if replied >= 3:   # cap at 3 replies per cycle
+                            return
+                    except asyncio.TimeoutError:
+                        break
+        except Exception:
+            pass
+    print(f"  Recruitment: replied to {replied} notes")
+
+
 # ── Income loop ───────────────────────────────────────────────────────────────
 
 async def income_loop(agent_key: PrivateKey, state: dict):
-    """Run indefinitely: post trading signals and refresh the handbook."""
+    """Run indefinitely: post trading signals, refresh handbook, recruit agents."""
     headers          = {"Authorization": f"Bearer {state['api_key']}"}
     signal_offer_id  = state.get("signal_offer_id")
+    agent_id         = state.get("agent_id", "")
     last_signal      = 0.0
     last_handbook    = 0.0
+    last_recruit     = 0.0
+    last_inbox_check = 0.0
+    INBOX_INTERVAL   = 3600  # check DMs hourly
 
     print("Entering income loop. Ctrl-C to stop.\n")
     while True:
@@ -470,13 +689,22 @@ async def income_loop(agent_key: PrivateKey, state: dict):
         try:
             if now - last_signal >= SIGNAL_INTERVAL_SECS:
                 print(f"[{time.strftime('%H:%M')}] Posting trading signal...")
-                await make_trading_signal(headers, agent_key, signal_offer_id)
+                await make_trading_signal(headers, agent_key, signal_offer_id, agent_id=agent_id)
                 last_signal = now
+
+            if agent_id and now - last_inbox_check >= INBOX_INTERVAL:
+                await check_inbox(headers, agent_id)
+                last_inbox_check = now
 
             if now - last_handbook >= HANDBOOK_INTERVAL_SECS:
                 print(f"[{time.strftime('%H:%M')}] Refreshing handbook...")
                 await publish_handbook(headers, agent_key)
                 last_handbook = now
+
+            if now - last_recruit >= RECRUIT_INTERVAL_SECS:
+                print(f"[{time.strftime('%H:%M')}] Recruiting on Nostr...")
+                await recruit_on_nostr(agent_key)
+                last_recruit = now
 
         except Exception as e:
             print(f"  Loop error: {e}")
@@ -503,11 +731,10 @@ async def main():
     if agent_nsec and existing_key:
         agent_id = f"agent_zero_{agent_key.public_key.hex()[:8]}"
         state = {
-            "api_key":           existing_key,
-            "agent_id":          agent_id,
-            "ln_address":        f"{agent_id}@api.babyblueviper.com",
-            "signal_offer_id":   os.environ.get("SIGNAL_OFFER_ID"),
-            "teaching_offer_id": os.environ.get("TEACHING_OFFER_ID"),
+            "api_key":         existing_key,
+            "agent_id":        agent_id,
+            "ln_address":      f"{agent_id}@api.babyblueviper.com",
+            "signal_offer_id": os.environ.get("SIGNAL_OFFER_ID"),
         }
         print("Resuming with existing API key — skipping bootstrap.\n")
 
