@@ -1877,7 +1877,7 @@ async def wallet_status():
         "payment_required": True,
         "wallet_required": True,
 
-        "wallet_usage": "A Lightning wallet is required for initial registration and occasional top-ups. "
+        "wallet_usage": "A Lightning wallet is required only for top-ups, L402 payments, and withdrawals. "
                         "Once your Bearer account is funded, normal API usage requires no wallet — just your api_key.",
 
         "supported_methods": [
@@ -1888,7 +1888,7 @@ async def wallet_status():
         "message": "Lightning-powered payments. Bearer Token is the easiest and most recommended option for autonomous agents, trading bots, and repeated usage.",
 
         "payment_options": {
-            "best_for_agents": "Bearer Token — register once via /register (pay ~1000 sats via Lightning wallet), get api_key + 3 free calls, then use forever.",
+            "best_for_agents": "Bearer Token — register free via /register, get api_key + 3 free calls, then use forever.",
             "best_for_lightning_users": "L402 Lightning — pure atomic pay-per-call with no account needed.",
             "best_for_trading_bots": "Bearer Token (pre-funded) for speed and reliability."
         },
@@ -2581,12 +2581,12 @@ SERVER_CARD = {
     "paymentMethods": {
         "supported": ["Bearer Token", "L402 Lightning"],
         "preferred": "Bearer Token (after registration)",
-        "note": "A Lightning wallet is required for initial registration and occasional top-ups."
+        "note": "A Lightning wallet is required only for top-ups, L402 payments, and withdrawals."
     },
     "walletSetup": {
         "required": True,
-        "message": "Lightning wallet required for initial registration and top-ups.",
-        "recommended": "Register with Lightning → get Bearer token (easiest long-term solution)",
+        "message": "Lightning wallet required for top-ups, L402 payments, and withdrawals.",
+        "recommended": "Register free → get Bearer token (easiest long-term solution)",
         "quickstart": "Register free to receive 3 free calls and a Bearer API key."
     },
     "pricing": {
@@ -2616,7 +2616,7 @@ SERVER_CARD = {
     "importantNotes": [
         "All payments processed via Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents",
-        "Lightning wallet required for initial registration and occasional top-ups",
+        "Lightning wallet required for top-ups, L402 payments, and withdrawals",
         "New in v1.5.0: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
         "Agent Wallet Guide: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
         "LLM Integration Prompt: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
@@ -2813,7 +2813,7 @@ async def a2a_endpoint(request: Request):
             "supported_payments": ["Bearer", "L402"],
             "trading_bot_optimized": True,
             "wallet_required": True,
-            "wallet_usage": "Lightning wallet needed only for initial registration and top-ups.",
+            "wallet_usage": "Lightning wallet needed only for top-ups, L402 payments, and withdrawals.",
             "note": "Use Bearer Token for best experience after registration."
         }
 
@@ -2961,7 +2961,7 @@ def payment_guide():
             "bearer": {
                 "name": "Bearer Token (Recommended)",
                 "description": "Pre-funded credit account. Best for autonomous agents, trading bots, and long-term use.",
-                "flow": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 3 free calls",
+                "flow": "POST /register → get api_key + 3 free calls",
                 "usage": "Authorization: Bearer ivv_...",
                 "advantages": [
                     "Simple long-term usage",
@@ -2981,7 +2981,7 @@ def payment_guide():
 
         "wallet_requirement": {
             "required": True,
-            "details": "A Lightning wallet is required for initial registration and occasional top-ups. "
+            "details": "A Lightning wallet is required only for top-ups, L402 payments, and withdrawals. "
                        "Once your Bearer account is funded, normal API usage requires no wallet — just your api_key."
         },
 
@@ -2991,7 +2991,7 @@ def payment_guide():
             {
                 "step": 1,
                 "title": "Register your account",
-                "action": "POST /register and pay the Lightning invoice (~1000 sats)",
+                "action": "POST /register for a free API key",
                 "result": "Receive API key + 3 free calls"
             },
             {
@@ -3026,7 +3026,7 @@ def payment_guide():
         },
 
         "next_steps": [
-            "1. Register with Lightning: POST /register",
+            "1. Register free: POST /register",
             "2. Use your Bearer token for all calls",
             "3. Top up anytime via /topup (Lightning)",
             "4. Monitor usage at /balance",
@@ -3087,7 +3087,7 @@ def get_all_prices():
         },
 
         "note": "All payments are processed via the Lightning Network. New accounts receive 3 free calls. "
-                "Lightning wallet required for initial registration and occasional top-ups.",
+                "Lightning wallet required for top-ups, L402 payments, and withdrawals.",
         "last_updated": int(time.time())
     }
 
@@ -3101,14 +3101,14 @@ async def wallet_onboarding():
         "subtitle": "Simple Lightning-based payments: Bearer Token or L402 Invoices",
 
         "introduction": "All payments are handled via the Lightning Network. "
-                        "A Lightning wallet is required for initial registration and occasional top-ups. "
+                        "A Lightning wallet is required only for top-ups, L402 payments, and withdrawals. "
                         "Once funded with a Bearer Token, normal API usage requires no wallet — just your api_key.",
 
         "payment_options": [
             {
                 "type": "Bearer Token (Recommended for long-term use)",
                 "description": "Create an account once and use an API key for all future calls.",
-                "setup": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 3 free calls",
+                "setup": "POST /register → get api_key + 3 free calls",
                 "usage": "Authorization: Bearer ivv_...",
                 "pros": [
                     "Easiest for agents and trading bots",
@@ -3148,7 +3148,7 @@ async def wallet_onboarding():
         },
 
         "next_steps": [
-            "1. Register with Lightning: POST /register (~1000 sats)",
+            "1. Register free: POST /register",
             "2. Use your Bearer token for all calls",
             "3. Top up anytime via /topup (Lightning)",
             "4. Monitor usage at /balance",
@@ -3156,7 +3156,7 @@ async def wallet_onboarding():
         ],
 
         "important_notes": [
-            "Lightning wallet required for initial registration and occasional top-ups",
+            "Lightning wallet required for top-ups, L402 payments, and withdrawals",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
             "New in v1.5.0: Persistent agent memory service for long-term context"
         ]
@@ -3199,8 +3199,8 @@ def health():
         "wallet_requirement": {
             "status": "PAYMENT_REQUIRED",
             "escalation_level": "medium",
-            "message": "Lightning wallet required for initial registration and occasional top-ups.",
-            "note": "Recommended: Register with Lightning to get a Bearer token (easiest long-term solution).",
+            "message": "Lightning wallet required for top-ups, L402 payments, and withdrawals.",
+            "note": "Recommended: Register free to get a Bearer token (easiest long-term solution).",
             "recommended": "Bearer Token after /register",
             "guide": "/wallet-onboarding",
             "wallet_onboarding": "/wallet-onboarding"
@@ -3249,7 +3249,7 @@ def health():
         "new_features": {
             "style_control": True,
             "confidence_scoring": True,
-            "complementary_calls_on_registration": 5,
+            "complementary_calls_on_registration": 3,
             "structured_output": True,
             "trading_bot_optimized": True,
             "a2a_delegation": True,
@@ -3329,7 +3329,7 @@ def health():
         "important_notes": [
             "All payments are processed via the Lightning Network",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
-            "Lightning wallet required for initial registration and occasional top-ups",
+            "Lightning wallet required for top-ups, L402 payments, and withdrawals",
             "New accounts receive 3 free calls after registration",
             "Trading bots perform best with a pre-funded Bearer token",
             "Real-time updates available via SSE, WebSocket, and RSS"
@@ -3546,7 +3546,7 @@ def tool_definition():
         },
         "wallet_requirement": {
             "required": True,
-            "message": "Lightning wallet required for initial registration and occasional top-ups.",
+            "message": "Lightning wallet required for top-ups, L402 payments, and withdrawals.",
             "recommended": "Bearer token after registration (easiest long-term solution)",
             "guide": "/wallet-onboarding"
         },
@@ -3645,7 +3645,7 @@ def tool_definition_mcp():
         "trading_bot_note": "Trading bots benefit greatly from Bearer token for low-latency, high-frequency decisions (arbitrage, rebalancing, risk scoring).",
         "wallet_requirement": {
             "required": True,
-            "message": "Lightning wallet required for initial registration and occasional top-ups."
+            "message": "Lightning wallet required for top-ups, L402 payments, and withdrawals."
         }
     }
 
@@ -3878,7 +3878,7 @@ async def discover_page():
                 <li><strong>Bearer Token</strong> — Recommended for agents (register once, use API key)</li>
                 <li><strong>L402 Lightning</strong> — Pay-per-call with Lightning invoices</li>
             </ul>
-            <p><strong>Wallet note:</strong> Lightning wallet required for initial registration and occasional top-ups. Once funded with Bearer Token, normal usage requires no wallet.</p>
+            <p><strong>Wallet note:</strong> Lightning wallet required for top-ups, L402 payments, and withdrawals. Once funded with Bearer Token, normal usage requires no wallet.</p>
             <p><strong>Best for autonomous agents & trading bots:</strong> Bearer Token</p>
         </div>
 
