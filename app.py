@@ -54,7 +54,12 @@ import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from services.agent_to_agent import AgentToAgentEngine
 from services.creative import CreativeRevenueEngine
-from services.external import AutonomousGrowthEngine, SafeExternalRegistration
+from services.external import (
+    AutonomousGrowthEngine,
+    SafeExternalRegistration,
+    build_youtube_consent_url,
+    youtube_oauth_readiness,
+)
 from services.games import GamesRevenueEngine
 from services.passive import PassiveRevenueEngine
 from services.self_improvement import SelfImprovementLoop
@@ -5960,6 +5965,23 @@ async def external_services_catalog():
             await AutonomousGrowthEngine().plan("agent_zero", public=True),
         ]
     }
+
+
+@app.get("/internal/youtube/oauth-status", tags=["orchestration"], include_in_schema=False)
+async def internal_youtube_oauth_status(request: Request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    return youtube_oauth_readiness()
+
+
+@app.get("/internal/youtube/oauth-url", tags=["orchestration"], include_in_schema=False)
+async def internal_youtube_oauth_url(request: Request, redirect_uri: str = "http://127.0.0.1:8000/internal/youtube/oauth-callback"):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    try:
+        return build_youtube_consent_url(redirect_uri)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 # =============================================================================
