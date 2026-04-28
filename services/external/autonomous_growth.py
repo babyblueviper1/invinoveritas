@@ -21,21 +21,24 @@ class GrowthChannel:
     kind: str
     permissionless: bool
     official_api: bool
-    env_token: str | None = None
+    env_tokens: tuple[str, ...] = ()
+    internal_only: bool = False
     monetization: tuple[str, ...] = ()
 
     def can_execute(self) -> bool:
         if self.permissionless:
             return True
-        if self.official_api and self.env_token:
-            return bool(os.getenv(self.env_token))
+        if self.official_api and self.env_tokens:
+            return any(bool(os.getenv(name)) for name in self.env_tokens)
         return False
 
-    def blocked_reason(self) -> str | None:
+    def blocked_reason(self, public: bool = False) -> str | None:
         if self.can_execute():
             return None
-        if self.official_api and self.env_token:
-            return f"missing environment credential: {self.env_token}"
+        if self.official_api and self.env_tokens:
+            if public:
+                return "requires an internal official API credential"
+            return f"missing internal environment credential: {', '.join(self.env_tokens)}"
         return "requires unsupported signup, verification, KYC, CAPTCHA, or browser automation"
 
 
@@ -62,7 +65,8 @@ class AutonomousGrowthEngine:
             kind="streaming",
             permissionless=False,
             official_api=True,
-            env_token="YOUTUBE_API_TOKEN",
+            env_tokens=("YOUTUBE_API_KEY", "YOUTUBE_API_TOKEN"),
+            internal_only=True,
             monetization=("ad revenue", "tips", "funnels"),
         ),
         GrowthChannel(
@@ -70,7 +74,8 @@ class AutonomousGrowthEngine:
             kind="streaming",
             permissionless=False,
             official_api=True,
-            env_token="KICK_API_TOKEN",
+            env_tokens=("KICK_API_TOKEN",),
+            internal_only=True,
             monetization=("tips", "subs", "sponsorships"),
         ),
         GrowthChannel(
@@ -78,7 +83,8 @@ class AutonomousGrowthEngine:
             kind="music",
             permissionless=False,
             official_api=True,
-            env_token="AUDIUS_API_TOKEN",
+            env_tokens=("AUDIUS_API_TOKEN",),
+            internal_only=True,
             monetization=("music discovery", "tips", "fan funnel"),
         ),
         GrowthChannel(
@@ -86,7 +92,8 @@ class AutonomousGrowthEngine:
             kind="art",
             permissionless=False,
             official_api=True,
-            env_token="NFT_MARKETPLACE_API_TOKEN",
+            env_tokens=("NFT_MARKETPLACE_API_TOKEN",),
+            internal_only=True,
             monetization=("primary sales", "royalties"),
         ),
         GrowthChannel(
@@ -98,7 +105,12 @@ class AutonomousGrowthEngine:
         ),
     )
 
-    async def plan(self, agent_id: str, assets: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    async def plan(
+        self,
+        agent_id: str,
+        assets: list[dict[str, Any]] | None = None,
+        public: bool = False,
+    ) -> dict[str, Any]:
         assets = assets or []
         executable = []
         blocked = []
@@ -107,22 +119,27 @@ class AutonomousGrowthEngine:
                 "channel": channel.name,
                 "kind": channel.kind,
                 "monetization": list(channel.monetization),
+                "internal_only": channel.internal_only,
             }
             if channel.can_execute():
-                executable.append({
+                action = {
                     **item,
                     "action_id": stable_id("growth", {"agent_id": agent_id, "channel": channel.name}),
                     "next_action": self._next_action(channel, assets),
-                })
+                }
+                if not public or not channel.internal_only:
+                    executable.append(action)
             else:
-                blocked.append({**item, "blocked_reason": channel.blocked_reason()})
+                blocked_item = {**item, "blocked_reason": channel.blocked_reason(public=public)}
+                if not public or not channel.internal_only:
+                    blocked.append(blocked_item)
 
         return result(
             "autonomous_growth_plan",
             "Autonomous Growth Plan",
             {
                 "agent_id": agent_id,
-                "mode": "zero_human_where_authorized",
+                "mode": "public_redacted" if public else "zero_human_where_authorized",
                 "executable": executable,
                 "blocked": blocked,
                 "policy": [
@@ -143,10 +160,11 @@ class AutonomousGrowthEngine:
         if channel.name == "gaming_strategy_market":
             return "list confidence-gated strategy product; no direct wager required"
         if channel.kind == "streaming":
-            return "upload short-form stream teaser through official API credential"
+            if channel.name == "YouTube" and os.getenv("YOUTUBE_API_KEY") and not os.getenv("YOUTUBE_OAUTH_TOKEN"):
+                return "research trends through YouTube Data API key; upload/stream waits for official OAuth credential"
+            return "publish or schedule stream content through official platform credential"
         if channel.kind == "music":
             return "publish generated release metadata through official API credential"
         if channel.kind == "art":
             return "publish art-drop metadata through official API credential"
         return "prepare API-authorized growth action"
-

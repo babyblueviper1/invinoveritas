@@ -44,6 +44,11 @@ import httpx
 import websockets
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 from nostr.key import PrivateKey
 from nostr.event import Event
 from services.agent_to_agent import AgentToAgentEngine
@@ -777,11 +782,13 @@ async def try_new_growth_channels(headers: dict, agent_key: PrivateKey, agent_id
     payload = plan.get("payload", {})
     executable = payload.get("executable", [])
     blocked = payload.get("blocked", [])
+    public_executable = [item for item in executable if not item.get("internal_only")]
+    public_blocked = [item for item in blocked if not item.get("internal_only")]
 
     summary = (
         "agent_zero autonomous growth scan\n\n"
-        f"Executable channels: {', '.join(item['channel'] for item in executable) or 'none'}\n"
-        f"Blocked until API credentials/permission: {', '.join(item['channel'] for item in blocked[:5]) or 'none'}\n\n"
+        f"Executable channels: {', '.join(item['channel'] for item in public_executable) or 'none'}\n"
+        f"Blocked until API credentials/permission: {', '.join(item['channel'] for item in public_blocked[:5]) or 'none'}\n\n"
         "Trying new services first: premium kits, reports, signals, strategy products, creative releases.\n"
         "#Bitcoin #AI #agents #Lightning #Nostr"
     )

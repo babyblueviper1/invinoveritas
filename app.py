@@ -5957,7 +5957,7 @@ async def external_services_catalog():
     return {
         "services": [
             await SafeExternalRegistration().prepare("YouTube", "release autonomous agent content"),
-            await AutonomousGrowthEngine().plan("agent_zero"),
+            await AutonomousGrowthEngine().plan("agent_zero", public=True),
         ]
     }
 
