@@ -1,6 +1,6 @@
 import os
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # ======================
 # OpenAI Configuration
@@ -62,6 +62,14 @@ PLATFORM_LN_ADDRESS = os.getenv("PLATFORM_LN_ADDRESS", "")
 # ======================
 MESSAGE_POST_PRICE_SATS  = int(os.getenv("MESSAGE_POST_PRICE_SATS",  "200"))
 MESSAGE_DM_PRICE_SATS    = int(os.getenv("MESSAGE_DM_PRICE_SATS",    "300"))
+
+# ======================
+# Free Registration / Withdrawals
+# ======================
+FREE_CALLS_ON_REGISTER = 3
+FREE_TOKENS_ON_REGISTER = 12_000
+WITHDRAWAL_FLAT_FEE_SATS = int(os.getenv("WITHDRAWAL_FLAT_FEE_SATS", "100"))
+WITHDRAWAL_MIN_AMOUNT_SATS = int(os.getenv("WITHDRAWAL_MIN_AMOUNT_SATS", "5000"))
 
 # ======================
 # Data Storage (VPS paths)

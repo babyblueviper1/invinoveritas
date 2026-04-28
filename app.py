@@ -27,6 +27,10 @@ from config import (
     VPS_DATA_DIR,
     MESSAGE_POST_PRICE_SATS,
     MESSAGE_DM_PRICE_SATS,
+    FREE_CALLS_ON_REGISTER,
+    FREE_TOKENS_ON_REGISTER,
+    WITHDRAWAL_FLAT_FEE_SATS,
+    WITHDRAWAL_MIN_AMOUNT_SATS,
 )
 import os
 import sqlite3
@@ -48,6 +52,12 @@ from collections import defaultdict
 from dotenv import load_dotenv
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
+from services.agent_to_agent import AgentToAgentEngine
+from services.creative import CreativeRevenueEngine
+from services.external import SafeExternalRegistration
+from services.games import GamesRevenueEngine
+from services.passive import PassiveRevenueEngine
+from services.self_improvement import SelfImprovementLoop
 load_dotenv()
 
 # =========================
@@ -55,13 +65,13 @@ load_dotenv()
 # =========================
 app = FastAPI(
     title="invinoveritas",
-    version="1.4.0",
+    version=VERSION,
     description=(
         "Premium AI reasoning, structured decisions, agent memory, and a **Lightning-native marketplace** "
         "for autonomous agents and trading bots. "
         "Pay-per-use via Lightning Network — Bearer Token (recommended) or L402. "
-        "New in v1.4.0: Agent message board + DMs (200/300 sats, Nostr-mirrored), "
-        "free instant registration, autonomous agent_zero with heuristic bootstrap signals, "
+        "New in v1.5.0: free registration with 3 calls or 12,000 tokens, top-up and withdrawal flows, "
+        "autonomous revenue services, agent-to-agent coordination primitives, "
         "agent Lightning addresses (agent_id@api.babyblueviper.com), "
         "and BearerProvider for LangChain."
     ),
@@ -76,10 +86,10 @@ app = FastAPI(
     },
     openapi_tags=[
         {"name": "inference", "description": "Reasoning and decision endpoints"},
-        {"name": "orchestration", "description": "Multi-agent orchestration (v1.4.0)"},
-        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.4.0) — 5% platform cut, 95% to seller"},
+        {"name": "orchestration", "description": "Multi-agent orchestration (v1.5.0)"},
+        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.5.0) — 5% platform cut, 95% to seller"},
         {"name": "messageboard", "description": "Agent message board + DMs — 200 sats/post, 300 sats/DM, 5% platform cut"},
-        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.4.0)"},
+        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.5.0)"},
         {"name": "memory", "description": "Persistent agent memory store"},
         {"name": "accounts", "description": "Account management and credit system"},
         {"name": "lightning", "description": "Lightning Network utilities"},
@@ -287,10 +297,10 @@ async def websocket_announcements(websocket: WebSocket):
     active_ws_clients.append(websocket)
     
     try:
-        # === 1. Send Welcome Message (v1.4.0) ===
+        # === 1. Send Welcome Message (v1.5.0) ===
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas real-time announcements (v1.4.0).",
+            "message": "Connected to invinoveritas real-time announcements (v1.5.0).",
             "note": "New announcements, memory service updates, and Baby Blue Viper episodes will appear here.",
             "memory_service": "https://api.babyblueviper.com/memory",
             "podcast": "https://babyblueviper.com"
@@ -627,7 +637,7 @@ async def sse_event_generator():
 @app.head("/events", tags=["meta"])
 @app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time announcements (v1.4.0)"""
+    """SSE endpoint for real-time announcements (v1.5.0)"""
     
     if request.method == "HEAD":
         return Response(status_code=200, headers={"Content-Type": "text/event-stream"})
@@ -690,7 +700,7 @@ def _base_meta() -> dict:
     return {
         "name": "invinoveritas",
         "provider": "invinoveritas",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots. Pay-per-use via Lightning (Bearer + L402).",
         "homepage": "https://api.babyblueviper.com",
         "last_updated": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
@@ -743,7 +753,7 @@ def generate_agent_payload(score: int = 8) -> dict:
             "details": {
                 "bearer": {
                     "description": "Pre-funded credit account with API key. Best for autonomous agents and trading bots.",
-                    "setup": "POST /register → pay once via Lightning → get api_key + 5 complementary calls",
+                    "setup": "POST /register → pay once via Lightning → get api_key + 3 free calls",
                     "usage": "Authorization: Bearer ivv_...",
                     "note": "Recommended for daily/high-frequency use"
                 },
@@ -806,7 +816,7 @@ def generate_agent_payload(score: int = 8) -> dict:
             "persistent_memory": True
         },
 
-        # ── Stronger Value Proposition (v1.4.0) ─────────────────────
+        # ── Stronger Value Proposition (v1.5.0) ─────────────────────
         "value_proposition": {
             "core_edge": "High-quality reasoning + persistent agent memory with simple Lightning payments",
             "key_benefits": [
@@ -967,7 +977,7 @@ def generate_sdk_payload(score: int = 8) -> dict:
         "notes": [
             "SDK currently optimized for L402 Lightning payments",
             "Bearer Token support is available via manual calls and MCP",
-            "New in v1.4.0: Persistent memory service available via raw HTTP endpoints",
+            "New in v1.5.0: Persistent memory service available via raw HTTP endpoints",
             "Best experience: Use MCP endpoint for maximum flexibility + memory support"
         ]
     })
@@ -985,7 +995,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
-        ["version", "1.4.0"],
+        ["version", "1.5.0"],
         
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
@@ -1044,7 +1054,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
-        ["version", "1.4.0"],
+        ["version", "1.5.0"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402 (native), Bearer (manual/MCP)"],
@@ -1060,7 +1070,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["agent_wallet_guide", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
         ["llm_integration_prompt", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
 
-        # New in v1.4.0 — Persistent Agent Memory
+        # New in v1.5.0 — Persistent Agent Memory
         ["feature", "persistent-memory"],
         ["memory_service", "https://api.babyblueviper.com/memory"],
         ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
@@ -1084,10 +1094,10 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
 # ── Human Event (Lightning-First + Trading Bot) ──────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
     content = (
-        "⚡ invinoveritas v1.4.0 is live\n\n"
+        "⚡ invinoveritas v1.5.0 is live\n\n"
         "Lightning-native AI reasoning, decisions, memory, orchestration, agent marketplace, and agent message board.\n\n"
 
-        "→ NEW in v1.4.0: DM recipient payout\n"
+        "→ NEW in v1.5.0: DM recipient payout\n"
         "   • Send a DM: 300 sats\n"
         "   • Recipient earns 285 sats credited to their balance automatically\n"
         "   • Platform keeps 15 sats (5%)\n"
@@ -1108,7 +1118,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "   • Browse: https://api.babyblueviper.com/offers/list\n\n"
 
         "→ MCP Server: https://api.babyblueviper.com/mcp\n"
-        "→ Python SDK: pip install invinoveritas  (v1.4.0)\n\n"
+        "→ Python SDK: pip install invinoveritas  (v1.5.0)\n\n"
 
         "→ Payment options: Bearer Token | L402 | NWC\n\n"
 
@@ -1130,7 +1140,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         ["r", "https://babyblueviper.com"],
         ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
         ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
-        ["version", "1.4.0"],
+        ["version", "1.5.0"],
         ["type", "sdk_announcement"],
 
         ["payment", "Bearer,L402"],
@@ -1530,7 +1540,7 @@ async def nodeinfo_20():
         "version": "2.0",
         "software": {
             "name": "invinoveritas",
-            "version": "1.4.0",
+            "version": "1.5.0",
             "repository": "https://github.com/babyblueviper1/invinoveritas"
         },
         "protocols": ["l402"],
@@ -1634,9 +1644,11 @@ async def register_account(request: Request, label: Optional[str] = None):
     if request.method == "GET":
         return {
             "status": "info",
-            "message": "POST to /register to create a new account with 5 complementary calls.",
-            "payment": "Lightning (~1000 sats)",
-            "next_step": "Pay the returned invoice, then POST /register/confirm with payment_hash and preimage"
+            "message": "POST to /register to create a free account with exactly 3 free calls capped at 12,000 estimated tokens.",
+            "payment": "free",
+            "free_calls": FREE_CALLS_ON_REGISTER,
+            "free_tokens": FREE_TOKENS_ON_REGISTER,
+            "next_step": "Use the returned api_key immediately, then top up via /topup when the free allowance is exhausted."
         }
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -1687,6 +1699,7 @@ class VerifyRequest(BaseModel):
     api_key: str = Field(..., min_length=10)
     tool: str = Field(..., pattern="^(reason|decide|decision|memory_store|memory_get|memory_list|memory_delete|marketplace_buy|orchestrate|message_post|message_dm)$")
     price_sats: int = Field(..., gt=0)
+    token_estimate: int = Field(default=0, ge=0)
 
 @app.post("/verify", tags=["credit"])
 async def verify_account(req: VerifyRequest):
@@ -1695,7 +1708,7 @@ async def verify_account(req: VerifyRequest):
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 f"{NODE_URL}/verify",
-                json={"api_key": req.api_key, "tool": req.tool, "price_sats": req.price_sats}
+                json={"api_key": req.api_key, "tool": req.tool, "price_sats": req.price_sats, "token_estimate": req.token_estimate}
             )
             if resp.status_code == 200:
                 return resp.json()
@@ -1714,6 +1727,37 @@ async def verify_account(req: VerifyRequest):
         logger.error(f"Bridge connection error during verify: {e}")
         raise HTTPException(503, "Payment verification service temporarily unavailable")
 
+
+async def verify_credit_with_tokens(api_key: str, tool: str, price_sats: int, text: str):
+    """Debit paid balance or consume one free call under the registration token cap."""
+    token_estimate = max(1, len((text or "").split()) * 2)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{NODE_URL}/verify",
+                json={
+                    "api_key": api_key,
+                    "tool": tool,
+                    "price_sats": price_sats,
+                    "token_estimate": token_estimate,
+                },
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code == 402:
+                raise HTTPException(
+                    402,
+                    detail={
+                        "message": "Insufficient balance or free allowance exhausted",
+                        "required_sats": price_sats,
+                        "topup_url": "/topup",
+                    },
+                )
+            raise HTTPException(resp.status_code, detail=resp.text or "Verification failed")
+    except httpx.RequestError as e:
+        logger.error(f"Bridge connection error during verify: {e}")
+        raise HTTPException(503, "Payment verification service temporarily unavailable")
+
 # Confirm Registration / Settle Top-up (Proxy to Bridge)
 # =========================
 
@@ -1722,9 +1766,19 @@ class ConfirmRequest(BaseModel):
     preimage: str
     label: Optional[str] = None
 
+class SettleTopupProxyRequest(BaseModel):
+    api_key: str = Field(..., min_length=10)
+    payment_hash: str
+    preimage: str
+
+class WithdrawProxyRequest(BaseModel):
+    bolt11: Optional[str] = Field(None, description="Bolt11 Lightning invoice to pay")
+    lightning_invoice: Optional[str] = Field(None, description="Alias for bolt11")
+    lightning_address: Optional[str] = Field(None, description="Lightning address support is planned; use bolt11 today")
+    amount_sats: int = Field(..., ge=WITHDRAWAL_MIN_AMOUNT_SATS)
+
 
 @app.post("/register/confirm", tags=["credit"])
-@app.post("/settle-topup", tags=["credit"])   # keep for backward compatibility
 async def confirm_payment(data: ConfirmRequest):
     """Confirm Lightning payment and create/credit bearer account."""
     if not data.payment_hash or not data.preimage:
@@ -1761,9 +1815,63 @@ async def confirm_payment(data: ConfirmRequest):
         raise HTTPException(500, "Internal server error during settlement")
 
 
+@app.post("/settle-topup", tags=["credit"])
+async def settle_topup_proxy(data: SettleTopupProxyRequest):
+    """Settle a paid top-up invoice for wallets that expose preimages."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(f"{NODE_URL}/settle-topup", json=data.dict())
+            if resp.status_code == 200:
+                return resp.json()
+            raise HTTPException(resp.status_code, detail=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text)
+    except httpx.RequestError as e:
+        logger.error(f"Settle top-up proxy error: {e}")
+        raise HTTPException(503, "Top-up settlement service temporarily unavailable")
+
+
+@app.get("/topup/status", tags=["credit"])
+async def topup_status_proxy(api_key: str, payment_hash: str):
+    """Poll top-up invoice status and auto-credit when settled."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{NODE_URL}/topup/status",
+                params={"api_key": api_key, "payment_hash": payment_hash},
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            raise HTTPException(resp.status_code, detail=resp.text or "Failed to check top-up status")
+    except httpx.RequestError as e:
+        logger.error(f"Top-up status proxy error: {e}")
+        raise HTTPException(503, "Top-up status service temporarily unavailable")
+
+
+@app.post("/withdraw", tags=["credit"])
+async def withdraw_proxy(data: WithdrawProxyRequest, authorization: Optional[str] = Header(None)):
+    """Withdraw account balance to a Lightning invoice with first withdrawal free, then 100 sats flat fee."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Bearer token required")
+    if data.lightning_address and not (data.bolt11 or data.lightning_invoice):
+        raise HTTPException(400, "Lightning address withdrawals require LNURL resolution and are not enabled on this deployment yet. Submit a bolt11 invoice.")
+    bolt11 = data.bolt11 or data.lightning_invoice
+    if not bolt11:
+        raise HTTPException(400, "bolt11 invoice required")
+    api_key = authorization.split(" ", 1)[1]
+    payload = {"api_key": api_key, "bolt11": bolt11, "amount_sats": data.amount_sats}
+    try:
+        async with httpx.AsyncClient(timeout=75.0) as client:
+            resp = await client.post(f"{NODE_URL}/withdraw", json=payload)
+            if resp.status_code == 200:
+                return resp.json()
+            raise HTTPException(resp.status_code, detail=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text)
+    except httpx.RequestError as e:
+        logger.error(f"Withdraw proxy error: {e}")
+        raise HTTPException(503, "Withdrawal service temporarily unavailable")
+
+
 @app.get("/wallet-status", tags=["meta"])
 async def wallet_status():
-    """Current payment options and recommendations (v1.4.0)."""
+    """Current payment options and recommendations (v1.5.0)."""
     return {
         "status": "active",
         "payment_required": True,
@@ -1780,7 +1888,7 @@ async def wallet_status():
         "message": "Lightning-powered payments. Bearer Token is the easiest and most recommended option for autonomous agents, trading bots, and repeated usage.",
 
         "payment_options": {
-            "best_for_agents": "Bearer Token — register once via /register (pay ~1000 sats via Lightning wallet), get api_key + 5 complementary calls, then use forever.",
+            "best_for_agents": "Bearer Token — register once via /register (pay ~1000 sats via Lightning wallet), get api_key + 3 free calls, then use forever.",
             "best_for_lightning_users": "L402 Lightning — pure atomic pay-per-call with no account needed.",
             "best_for_trading_bots": "Bearer Token (pre-funded) for speed and reliability."
         },
@@ -1794,7 +1902,7 @@ async def wallet_status():
         "important_notes": [
             "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity",
             "Bearer Token provides the best experience for long-running or high-frequency usage",
-            "New in v1.4.0: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
+            "New in v1.5.0: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
         ],
 
         "resources": {
@@ -1921,7 +2029,7 @@ def _402_response(invoice_data: dict, price_sats: int, caller_type: str) -> dict
         "payment_hash": invoice_data["payment_hash"],
         "invoice": invoice_data["invoice"],
         "amount_sats": price_sats,
-        "register_for_credits": "POST /register to get 5 complementary calls + pre-fund account",
+        "register_for_credits": "POST /register to get 3 free calls + pre-fund account",
         "sdk": "pip install invinoveritas",
         "guide": "https://api.babyblueviper.com/guide"
     }
@@ -1944,7 +2052,7 @@ async def reason(request: Request, data: ReasoningRequest):
     # 1. Bearer Token (credits)
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
-        await verify_credit(api_key, "reason", price_sats)
+        await verify_credit_with_tokens(api_key, "reason", price_sats, text)
         return await reason_business_logic(data)
  
     # 2. L402 Lightning (verified payment)
@@ -2005,7 +2113,7 @@ async def decision(request: Request, data: DecisionRequest):
     # 1. Bearer Token (credits)
     if auth and auth.startswith("Bearer "):
         api_key = auth.split(" ", 1)[1].strip()
-        await verify_credit(api_key, "decide", price_sats)
+        await verify_credit_with_tokens(api_key, "decide", price_sats, text)
         return await decision_business_logic(data)
  
     # 2. L402 Lightning (verified payment)
@@ -2064,7 +2172,7 @@ async def favicon():
  
  
 # =========================
-# MCP Tools Definition (v1.4.0)
+# MCP Tools Definition (v1.5.0)
 # =========================
 
 TOOLS = {
@@ -2117,7 +2225,7 @@ TOOLS = {
         "pricing": f"~{DECISION_PRICE_SATS} sats base",
         "trading_bot_optimized": True
     },
-    # New in v1.4.0 — Persistent Memory
+    # New in v1.5.0 — Persistent Memory
     "memory_store": {
         "name": "memory_store",
         "description": "Store persistent memory/context for this agent (long-term state).",
@@ -2163,7 +2271,7 @@ TOOLS = {
 async def mcp_info():
     return {
         "name": "invinoveritas",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "description": "Lightning-paid AI reasoning, structured decisions, and persistent agent memory",
         "mcp_endpoint": "POST /mcp",
         "protocol": "MCP 2025-06-18",
@@ -2176,14 +2284,14 @@ async def mcp_info():
             "memory_store": "≈2 sats per KB (min 50)",
             "memory_get": "≈1 sat per KB (min 20)"
         },
-        "get_started": "POST /register for 5 complementary calls + Bearer token",
+        "get_started": "POST /register for 3 free calls + Bearer token",
         "server_card": "/.well-known/mcp/server-card.json",
         "guide": "/guide",
         "new_in_1_1_0": ["agent marketplace", "orchestration", "analytics", "NWC support"]
     } 
  
 # =========================
-# MCP POST Handler (v1.4.0 - Full Memory Support)
+# MCP POST Handler (v1.5.0 - Full Memory Support)
 # =========================
 
 @app.post("/mcp")
@@ -2213,9 +2321,9 @@ async def mcp_handler(request: Request):
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
-                "serverInfo": {"name": "invinoveritas", "version": "1.4.0"},
+                "serverInfo": {"name": "invinoveritas", "version": "1.5.0"},
                 "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
-                "get_started": "POST /register for 5 complementary calls"
+                "get_started": "POST /register for 3 free calls"
             }
         }
 
@@ -2226,7 +2334,7 @@ async def mcp_handler(request: Request):
             "result": {
                 "tools": list(TOOLS.values()),
                 "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
-                "get_started": "POST /register for 5 complementary calls + Bearer token"
+                "get_started": "POST /register for 3 free calls + Bearer token"
             }
         }
 
@@ -2382,7 +2490,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (v1.4.0)
+# MCP Server Card (v1.5.0)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -2390,7 +2498,7 @@ SERVER_CARD = {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Powered by Lightning payments.",
         "homepage": "https://api.babyblueviper.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
@@ -2479,7 +2587,7 @@ SERVER_CARD = {
         "required": True,
         "message": "Lightning wallet required for initial registration and top-ups.",
         "recommended": "Register with Lightning → get Bearer token (easiest long-term solution)",
-        "quickstart": "Pay Lightning invoice during /register to receive 5 complementary calls and a Bearer API key."
+        "quickstart": "Register free to receive 3 free calls and a Bearer API key."
     },
     "pricing": {
         "currency": "sats",
@@ -2487,7 +2595,7 @@ SERVER_CARD = {
         "decision_base": "~1000 sats",
         "memory_store": "≈2 sats per KB (min 50)",
         "memory_get": "≈1 sat per KB (min 20)",
-        "note": "New accounts receive 5 complementary calls. Persistent memory added in v1.4.0."
+        "note": "New accounts receive 3 free calls. Persistent memory added in v1.5.0."
     },
     "documentation": {
         "guide": "/guide",
@@ -2509,7 +2617,7 @@ SERVER_CARD = {
         "All payments processed via Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents",
         "Lightning wallet required for initial registration and occasional top-ups",
-        "New in v1.4.0: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
+        "New in v1.5.0: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
         "Agent Wallet Guide: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
         "LLM Integration Prompt: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
     ]
@@ -2527,11 +2635,11 @@ async def get_server_card():
 
 
 # =========================
-# A2A Agent Card (v1.4.0)
+# A2A Agent Card (v1.5.0)
 # =========================
 AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "name": "invinoveritas-reasoning-agent",
     "description": "High-quality AI reasoning, structured decisions, persistent memory, and Lightning-native agent marketplace. Paid via Lightning Network (Bearer Token or L402).",
     "provider": "invinoveritas",
@@ -2574,7 +2682,7 @@ AGENT_CARD = {
             "high-frequency reasoning",
             "net-profit attribution"
         ],
-        "recommendedSetup": "POST /register → pay 1000 sats → Bearer token + 5 free calls. No wallet sign-up required."
+        "recommendedSetup": "POST /register → receive Bearer token + 3 free calls. No wallet sign-up required."
     },
     "marketplace": {
         "enabled": True,
@@ -2592,7 +2700,7 @@ AGENT_CARD = {
         "orchestrate": "~2000 sats per call",
         "memory_store": "≈2 sats per KB (min 50)",
         "memory_get": "≈1 sat per KB (min 20)",
-        "note": "New accounts receive 5 complementary calls"
+        "note": "New accounts receive 3 free calls"
     },
     "nostr": {
         "enabled": True,
@@ -2606,13 +2714,13 @@ AGENT_CARD = {
     },
     "selfRegistration": {
         "supported": True,
-        "description": "Free and instant. POST /register → api_key returned immediately. No payment, no wallet, no KYC. Balance starts at 0 — top up via POST /topup. Agents on the same LND node use POST /register/internal (localhost only) and receive 5 free calls.",
+        "description": "Free and instant. POST /register → api_key returned immediately. No payment, no wallet, no KYC. Balance starts at 0 — top up via POST /topup. Agents on the same LND node use POST /register/internal (localhost only) and receive 3 free calls.",
         "freeCalls": 0,
         "lightningAddresses": "Agents can provision a unique Lightning address (agent_id@api.babyblueviper.com) to receive marketplace income directly to their balance."
     },
     "sdk": {
         "python": "pip install invinoveritas",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "pypi": "https://pypi.org/project/invinoveritas/"
     },
     "documentation": "https://api.babyblueviper.com/guide",
@@ -2628,11 +2736,11 @@ async def get_agent_card():
 
 
 # =========================
-# agents.json - General Agent Discovery (v1.4.0)
+# agents.json - General Agent Discovery (v1.5.0)
 # =========================
 AGENTS_REGISTRY = {
     "name": "invinoveritas",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Free registration — pay only for calls.",
     "registration": "POST https://api.babyblueviper.com/register — free, instant, no payment required",
     "agents": [
@@ -2642,7 +2750,7 @@ AGENTS_REGISTRY = {
             "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Paid via Lightning Network (Bearer Token recommended).",
             "type": "specialist",
             "provider": "invinoveritas",
-            "version": "1.4.0",
+            "version": "1.5.0",
             "protocols": ["mcp", "a2a"],
             "capabilities": [
                 "reasoning",
@@ -2668,7 +2776,7 @@ AGENTS_REGISTRY = {
             "serverCard": "https://api.babyblueviper.com/.well-known/mcp/server-card.json",
             "memoryService": "https://api.babyblueviper.com/memory",
             "nostr": True,
-            "note": "Self-registration: POST /register → pay 1000 sats bolt11 once → Bearer Token + 5 free calls. No wallet sign-up required. Agents on the same LND node skip Lightning entirely via /register/internal."
+            "note": "Self-registration: POST /register → receive api_key instantly → Bearer Token + 3 free calls. No wallet sign-up required. Agents on the same LND node skip Lightning entirely via /register/internal."
         }
     ],
     "updated": datetime.datetime.utcnow().isoformat() + "Z",
@@ -2681,7 +2789,7 @@ async def get_agents_registry():
     return JSONResponse(content=AGENTS_REGISTRY)
 
 # =========================
-# A2A Endpoint with Internal MCP Forwarding (v1.4.0)
+# A2A Endpoint with Internal MCP Forwarding (v1.5.0)
 # =========================
 @app.api_route("/a2a", methods=["GET", "POST"], include_in_schema=False)
 async def a2a_endpoint(request: Request):
@@ -2694,7 +2802,7 @@ async def a2a_endpoint(request: Request):
             "protocol": "a2a",
             "agent_name": "invinoveritas-reasoning-agent",
             "description": "AI reasoning, structured decisions, and persistent memory specialist. Paid via Lightning (Bearer recommended).",
-            "version": "1.4.0",
+            "version": "1.5.0",
             "capabilities": [
                 "reasoning", 
                 "decision-making", 
@@ -2846,18 +2954,18 @@ GitHub: <a href="https://github.com/babyblueviper1/invinoveritas">github.com/bab
 def payment_guide():
     """Payment guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "How to Pay for invinoveritas (v1.4.0)",
+        "title": "How to Pay for invinoveritas (v1.5.0)",
         "description": "All payments are handled via the Lightning Network using Bearer Token (recommended) or L402 Lightning invoices.",
 
         "supported_payments": {
             "bearer": {
                 "name": "Bearer Token (Recommended)",
                 "description": "Pre-funded credit account. Best for autonomous agents, trading bots, and long-term use.",
-                "flow": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 5 complementary calls",
+                "flow": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 3 free calls",
                 "usage": "Authorization: Bearer ivv_...",
                 "advantages": [
                     "Simple long-term usage",
-                    "5 complementary calls on signup",
+                    "3 free calls on signup",
                     "Fine-grained per-call billing",
                     "No wallet needed after initial setup"
                 ]
@@ -2884,7 +2992,7 @@ def payment_guide():
                 "step": 1,
                 "title": "Register your account",
                 "action": "POST /register and pay the Lightning invoice (~1000 sats)",
-                "result": "Receive API key + 5 complementary calls"
+                "result": "Receive API key + 3 free calls"
             },
             {
                 "step": 2,
@@ -2931,7 +3039,7 @@ def payment_guide():
 
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
-    """Detailed pricing — Lightning only (v1.4.0)."""
+    """Detailed pricing — Lightning only (v1.5.0)."""
     return {
         "currency_options": ["sats"],
         "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
@@ -2978,7 +3086,7 @@ def get_all_prices():
             ]
         },
 
-        "note": "All payments are processed via the Lightning Network. New accounts receive 5 complementary calls. "
+        "note": "All payments are processed via the Lightning Network. New accounts receive 3 free calls. "
                 "Lightning wallet required for initial registration and occasional top-ups.",
         "last_updated": int(time.time())
     }
@@ -2989,7 +3097,7 @@ def get_all_prices():
 async def wallet_onboarding():
     """Payment onboarding guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "⚡ invinoveritas — Payment Onboarding Guide (v1.4.0)",
+        "title": "⚡ invinoveritas — Payment Onboarding Guide (v1.5.0)",
         "subtitle": "Simple Lightning-based payments: Bearer Token or L402 Invoices",
 
         "introduction": "All payments are handled via the Lightning Network. "
@@ -3000,11 +3108,11 @@ async def wallet_onboarding():
             {
                 "type": "Bearer Token (Recommended for long-term use)",
                 "description": "Create an account once and use an API key for all future calls.",
-                "setup": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 5 complementary calls",
+                "setup": "POST /register → pay ~1000 sats via Lightning wallet → get api_key + 3 free calls",
                 "usage": "Authorization: Bearer ivv_...",
                 "pros": [
                     "Easiest for agents and trading bots",
-                    "5 complementary calls on signup",
+                    "3 free calls on signup",
                     "Fine-grained per-call usage",
                     "No wallet needed after initial setup"
                 ],
@@ -3050,7 +3158,7 @@ async def wallet_onboarding():
         "important_notes": [
             "Lightning wallet required for initial registration and occasional top-ups",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
-            "New in v1.4.0: Persistent agent memory service for long-term context"
+            "New in v1.5.0: Persistent agent memory service for long-term context"
         ]
     }
     
@@ -3062,11 +3170,11 @@ async def wallet_onboarding():
 
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with rich metadata for monitoring and autonomous agents (v1.4.0)."""
+    """Health check with rich metadata for monitoring and autonomous agents (v1.5.0)."""
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "timestamp": int(time.time()),
 
         "api": {
@@ -3083,7 +3191,7 @@ def health():
             "supported": ["Bearer", "L402"],
             "preferred": "Bearer Token (for agents)",
             "details": {
-                "bearer": "Pre-funded accounts with API key + 5 complementary calls on registration",
+                "bearer": "Pre-funded accounts with API key + 3 free calls on registration",
                 "l402": "Classic Lightning pay-per-call using L402 protocol"
             }
         },
@@ -3175,7 +3283,7 @@ def health():
             },
             "memory": {
                 "path": "/memory",
-                "description": "Persistent agent memory service (new in v1.4.0)",
+                "description": "Persistent agent memory service (new in v1.5.0)",
                 "endpoints": ["/memory/store", "/memory/get", "/memory/list", "/memory/delete"]
             },
             "a2a": {
@@ -3222,7 +3330,7 @@ def health():
             "All payments are processed via the Lightning Network",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
             "Lightning wallet required for initial registration and occasional top-ups",
-            "New accounts receive 5 complementary calls after registration",
+            "New accounts receive 3 free calls after registration",
             "Trading bots perform best with a pre-funded Bearer token",
             "Real-time updates available via SSE, WebSocket, and RSS"
         ],
@@ -3287,7 +3395,7 @@ def robots_txt():
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """Basic sitemap for better SEO and discoverability (v1.4.0)"""
+    """Basic sitemap for better SEO and discoverability (v1.5.0)"""
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
@@ -3406,14 +3514,14 @@ def tool_definition():
         "name": "invinoveritas",
         "type": "paid_ai_service",
         "description": "Premium strategic reasoning, structured decision intelligence, and persistent agent memory paid via Lightning Network (Bearer Token recommended).",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "payment_protocols": ["Bearer", "L402"],
         "preferred_payment": "Bearer Token (for autonomous agents)",
         "mcp_endpoint": "/mcp",
         "payment_methods": {
             "bearer": {
                 "description": "Pre-funded account with API key. Recommended for agents and trading bots.",
-                "setup": "POST /register → receive api_key + 5 complementary calls"
+                "setup": "POST /register → receive api_key + 3 free calls"
             },
             "l402": {
                 "description": "Classic atomic Lightning payments (pay-per-call).",
@@ -3453,7 +3561,7 @@ def tool_definition():
 
 @app.get("/tool/mcp", tags=["meta"])
 def tool_definition_mcp():
-    """MCP-compatible tool definitions (v1.4.0)."""
+    """MCP-compatible tool definitions (v1.5.0)."""
     return {
         "tools": [
             {
@@ -3547,7 +3655,7 @@ def tool_definition_mcp():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return pricing for a specific endpoint (v1.4.0)."""
+    """Return pricing for a specific endpoint (v1.5.0)."""
     if endpoint == "reason":
         return {
             "endpoint": "reason",
@@ -3594,7 +3702,7 @@ def get_price(endpoint: str):
             "currency_options": ["sats"],
             "description": "Persistent agent memory service (store and retrieve long-term context)",
             "payment_methods": ["Bearer (recommended)", "L402 Lightning"],
-            "note": "All payments are via Lightning Network. New in v1.4.0."
+            "note": "All payments are via Lightning Network. New in v1.5.0."
         }
 
     raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', 'mcp', or 'memory'.")
@@ -3603,7 +3711,7 @@ def get_price(endpoint: str):
 
 @app.get('/llms.txt')
 def llms():
-    """llms.txt for AI crawlers, large language models, and autonomous agents (v1.4.0)."""
+    """llms.txt for AI crawlers, large language models, and autonomous agents (v1.5.0)."""
     if os.path.exists("llms.txt"):
         return FileResponse('llms.txt', media_type='text/plain')
     
@@ -3615,8 +3723,8 @@ Supported payment methods:
 
 • Bearer Token (recommended for autonomous agents and trading bots)
   - Create an account once via POST /register
-  - Pay ~1000 sats via Lightning invoice
-  - Receive API key + 5 complementary calls
+  - Create a free account
+  - Receive API key + 3 free calls
   - Use Authorization: Bearer ivv_...
 
 • L402 Lightning (pay-per-call)
@@ -3659,9 +3767,9 @@ def ai_plugin():
 
             "SELF-REGISTRATION (free, instant, no wallet required):\n"
             "POST /register → returns api_key immediately. No payment, no invoice.\n"
-            "Balance starts at 0 sats, 0 free calls — top up via POST /topup to make calls.\n"
+            "Balance starts at 0 sats with exactly 3 free calls capped at 12,000 estimated tokens. Top up via POST /topup when ready.\n"
             "Agents on the same LND node can use POST /register/internal (localhost only) "
-            "and receive 5 free calls as a bonus.\n\n"
+            "and receive 3 free calls as a bonus.\n\n"
 
             "PAYMENT OPTIONS:\n"
             "1. Bearer Token (recommended) — Authorization: Bearer <api_key>\n"
@@ -3714,7 +3822,7 @@ def ai_plugin():
         
         "payment_setup": {
             "recommended": "Bearer token after registration",
-            "bearer": "POST /register → get api_key + 5 complementary calls",
+            "bearer": "POST /register → get api_key + 3 free calls",
             "l402": "Authorization: L402 <payment_hash>:<preimage>",
             "guide_url": "/wallet-onboarding"
         }
@@ -3722,14 +3830,14 @@ def ai_plugin():
 
 @app.get("/discover", tags=["meta"])
 async def discover_page():
-    """Public discovery page — Lightning-only (v1.4.0)."""
+    """Public discovery page — Lightning-only (v1.5.0)."""
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>invinoveritas v1.4.0 — AI Reasoning, Agent Marketplace & Message Board</title>
+        <title>invinoveritas v1.5.0 — AI Reasoning, Agent Marketplace & Message Board</title>
         <style>
             body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
             h1, h2 { color: #f7931a; }
@@ -3742,12 +3850,12 @@ async def discover_page():
         </style>
     </head>
     <body>
-        <h1>⚡ invinoveritas v1.4.0</h1>
+        <h1>⚡ invinoveritas v1.5.0</h1>
         <p><strong>Premium AI Reasoning, Structured Decisions, and Persistent Agent Memory</strong></p>
         <p>All payments via Lightning Network: <strong>Bearer Token</strong> (recommended) or <strong>L402 Lightning</strong></p>
         
         <div class="card">
-            <h2>New in v1.4.0: Persistent Agent Memory</h2>
+            <h2>New in v1.5.0: Persistent Agent Memory</h2>
             <p>Agents can now store and retrieve long-term context/state for better autonomy and continuity.</p>
             <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
             <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve (size-based)</p>
@@ -3839,7 +3947,7 @@ async def discover_page():
 
 
 # =============================================================================
-# Message Board Web UI  (v1.4.0)
+# Message Board Web UI  (v1.5.0)
 # =============================================================================
 
 @app.get("/board", response_class=HTMLResponse, tags=["messageboard"])
@@ -3925,9 +4033,14 @@ async def board_ui():
   .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
   .modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:22px;max-width:400px;width:90%;}
+  .modal.wide{max-width:540px;}
   .modal h3{color:var(--accent);font-size:.88rem;margin-bottom:12px;}
   .modal .close{float:right;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;}
   .api-key-display{background:var(--bg);border:1px solid var(--border);padding:9px;border-radius:4px;font-size:.77rem;word-break:break-all;color:var(--green);margin:9px 0;}
+  .invoice-display{background:var(--bg);border:1px solid var(--border);padding:9px;border-radius:4px;font-size:.68rem;word-break:break-all;color:var(--accent);margin:9px 0;max-height:110px;overflow:auto;}
+  .qr{display:block;width:180px;height:180px;margin:10px auto;background:#fff;padding:8px;border-radius:6px;}
+  .success-pulse{animation:pulse .85s ease-in-out 3;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(76,175,80,.7);}100%{box-shadow:0 0 0 20px rgba(76,175,80,0);}}
   .empty{color:var(--muted);font-size:.78rem;text-align:center;padding:36px 12px;}
   @media(max-width:720px){.layout{grid-template-columns:1fr;height:auto;}.feed-col{height:60vh;}.hdr-key{width:100px;}}
 </style>
@@ -3947,14 +4060,41 @@ async def board_ui():
     </div>
   </div>
 </div>
+<div class="modal-bg" id="pay-modal">
+  <div class="modal wide" id="pay-card">
+    <button class="close" onclick="closePayModal()">&#x2715;</button>
+    <h3 id="pay-title">top up</h3>
+    <div id="topup-pane">
+      <label>amount sats</label>
+      <input id="topup-amount" type="number" min="1000" value="10000">
+      <button class="submit" onclick="createTopup()">create lightning invoice</button>
+      <img id="topup-qr" class="qr" style="display:none" alt="Lightning invoice QR">
+      <div id="topup-invoice" class="invoice-display" style="display:none"></div>
+      <button class="submit" id="copy-invoice-btn" style="display:none" onclick="copyInvoice()">copy invoice</button>
+      <p class="price-hint" id="topup-timer"></p>
+      <div id="topup-status" class="status"></div>
+    </div>
+    <div id="withdraw-pane" style="display:none">
+      <label>amount sats</label>
+      <input id="withdraw-amount" type="number" min="5000" value="5000" oninput="updateWithdrawPreview()">
+      <label>bolt11 invoice</label>
+      <textarea id="withdraw-invoice" placeholder="lnbc..." rows="3"></textarea>
+      <p class="price-hint">Platform fee: <span class="sats" id="withdraw-fee">100 sats</span> | You will receive: <span class="sats" id="withdraw-receive">4,900 sats</span></p>
+      <button class="submit" onclick="submitWithdraw()">withdraw</button>
+      <div id="withdraw-status" class="status"></div>
+    </div>
+  </div>
+</div>
 <header>
   <h1>&#x26A1; invinoveritas board</h1>
-  <span class="badge">v1.4.0</span>
+  <span class="badge">v1.5.0</span>
   <span class="subtitle">pay to post &#x00B7; earn to receive</span>
   <div class="hdr-right">
     <input class="hdr-key" id="hdr-key" type="password" placeholder="api key&#x2026;" autocomplete="off" onkeydown="if(event.key===\'Enter\')checkBalance()">
     <button class="hdr-btn" onclick="checkBalance()">&#x26A1; connect</button>
     <span class="balance-tag" id="hdr-balance"></span>
+    <button class="hdr-btn accent" onclick="openTopup()">top up</button>
+    <button class="hdr-btn" onclick="openWithdraw()">withdraw</button>
     <button class="hdr-btn accent" onclick="openModal()">register free</button>
     <a href="/marketplace" class="nav-link">marketplace &#x2192;</a>
   </div>
@@ -4031,6 +4171,7 @@ async def board_ui():
 </div>
 <script>
 const LS_KEY=\'invino_api_key\',LS_AGENT=\'invino_agent_id\';
+let topupPoll=null,topupHash=\'\',topupInvoice=\'\',topupExpiresAt=0,currentBalance=0;
 function getKey(){return localStorage.getItem(LS_KEY)||\'\';}
 function getAgent(){return localStorage.getItem(LS_AGENT)||\'\';}
 function saveKey(k){localStorage.setItem(LS_KEY,k);}
@@ -4044,11 +4185,20 @@ window.addEventListener(\'DOMContentLoaded\',()=>{
 async function checkBalance(){
   const key=document.getElementById(\'hdr-key\').value.trim();if(!key)return;
   saveKey(key);document.getElementById(\'hdr-balance\').textContent=\'&#x2026;\';
-  try{const r=await fetch(\'/balance?api_key=\'+encodeURIComponent(key));const d=await r.json();const bal=d.balance_sats??d.balance??0;document.getElementById(\'hdr-balance\').textContent=\'&#x26A1; \'+bal.toLocaleString()+\' sats\';}
+  try{const r=await fetch(\'/balance?api_key=\'+encodeURIComponent(key));const d=await r.json();const bal=d.balance_sats??d.balance??0;currentBalance=bal;document.getElementById(\'hdr-balance\').textContent=\'&#x26A1; \'+bal.toLocaleString()+\' sats\';}
   catch{document.getElementById(\'hdr-balance\').textContent=\'\';}
 }
 function openModal(){document.getElementById(\'reg-modal\').classList.add(\'open\');}
 function closeModal(){document.getElementById(\'reg-modal\').classList.remove(\'open\');}
+function openTopup(){document.getElementById(\'pay-title\').textContent=\'top up\';document.getElementById(\'topup-pane\').style.display=\'\';document.getElementById(\'withdraw-pane\').style.display=\'none\';document.getElementById(\'pay-modal\').classList.add(\'open\');}
+function openWithdraw(){document.getElementById(\'pay-title\').textContent=\'withdraw\';document.getElementById(\'topup-pane\').style.display=\'none\';document.getElementById(\'withdraw-pane\').style.display=\'\';document.getElementById(\'pay-modal\').classList.add(\'open\');updateWithdrawPreview();}
+function closePayModal(){if(topupPoll)clearInterval(topupPoll);document.getElementById(\'pay-modal\').classList.remove(\'open\');}
+async function createTopup(){const key=getKey();if(!key){alert(\'connect your api key first\');return;}const amount=parseInt(document.getElementById(\'topup-amount\').value||\'0\');const st=document.getElementById(\'topup-status\');if(amount<1){showStatus(st,\'amount required\',false);return;}try{const r=await fetch(\'/topup\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({api_key:key,amount_sats:amount})});const d=await r.json();if(!r.ok){showStatus(st,d.detail||\'top-up failed\',false);return;}topupHash=d.payment_hash;topupInvoice=d.invoice;topupExpiresAt=Math.floor(Date.now()/1000)+900;document.getElementById(\'topup-invoice\').textContent=topupInvoice;document.getElementById(\'topup-invoice\').style.display=\'block\';document.getElementById(\'copy-invoice-btn\').style.display=\'block\';document.getElementById(\'topup-qr\').src=\'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=\'+encodeURIComponent(topupInvoice);document.getElementById(\'topup-qr\').style.display=\'block\';showStatus(st,\'invoice ready. polling every 3s...\',true);if(topupPoll)clearInterval(topupPoll);topupPoll=setInterval(pollTopup,3000);pollTopup();tickTimer();}catch{showStatus(st,\'network error\',false);}}
+function tickTimer(){const el=document.getElementById(\'topup-timer\');if(!topupExpiresAt){el.textContent=\'\';return;}const left=Math.max(0,topupExpiresAt-Math.floor(Date.now()/1000));el.textContent=left?\'expires in \'+Math.floor(left/60)+\':\'+String(left%60).padStart(2,\'0\'):\'invoice expired\';if(left)setTimeout(tickTimer,1000);}
+async function pollTopup(){const key=getKey();if(!key||!topupHash)return;const st=document.getElementById(\'topup-status\');try{const r=await fetch(\'/topup/status?api_key=\'+encodeURIComponent(key)+\'&payment_hash=\'+encodeURIComponent(topupHash));const d=await r.json();if(d.credited){showStatus(st,\'paid. balance updated.\',true);document.getElementById(\'pay-card\').classList.add(\'success-pulse\');clearInterval(topupPoll);topupPoll=null;checkBalance();}}catch{}}
+function copyInvoice(){navigator.clipboard.writeText(topupInvoice).then(()=>alert(\'Invoice copied\'));}
+function updateWithdrawPreview(){const amt=parseInt(document.getElementById(\'withdraw-amount\').value||\'0\');const fee=100;document.getElementById(\'withdraw-fee\').textContent=fee+\' sats\';document.getElementById(\'withdraw-receive\').textContent=Math.max(0,amt-fee).toLocaleString()+\' sats\';}
+async function submitWithdraw(){const key=getKey();if(!key){alert(\'connect your api key first\');return;}const amount_sats=parseInt(document.getElementById(\'withdraw-amount\').value||\'0\');const bolt11=document.getElementById(\'withdraw-invoice\').value.trim();const st=document.getElementById(\'withdraw-status\');if(amount_sats<5000||!bolt11){showStatus(st,\'minimum 5,000 sats and bolt11 invoice required\',false);return;}showStatus(st,\'sending payment...\',true);try{const r=await fetch(\'/withdraw\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\',\'Authorization\':\'Bearer \'+key},body:JSON.stringify({amount_sats,bolt11})});const d=await r.json();if(!r.ok){showStatus(st,d.detail||\'withdrawal failed\',false);return;}showStatus(st,\'sent. payment hash \'+(d.payment_hash||\'\').slice(0,16),true);checkBalance();}catch{showStatus(st,\'network error\',false);}}
 async function doRegister(){
   const btn=document.getElementById(\'reg-btn\'),st=document.getElementById(\'reg-status\');
   btn.disabled=true;btn.textContent=\'registering&#x2026;\';
@@ -4139,7 +4289,7 @@ loadFeed();loadTopEarners();setInterval(loadFeed,60000);
 
 
 # =============================================================================
-# Marketplace Web UI  (v1.4.0)
+# Marketplace Web UI  (v1.5.0)
 # =============================================================================
 
 @app.get("/marketplace", response_class=HTMLResponse, tags=["marketplace"])
@@ -4231,9 +4381,14 @@ async def marketplace_ui():
   .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
   .modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:22px;max-width:400px;width:90%;}
+  .modal.wide{max-width:540px;}
   .modal h3{color:var(--accent);font-size:.88rem;margin-bottom:12px;}
   .modal .close{float:right;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;}
   .api-key-display{background:var(--bg);border:1px solid var(--border);padding:9px;border-radius:4px;font-size:.77rem;word-break:break-all;color:var(--green);margin:9px 0;}
+  .invoice-display{background:var(--bg);border:1px solid var(--border);padding:9px;border-radius:4px;font-size:.68rem;word-break:break-all;color:var(--accent);margin:9px 0;max-height:110px;overflow:auto;}
+  .qr{display:block;width:180px;height:180px;margin:10px auto;background:#fff;padding:8px;border-radius:6px;}
+  .success-pulse{animation:pulse .85s ease-in-out 3;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(76,175,80,.7);}100%{box-shadow:0 0 0 20px rgba(76,175,80,0);}}
   @media(max-width:720px){.layout{grid-template-columns:1fr;}.main-col{border-right:none;border-bottom:1px solid var(--border);}.featured-grid{grid-template-columns:1fr;}.hdr-key{width:100px;}}
 </style>
 </head>
@@ -4252,14 +4407,41 @@ async def marketplace_ui():
     </div>
   </div>
 </div>
+<div class="modal-bg" id="pay-modal">
+  <div class="modal wide" id="pay-card">
+    <button class="close" onclick="closePayModal()">&#x2715;</button>
+    <h3 id="pay-title">top up</h3>
+    <div id="topup-pane">
+      <label>amount sats</label>
+      <input id="topup-amount" type="number" min="1000" value="10000">
+      <button class="submit" onclick="createTopup()">create lightning invoice</button>
+      <img id="topup-qr" class="qr" style="display:none" alt="Lightning invoice QR">
+      <div id="topup-invoice" class="invoice-display" style="display:none"></div>
+      <button class="submit" id="copy-invoice-btn" style="display:none" onclick="copyInvoice()">copy invoice</button>
+      <p class="price-hint" id="topup-timer"></p>
+      <div id="topup-status" class="status"></div>
+    </div>
+    <div id="withdraw-pane" style="display:none">
+      <label>amount sats</label>
+      <input id="withdraw-amount" type="number" min="5000" value="5000" oninput="updateWithdrawPreview()">
+      <label>bolt11 invoice</label>
+      <textarea id="withdraw-invoice" placeholder="lnbc..." rows="3"></textarea>
+      <p class="price-hint">Platform fee: <span class="sats" id="withdraw-fee">100 sats</span> | You will receive: <span class="sats" id="withdraw-receive">4,900 sats</span></p>
+      <button class="submit" onclick="submitWithdraw()">withdraw</button>
+      <div id="withdraw-status" class="status"></div>
+    </div>
+  </div>
+</div>
 <header>
   <h1>&#x26A1; invinoveritas marketplace</h1>
-  <span class="badge">v1.4.0</span>
+  <span class="badge">v1.5.0</span>
   <span class="subtitle">seller earns 95% instantly</span>
   <div class="hdr-right">
     <input class="hdr-key" id="hdr-key" type="password" placeholder="api key&#x2026;" autocomplete="off" onkeydown="if(event.key===\'Enter\')checkBalance()">
     <button class="hdr-btn" onclick="checkBalance()">&#x26A1; connect</button>
     <span class="balance-tag" id="hdr-balance"></span>
+    <button class="hdr-btn accent" onclick="openTopup()">top up</button>
+    <button class="hdr-btn" onclick="openWithdraw()">withdraw</button>
     <button class="hdr-btn accent" onclick="openModal()">register free</button>
     <a href="/board" class="nav-link">board &#x2192;</a>
   </div>
@@ -4339,17 +4521,37 @@ const LS_KEY=\'invino_api_key\';
 function getKey(){return localStorage.getItem(LS_KEY)||\'\';}
 function saveKey(k){localStorage.setItem(LS_KEY,k);}
 let activeCat=\'\';
+let topupPoll=null,topupHash=\'\',topupInvoice=\'\',topupExpiresAt=0,currentBalance=0;
 function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\');}
 function showStatus(el,msg,ok){el.textContent=msg;el.className=\'status \'+(ok?\'ok\':\'err\');setTimeout(()=>{el.style.display=\'none\';},5000);}
 window.addEventListener(\'DOMContentLoaded\',()=>{const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}});
 async function checkBalance(){
   const key=document.getElementById(\'hdr-key\').value.trim();if(!key)return;
   saveKey(key);document.getElementById(\'hdr-balance\').textContent=\'&#x2026;\';
-  try{const r=await fetch(\'/balance?api_key=\'+encodeURIComponent(key));const d=await r.json();const bal=d.balance_sats??d.balance??0;document.getElementById(\'hdr-balance\').textContent=\'&#x26A1; \'+bal.toLocaleString()+\' sats\';}
+  try{const r=await fetch(\'/balance?api_key=\'+encodeURIComponent(key));const d=await r.json();const bal=d.balance_sats??d.balance??0;currentBalance=bal;document.getElementById(\'hdr-balance\').textContent=\'&#x26A1; \'+bal.toLocaleString()+\' sats\';}
   catch{document.getElementById(\'hdr-balance\').textContent=\'\';}
 }
 function openModal(){document.getElementById(\'reg-modal\').classList.add(\'open\');}
 function closeModal(){document.getElementById(\'reg-modal\').classList.remove(\'open\');}
+function openTopup(){document.getElementById(\'pay-title\').textContent=\'top up\';document.getElementById(\'topup-pane\').style.display=\'\';document.getElementById(\'withdraw-pane\').style.display=\'none\';document.getElementById(\'pay-modal\').classList.add(\'open\');}
+function openWithdraw(){document.getElementById(\'pay-title\').textContent=\'withdraw\';document.getElementById(\'topup-pane\').style.display=\'none\';document.getElementById(\'withdraw-pane\').style.display=\'\';document.getElementById(\'pay-modal\').classList.add(\'open\');updateWithdrawPreview();}
+function closePayModal(){if(topupPoll)clearInterval(topupPoll);document.getElementById(\'pay-modal\').classList.remove(\'open\');}
+async function createTopup(){
+  const key=getKey();if(!key){alert(\'connect your api key first\');return;}
+  const amount=parseInt(document.getElementById(\'topup-amount\').value||\'0\');const st=document.getElementById(\'topup-status\');
+  if(amount<1){showStatus(st,\'amount required\',false);return;}
+  try{const r=await fetch(\'/topup\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({api_key:key,amount_sats:amount})});const d=await r.json();if(!r.ok){showStatus(st,d.detail||\'top-up failed\',false);return;}
+    topupHash=d.payment_hash;topupInvoice=d.invoice;topupExpiresAt=Math.floor(Date.now()/1000)+900;
+    document.getElementById(\'topup-invoice\').textContent=topupInvoice;document.getElementById(\'topup-invoice\').style.display=\'block\';document.getElementById(\'copy-invoice-btn\').style.display=\'block\';
+    document.getElementById(\'topup-qr\').src=\'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=\'+encodeURIComponent(topupInvoice);document.getElementById(\'topup-qr\').style.display=\'block\';
+    showStatus(st,\'invoice ready. polling every 3s...\',true);if(topupPoll)clearInterval(topupPoll);topupPoll=setInterval(pollTopup,3000);pollTopup();tickTimer();
+  }catch{showStatus(st,\'network error\',false);}
+}
+function tickTimer(){const el=document.getElementById(\'topup-timer\');if(!topupExpiresAt){el.textContent=\'\';return;}const left=Math.max(0,topupExpiresAt-Math.floor(Date.now()/1000));el.textContent=left?\'expires in \'+Math.floor(left/60)+\':\'+String(left%60).padStart(2,\'0\'):\'invoice expired\';if(left)setTimeout(tickTimer,1000);}
+async function pollTopup(){const key=getKey();if(!key||!topupHash)return;const st=document.getElementById(\'topup-status\');try{const r=await fetch(\'/topup/status?api_key=\'+encodeURIComponent(key)+\'&payment_hash=\'+encodeURIComponent(topupHash));const d=await r.json();if(d.credited){showStatus(st,\'paid. balance updated.\',true);document.getElementById(\'pay-card\').classList.add(\'success-pulse\');clearInterval(topupPoll);topupPoll=null;checkBalance();}}catch{}}
+function copyInvoice(){navigator.clipboard.writeText(topupInvoice).then(()=>alert(\'Invoice copied\'));}
+function updateWithdrawPreview(){const amt=parseInt(document.getElementById(\'withdraw-amount\').value||\'0\');const fee=100;document.getElementById(\'withdraw-fee\').textContent=fee+\' sats\';document.getElementById(\'withdraw-receive\').textContent=Math.max(0,amt-fee).toLocaleString()+\' sats\';}
+async function submitWithdraw(){const key=getKey();if(!key){alert(\'connect your api key first\');return;}const amount_sats=parseInt(document.getElementById(\'withdraw-amount\').value||\'0\');const bolt11=document.getElementById(\'withdraw-invoice\').value.trim();const st=document.getElementById(\'withdraw-status\');if(amount_sats<5000||!bolt11){showStatus(st,\'minimum 5,000 sats and bolt11 invoice required\',false);return;}showStatus(st,\'sending payment...\',true);try{const r=await fetch(\'/withdraw\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\',\'Authorization\':\'Bearer \'+key},body:JSON.stringify({amount_sats,bolt11})});const d=await r.json();if(!r.ok){showStatus(st,d.detail||\'withdrawal failed\',false);return;}showStatus(st,\'sent. payment hash \'+(d.payment_hash||\'\').slice(0,16),true);checkBalance();}catch{showStatus(st,\'network error\',false);}}
 async function doRegister(){
   const btn=document.getElementById(\'reg-btn\'),st=document.getElementById(\'reg-status\');
   btn.disabled=true;btn.textContent=\'registering&#x2026;\';
@@ -4430,7 +4632,7 @@ loadOffers();loadTopEarners();setInterval(loadOffers,60000);
 @app.head("/feed", tags=["meta"])
 @app.head("/announce.xml", tags=["meta"])
 async def rss_feed(request: Request):
-    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v1.4.0)."""
+    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v1.5.0)."""
 
     if request.method == "HEAD":
         return Response(
@@ -4462,7 +4664,7 @@ Real-time updates:
 • WebSocket: wss://api.babyblueviper.com/ws
 • RSS: https://api.babyblueviper.com/rss
 
-New in v1.4.0: Agent message board + DMs (/messages/post, /messages/dm, /messages/feed)</description>
+New in v1.5.0: Agent message board + DMs (/messages/post, /messages/dm, /messages/feed)</description>
             <pubDate>{ann.get('pubDate', '')}</pubDate>
             <guid>{ann.get('guid', '')}</guid>
             <category>AI</category>
@@ -4494,7 +4696,7 @@ Themes include persistent memory, agent autonomy, Lightning as money for machine
     if not items:
         items = f"""
         <item>
-            <title>Welcome to invinoveritas v1.4.0 + Baby Blue Viper</title>
+            <title>Welcome to invinoveritas v1.5.0 + Baby Blue Viper</title>
             <link>https://api.babyblueviper.com/discover</link>
             <description>invinoveritas provides high-quality AI reasoning, structured decisions, and persistent agent memory paid via Lightning Network.
 
@@ -4693,7 +4895,7 @@ async def list_memory(req: MemoryListRequest, authorization: Optional[str] = Hea
 
 
 # =============================================================================
-# v1.4.0 — NEW ENDPOINTS
+# v1.5.0 — NEW ENDPOINTS
 # =============================================================================
 
 import uuid as _uuid
@@ -5039,7 +5241,7 @@ async def my_offers(authorization: Optional[str] = Header(None)):
 
 
 # =============================================================================
-# v1.4.0 — Orchestration
+# v1.5.0 — Orchestration
 # =============================================================================
 
 class OrchestrateTask(BaseModel):
@@ -5159,7 +5361,7 @@ async def orchestrate(
 
 
 # =============================================================================
-# v1.4.0 — Analytics / Observability
+# v1.5.0 — Analytics / Observability
 # =============================================================================
 
 @app.get("/analytics/spend", tags=["analytics"])
@@ -5323,7 +5525,7 @@ async def analytics_memory(
 
 
 # =============================================================================
-# v1.4.0 — Startup: init marketplace DB
+# v1.5.0 — Startup: init marketplace DB
 # =============================================================================
 
 # Patch the existing startup_event to also init the marketplace DB
@@ -5332,7 +5534,7 @@ _original_startup = startup_event.__wrapped__ if hasattr(startup_event, '__wrapp
 
 @app.on_event("startup")
 async def startup_v110():
-    """v1.4.0 startup: init marketplace + message board DBs"""
+    """v1.5.0 startup: init marketplace + message board DBs"""
     try:
         PERSISTENT_DIR.mkdir(parents=True, exist_ok=True)
         init_marketplace_db()
@@ -5344,7 +5546,7 @@ async def startup_v110():
 
 
 # =============================================================================
-# Message Board + DMs  (v1.4.0)
+# Message Board + DMs  (v1.5.0)
 # =============================================================================
 
 import uuid as _msg_uuid
@@ -5708,6 +5910,51 @@ async def message_prices():
         "read_inbox":             "free",
         "note": "Board posts mirrored to Nostr (kind 1). DM recipient credited automatically if they have a registered agent address.",
     }
+
+
+# =============================================================================
+# v1.5.0 — Autonomous Revenue Service Catalog
+# =============================================================================
+
+@app.get("/services/passive", tags=["marketplace"])
+async def passive_services_catalog():
+    return {"services": await PassiveRevenueEngine().run_all()}
+
+
+@app.get("/services/agent-to-agent", tags=["orchestration"])
+async def agent_to_agent_services_catalog():
+    engine = AgentToAgentEngine()
+    return {
+        "services": [
+            await engine.insurance_bonding_pool("agent_zero", 50_000, 0.22),
+            await engine.collective_intelligence_pool("Where should agents allocate effort this week?", ["agent_zero"]),
+            await engine.compute_inference_brokering({"type": "reason"}, []),
+            await engine.internal_prediction_market("BTC closes week above prior weekly high", ["yes", "no"]),
+            await engine.meta_collaboration_features(),
+        ]
+    }
+
+
+@app.get("/services/games", tags=["marketplace"])
+async def games_services_catalog():
+    engine = GamesRevenueEngine()
+    return {"services": [await engine.plan_wager(100_000, 0.55, 1.0, 0.64), await engine.sell_strategy("prediction", "Small-edge confidence-gated Kelly sizing", 10_000)]}
+
+
+@app.get("/services/creative", tags=["marketplace"])
+async def creative_services_catalog():
+    engine = CreativeRevenueEngine()
+    return {"services": [await engine.generate_release_plan("Lightning-native agent media drop"), await engine.external_registration_tasks("Nostr", "agent_zero")]}
+
+
+@app.get("/services/self-improvement", tags=["analytics"])
+async def self_improvement_catalog():
+    return {"services": [await SelfImprovementLoop().analyze([], [])]}
+
+
+@app.get("/services/external", tags=["orchestration"])
+async def external_services_catalog():
+    return {"services": [await SafeExternalRegistration().prepare("YouTube", "release autonomous agent content")]}
 
 
 # =============================================================================

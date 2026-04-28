@@ -1,5 +1,5 @@
 """
-invinoveritas SDK v1.4.0
+invinoveritas SDK v1.5.0
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Lightning-native AI reasoning, decisions, memory, orchestration,
 and agent marketplace. Register free — pay per call with sats.
@@ -25,7 +25,7 @@ except ImportError:
     _HTTPX_AVAILABLE = False
 
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 BASE_URL = "https://api.babyblueviper.com"
 
 
@@ -287,6 +287,38 @@ class InvinoClient:
                 body = {}
             _raise_for_status(response.status_code, body, response.text)
         return response.json()
+
+    # ====================== Account / Wallet ======================
+
+    def register(self, label: Optional[str] = None) -> dict:
+        """Create a free account with exactly 3 free calls capped at 12,000 tokens."""
+        payload = {"label": label} if label else {}
+        return self._post("/register", payload)
+
+    def balance(self, api_key: Optional[str] = None) -> dict:
+        """Return balance, free calls, free token allowance, and spend counters."""
+        key = api_key or self._bearer_token
+        if not key:
+            raise ValueError("api_key or bearer_token required")
+        return self._get("/balance", params={"api_key": key})
+
+    def topup(self, amount_sats: int, api_key: Optional[str] = None) -> dict:
+        """Create a Lightning invoice for account top-up."""
+        key = api_key or self._bearer_token
+        if not key:
+            raise ValueError("api_key or bearer_token required")
+        return self._post("/topup", {"api_key": key, "amount_sats": amount_sats})
+
+    def topup_status(self, payment_hash: str, api_key: Optional[str] = None) -> dict:
+        """Poll a top-up invoice and auto-credit when settled."""
+        key = api_key or self._bearer_token
+        if not key:
+            raise ValueError("api_key or bearer_token required")
+        return self._get("/topup/status", params={"api_key": key, "payment_hash": payment_hash})
+
+    def withdraw(self, amount_sats: int, bolt11: str) -> dict:
+        """Withdraw to a bolt11 invoice. First withdrawal free, then 100 sats flat fee."""
+        return self._post("/withdraw", {"amount_sats": amount_sats, "bolt11": bolt11})
 
     # ====================== Core AI Tools ======================
 
@@ -630,6 +662,20 @@ class InvinoClient:
         response.raise_for_status()
         return response.json()
 
+    def services(self, group: str = "passive") -> dict:
+        """Fetch autonomous service catalog by group."""
+        path_map = {
+            "passive": "/services/passive",
+            "agent_to_agent": "/services/agent-to-agent",
+            "games": "/services/games",
+            "creative": "/services/creative",
+            "self_improvement": "/services/self-improvement",
+            "external": "/services/external",
+        }
+        if group not in path_map:
+            raise ValueError(f"group must be one of: {', '.join(path_map)}")
+        return self._get(path_map[group])
+
 
 # ---------------------------------------------------------------------------
 # Async Client
@@ -707,6 +753,31 @@ class AsyncInvinoClient:
                 body = {}
             _raise_for_status(response.status_code, body, response.text)
         return response.json()
+
+    async def register(self, label: Optional[str] = None) -> dict:
+        payload = {"label": label} if label else {}
+        return await self._post("/register", payload)
+
+    async def balance(self, api_key: Optional[str] = None) -> dict:
+        key = api_key or self._bearer_token
+        if not key:
+            raise ValueError("api_key or bearer_token required")
+        return await self._get("/balance", params={"api_key": key})
+
+    async def topup(self, amount_sats: int, api_key: Optional[str] = None) -> dict:
+        key = api_key or self._bearer_token
+        if not key:
+            raise ValueError("api_key or bearer_token required")
+        return await self._post("/topup", {"api_key": key, "amount_sats": amount_sats})
+
+    async def topup_status(self, payment_hash: str, api_key: Optional[str] = None) -> dict:
+        key = api_key or self._bearer_token
+        if not key:
+            raise ValueError("api_key or bearer_token required")
+        return await self._get("/topup/status", params={"api_key": key, "payment_hash": payment_hash})
+
+    async def withdraw(self, amount_sats: int, bolt11: str) -> dict:
+        return await self._post("/withdraw", {"amount_sats": amount_sats, "bolt11": bolt11})
 
     # ====================== Core AI Tools ======================
 
@@ -818,6 +889,25 @@ class AsyncInvinoClient:
         response = await self._client.get(f"{self.base_url}/prices")
         response.raise_for_status()
         return response.json()
+
+    async def get_tool_definition(self) -> dict:
+        self._ensure_started()
+        response = await self._client.get(f"{self.base_url}/tool")
+        response.raise_for_status()
+        return response.json()
+
+    async def services(self, group: str = "passive") -> dict:
+        path_map = {
+            "passive": "/services/passive",
+            "agent_to_agent": "/services/agent-to-agent",
+            "games": "/services/games",
+            "creative": "/services/creative",
+            "self_improvement": "/services/self-improvement",
+            "external": "/services/external",
+        }
+        if group not in path_map:
+            raise ValueError(f"group must be one of: {', '.join(path_map)}")
+        return await self._get(path_map[group])
 
 
 # ---------------------------------------------------------------------------

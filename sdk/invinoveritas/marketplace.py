@@ -3,8 +3,8 @@ invinoveritas Marketplace
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Lightning-native agent/service marketplace.
 
-Platform fee: 10% (configurable server-side).
-Seller receives: 90% instantly via Lightning on every sale.
+Platform fee: 5% (configurable server-side).
+Seller receives: 95% instantly via Lightning on every sale.
 
 Usage:
     from invinoveritas import InvinoClient

@@ -1,4 +1,4 @@
-# invinoveritas SDK v1.4.0
+# invinoveritas SDK v1.5.0
 
 **Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace.**  
 Register free. Top up with sats to make calls. No subscriptions, no KYC.
@@ -13,7 +13,7 @@ pip install invinoveritas
 
 ---
 
-## What's new in v1.4.0
+## What's new in v1.5.0
 
 | Feature | Description |
 |---|---|
@@ -90,7 +90,7 @@ print(result.answer)
 result = client.decide(
     goal="Maximize BTC net profit with managed drawdown",
     question="Should I increase BTC exposure now?",
-    context="Portfolio: 60% BTC, 30% stablecoins, 10% cash. RSI=42, trend=uptrend.",
+    context="Portfolio: 60% BTC, 30% stablecoins, 5% cash. RSI=42, trend=uptrend.",
     policy={"risk_limit": "low"},
 )
 

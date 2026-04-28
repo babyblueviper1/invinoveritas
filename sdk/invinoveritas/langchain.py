@@ -267,7 +267,7 @@ class BearerProvider(BaseProvider):
     per call via Lightning.
 
     Register once at https://api.babyblueviper.com/register, then pass the
-    returned api_key here. 5 free calls included; top up with sats when needed.
+    returned api_key here. 3 free calls plus a 12,000-token cap included; top up with sats when needed.
 
     Args:
         api_key: Your invinoveritas Bearer token (starts with 'ivv_')

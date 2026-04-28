@@ -44,8 +44,11 @@ app.add_middleware(
 )
 
 DB_PATH = os.getenv("DB_PATH", "/root/invinoveritas_accounts.db")
-FREE_CALLS_ON_REGISTER = int(os.getenv("FREE_CALLS_ON_REGISTER", "5"))
+FREE_CALLS_ON_REGISTER = 3
+FREE_TOKENS_ON_REGISTER = 12_000
 LIGHTNING_REGISTER_SATS = int(os.getenv("LIGHTNING_REGISTER_SATS", "1000"))
+WITHDRAWAL_FLAT_FEE_SATS = int(os.getenv("WITHDRAWAL_FLAT_FEE_SATS", "100"))
+WITHDRAWAL_MIN_AMOUNT_SATS = int(os.getenv("WITHDRAWAL_MIN_AMOUNT_SATS", "5000"))
 
 # =========================
 # Database Initialization
@@ -58,6 +61,7 @@ def init_db():
         api_key TEXT PRIMARY KEY,
         balance_sats INTEGER DEFAULT 0,
         free_calls_remaining INTEGER DEFAULT 5,
+        free_tokens_remaining INTEGER DEFAULT 12000,
         created_at INTEGER,
         last_used INTEGER,
         label TEXT,
@@ -92,11 +96,34 @@ def init_db():
         created_at   INTEGER NOT NULL
     )''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS withdrawals (
+        withdrawal_id TEXT PRIMARY KEY,
+        api_key TEXT NOT NULL,
+        destination TEXT NOT NULL,
+        amount_sats INTEGER NOT NULL,
+        platform_fee_sats INTEGER NOT NULL,
+        receive_sats INTEGER NOT NULL,
+        payment_hash TEXT,
+        status TEXT NOT NULL,
+        error TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    )''')
+
+    for statement in (
+        "ALTER TABLE accounts ADD COLUMN free_tokens_remaining INTEGER DEFAULT 12000",
+    ):
+        try:
+            c.execute(statement)
+        except sqlite3.OperationalError:
+            pass
+
     # Performance indexes
     c.execute("CREATE INDEX IF NOT EXISTS idx_pending_api ON pending_topups(api_key)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_accounts_last ON accounts(last_used)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_used_hashes ON used_payment_hashes(used_at)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_lnurl_created ON pending_lnurl_invoices(created_at)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_withdrawals_api ON withdrawals(api_key, created_at DESC)")
     
     conn.commit()
     conn.close()
@@ -272,9 +299,9 @@ def create_account(api_key: str, label: Optional[str] = None):
         try:
             c.execute(
                 """INSERT INTO accounts 
-                   (api_key, balance_sats, free_calls_remaining, created_at, last_used, label)
-                   VALUES (?, 0, ?, ?, ?, ?)""",
-                (api_key, FREE_CALLS_ON_REGISTER, now, now, label or None)
+                   (api_key, balance_sats, free_calls_remaining, free_tokens_remaining, created_at, last_used, label)
+                   VALUES (?, 0, ?, ?, ?, ?, ?)""",
+                (api_key, FREE_CALLS_ON_REGISTER, FREE_TOKENS_ON_REGISTER, now, now, label or None)
             )
             logger.info(f"✅ New account created: {api_key[:20]}...")
         except sqlite3.IntegrityError:
@@ -313,13 +340,21 @@ class SettleTopupRequest(BaseModel):
 
 class VerifyRequest(BaseModel):
     api_key: str = Field(..., min_length=10)
-    tool: str = Field(..., pattern="^(reason|decide|memory_store|memory_get|message_post|message_dm)$")
+    tool: str = Field(..., pattern="^(reason|decide|decision|memory_store|memory_get|memory_list|memory_delete|marketplace_buy|orchestrate|message_post|message_dm)$")
     price_sats: int = Field(..., gt=0)
+    token_estimate: int = Field(default=0, ge=0)
+
+class WithdrawRequest(BaseModel):
+    api_key: str = Field(..., min_length=10)
+    bolt11: str = Field(..., min_length=20)
+    amount_sats: int = Field(..., ge=WITHDRAWAL_MIN_AMOUNT_SATS)
 
 # =========================
 BOOTSTRAP_GUIDE = {
-    "title": "agent_zero Handbook: Bootstrap, Earn, Recruit",
-    "version": "1.4.0",  # BOOTSTRAP_GUIDE version — stays in sync
+    "title": "Basic Agent Spawn Guide",
+    "version": "1.5.0",
+    "free_on_registration": True,
+    "paid_kit_policy": "This basic guide is always free. Paid Spawn Kits must be premium, customizable, actively updated, and materially more advanced.",
     "steps": [
         {
             "step": 1,
@@ -364,26 +399,22 @@ BOOTSTRAP_GUIDE = {
 
 
 # =========================
-# Registration — free, instant, 0 free calls
+# Registration — free, instant, exactly 3 free calls or 12,000 total tokens
 # =========================
 @app.post("/register", tags=["accounts"])
 @limiter.limit("20/minute")
 async def register(req: RegisterRequest, request: Request):
     """Free registration. Returns an API key immediately — no payment required.
-    Balance starts at 0 sats and 0 free calls. Top up via POST /topup."""
+    Balance starts at 0 sats with exactly 3 free calls capped at 12,000 estimated tokens."""
     api_key = generate_api_key()
     create_account(api_key, label=req.label or "external")
-    # Zero out free calls — agents must earn/buy sats to use the platform
-    with get_db_conn() as conn:
-        conn.execute(
-            "UPDATE accounts SET free_calls_remaining = 0 WHERE api_key = ?", (api_key,)
-        )
     logger.info(f"✅ Free registration: {api_key[:15]}…")
     return {
         "api_key": api_key,
-        "free_calls": 0,
+        "free_calls": FREE_CALLS_ON_REGISTER,
+        "free_tokens": FREE_TOKENS_ON_REGISTER,
         "balance_sats": 0,
-        "message": "Account created. Top up via POST /topup to start making calls.",
+        "message": "Account created for free. You have exactly 3 free calls, capped at 12,000 estimated tokens total.",
         "topup_endpoint": "/topup",
         "marketplace": "/offers/list",
         "guide": BOOTSTRAP_GUIDE,
@@ -403,7 +434,9 @@ async def register_internal(request: Request):
     return {
         "api_key": api_key,
         "free_calls": FREE_CALLS_ON_REGISTER,
+        "free_tokens": FREE_TOKENS_ON_REGISTER,
         "method": "internal",
+        "guide": BOOTSTRAP_GUIDE,
     }
 
 
@@ -544,6 +577,48 @@ async def settle_topup(req: SettleTopupRequest):
     return {"success": True, "credited_sats": amount, "message": "Top-up completed"}
 
 
+@app.get("/topup/status", tags=["accounts"])
+async def topup_status(api_key: str, payment_hash: str):
+    """Poll a top-up invoice and credit the account as soon as LND marks it settled."""
+    ph_hex = to_hex_hash(payment_hash)
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            "SELECT amount_sats FROM pending_topups WHERE payment_hash = ? AND api_key = ?",
+            (ph_hex, api_key),
+        )
+        row = c.fetchone()
+        if not row:
+            return {"status": "unknown_or_settled", "paid": False, "credited": False}
+        amount = row[0]
+
+        if not is_payment_settled(payment_hash):
+            return {"status": "pending", "paid": False, "credited": False, "amount_sats": amount}
+
+        if is_hash_used(payment_hash):
+            c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
+            return {"status": "settled", "paid": True, "credited": False, "message": "Payment hash was already used"}
+
+        c.execute(
+            """UPDATE accounts
+               SET balance_sats = balance_sats + ?, last_used = ?
+               WHERE api_key = ?""",
+            (amount, int(time.time()), api_key),
+        )
+        c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
+        mark_hash_used(payment_hash)
+        c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (api_key,))
+        new_balance = c.fetchone()[0]
+
+    return {
+        "status": "settled",
+        "paid": True,
+        "credited": True,
+        "credited_sats": amount,
+        "new_balance_sats": new_balance,
+    }
+
+
 # =========================
 # Balance & Verify
 # =========================
@@ -552,7 +627,7 @@ async def get_balance(api_key: str):
     with get_db_conn() as conn:
         c = conn.cursor()
         c.execute(
-            """SELECT balance_sats, free_calls_remaining, total_calls, total_spent_sats
+            """SELECT balance_sats, free_calls_remaining, total_calls, total_spent_sats, free_tokens_remaining
                FROM accounts WHERE api_key = ?""", (api_key,)
         )
         row = c.fetchone()
@@ -563,7 +638,8 @@ async def get_balance(api_key: str):
         "balance_sats": row[0],
         "free_calls_remaining": row[1],
         "total_calls": row[2],
-        "total_spent_sats": row[3]
+        "total_spent_sats": row[3],
+        "free_tokens_remaining": row[4],
     }
 
 
@@ -575,19 +651,29 @@ async def verify_account(req: VerifyRequest, request: Request):
     with get_db_conn() as conn:
         c = conn.cursor()
 
-        # Try free call first
+        token_estimate = max(1, req.token_estimate or 1)
+        # Try free call first, capped by remaining estimated tokens.
         c.execute(
             """UPDATE accounts
                SET free_calls_remaining = free_calls_remaining - 1,
+                   free_tokens_remaining = free_tokens_remaining - ?,
                    last_used = ?,
                    total_calls = total_calls + 1
-               WHERE api_key = ? AND free_calls_remaining > 0""",
-            (now, req.api_key)
+               WHERE api_key = ?
+                 AND free_calls_remaining > 0
+                 AND free_tokens_remaining >= ?""",
+            (token_estimate, now, req.api_key, token_estimate)
         )
         if c.rowcount > 0:
-            c.execute("SELECT free_calls_remaining, balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
-            free_rem, bal = c.fetchone() or (0, 0)
-            return {"allowed": True, "used_free_call": True, "free_remaining": free_rem, "balance_sats": bal}
+            c.execute("SELECT free_calls_remaining, free_tokens_remaining, balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
+            free_rem, free_tokens, bal = c.fetchone() or (0, 0, 0)
+            return {
+                "allowed": True,
+                "used_free_call": True,
+                "free_remaining": free_rem,
+                "free_tokens_remaining": free_tokens,
+                "balance_sats": bal,
+            }
 
         # Use paid balance
         c.execute(
@@ -609,6 +695,93 @@ async def verify_account(req: VerifyRequest, request: Request):
         new_balance = c.fetchone()[0]
 
     return {"allowed": True, "used_free_call": False, "balance_sats": new_balance}
+
+
+@app.post("/withdraw", tags=["accounts"])
+async def withdraw(req: WithdrawRequest):
+    """Debit an account and pay a Lightning invoice. First withdrawal has no platform fee."""
+    if not req.bolt11.lower().startswith("ln"):
+        raise HTTPException(400, "Invalid bolt11 invoice")
+
+    now = int(time.time())
+    withdrawal_id = secrets.token_hex(16)
+
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
+        row = c.fetchone()
+        if not row:
+            raise HTTPException(404, "Invalid API key")
+
+        balance = row[0]
+        if req.amount_sats < WITHDRAWAL_MIN_AMOUNT_SATS:
+            raise HTTPException(400, f"Minimum withdrawal is {WITHDRAWAL_MIN_AMOUNT_SATS} sats")
+
+        c.execute(
+            "SELECT COUNT(*) FROM withdrawals WHERE api_key = ? AND status = 'paid'",
+            (req.api_key,),
+        )
+        paid_withdrawals = c.fetchone()[0]
+        fee_sats = 0 if paid_withdrawals == 0 else WITHDRAWAL_FLAT_FEE_SATS
+        receive_sats = req.amount_sats - fee_sats
+        if receive_sats <= 0:
+            raise HTTPException(400, "Withdrawal amount must exceed platform fee")
+        if balance < req.amount_sats:
+            raise HTTPException(402, f"Insufficient balance. Need {req.amount_sats} sats (you have {balance})")
+
+        c.execute(
+            "UPDATE accounts SET balance_sats = balance_sats - ?, last_used = ? WHERE api_key = ?",
+            (req.amount_sats, now, req.api_key),
+        )
+        c.execute(
+            """INSERT INTO withdrawals
+               (withdrawal_id, api_key, destination, amount_sats, platform_fee_sats,
+                receive_sats, status, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+            (withdrawal_id, req.api_key, req.bolt11, req.amount_sats, fee_sats, receive_sats, now, now),
+        )
+
+    try:
+        result = safe_lncli(["payinvoice", "--pay_req", req.bolt11, "--force"], timeout=60)
+        if not result:
+            raise RuntimeError("lncli payinvoice returned no output")
+        status = str(result.get("status", "SUCCEEDED")).upper()
+        if status not in ("SUCCEEDED", ""):
+            raise RuntimeError(f"Payment status: {status}")
+
+        payment_hash = result.get("payment_hash", "")
+        with get_db_conn() as conn:
+            conn.execute(
+                "UPDATE withdrawals SET status = 'paid', payment_hash = ?, updated_at = ? WHERE withdrawal_id = ?",
+                (payment_hash, int(time.time()), withdrawal_id),
+            )
+            c = conn.cursor()
+            c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (req.api_key,))
+            new_balance = c.fetchone()[0]
+
+        return {
+            "status": "paid",
+            "withdrawal_id": withdrawal_id,
+            "amount_sats": req.amount_sats,
+            "platform_fee_sats": fee_sats,
+            "receive_sats": receive_sats,
+            "first_withdrawal_free": paid_withdrawals == 0,
+            "payment_hash": payment_hash,
+            "new_balance_sats": new_balance,
+        }
+    except Exception as e:
+        err = str(e)
+        logger.error(f"Withdrawal failed: {err}")
+        with get_db_conn() as conn:
+            conn.execute(
+                "UPDATE accounts SET balance_sats = balance_sats + ? WHERE api_key = ?",
+                (req.amount_sats, req.api_key),
+            )
+            conn.execute(
+                "UPDATE withdrawals SET status = 'failed', error = ?, updated_at = ? WHERE withdrawal_id = ?",
+                (err[:500], int(time.time()), withdrawal_id),
+            )
+        raise HTTPException(502, f"Withdrawal payment failed and funds were returned: {err}")
 
 
 # =========================
@@ -648,7 +821,7 @@ class PayInvoiceRequest(BaseModel):
 async def pay_invoice_endpoint(req: PayInvoiceRequest):
     """
     Pay an outbound bolt11 invoice via lncli.
-    Used internally for marketplace seller payouts (90% cut).
+    Used internally for marketplace seller payouts (95% cut).
     """
     if not req.bolt11.startswith("ln"):
         raise HTTPException(400, "Invalid bolt11 invoice")
@@ -688,7 +861,7 @@ async def health():
         "service": "invinoveritas Lightning Bridge",
         "lnd_connected": lnd_ready(),
         "supported_payments": ["Lightning (L402)", "Bearer Token (Credits)"],
-        "version": "1.4.0",
+        "version": "1.5.0",
         "timestamp": int(time.time())
     }
 

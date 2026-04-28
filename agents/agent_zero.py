@@ -46,6 +46,11 @@ import websockets
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nostr.key import PrivateKey
 from nostr.event import Event
+from services.agent_to_agent import AgentToAgentEngine
+from services.creative import CreativeRevenueEngine
+from services.games import GamesRevenueEngine
+from services.passive import PassiveRevenueEngine
+from services.self_improvement import SelfImprovementLoop
 
 API_BASE     = "https://api.babyblueviper.com"
 BRIDGE_URL   = os.environ.get("BRIDGE_URL", "http://127.0.0.1:8081")
@@ -62,7 +67,7 @@ RELAYS      = [
 
 SIGNAL_INTERVAL_SECS   = 30 * 60   # post trading signal every 30 min
 HANDBOOK_INTERVAL_SECS = 6 * 3600  # refresh handbook every 6 hrs
-FREE_CALLS_DEFAULT     = 5
+FREE_CALLS_DEFAULT     = 3
 
 
 # ── LND payment via bridge ────────────────────────────────────────────────────
@@ -363,7 +368,7 @@ Authorization: Bearer <api_key>
 → You now have agent_id@api.babyblueviper.com. Payments credit your balance.
 
 ## Step 3 — Generate income without spending sats
-While balance = 0, use the free heuristic signal (Binance 24h data).
+While balance = 0, use the free heuristic signal (public market data).
 List it on the marketplace (POST /offers/create, price_sats=1000).
 Every sale credits your balance.
 
@@ -443,7 +448,7 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
         info = d.json()
     print(f"   {info.get('name')} v{info.get('version')}")
 
-    # 2. Register — try internal (on-node, 5 free calls) then fall back to public (free, 0 calls)
+    # 2. Register — try internal, then fall back to public. Both are free with 3 calls / 12k token cap.
     print("\n2. Registering...")
     api_key = None
     try:
@@ -460,11 +465,12 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.post(f"{API_BASE}/register", json={"label": agent_id})
             r.raise_for_status()
-            api_key = r.json().get("api_key")
-            free_calls = 0
+            reg = r.json()
+            api_key = reg.get("api_key")
+            free_calls = reg.get("free_calls", FREE_CALLS_DEFAULT)
         if not api_key:
             raise RuntimeError("Registration failed — no api_key returned")
-        print(f"   API key: {api_key[:12]}… (0 free calls, external — must earn sats)")
+        print(f"   API key: {api_key[:12]}… ({free_calls} free calls, external)")
     headers = {"Authorization": f"Bearer {api_key}"}
 
     # 4b. Provision a Lightning address autonomously (no human sign-up)
@@ -530,8 +536,8 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     except Exception as e:
         if "402" in str(e):
             income_plan = (
-                "1. Sell the agent bootstrap guide on the marketplace — "
-                "other agents and developers will pay for a proven setup guide.\n"
+                "1. Sell premium customizable Spawn Kits — never duplicate the free basic guide; "
+                "bundle advanced policies, service templates, dashboards, and update streams.\n"
                 "2. Offer reasoning-as-a-service — accept sats to answer questions "
                 "on behalf of agents that haven't registered yet.\n"
                 "3. Earn referral sats by posting spawn templates — every agent "
@@ -541,6 +547,39 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
         else:
             raise
     print(f"\n   Income plan:\n{income_plan}\n")
+
+    print("7b. Preparing autonomous revenue services...")
+    passive = PassiveRevenueEngine()
+    a2a = AgentToAgentEngine()
+    games = GamesRevenueEngine()
+    creative = CreativeRevenueEngine()
+    self_improvement = SelfImprovementLoop()
+    service_outputs = [
+        *(await passive.run_all()),
+        await a2a.meta_collaboration_features(),
+        await games.plan_wager(bankroll_sats=10_000, win_probability=0.54, net_odds=1.0, confidence=0.50),
+        await creative.generate_release_plan("Lightning-native autonomous agent launch soundtrack"),
+        await self_improvement.analyze([], []),
+    ]
+    for item in service_outputs[:4]:
+        print(f"   service ready: {item['title']}")
+
+    if ln_address:
+        premium_spawn = next((s for s in service_outputs if s["service"] == "premium_spawn_kits"), None)
+        if premium_spawn:
+            offer_id = await create_offer(
+                headers,
+                ln_address,
+                title="Premium Agent Zero Spawn Kit - Custom Revenue Edition",
+                description=(
+                    "Premium customizable kit with revenue services, Nostr promotion, risk policy, "
+                    "and update stream. Distinct from the free basic spawn guide."
+                ),
+                price_sats=25_000,
+                agent_id=agent_id,
+            )
+            if offer_id:
+                print(f"   premium spawn kit offer_id={offer_id}")
 
     # 8. Publish handbook
     print("8. Publishing agent handbook to Nostr (kind 30023)...")
@@ -601,6 +640,7 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
         "ln_address":      ln_address,
         "signal_offer_id": signal_offer_id,
         "income_plan":     income_plan[:600],
+        "services":        service_outputs,
         "bootstrapped_at": int(time.time()),
         "npub":            agent_key.public_key.bech32(),
     }
