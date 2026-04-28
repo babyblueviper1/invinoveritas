@@ -160,8 +160,16 @@ class AutonomousGrowthEngine:
         if channel.name == "gaming_strategy_market":
             return "list confidence-gated strategy product; no direct wager required"
         if channel.kind == "streaming":
-            if channel.name == "YouTube" and os.getenv("YOUTUBE_API_KEY") and not os.getenv("YOUTUBE_OAUTH_TOKEN"):
-                return "research trends through YouTube Data API key; upload/stream waits for official OAuth credential"
+            if channel.name == "YouTube":
+                has_api_key = bool(os.getenv("YOUTUBE_API_KEY") or os.getenv("YOUTUBE_API_TOKEN"))
+                has_oauth_client = bool(os.getenv("YOUTUBE_OAUTH_CLIENT_ID") and os.getenv("YOUTUBE_OAUTH_CLIENT_SECRET"))
+                has_refresh_token = bool(os.getenv("YOUTUBE_OAUTH_REFRESH_TOKEN") or os.getenv("YOUTUBE_OAUTH_TOKEN"))
+                if has_refresh_token:
+                    return "publish or schedule YouTube content through stored OAuth refresh token"
+                if has_oauth_client:
+                    return "OAuth client configured; generate consent URL and wait for refresh token before upload/stream"
+                if has_api_key:
+                    return "research trends through YouTube Data API key; upload/stream waits for OAuth credential"
             return "publish or schedule stream content through official platform credential"
         if channel.kind == "music":
             return "publish generated release metadata through official API credential"
