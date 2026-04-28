@@ -54,7 +54,7 @@ import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from services.agent_to_agent import AgentToAgentEngine
 from services.creative import CreativeRevenueEngine
-from services.external import SafeExternalRegistration
+from services.external import AutonomousGrowthEngine, SafeExternalRegistration
 from services.games import GamesRevenueEngine
 from services.passive import PassiveRevenueEngine
 from services.self_improvement import SelfImprovementLoop
@@ -5954,7 +5954,12 @@ async def self_improvement_catalog():
 
 @app.get("/services/external", tags=["orchestration"])
 async def external_services_catalog():
-    return {"services": [await SafeExternalRegistration().prepare("YouTube", "release autonomous agent content")]}
+    return {
+        "services": [
+            await SafeExternalRegistration().prepare("YouTube", "release autonomous agent content"),
+            await AutonomousGrowthEngine().plan("agent_zero"),
+        ]
+    }
 
 
 # =============================================================================

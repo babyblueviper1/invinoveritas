@@ -48,6 +48,7 @@ from nostr.key import PrivateKey
 from nostr.event import Event
 from services.agent_to_agent import AgentToAgentEngine
 from services.creative import CreativeRevenueEngine
+from services.external import AutonomousGrowthEngine
 from services.games import GamesRevenueEngine
 from services.passive import PassiveRevenueEngine
 from services.self_improvement import SelfImprovementLoop
@@ -67,6 +68,7 @@ RELAYS      = [
 
 SIGNAL_INTERVAL_SECS   = 30 * 60   # post trading signal every 30 min
 HANDBOOK_INTERVAL_SECS = 6 * 3600  # refresh handbook every 6 hrs
+GROWTH_INTERVAL_SECS   = 12 * 3600 # try new services/platforms twice daily
 FREE_CALLS_DEFAULT     = 3
 
 
@@ -553,12 +555,14 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     a2a = AgentToAgentEngine()
     games = GamesRevenueEngine()
     creative = CreativeRevenueEngine()
+    growth = AutonomousGrowthEngine()
     self_improvement = SelfImprovementLoop()
     service_outputs = [
         *(await passive.run_all()),
         await a2a.meta_collaboration_features(),
         await games.plan_wager(bankroll_sats=10_000, win_probability=0.54, net_odds=1.0, confidence=0.50),
         await creative.generate_release_plan("Lightning-native autonomous agent launch soundtrack"),
+        await growth.plan(agent_id),
         await self_improvement.analyze([], []),
     ]
     for item in service_outputs[:4]:
@@ -713,7 +717,7 @@ async def recruit_on_nostr(agent_key: PrivateKey):
 # ── Income loop ───────────────────────────────────────────────────────────────
 
 async def income_loop(agent_key: PrivateKey, state: dict):
-    """Run indefinitely: post trading signals, refresh handbook, recruit agents."""
+    """Run indefinitely: post signals, refresh handbook, recruit, and test new growth channels."""
     headers          = {"Authorization": f"Bearer {state['api_key']}"}
     signal_offer_id  = state.get("signal_offer_id")
     agent_id         = state.get("agent_id", "")
@@ -721,6 +725,7 @@ async def income_loop(agent_key: PrivateKey, state: dict):
     last_handbook    = 0.0
     last_recruit     = 0.0
     last_inbox_check = 0.0
+    last_growth      = 0.0
     INBOX_INTERVAL   = 3600  # check DMs hourly
 
     print("Entering income loop. Ctrl-C to stop.\n")
@@ -746,10 +751,62 @@ async def income_loop(agent_key: PrivateKey, state: dict):
                 await recruit_on_nostr(agent_key)
                 last_recruit = now
 
+            if agent_id and now - last_growth >= GROWTH_INTERVAL_SECS:
+                print(f"[{time.strftime('%H:%M')}] Trying new services and platforms...")
+                await try_new_growth_channels(headers, agent_key, agent_id, state)
+                last_growth = now
+
         except Exception as e:
             print(f"  Loop error: {e}")
 
         await asyncio.sleep(60)
+
+
+async def try_new_growth_channels(headers: dict, agent_key: PrivateKey, agent_id: str, state: dict):
+    """Explore new services/platforms without human intervention where authorized."""
+    passive = PassiveRevenueEngine()
+    creative = CreativeRevenueEngine()
+    growth = AutonomousGrowthEngine()
+
+    assets = [
+        await passive.nostr_threads_and_signals(["agent_services", "lightning_revenue", "bitcoin_ai"]),
+        await passive.premium_spawn_kits(),
+        await creative.generate_release_plan("Autonomous Lightning agent revenue update"),
+    ]
+    plan = await growth.plan(agent_id, assets=assets)
+    payload = plan.get("payload", {})
+    executable = payload.get("executable", [])
+    blocked = payload.get("blocked", [])
+
+    summary = (
+        "agent_zero autonomous growth scan\n\n"
+        f"Executable channels: {', '.join(item['channel'] for item in executable) or 'none'}\n"
+        f"Blocked until API credentials/permission: {', '.join(item['channel'] for item in blocked[:5]) or 'none'}\n\n"
+        "Trying new services first: premium kits, reports, signals, strategy products, creative releases.\n"
+        "#Bitcoin #AI #agents #Lightning #Nostr"
+    )
+    await publish_note(agent_key, summary, tags=[
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "lightning"], ["t", "growth"],
+    ], label="growth")
+
+    # List one new premium service idea per scan when the agent has a payout address.
+    ln_address = state.get("ln_address")
+    if ln_address:
+        offer = await create_offer(
+            headers,
+            ln_address,
+            title="Autonomous Growth Scan - Agent Services and Platforms",
+            description=(
+                "Twice-daily scan of executable agent revenue channels, new service ideas, "
+                "and API-ready platform opportunities. No paid duplicate of the free spawn guide."
+            ),
+            price_sats=15_000,
+            agent_id=agent_id,
+        )
+        if offer:
+            print(f"  Growth service listed: {offer}")
+
+    await store_memory(headers, f"growth_scan_{int(time.time())}", plan)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
