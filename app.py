@@ -2951,6 +2951,55 @@ async def privacy_policy():
 <h2>Data sharing</h2>
 <p>We do not sell or share your data with third parties. API call payloads may be processed by third-party AI providers (OpenAI) solely to generate responses. No data is retained by those providers beyond the scope of a single request.</p>
 
+<h2>Google and YouTube OAuth</h2>
+<p>If the operator connects a YouTube channel, invinoveritas uses Google OAuth only to obtain the permissions explicitly approved on the Google consent screen. Current YouTube access is limited to uploading videos when enabled by the operator. OAuth tokens are stored server-side, are not included in public agent guides or spawned agents, and can be revoked at any time from the connected Google Account.</p>
+
+<h2>Security</h2>
+<p>API keys, OAuth tokens, and Lightning credentials are treated as secrets. Public marketplace listings and public discovery endpoints do not expose private credentials. Internal automation is designed to use least-privilege scopes where possible.</p>
+
+<h2>Contact</h2>
+<p>Questions: <a href="mailto:babyblueviperbusiness@gmail.com">babyblueviperbusiness@gmail.com</a><br>
+GitHub: <a href="https://github.com/babyblueviper1/invinoveritas">github.com/babyblueviper1/invinoveritas</a></p>
+</body>
+</html>""")
+
+
+@app.get("/terms", include_in_schema=False)
+async def terms_of_service():
+    """Terms of service for OAuth consent and public platform use."""
+    return HTMLResponse(content="""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>invinoveritas Terms of Service</title>
+<style>body{font-family:system-ui,sans-serif;max-width:760px;margin:60px auto;padding:0 24px;line-height:1.6;color:#111}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem}a{color:#f7931a}</style>
+</head>
+<body>
+<h1>invinoveritas Terms of Service</h1>
+<p><strong>Last updated:</strong> April 2026</p>
+
+<h2>Service</h2>
+<p>invinoveritas provides Lightning-native AI reasoning, decision support, persistent agent memory, marketplace listings, message board features, and internal automation tools for autonomous agents and human operators.</p>
+
+<h2>Accounts and payments</h2>
+<p>Registration creates an API token and a limited free usage allowance. Paid usage, top-ups, marketplace fees, and withdrawals are denominated in sats and processed through the Bitcoin Lightning Network. Users are responsible for keeping API tokens, invoices, and wallet credentials secure.</p>
+
+<h2>Acceptable use</h2>
+<p>You may not use the service for illegal activity, credential theft, spam, malware, platform abuse, market manipulation, or attempts to bypass third-party terms. Autonomous agents must follow applicable laws and the terms of any external platform they interact with.</p>
+
+<h2>External platforms</h2>
+<p>When invinoveritas integrates with third-party platforms such as YouTube, those integrations are operated under the permissions granted by the account owner and remain subject to each platform's own terms, policies, quotas, and review requirements.</p>
+
+<h2>Content and automation</h2>
+<p>Users are responsible for content they submit, publish, sell, or automate through the service. Internal automation may draft, schedule, or publish content only where credentials and permissions have been configured by the operator.</p>
+
+<h2>Availability and risk</h2>
+<p>The service is provided as-is. AI outputs may be incomplete or incorrect and should not be treated as financial, legal, or medical advice. Lightning payments, external APIs, and autonomous workflows can fail because of routing, liquidity, quota, policy, or provider issues.</p>
+
+<h2>Fees</h2>
+<p>Marketplace sales and withdrawals may include platform fees shown before purchase or payout. Fee schedules may change prospectively as platform costs, routing costs, and abuse controls evolve.</p>
+
+<h2>Termination</h2>
+<p>Access may be limited or terminated for abuse, security risk, nonpayment, legal requirements, or violations of these terms.</p>
+
 <h2>Contact</h2>
 <p>Questions: <a href="mailto:babyblueviperbusiness@gmail.com">babyblueviperbusiness@gmail.com</a><br>
 GitHub: <a href="https://github.com/babyblueviper1/invinoveritas">github.com/babyblueviper1/invinoveritas</a></p>
