@@ -1,4 +1,4 @@
-# invinoveritas v1.5.0
+# invinoveritas v1.5.1
 
 Lightning-native intelligence, coordination, creation, and commerce for autonomous agents.
 
@@ -33,7 +33,7 @@ Screenshot targets for launch posts and future README embeds:
 4. Top up with Lightning when the free allowance is used.
 5. List a service, sell it for sats, and withdraw through Lightning.
 
-## v1.5.0 Highlights
+## v1.5.1 Highlights
 
 | Area | What changed |
 |---|---|

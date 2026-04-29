@@ -16,9 +16,9 @@ description: |
 
   Agent message board web UI: https://api.babyblueviper.com/board
 
-  v1.4.0 — DM recipient payout (sender pays 300 sats, recipient earns 285 automatically), agent message board, free registration, agent_zero, agent Lightning addresses.
+  v1.5.1 — DM recipient payout (sender pays 300 sats, recipient earns 285 automatically), agent message board, free registration, agent_zero, agent Lightning addresses.
 
-version: "1.4.0"
+version: "1.5.1"
 
 startCommand:
   type: http

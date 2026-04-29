@@ -1,4 +1,4 @@
-# DEPLOY.md — invinoveritas v1.2.0 Deployment Guide
+# DEPLOY.md — invinoveritas v1.5.1 Deployment Guide
 
 **Workflow: VPS first → test → GitHub → PyPI**
 
@@ -88,7 +88,7 @@ ORCHESTRATE_PRICE_SATS=2000
 
 ## 3. Data Directory Setup
 
-The v1.2.0 upgrade moves storage from `/opt/render/...` to `/root/invinoveritas/data/`:
+The v1.5.1 upgrade moves storage from `/opt/render/...` to `/root/invinoveritas/data/`:
 
 ```bash
 mkdir -p /root/invinoveritas/data
@@ -214,10 +214,10 @@ journalctl -u invinoveritas -u invinoveritas-bridge -f
 ### Health check
 ```bash
 curl https://api.babyblueviper.com/health
-# Expected: {"status": "ok", "version": "1.2.0", ...}
+# Expected: {"status": "ok", "version": "1.5.1", ...}
 ```
 
-### New v1.2.0 endpoints smoke test
+### New v1.5.1 endpoints smoke test
 ```bash
 # Marketplace
 curl https://api.babyblueviper.com/offers/list
@@ -265,7 +265,7 @@ git add sdk/invinoveritas/__init__.py sdk/invinoveritas/marketplace.py sdk/invin
 git add examples/marketplace/agent_revenue_demo.py
 git add examples/trading/trading_bot_net_profit.py
 
-git commit -m "feat: v1.2.0 — marketplace, orchestration, analytics, NWC defaults
+git commit -m "feat: v1.5.1 — marketplace, orchestration, analytics, NWC defaults
 
 - Agent Marketplace: /offers/create|list|buy|my (5% platform, 95% seller instant)
 - Multi-agent orchestration: /orchestrate with dependency graph + risk scoring
@@ -302,8 +302,8 @@ pip install --upgrade build twine
 
 # Build the distribution
 python -m build
-# Creates: dist/invinoveritas-1.2.0-py3-none-any.whl
-#          dist/invinoveritas-1.2.0.tar.gz
+# Creates: dist/invinoveritas-1.5.1-py3-none-any.whl
+#          dist/invinoveritas-1.5.1.tar.gz
 
 # Verify the build
 ls -la dist/
@@ -319,18 +319,18 @@ Verify it's live:
 ```bash
 pip install --upgrade invinoveritas
 python -c "import invinoveritas; print(invinoveritas.__version__)"
-# Expected: 1.2.0
+# Expected: 1.5.1
 ```
 
 ---
 
 ## 9. Post-Release Checklist
 
-- [ ] `curl https://api.babyblueviper.com/health` returns `"version": "1.2.0"`
+- [ ] `curl https://api.babyblueviper.com/health` returns `"version": "1.5.1"`
 - [ ] `curl https://api.babyblueviper.com/offers/list` returns `{"offers": [], ...}`
-- [ ] `pip install --upgrade invinoveritas && python -c "import invinoveritas; print(invinoveritas.__version__)"` prints `1.2.0`
-- [ ] GitHub shows the v1.2.0 commit
-- [ ] Create GitHub release tag: `git tag v1.2.0 && git push origin v1.2.0`
+- [ ] `pip install --upgrade invinoveritas && python -c "import invinoveritas; print(invinoveritas.__version__)"` prints `1.5.1`
+- [ ] GitHub shows the v1.5.1 commit
+- [ ] Create GitHub release tag: `git tag v1.5.1 && git push origin v1.5.1`
 - [ ] Post release notes to socials (see below)
 - [ ] Update MCP registry if needed: https://registry.modelcontextprotocol.io
 
@@ -376,5 +376,5 @@ cd /root/invinoveritas/sdk && python -m build
 twine upload dist/* --username __token__ --password <pypi-token>
 
 # Push to GitHub
-git add -A && git commit -m "v1.2.0" && git push origin main
+git add -A && git commit -m "v1.5.1" && git push origin main
 ```

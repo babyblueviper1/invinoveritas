@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "invinoveritas",
-    "version": "1.1.1",
+    "version": "1.5.1",
     "description": "Lightning-native AI reasoning, structured decisions, persistent agent memory, multi-agent orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning. All endpoints require a Bearer token (INVINO_API_KEY). Get one at https://api.babyblueviper.com/register"
   },
   "servers": [

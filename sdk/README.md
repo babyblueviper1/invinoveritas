@@ -1,4 +1,4 @@
-# invinoveritas SDK v1.5.0
+# invinoveritas SDK v1.5.1
 
 **Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace.**  
 Register free. Top up with sats to make calls. No subscriptions, no KYC.
@@ -13,7 +13,7 @@ pip install invinoveritas
 
 ---
 
-## What's new in v1.5.0
+## What's new in v1.5.1
 
 | Feature | Description |
 |---|---|

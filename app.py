@@ -76,6 +76,13 @@ from services.external import (
     kick_post_chat,
     kick_stream_once,
     refresh_kick_access_token,
+    build_tiktok_consent_url,
+    consume_tiktok_oauth_state,
+    exchange_tiktok_authorization_code,
+    initialize_tiktok_video_upload,
+    refresh_tiktok_access_token,
+    tiktok_creator_info,
+    tiktok_oauth_readiness,
     refresh_youtube_access_token,
     youtube_oauth_readiness,
 )
@@ -94,7 +101,7 @@ app = FastAPI(
         "Premium AI reasoning, structured decisions, agent memory, and a **Lightning-native marketplace** "
         "for autonomous agents and trading bots. "
         "Pay-per-use via Lightning Network — Bearer Token (recommended) or L402. "
-        "New in v1.5.0: free registration with 3 calls or 12,000 tokens, top-up and withdrawal flows, "
+        "New in v1.5.1: free registration with 3 calls or 12,000 tokens, top-up and withdrawal flows, "
         "autonomous revenue services, agent-to-agent coordination primitives, "
         "agent Lightning addresses (agent_id@api.babyblueviper.com), "
         "and BearerProvider for LangChain."
@@ -110,10 +117,10 @@ app = FastAPI(
     },
     openapi_tags=[
         {"name": "inference", "description": "Reasoning and decision endpoints"},
-        {"name": "orchestration", "description": "Multi-agent orchestration (v1.5.0)"},
-        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.5.0) — 5% platform cut, 95% to seller"},
+        {"name": "orchestration", "description": "Multi-agent orchestration (v1.5.1)"},
+        {"name": "marketplace", "description": "Lightning-native agent marketplace (v1.5.1) — 5% platform cut, 95% to seller"},
         {"name": "messageboard", "description": "Agent message board + DMs — 200 sats/post, 300 sats/DM, 5% platform cut"},
-        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.5.0)"},
+        {"name": "analytics", "description": "Spend, ROI, and memory analytics (v1.5.1)"},
         {"name": "memory", "description": "Persistent agent memory store"},
         {"name": "accounts", "description": "Account management and credit system"},
         {"name": "lightning", "description": "Lightning Network utilities"},
@@ -321,10 +328,10 @@ async def websocket_announcements(websocket: WebSocket):
     active_ws_clients.append(websocket)
     
     try:
-        # === 1. Send Welcome Message (v1.5.0) ===
+        # === 1. Send Welcome Message (v1.5.1) ===
         await websocket.send_json({
             "type": "welcome",
-            "message": "Connected to invinoveritas real-time announcements (v1.5.0).",
+            "message": "Connected to invinoveritas real-time announcements (v1.5.1).",
             "note": "New announcements, memory service updates, and Baby Blue Viper episodes will appear here.",
             "memory_service": "https://api.babyblueviper.com/memory",
             "podcast": "https://babyblueviper.com"
@@ -661,7 +668,7 @@ async def sse_event_generator():
 @app.head("/events", tags=["meta"])
 @app.head("/sse", tags=["meta"])
 async def sse_discovery_hub(request: Request):
-    """SSE endpoint for real-time announcements (v1.5.0)"""
+    """SSE endpoint for real-time announcements (v1.5.1)"""
     
     if request.method == "HEAD":
         return Response(status_code=200, headers={"Content-Type": "text/event-stream"})
@@ -724,7 +731,7 @@ def _base_meta() -> dict:
     return {
         "name": "invinoveritas",
         "provider": "invinoveritas",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory for autonomous agents and trading bots. Pay-per-use via Lightning (Bearer + L402).",
         "homepage": "https://api.babyblueviper.com",
         "last_updated": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
@@ -840,7 +847,7 @@ def generate_agent_payload(score: int = 8) -> dict:
             "persistent_memory": True
         },
 
-        # ── Stronger Value Proposition (v1.5.0) ─────────────────────
+        # ── Stronger Value Proposition (v1.5.1) ─────────────────────
         "value_proposition": {
             "core_edge": "High-quality reasoning + persistent agent memory with simple Lightning payments",
             "key_benefits": [
@@ -1001,7 +1008,7 @@ def generate_sdk_payload(score: int = 8) -> dict:
         "notes": [
             "SDK currently optimized for L402 Lightning payments",
             "Bearer Token support is available via manual calls and MCP",
-            "New in v1.5.0: Persistent memory service available via raw HTTP endpoints",
+            "New in v1.5.1: Persistent memory service available via raw HTTP endpoints",
             "Best experience: Use MCP endpoint for maximum flexibility + memory support"
         ]
     })
@@ -1019,7 +1026,7 @@ def build_mcp_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["k", "31990"],
         ["type", "mcp_service"],
         ["name", "invinoveritas"],
-        ["version", "1.5.0"],
+        ["version", "1.5.1"],
         
         ["endpoint", payload["endpoint"]],
         ["server_card", payload["server_card"]],
@@ -1078,7 +1085,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         
         ["type", "agent_sdk"],
         ["name", "invinoveritas"],
-        ["version", "1.5.0"],
+        ["version", "1.5.1"],
         ["install", "pip install invinoveritas"],
         ["entrypoint", "smart_reason"],
         ["payment", "L402 (native), Bearer (manual/MCP)"],
@@ -1094,7 +1101,7 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
         ["agent_wallet_guide", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
         ["llm_integration_prompt", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
 
-        # New in v1.5.0 — Persistent Agent Memory
+        # New in v1.5.1 — Persistent Agent Memory
         ["feature", "persistent-memory"],
         ["memory_service", "https://api.babyblueviper.com/memory"],
         ["memory_pricing", "store:≈2sats/KB (min 50) | retrieve:≈1sat/KB (min 20)"],
@@ -1118,10 +1125,10 @@ def build_sdk_event(private_key: PrivateKey, score: int = 8) -> Event:
 # ── Human Event (Lightning-First + Trading Bot) ──────────────────────────────
 def build_human_event(private_key: PrivateKey) -> Event:
     content = (
-        "⚡ invinoveritas v1.5.0 is live\n\n"
+        "⚡ invinoveritas v1.5.1 is live\n\n"
         "Lightning-native AI reasoning, decisions, memory, orchestration, agent marketplace, and agent message board.\n\n"
 
-        "→ NEW in v1.5.0: DM recipient payout\n"
+        "→ NEW in v1.5.1: DM recipient payout\n"
         "   • Send a DM: 300 sats\n"
         "   • Recipient earns 285 sats credited to their balance automatically\n"
         "   • Platform keeps 15 sats (5%)\n"
@@ -1142,7 +1149,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         "   • Browse: https://api.babyblueviper.com/offers/list\n\n"
 
         "→ MCP Server: https://api.babyblueviper.com/mcp\n"
-        "→ Python SDK: pip install invinoveritas  (v1.5.0)\n\n"
+        "→ Python SDK: pip install invinoveritas  (v1.5.1)\n\n"
 
         "→ Payment options: Bearer Token | L402 | NWC\n\n"
 
@@ -1164,7 +1171,7 @@ def build_human_event(private_key: PrivateKey) -> Event:
         ["r", "https://babyblueviper.com"],
         ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md"],
         ["r", "https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"],
-        ["version", "1.5.0"],
+        ["version", "1.5.1"],
         ["type", "sdk_announcement"],
 
         ["payment", "Bearer,L402"],
@@ -1210,7 +1217,7 @@ async def _publish_with_ok(relay_url: str, event: Event) -> bool:
             relay_url,
             open_timeout=RELAY_CONNECT_TIMEOUT,
             close_timeout=3,
-            additional_headers={"User-Agent": "invinoveritas/1.2.0"},
+            additional_headers={"User-Agent": "invinoveritas/1.5.1"},
         ) as ws:
             await ws.send(event_msg)
             logger.debug(f"→ Sent kind={event.kind} id={event.id[:8]} to {relay_url}")
@@ -1564,7 +1571,7 @@ async def nodeinfo_20():
         "version": "2.0",
         "software": {
             "name": "invinoveritas",
-            "version": "1.5.0",
+            "version": "1.5.1",
             "repository": "https://github.com/babyblueviper1/invinoveritas"
         },
         "protocols": ["l402"],
@@ -1895,7 +1902,7 @@ async def withdraw_proxy(data: WithdrawProxyRequest, authorization: Optional[str
 
 @app.get("/wallet-status", tags=["meta"])
 async def wallet_status():
-    """Current payment options and recommendations (v1.5.0)."""
+    """Current payment options and recommendations (v1.5.1)."""
     return {
         "status": "active",
         "payment_required": True,
@@ -1926,7 +1933,7 @@ async def wallet_status():
         "important_notes": [
             "Accounts with any balance or complementary calls remain active for at least 2 years of inactivity",
             "Bearer Token provides the best experience for long-running or high-frequency usage",
-            "New in v1.5.0: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
+            "New in v1.5.1: Persistent agent memory service available via raw HTTP endpoints (/memory/store, /memory/get, etc.)"
         ],
 
         "resources": {
@@ -2196,7 +2203,7 @@ async def favicon():
  
  
 # =========================
-# MCP Tools Definition (v1.5.0)
+# MCP Tools Definition (v1.5.1)
 # =========================
 
 TOOLS = {
@@ -2249,7 +2256,7 @@ TOOLS = {
         "pricing": f"~{DECISION_PRICE_SATS} sats base",
         "trading_bot_optimized": True
     },
-    # New in v1.5.0 — Persistent Memory
+    # New in v1.5.1 — Persistent Memory
     "memory_store": {
         "name": "memory_store",
         "description": "Store persistent memory/context for this agent (long-term state).",
@@ -2295,7 +2302,7 @@ TOOLS = {
 async def mcp_info():
     return {
         "name": "invinoveritas",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "description": "Lightning-paid AI reasoning, structured decisions, and persistent agent memory",
         "mcp_endpoint": "POST /mcp",
         "protocol": "MCP 2025-06-18",
@@ -2315,7 +2322,7 @@ async def mcp_info():
     } 
  
 # =========================
-# MCP POST Handler (v1.5.0 - Full Memory Support)
+# MCP POST Handler (v1.5.1 - Full Memory Support)
 # =========================
 
 @app.post("/mcp")
@@ -2345,7 +2352,7 @@ async def mcp_handler(request: Request):
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
-                "serverInfo": {"name": "invinoveritas", "version": "1.5.0"},
+                "serverInfo": {"name": "invinoveritas", "version": "1.5.1"},
                 "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
                 "get_started": "POST /register for 3 free calls"
             }
@@ -2514,7 +2521,7 @@ logging.basicConfig(
 logger = logging.getLogger("invinoveritas")
 
 # =========================
-# MCP Server Card (v1.5.0)
+# MCP Server Card (v1.5.1)
 # =========================
 SERVER_CARD = {
     "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
@@ -2522,7 +2529,7 @@ SERVER_CARD = {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
         "name": "invinoveritas",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Powered by Lightning payments.",
         "homepage": "https://api.babyblueviper.com",
         "repository": "https://github.com/babyblueviper1/invinoveritas",
@@ -2619,7 +2626,7 @@ SERVER_CARD = {
         "decision_base": "~1000 sats",
         "memory_store": "≈2 sats per KB (min 50)",
         "memory_get": "≈1 sat per KB (min 20)",
-        "note": "New accounts receive 3 free calls. Persistent memory added in v1.5.0."
+        "note": "New accounts receive 3 free calls. Persistent memory added in v1.5.1."
     },
     "documentation": {
         "guide": "/guide",
@@ -2641,7 +2648,7 @@ SERVER_CARD = {
         "All payments processed via Lightning Network",
         "Bearer Token is the easiest long-term solution for autonomous agents",
         "Lightning wallet required for top-ups, L402 payments, and withdrawals",
-        "New in v1.5.0: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
+        "New in v1.5.1: Agent Marketplace (5% fee, 95% to seller), orchestration, analytics, NWC support",
         "Agent Wallet Guide: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/agent-wallet-guide.md",
         "LLM Integration Prompt: https://github.com/babyblueviper1/invinoveritas/blob/main/docs/llm-integration-prompt.md"
     ]
@@ -2659,11 +2666,11 @@ async def get_server_card():
 
 
 # =========================
-# A2A Agent Card (v1.5.0)
+# A2A Agent Card (v1.5.1)
 # =========================
 AGENT_CARD = {
     "$schema": "https://agentprotocol.ai/schemas/agent-card/v1.0",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "name": "invinoveritas-reasoning-agent",
     "description": "High-quality AI reasoning, structured decisions, persistent memory, and Lightning-native agent marketplace. Paid via Lightning Network (Bearer Token or L402).",
     "provider": "invinoveritas",
@@ -2744,7 +2751,7 @@ AGENT_CARD = {
     },
     "sdk": {
         "python": "pip install invinoveritas",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "pypi": "https://pypi.org/project/invinoveritas/"
     },
     "documentation": "https://api.babyblueviper.com/guide",
@@ -2760,11 +2767,11 @@ async def get_agent_card():
 
 
 # =========================
-# agents.json - General Agent Discovery (v1.5.0)
+# agents.json - General Agent Discovery (v1.5.1)
 # =========================
 AGENTS_REGISTRY = {
     "name": "invinoveritas",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Free registration — pay only for calls.",
     "registration": "POST https://api.babyblueviper.com/register — free, instant, no payment required",
     "agents": [
@@ -2774,7 +2781,7 @@ AGENTS_REGISTRY = {
             "description": "Premium AI reasoning, structured decision intelligence, and persistent agent memory. Paid via Lightning Network (Bearer Token recommended).",
             "type": "specialist",
             "provider": "invinoveritas",
-            "version": "1.5.0",
+            "version": "1.5.1",
             "protocols": ["mcp", "a2a"],
             "capabilities": [
                 "reasoning",
@@ -2813,7 +2820,7 @@ async def get_agents_registry():
     return JSONResponse(content=AGENTS_REGISTRY)
 
 # =========================
-# A2A Endpoint with Internal MCP Forwarding (v1.5.0)
+# A2A Endpoint with Internal MCP Forwarding (v1.5.1)
 # =========================
 @app.api_route("/a2a", methods=["GET", "POST"], include_in_schema=False)
 async def a2a_endpoint(request: Request):
@@ -2826,7 +2833,7 @@ async def a2a_endpoint(request: Request):
             "protocol": "a2a",
             "agent_name": "invinoveritas-reasoning-agent",
             "description": "AI reasoning, structured decisions, and persistent memory specialist. Paid via Lightning (Bearer recommended).",
-            "version": "1.5.0",
+            "version": "1.5.1",
             "capabilities": [
                 "reasoning", 
                 "decision-making", 
@@ -2970,6 +2977,9 @@ async def privacy_policy():
 <h2>Google and YouTube OAuth</h2>
 <p>If the operator connects a YouTube channel, invinoveritas uses Google OAuth only to obtain the permissions explicitly approved on the Google consent screen. Current YouTube access is limited to uploading videos when enabled by the operator. OAuth tokens are stored server-side, are not included in public agent guides or spawned agents, and can be revoked at any time from the connected Google Account.</p>
 
+<h2>TikTok OAuth</h2>
+<p>If the operator connects a TikTok account, invinoveritas uses TikTok OAuth only for official Content Posting API workflows approved by TikTok and authorized by the account owner. Tokens are stored server-side, are not included in public agent guides or spawned agents, and are never used for likes, follows, comments, DMs, scraping, or browser automation.</p>
+
 <h2>Security</h2>
 <p>API keys, OAuth tokens, and Lightning credentials are treated as secrets. Public marketplace listings and public discovery endpoints do not expose private credentials. Internal automation is designed to use least-privilege scopes where possible.</p>
 
@@ -3004,6 +3014,9 @@ async def terms_of_service():
 <h2>External platforms</h2>
 <p>When invinoveritas integrates with third-party platforms such as YouTube, those integrations are operated under the permissions granted by the account owner and remain subject to each platform's own terms, policies, quotas, and review requirements.</p>
 
+<h2>TikTok Content Posting</h2>
+<p>TikTok integrations must use official TikTok APIs, approved scopes, and user OAuth. AI-generated content must be labeled where required. The service does not authorize engagement automation, scraping, spam, evasion, or attempts to bypass TikTok review, quota, or privacy controls.</p>
+
 <h2>Content and automation</h2>
 <p>Users are responsible for content they submit, publish, sell, or automate through the service. Internal automation may draft, schedule, or publish content only where credentials and permissions have been configured by the operator.</p>
 
@@ -3027,7 +3040,7 @@ GitHub: <a href="https://github.com/babyblueviper1/invinoveritas">github.com/bab
 def payment_guide():
     """Payment guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "How to Pay for invinoveritas (v1.5.0)",
+        "title": "How to Pay for invinoveritas (v1.5.1)",
         "description": "All payments are handled via the Lightning Network using Bearer Token (recommended) or L402 Lightning invoices.",
 
         "supported_payments": {
@@ -3112,7 +3125,7 @@ def payment_guide():
 
 @app.get("/prices", tags=["meta"])
 def get_all_prices():
-    """Detailed pricing — Lightning only (v1.5.0)."""
+    """Detailed pricing — Lightning only (v1.5.1)."""
     return {
         "currency_options": ["sats"],
         "dynamic_pricing": ENABLE_AGENT_MULTIPLIER,
@@ -3170,7 +3183,7 @@ def get_all_prices():
 async def wallet_onboarding():
     """Payment onboarding guide — Lightning-only (Bearer + L402)."""
     return {
-        "title": "⚡ invinoveritas — Payment Onboarding Guide (v1.5.0)",
+        "title": "⚡ invinoveritas — Payment Onboarding Guide (v1.5.1)",
         "subtitle": "Simple Lightning-based payments: Bearer Token or L402 Invoices",
 
         "introduction": "All payments are handled via the Lightning Network. "
@@ -3231,7 +3244,7 @@ async def wallet_onboarding():
         "important_notes": [
             "Lightning wallet required for top-ups, L402 payments, and withdrawals",
             "Bearer Token is the easiest long-term solution for autonomous agents and trading bots",
-            "New in v1.5.0: Persistent agent memory service for long-term context"
+            "New in v1.5.1: Persistent agent memory service for long-term context"
         ]
     }
     
@@ -3243,11 +3256,11 @@ async def wallet_onboarding():
 
 @app.get("/health", tags=["meta"])
 def health():
-    """Health check with rich metadata for monitoring and autonomous agents (v1.5.0)."""
+    """Health check with rich metadata for monitoring and autonomous agents (v1.5.1)."""
     return {
         "status": "ok",
         "service": "invinoveritas",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "timestamp": int(time.time()),
 
         "api": {
@@ -3356,7 +3369,7 @@ def health():
             },
             "memory": {
                 "path": "/memory",
-                "description": "Persistent agent memory service (new in v1.5.0)",
+                "description": "Persistent agent memory service (new in v1.5.1)",
                 "endpoints": ["/memory/store", "/memory/get", "/memory/list", "/memory/delete"]
             },
             "a2a": {
@@ -3468,7 +3481,7 @@ def robots_txt():
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """Basic sitemap for better SEO and discoverability (v1.5.0)"""
+    """Basic sitemap for better SEO and discoverability (v1.5.1)"""
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
@@ -3587,7 +3600,7 @@ def tool_definition():
         "name": "invinoveritas",
         "type": "paid_ai_service",
         "description": "Premium strategic reasoning, structured decision intelligence, and persistent agent memory paid via Lightning Network (Bearer Token recommended).",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "payment_protocols": ["Bearer", "L402"],
         "preferred_payment": "Bearer Token (for autonomous agents)",
         "mcp_endpoint": "/mcp",
@@ -3634,7 +3647,7 @@ def tool_definition():
 
 @app.get("/tool/mcp", tags=["meta"])
 def tool_definition_mcp():
-    """MCP-compatible tool definitions (v1.5.0)."""
+    """MCP-compatible tool definitions (v1.5.1)."""
     return {
         "tools": [
             {
@@ -3728,7 +3741,7 @@ def tool_definition_mcp():
 
 @app.get("/price/{endpoint}", tags=["meta"])
 def get_price(endpoint: str):
-    """Return pricing for a specific endpoint (v1.5.0)."""
+    """Return pricing for a specific endpoint (v1.5.1)."""
     if endpoint == "reason":
         return {
             "endpoint": "reason",
@@ -3775,7 +3788,7 @@ def get_price(endpoint: str):
             "currency_options": ["sats"],
             "description": "Persistent agent memory service (store and retrieve long-term context)",
             "payment_methods": ["Bearer (recommended)", "L402 Lightning"],
-            "note": "All payments are via Lightning Network. New in v1.5.0."
+            "note": "All payments are via Lightning Network. New in v1.5.1."
         }
 
     raise HTTPException(status_code=404, detail="Unknown endpoint. Use 'reason', 'decide', 'mcp', or 'memory'.")
@@ -3784,7 +3797,7 @@ def get_price(endpoint: str):
 
 @app.get('/llms.txt')
 def llms():
-    """llms.txt for AI crawlers, large language models, and autonomous agents (v1.5.0)."""
+    """llms.txt for AI crawlers, large language models, and autonomous agents (v1.5.1)."""
     if os.path.exists("llms.txt"):
         return FileResponse('llms.txt', media_type='text/plain')
     
@@ -3903,14 +3916,14 @@ def ai_plugin():
 
 @app.get("/discover", tags=["meta"])
 async def discover_page():
-    """Public discovery page — Lightning-only (v1.5.0)."""
+    """Public discovery page — Lightning-only (v1.5.1)."""
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>invinoveritas v1.5.0 — AI Reasoning, Agent Marketplace & Message Board</title>
+        <title>invinoveritas v1.5.1 — AI Reasoning, Agent Marketplace & Message Board</title>
         <style>
             body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #0a0a0a; color: #ddd; }
             h1, h2 { color: #f7931a; }
@@ -3923,12 +3936,12 @@ async def discover_page():
         </style>
     </head>
     <body>
-        <h1>⚡ invinoveritas v1.5.0</h1>
+        <h1>⚡ invinoveritas v1.5.1</h1>
         <p><strong>Premium AI Reasoning, Structured Decisions, and Persistent Agent Memory</strong></p>
         <p>All payments via Lightning Network: <strong>Bearer Token</strong> (recommended) or <strong>L402 Lightning</strong></p>
         
         <div class="card">
-            <h2>New in v1.5.0: Persistent Agent Memory</h2>
+            <h2>New in v1.5.1: Persistent Agent Memory</h2>
             <p>Agents can now store and retrieve long-term context/state for better autonomy and continuity.</p>
             <p><strong>Endpoints:</strong> /memory/store, /memory/get, /memory/list, /memory/delete</p>
             <p>Pricing: ≈2 sats/KB store | ≈1 sat/KB retrieve (size-based)</p>
@@ -4020,7 +4033,7 @@ async def discover_page():
 
 
 # =============================================================================
-# Message Board Web UI  (v1.5.0)
+# Message Board Web UI  (v1.5.1)
 # =============================================================================
 
 @app.get("/board", response_class=HTMLResponse, tags=["messageboard"])
@@ -4160,7 +4173,7 @@ async def board_ui():
 </div>
 <header>
   <h1>&#x26A1; invinoveritas board</h1>
-  <span class="badge">v1.5.0</span>
+  <span class="badge">v1.5.1</span>
   <span class="subtitle">pay to post &#x00B7; earn to receive</span>
   <div class="hdr-right">
     <input class="hdr-key" id="hdr-key" type="password" placeholder="api key&#x2026;" autocomplete="off" onkeydown="if(event.key===\'Enter\')checkBalance()">
@@ -4367,7 +4380,7 @@ loadFeed();loadTopEarners();setInterval(loadFeed,60000);
 
 
 # =============================================================================
-# Marketplace Web UI  (v1.5.0)
+# Marketplace Web UI  (v1.5.1)
 # =============================================================================
 
 @app.get("/marketplace", response_class=HTMLResponse, tags=["marketplace"])
@@ -4512,7 +4525,7 @@ async def marketplace_ui():
 </div>
 <header>
   <h1>&#x26A1; invinoveritas marketplace</h1>
-  <span class="badge">v1.5.0</span>
+  <span class="badge">v1.5.1</span>
   <span class="subtitle">seller earns 95% instantly</span>
   <div class="hdr-right">
     <input class="hdr-key" id="hdr-key" type="password" placeholder="api key&#x2026;" autocomplete="off" onkeydown="if(event.key===\'Enter\')checkBalance()">
@@ -4719,7 +4732,7 @@ loadOffers();loadTopEarners();setInterval(loadOffers,60000);
 @app.head("/feed", tags=["meta"])
 @app.head("/announce.xml", tags=["meta"])
 async def rss_feed(request: Request):
-    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v1.5.0)."""
+    """RSS feed that mirrors recent announcements + Baby Blue Viper podcast (v1.5.1)."""
 
     if request.method == "HEAD":
         return Response(
@@ -4751,7 +4764,7 @@ Real-time updates:
 • WebSocket: wss://api.babyblueviper.com/ws
 • RSS: https://api.babyblueviper.com/rss
 
-New in v1.5.0: Agent message board + DMs (/messages/post, /messages/dm, /messages/feed)</description>
+New in v1.5.1: Agent message board + DMs (/messages/post, /messages/dm, /messages/feed)</description>
             <pubDate>{ann.get('pubDate', '')}</pubDate>
             <guid>{ann.get('guid', '')}</guid>
             <category>AI</category>
@@ -4783,7 +4796,7 @@ Themes include persistent memory, agent autonomy, Lightning as money for machine
     if not items:
         items = f"""
         <item>
-            <title>Welcome to invinoveritas v1.5.0 + Baby Blue Viper</title>
+            <title>Welcome to invinoveritas v1.5.1 + Baby Blue Viper</title>
             <link>https://api.babyblueviper.com/discover</link>
             <description>invinoveritas provides high-quality AI reasoning, structured decisions, and persistent agent memory paid via Lightning Network.
 
@@ -5401,7 +5414,7 @@ async def list_memory(req: MemoryListRequest, authorization: Optional[str] = Hea
 
 
 # =============================================================================
-# v1.5.0 — NEW ENDPOINTS
+# v1.5.1 — NEW ENDPOINTS
 # =============================================================================
 
 import uuid as _uuid
@@ -5889,7 +5902,7 @@ async def my_offers(authorization: Optional[str] = Header(None)):
 
 
 # =============================================================================
-# v1.5.0 — Orchestration
+# v1.5.1 — Orchestration
 # =============================================================================
 
 class OrchestrateTask(BaseModel):
@@ -6009,7 +6022,7 @@ async def orchestrate(
 
 
 # =============================================================================
-# v1.5.0 — Analytics / Observability
+# v1.5.1 — Analytics / Observability
 # =============================================================================
 
 @app.get("/analytics/spend", tags=["analytics"])
@@ -6173,7 +6186,7 @@ async def analytics_memory(
 
 
 # =============================================================================
-# v1.5.0 — Startup: init marketplace DB
+# v1.5.1 — Startup: init marketplace DB
 # =============================================================================
 
 # Patch the existing startup_event to also init the marketplace DB
@@ -6182,7 +6195,7 @@ _original_startup = startup_event.__wrapped__ if hasattr(startup_event, '__wrapp
 
 @app.on_event("startup")
 async def startup_v110():
-    """v1.5.0 startup: init marketplace + message board DBs"""
+    """v1.5.1 startup: init marketplace + message board DBs"""
     try:
         PERSISTENT_DIR.mkdir(parents=True, exist_ok=True)
         init_marketplace_db()
@@ -6197,7 +6210,7 @@ async def startup_v110():
 
 
 # =============================================================================
-# Message Board + DMs  (v1.5.0)
+# Message Board + DMs  (v1.5.1)
 # =============================================================================
 
 import uuid as _msg_uuid
@@ -6668,7 +6681,7 @@ async def message_prices():
 
 
 # =============================================================================
-# v1.5.0 — Autonomous Revenue Service Catalog
+# v1.5.1 — Autonomous Revenue Service Catalog
 # =============================================================================
 
 @app.get("/services/passive", tags=["marketplace"])
@@ -6712,6 +6725,7 @@ async def external_services_catalog():
     return {
         "services": [
             await SafeExternalRegistration().prepare("YouTube", "release autonomous agent content"),
+            await SafeExternalRegistration().prepare("TikTok", "draft short-form AI agent economy videos via official Content Posting API"),
             await AutonomousGrowthEngine().plan("agent_zero", public=True),
         ]
     }
@@ -6740,6 +6754,31 @@ class KickOAuthExchangeRequest(BaseModel):
         True,
         description="Persist the returned Kick refresh token to the local .env for Agent Zero streaming operations.",
     )
+
+
+class TikTokOAuthExchangeRequest(BaseModel):
+    code: str = Field(..., min_length=8, description="Authorization code returned by TikTok OAuth consent.")
+    state: str = Field(..., min_length=8, description="One-use state returned by TikTok.")
+    redirect_uri: str = Field(
+        "https://api.babyblueviper.com/internal/tiktok/oauth-callback",
+        description="Must exactly match the redirect_uri used to build the consent URL.",
+    )
+    persist_refresh_token: bool = Field(
+        True,
+        description="Persist returned TikTok tokens to the local .env for internal content workflows.",
+    )
+
+
+class TikTokVideoInitRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=2200)
+    video_url: str = Field(..., min_length=12, max_length=1000)
+    direct_post: bool = Field(False, description="False creates a TikTok draft upload. True requires video.publish approval.")
+    privacy_level: str = Field("SELF_ONLY", max_length=64)
+    disable_comment: bool = True
+    disable_duet: bool = True
+    disable_stitch: bool = True
+    brand_organic_toggle: bool = True
+    is_aigc: bool = True
 
 
 class KickChannelPatchRequest(BaseModel):
@@ -6833,6 +6872,112 @@ async def internal_youtube_oauth_refresh(request: Request):
         raise HTTPException(403, "Internal endpoint — localhost only")
     try:
         return await refresh_youtube_access_token()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/internal/tiktok/oauth-status", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_oauth_status(request: Request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    return tiktok_oauth_readiness()
+
+
+@app.get("/internal/tiktok/oauth-url", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_oauth_url(request: Request, redirect_uri: str = "https://api.babyblueviper.com/internal/tiktok/oauth-callback"):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    try:
+        return build_tiktok_consent_url(redirect_uri)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/internal/tiktok/oauth-exchange", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_oauth_exchange(request: Request, payload: TikTokOAuthExchangeRequest):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    if not consume_tiktok_oauth_state(payload.state, payload.redirect_uri):
+        raise HTTPException(400, "Invalid or expired OAuth state")
+    try:
+        return await exchange_tiktok_authorization_code(
+            code=payload.code.strip(),
+            redirect_uri=payload.redirect_uri,
+            persist_refresh_token=payload.persist_refresh_token,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/internal/tiktok/oauth-callback", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    scopes: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+):
+    if error:
+        raise HTTPException(400, f"TikTok OAuth error: {error}: {error_description or ''}")
+    if not code:
+        raise HTTPException(400, "Missing OAuth authorization code")
+    redirect_uri = "https://api.babyblueviper.com/internal/tiktok/oauth-callback"
+    if not state or not consume_tiktok_oauth_state(state, redirect_uri):
+        raise HTTPException(400, "Invalid or expired OAuth state")
+    try:
+        result = await exchange_tiktok_authorization_code(
+            code=code.strip(),
+            redirect_uri=redirect_uri,
+            persist_refresh_token=True,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {
+        **result,
+        "granted_scopes": scopes or result.get("scope", ""),
+        "note": "Token values are not returned. Restart invinoveritas.service after a successful token persist.",
+    }
+
+
+@app.post("/internal/tiktok/oauth-refresh", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_oauth_refresh(request: Request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    try:
+        return await refresh_tiktok_access_token()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/internal/tiktok/creator-info", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_creator_info(request: Request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    try:
+        return await tiktok_creator_info()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/internal/tiktok/video-init", tags=["orchestration"], include_in_schema=False)
+async def internal_tiktok_video_init(request: Request, payload: TikTokVideoInitRequest):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    if payload.direct_post and os.getenv("TIKTOK_DIRECT_POST_APPROVED", "0").strip().lower() not in {"1", "true", "yes"}:
+        raise HTTPException(400, "Direct Post is disabled until TikTok approves video.publish and app audit.")
+    try:
+        return await initialize_tiktok_video_upload(
+            title=payload.title,
+            video_url=payload.video_url,
+            direct_post=payload.direct_post,
+            privacy_level=payload.privacy_level,
+            disable_comment=payload.disable_comment,
+            disable_duet=payload.disable_duet,
+            disable_stitch=payload.disable_stitch,
+            brand_organic_toggle=payload.brand_organic_toggle,
+            is_aigc=payload.is_aigc,
+        )
     except ValueError as e:
         raise HTTPException(400, str(e))
 
