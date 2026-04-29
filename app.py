@@ -58,6 +58,7 @@ from services.external import (
     AutonomousGrowthEngine,
     SafeExternalRegistration,
     build_youtube_consent_url,
+    consume_youtube_oauth_state,
     exchange_youtube_authorization_code,
     refresh_youtube_access_token,
     youtube_oauth_readiness,
@@ -5972,7 +5973,7 @@ async def external_services_catalog():
 class YouTubeOAuthExchangeRequest(BaseModel):
     code: str = Field(..., min_length=8, description="Authorization code returned by Google OAuth consent.")
     redirect_uri: str = Field(
-        "http://127.0.0.1:8000/internal/youtube/oauth-callback",
+        "https://api.babyblueviper.com/internal/youtube/oauth-callback",
         description="Must exactly match the redirect_uri used to build the consent URL.",
     )
     persist_refresh_token: bool = Field(
@@ -5989,7 +5990,7 @@ async def internal_youtube_oauth_status(request: Request):
 
 
 @app.get("/internal/youtube/oauth-url", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_url(request: Request, redirect_uri: str = "http://127.0.0.1:8000/internal/youtube/oauth-callback"):
+async def internal_youtube_oauth_url(request: Request, redirect_uri: str = "https://api.babyblueviper.com/internal/youtube/oauth-callback"):
     if request.client and request.client.host not in ("127.0.0.1", "::1"):
         raise HTTPException(403, "Internal endpoint — localhost only")
     try:
@@ -6013,17 +6014,23 @@ async def internal_youtube_oauth_exchange(request: Request, payload: YouTubeOAut
 
 
 @app.get("/internal/youtube/oauth-callback", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_callback(request: Request, code: str | None = None, error: str | None = None):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
+async def internal_youtube_oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+):
     if error:
         raise HTTPException(400, f"Google OAuth error: {error}")
     if not code:
         raise HTTPException(400, "Missing OAuth authorization code")
+    redirect_uri = "https://api.babyblueviper.com/internal/youtube/oauth-callback"
+    if not state or not consume_youtube_oauth_state(state, redirect_uri):
+        raise HTTPException(400, "Invalid or expired OAuth state")
     try:
         result = await exchange_youtube_authorization_code(
             code=code.strip(),
-            redirect_uri="http://127.0.0.1:8000/internal/youtube/oauth-callback",
+            redirect_uri=redirect_uri,
             persist_refresh_token=True,
         )
     except ValueError as e:

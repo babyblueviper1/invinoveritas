@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import secrets
+import time
+import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -20,6 +22,11 @@ DEFAULT_YOUTUBE_SCOPES = (
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.readonly",
 )
+OAUTH_STATE_TTL_SECONDS = 15 * 60
+
+
+def _oauth_state_path() -> Path:
+    return Path(os.getenv("VPS_DATA_DIR", "/root/invinoveritas/data")) / "youtube_oauth_states.json"
 
 
 def configured_youtube_scopes() -> list[str]:
@@ -44,12 +51,61 @@ def youtube_oauth_readiness() -> dict:
     }
 
 
+def _load_oauth_states() -> dict[str, dict[str, Any]]:
+    path = _oauth_state_path()
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(key): value for key, value in data.items() if isinstance(value, dict)}
+
+
+def _save_oauth_states(states: dict[str, dict[str, Any]]) -> None:
+    path = _oauth_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(states, indent=2, sort_keys=True) + "\n")
+
+
+def _remember_oauth_state(state: str, redirect_uri: str) -> None:
+    now = int(time.time())
+    states = {
+        key: value
+        for key, value in _load_oauth_states().items()
+        if now - int(value.get("created_at", 0)) < OAUTH_STATE_TTL_SECONDS
+    }
+    states[state] = {"redirect_uri": redirect_uri, "created_at": now}
+    _save_oauth_states(states)
+
+
+def consume_youtube_oauth_state(state: str, redirect_uri: str) -> bool:
+    """Validate and consume a one-use OAuth state value."""
+    now = int(time.time())
+    states = _load_oauth_states()
+    record = states.pop(state, None)
+    fresh_states = {
+        key: value
+        for key, value in states.items()
+        if now - int(value.get("created_at", 0)) < OAUTH_STATE_TTL_SECONDS
+    }
+    _save_oauth_states(fresh_states)
+    if not record:
+        return False
+    if now - int(record.get("created_at", 0)) > OAUTH_STATE_TTL_SECONDS:
+        return False
+    return record.get("redirect_uri") == redirect_uri
+
+
 def build_youtube_consent_url(redirect_uri: str) -> dict:
     client_id = os.getenv("YOUTUBE_OAUTH_CLIENT_ID", "").strip()
     if not client_id:
         raise ValueError("YOUTUBE_OAUTH_CLIENT_ID is not configured")
 
     state = secrets.token_urlsafe(24)
+    _remember_oauth_state(state, redirect_uri)
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
