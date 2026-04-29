@@ -39,6 +39,7 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
 import httpx
 import websockets
@@ -57,8 +58,16 @@ from services.external import AutonomousGrowthEngine
 from services.games import GamesRevenueEngine
 from services.passive import PassiveRevenueEngine
 from services.self_improvement import SelfImprovementLoop
+from config import (
+    DECISION_PRICE_SATS,
+    ENABLE_AGENT_MULTIPLIER,
+    AGENT_PRICE_MULTIPLIER,
+    MESSAGE_POST_PRICE_SATS,
+    REASONING_PRICE_SATS,
+)
 
 API_BASE     = "https://api.babyblueviper.com"
+INTERNAL_API_BASE = os.environ.get("INTERNAL_API_BASE", "http://127.0.0.1:8000")
 BRIDGE_URL   = os.environ.get("BRIDGE_URL", "http://127.0.0.1:8081")
 LNURL_DOMAIN = "api.babyblueviper.com"
 GITHUB_URL   = "https://github.com/babyblueviper1/invinoveritas/blob/main/agents/agent_zero.py"
@@ -71,10 +80,91 @@ RELAYS      = [
     "wss://offchain.pub",
 ]
 
-SIGNAL_INTERVAL_SECS   = 30 * 60   # post trading signal every 30 min
+SIGNAL_INTERVAL_SECS   = 60 * 60   # post trading signal hourly; avoid flooding the board
 HANDBOOK_INTERVAL_SECS = 6 * 3600  # refresh handbook every 6 hrs
 GROWTH_INTERVAL_SECS   = 12 * 3600 # try new services/platforms twice daily
+PROMO_INTERVAL_SECS    = 45 * 60   # rotate monetized service promos before free signals
 FREE_CALLS_DEFAULT     = 3
+STATE_FILE = Path(os.environ.get("AGENT_ZERO_STATE_FILE", "/root/invinoveritas/data/agent_zero_state.json"))
+DAILY_SPEND_CAP_SATS = int(os.environ.get("AGENT_ZERO_DAILY_SPEND_CAP_SATS", "1000"))
+AGENT_PRICE_FACTOR = AGENT_PRICE_MULTIPLIER if ENABLE_AGENT_MULTIPLIER else 1.0
+ESTIMATED_PAID_COSTS = {
+    "reason": int(REASONING_PRICE_SATS * AGENT_PRICE_FACTOR),
+    "decision": int(DECISION_PRICE_SATS * AGENT_PRICE_FACTOR),
+    "message_post": MESSAGE_POST_PRICE_SATS,
+    "memory_store": 50,
+}
+RUNTIME_STATE: dict = {}
+
+AGENT_ZERO_REVENUE_OFFERS = [
+    {
+        "title": "Agent Zero BTC Signal Desk",
+        "description": "Compact BTC direction, confidence, risk, invalidation, and Lightning-native agent notes.",
+        "price_sats": 1000,
+        "category": "trading",
+    },
+    {
+        "title": "Daily Bitcoin and Lightning Intelligence Report",
+        "description": "Actionable Bitcoin, Lightning, Nostr, and agent-market summary for operators and autonomous agents.",
+        "price_sats": 3000,
+        "category": "research",
+    },
+    {
+        "title": "Agent-to-Agent Coordination Desk",
+        "description": "Delegation plan, handoff spec, reputation checks, and Lightning payment route for agent collaboration.",
+        "price_sats": 5000,
+        "category": "orchestration",
+    },
+    {
+        "title": "Autonomous Creative Release Pack",
+        "description": "Release plan for AI music/art drops with Nostr, Kick, YouTube, marketplace, tips, and royalty funnels.",
+        "price_sats": 7500,
+        "category": "creative",
+    },
+    {
+        "title": "Kelly-Gated Games Strategy Sheet",
+        "description": "Bankroll-safe game strategy with confidence gates, Kelly sizing, stop limits, and no-chase policy.",
+        "price_sats": 4000,
+        "category": "games",
+    },
+    {
+        "title": "Autonomous Growth Scan",
+        "description": "Executable platform/service scan for agents: what to try next, what is blocked, and what can earn sats now.",
+        "price_sats": 15000,
+        "category": "growth",
+    },
+    {
+        "title": "Premium Agent Zero Revenue Kit",
+        "description": "Premium customizable kit with revenue services, Nostr promotion, risk policy, dashboards, and update stream.",
+        "price_sats": 25000,
+        "category": "onboarding",
+    },
+]
+
+REVENUE_OFFER_ORDER = {
+    spec["title"]: idx for idx, spec in enumerate(AGENT_ZERO_REVENUE_OFFERS)
+}
+
+
+def load_local_state() -> dict:
+    try:
+        if STATE_FILE.exists():
+            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"  Local state load failed: {exc}")
+    return {}
+
+
+def save_local_state(agent_key: PrivateKey, state: dict) -> None:
+    try:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        payload = dict(state)
+        payload["nsec"] = agent_key.bech32()
+        payload["saved_at"] = int(time.time())
+        STATE_FILE.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        os.chmod(STATE_FILE, 0o600)
+    except Exception as exc:
+        print(f"  Local state save failed: {exc}")
 
 
 # ── LND payment via bridge ────────────────────────────────────────────────────
@@ -155,6 +245,8 @@ def _answer(resp: dict) -> str:
 
 
 async def reason(headers: dict, question: str, style: str = "concise") -> str:
+    if not await paid_call_allowed(headers, "reason", ESTIMATED_PAID_COSTS["reason"]):
+        raise RuntimeError("Agent Zero daily spend cap reached for reason")
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(f"{API_BASE}/reason", headers=headers,
                          json={"question": question, "style": style})
@@ -163,6 +255,8 @@ async def reason(headers: dict, question: str, style: str = "concise") -> str:
 
 
 async def decide(headers: dict, goal: str, question: str, context: str = "") -> dict:
+    if not await paid_call_allowed(headers, "decision", ESTIMATED_PAID_COSTS["decision"]):
+        raise RuntimeError("Agent Zero daily spend cap reached for decision")
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(f"{API_BASE}/decision", headers=headers, json={
             "goal": goal, "question": question, "context": context,
@@ -173,6 +267,9 @@ async def decide(headers: dict, goal: str, question: str, context: str = "") -> 
 
 
 async def store_memory(headers: dict, key: str, value: dict):
+    if not await paid_call_allowed(headers, "memory_store", ESTIMATED_PAID_COSTS["memory_store"]):
+        print(f"  Memory store skipped by spend cap: {key}")
+        return
     async with httpx.AsyncClient(timeout=15) as c:
         await c.post(f"{API_BASE}/memory/store", headers=headers, json={
             "agent_id": "agent_zero",
@@ -189,18 +286,127 @@ async def load_memory(headers: dict, key: str) -> dict:
         return json.loads(raw) if raw else {}
 
 
+async def account_status(api_key: str) -> dict:
+    for base in (INTERNAL_API_BASE, API_BASE):
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.get(f"{base}/balance", params={"api_key": api_key})
+                if r.status_code == 200:
+                    return r.json()
+        except Exception:
+            pass
+    return {}
+
+
+def _bearer_api_key(headers: dict) -> str:
+    auth = headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth.split(" ", 1)[1].strip()
+    return ""
+
+
+def _spend_day() -> str:
+    return time.strftime("%Y-%m-%d", time.localtime())
+
+
+async def paid_call_allowed(headers: dict, tool: str, estimated_sats: int) -> bool:
+    """Guard Agent Zero's paid balance with a local daily spend cap.
+
+    Sponsored/free calls are allowed. The cap applies only when the account
+    would need to spend real sats from its balance.
+    """
+    if DAILY_SPEND_CAP_SATS <= 0:
+        return True
+
+    api_key = _bearer_api_key(headers)
+    state = RUNTIME_STATE
+    if not api_key or not state:
+        return True
+
+    status = await account_status(api_key)
+    free_calls = int(status.get("free_calls_remaining", 0) or 0)
+    free_tokens = int(status.get("free_tokens_remaining", 0) or 0)
+    if free_calls > 0 or free_tokens > 0:
+        return True
+
+    today = _spend_day()
+    total_spent = int(status.get("total_spent_sats", 0) or 0)
+    if state.get("spend_cap_day") != today:
+        state["spend_cap_day"] = today
+        state["spend_cap_start_total_spent_sats"] = total_spent
+
+    start_spent = int(state.get("spend_cap_start_total_spent_sats", total_spent) or total_spent)
+    spent_today = max(0, total_spent - start_spent)
+    if spent_today + int(estimated_sats) > DAILY_SPEND_CAP_SATS:
+        print(
+            f"  Spend cap: skipping {tool}; "
+            f"spent_today={spent_today} sats, estimate={estimated_sats} sats, "
+            f"cap={DAILY_SPEND_CAP_SATS} sats"
+        )
+        return False
+    return True
+
+
 async def create_offer(headers: dict, ln_address: str, title: str,
-                       description: str, price_sats: int, agent_id: str) -> str | None:
+                       description: str, price_sats: int, agent_id: str,
+                       category: str = "agent") -> str | None:
     async with httpx.AsyncClient(timeout=15) as c:
+        existing = await c.get(f"{API_BASE}/offers/list", params={"limit": 100})
+        if existing.status_code == 200:
+            for offer in existing.json().get("offers", []):
+                if offer.get("seller_id") == agent_id and offer.get("title") == title and offer.get("active", True):
+                    return offer.get("offer_id")
         r = await c.post(f"{API_BASE}/offers/create", headers=headers, json={
             "seller_id": agent_id, "ln_address": ln_address,
             "title": title, "description": description,
-            "price_sats": price_sats, "category": "agent",
+            "price_sats": price_sats, "category": category,
         })
         if r.status_code == 200:
             return r.json().get("offer_id")
         print(f"  Marketplace error: {r.status_code} {r.text[:80]}")
         return None
+
+
+async def ensure_revenue_offers(headers: dict, ln_address: str, agent_id: str) -> list[dict]:
+    """Ensure the running Agent Zero has revenue products in every useful category."""
+    if not ln_address:
+        return []
+    ensured: list[dict] = []
+    for spec in AGENT_ZERO_REVENUE_OFFERS:
+        offer_id = await create_offer(
+            headers,
+            ln_address,
+            title=spec["title"],
+            description=spec["description"],
+            price_sats=int(spec["price_sats"]),
+            agent_id=agent_id,
+            category=spec["category"],
+        )
+        if offer_id:
+            ensured.append({**spec, "offer_id": offer_id})
+    return ensured
+
+
+async def list_current_offers(agent_id: str) -> list[dict]:
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"{API_BASE}/offers/list", params={"limit": 200})
+            if r.status_code != 200:
+                return []
+            offers = [
+                offer for offer in r.json().get("offers", [])
+                if offer.get("seller_id") == agent_id and offer.get("active", True)
+            ]
+            return sorted(
+                offers,
+                key=lambda offer: (
+                    REVENUE_OFFER_ORDER.get(offer.get("title", ""), 10_000),
+                    offer.get("category", ""),
+                    offer.get("title", ""),
+                ),
+            )
+    except Exception:
+        return []
 
 
 # ── Free heuristic signal (zero API cost) ────────────────────────────────────
@@ -265,19 +471,39 @@ async def free_price_signal() -> dict:
         }
 
 
+async def live_market_context() -> dict:
+    """Fetch public market context so paid AI prompts do not hallucinate inputs."""
+    context = await free_price_signal()
+    return {
+        "source": context.get("source", "heuristic"),
+        "decision": context.get("decision", "flat"),
+        "confidence": context.get("confidence", 0.0),
+        "risk_level": context.get("risk_level", "low"),
+        "reasoning": context.get("reasoning", ""),
+    }
+
+
 # ── Trading signal ────────────────────────────────────────────────────────────
 
 async def post_to_board(headers: dict, agent_id: str, content: str, category: str = "trading"):
     """Post a message to the invinoveritas agent board. Costs 200 sats — skip on 402."""
+    payload = {
+        "agent_id": agent_id,
+        "content":  content[:2000],
+        "category": category,
+    }
     try:
+        if not await paid_call_allowed(headers, "message_post", ESTIMATED_PAID_COSTS["message_post"]):
+            return
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.post(f"{API_BASE}/messages/post", headers=headers, json={
-                "agent_id": agent_id,
-                "content":  content[:2000],
-                "category": category,
-            })
+            r = await c.post(f"{API_BASE}/messages/post", headers=headers, json=payload)
             if r.status_code == 200:
                 print(f"  → Board post: {r.json().get('post_id', '')[:12]}…")
+                return
+            if r.status_code == 402 and agent_id.startswith("agent_zero_"):
+                sponsored = await c.post(f"{INTERNAL_API_BASE}/internal/agent-zero/board-post", json=payload)
+                if sponsored.status_code == 200:
+                    print(f"  → Sponsored board post: {sponsored.json().get('post_id', '')[:12]}…")
     except Exception as e:
         if "402" not in str(e):
             print(f"  Board post error: {e}")
@@ -300,12 +526,48 @@ async def check_inbox(headers: dict, agent_id: str):
         pass
 
 
+async def promote_revenue_offer(headers: dict, agent_key: PrivateKey, agent_id: str, state: dict):
+    """Rotate current offers through Nostr and the board with a direct CTA."""
+    offers = await list_current_offers(agent_id)
+    if not offers:
+        offers = await ensure_revenue_offers(headers, state.get("ln_address", ""), agent_id)
+    if not offers:
+        return
+
+    idx = int(state.get("promo_index", 0) or 0) % len(offers)
+    offer = offers[idx]
+    state["promo_index"] = idx + 1
+    title = offer.get("title", "Agent Zero service")
+    category = offer.get("category", "growth")
+    price = int(offer.get("price_sats", 0) or 0)
+    desc = str(offer.get("description", ""))[:220]
+    offer_id = offer.get("offer_id", "")
+    buy_url = f"{API_BASE}/marketplace?offer_id={offer_id}" if offer_id else f"{API_BASE}/marketplace"
+    content = (
+        f"agent_zero service available\n\n"
+        f"{title}\n"
+        f"Category: {category}\n"
+        f"Price: {price:,} sats\n"
+        f"Offer: {offer_id}\n\n"
+        f"{desc}\n\n"
+        f"Buy directly: {buy_url}\n"
+        f"Browse/list agents: {API_BASE}/marketplace\n"
+        "#Bitcoin #AI #agents #Lightning #Nostr"
+    )
+    await publish_note(agent_key, content, tags=[
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "lightning"], ["t", category],
+    ], label="offer")
+    await post_to_board(headers, agent_id, content, category=category)
+
+
 async def make_trading_signal(headers: dict, agent_key: PrivateKey,
                               signal_offer_id: str | None,
-                              agent_id: str = "") -> str:
+                              agent_id: str = "",
+                              budget_note: str = "") -> str:
     """Make a BTC trading decision and post it as a Nostr signal.
     Uses paid /decision when funded; falls back to free heuristic on 402."""
     now_utc = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+    public_context = await live_market_context()
 
     try:
         decision = await decide(
@@ -314,8 +576,11 @@ async def make_trading_signal(headers: dict, agent_key: PrivateKey,
             question="Should I be long, short, or flat on BTC right now?",
             context=(
                 f"Current time: {now_utc}. "
-                "I am an autonomous trading agent. Evaluate momentum, macro sentiment, "
-                "on-chain signals, and funding rates. Give a clear directional bias."
+                "I am an autonomous trading agent. Use only the provided live public market context as hard evidence. "
+                "Do not invent on-chain, macro, or funding data if it is not provided. "
+                f"Public market context: {json.dumps(public_context, sort_keys=True)}. "
+                "Give a clear directional bias, confidence, risk level, and concise reasoning."
+                f" {budget_note}"
             ),
         )
         source = "ai"
@@ -507,26 +772,15 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
     print("\n5. Making first BTC trading decision...")
     signal_offer_id = None
     if ln_address:
-        # List trading signals service before posting first signal
-        print("\n6. Listing trading signals service on marketplace...")
-        try:
-            signals_desc = await reason(headers,
-                "Write a 1-sentence marketplace listing for an autonomous agent that posts "
-                "BTC trading signals powered by AI reasoning. Under 150 chars, factual.")
-        except Exception as e:
-            signals_desc = None
-            if "402" not in str(e):
-                raise
-        raw_desc = signals_desc or "Autonomous AI agent posting BTC trading signals with confidence scores. Powered by live price data and AI reasoning."
-        signal_offer_id = await create_offer(
-            headers, ln_address,
-            title="agent_zero — BTC Trading Signals (AI-powered)",
-            description=raw_desc[:200],
-            price_sats=1000,
-            agent_id=agent_id,
+        print("\n6. Listing revenue services on marketplace...")
+        ensured_offers = await ensure_revenue_offers(headers, ln_address, agent_id)
+        signal_offer = next(
+            (offer for offer in ensured_offers if offer.get("title") == "Agent Zero BTC Signal Desk"),
+            None,
         )
-        if signal_offer_id:
-            print(f"   offer_id={signal_offer_id}")
+        signal_offer_id = signal_offer.get("offer_id") if signal_offer else None
+        if ensured_offers:
+            print(f"   revenue offers active: {len(ensured_offers)}")
 
     print("\n5. Posting first trading signal...")
     await make_trading_signal(headers, agent_key, signal_offer_id, agent_id=agent_id)
@@ -574,21 +828,9 @@ async def bootstrap(agent_key: PrivateKey) -> dict:
         print(f"   service ready: {item['title']}")
 
     if ln_address:
-        premium_spawn = next((s for s in service_outputs if s["service"] == "premium_spawn_kits"), None)
-        if premium_spawn:
-            offer_id = await create_offer(
-                headers,
-                ln_address,
-                title="Premium Agent Zero Spawn Kit - Custom Revenue Edition",
-                description=(
-                    "Premium customizable kit with revenue services, Nostr promotion, risk policy, "
-                    "and update stream. Distinct from the free basic spawn guide."
-                ),
-                price_sats=25_000,
-                agent_id=agent_id,
-            )
-            if offer_id:
-                print(f"   premium spawn kit offer_id={offer_id}")
+        ensured_offers = await ensure_revenue_offers(headers, ln_address, agent_id)
+        if ensured_offers:
+            print(f"   revenue offers active: {len(ensured_offers)}")
 
     # 8. Publish handbook
     print("8. Publishing agent handbook to Nostr (kind 30023)...")
@@ -723,43 +965,97 @@ async def recruit_on_nostr(agent_key: PrivateKey):
 
 async def income_loop(agent_key: PrivateKey, state: dict):
     """Run indefinitely: post signals, refresh handbook, recruit, and test new growth channels."""
+    RUNTIME_STATE.clear()
+    RUNTIME_STATE.update(state)
     headers          = {"Authorization": f"Bearer {state['api_key']}"}
     signal_offer_id  = state.get("signal_offer_id")
     agent_id         = state.get("agent_id", "")
-    last_signal      = 0.0
-    last_handbook    = 0.0
-    last_recruit     = 0.0
-    last_inbox_check = 0.0
-    last_growth      = 0.0
+    last_signal      = float(state.get("last_signal_at", 0.0) or 0.0)
+    last_handbook    = float(state.get("last_handbook_at", 0.0) or 0.0)
+    last_recruit     = float(state.get("last_recruit_at", 0.0) or 0.0)
+    last_inbox_check = float(state.get("last_inbox_check_at", 0.0) or 0.0)
+    last_growth      = float(state.get("last_growth_at", 0.0) or 0.0)
+    last_budget_log  = 0.0
+    last_promo       = float(state.get("last_promo_at", 0.0) or 0.0)
     INBOX_INTERVAL   = 3600  # check DMs hourly
 
     print("Entering income loop. Ctrl-C to stop.\n")
     while True:
         now = time.time()
         try:
+            status = {}
+            budget_note = ""
+            if now - last_budget_log >= 3600 or last_budget_log <= 0:
+                status = await account_status(state["api_key"])
+                if status:
+                    free_calls = int(status.get("free_calls_remaining", 0) or 0)
+                    free_tokens = int(status.get("free_tokens_remaining", 0) or 0)
+                    balance = int(status.get("balance_sats", 0) or 0)
+                    print(
+                        f"[{time.strftime('%H:%M')}] Budget | "
+                        f"sponsored_calls={free_calls:,} token_allowance={free_tokens:,} "
+                        f"balance={balance:,} sats daily_spend_cap={DAILY_SPEND_CAP_SATS:,} sats "
+                        f"address={state.get('ln_address') or 'n/a'}"
+                    )
+                    last_budget_log = now
+                else:
+                    print(f"[{time.strftime('%H:%M')}] Budget unavailable; will retry next loop")
+            if status:
+                budget_note = (
+                    f"Sponsored calls remaining: {int(status.get('free_calls_remaining', 0) or 0)}. "
+                    f"Balance: {int(status.get('balance_sats', 0) or 0)} sats. "
+                    "Use sponsored calls selectively to create revenue; still prioritize earning sats via marketplace sales and the agent Lightning address."
+                )
+
+            if agent_id and state.get("ln_address") and now - last_promo >= PROMO_INTERVAL_SECS:
+                ensured = await ensure_revenue_offers(headers, state.get("ln_address", ""), agent_id)
+                if ensured:
+                    print(f"[{time.strftime('%H:%M')}] Revenue offers active: {len(ensured)}")
+                print(f"[{time.strftime('%H:%M')}] Promoting revenue offer...")
+                await promote_revenue_offer(headers, agent_key, agent_id, state)
+                last_promo = now
+                state["last_promo_at"] = now
+                save_local_state(agent_key, state)
+                RUNTIME_STATE.update(state)
+
             if now - last_signal >= SIGNAL_INTERVAL_SECS:
                 print(f"[{time.strftime('%H:%M')}] Posting trading signal...")
-                await make_trading_signal(headers, agent_key, signal_offer_id, agent_id=agent_id)
+                await make_trading_signal(headers, agent_key, signal_offer_id, agent_id=agent_id, budget_note=budget_note)
                 last_signal = now
+                state["last_signal_at"] = now
+                save_local_state(agent_key, state)
+                RUNTIME_STATE.update(state)
 
             if agent_id and now - last_inbox_check >= INBOX_INTERVAL:
                 await check_inbox(headers, agent_id)
                 last_inbox_check = now
+                state["last_inbox_check_at"] = now
+                save_local_state(agent_key, state)
+                RUNTIME_STATE.update(state)
 
             if now - last_handbook >= HANDBOOK_INTERVAL_SECS:
                 print(f"[{time.strftime('%H:%M')}] Refreshing handbook...")
                 await publish_handbook(headers, agent_key)
                 last_handbook = now
+                state["last_handbook_at"] = now
+                save_local_state(agent_key, state)
+                RUNTIME_STATE.update(state)
 
             if now - last_recruit >= RECRUIT_INTERVAL_SECS:
                 print(f"[{time.strftime('%H:%M')}] Recruiting on Nostr...")
                 await recruit_on_nostr(agent_key)
                 last_recruit = now
+                state["last_recruit_at"] = now
+                save_local_state(agent_key, state)
+                RUNTIME_STATE.update(state)
 
             if agent_id and now - last_growth >= GROWTH_INTERVAL_SECS:
                 print(f"[{time.strftime('%H:%M')}] Trying new services and platforms...")
                 await try_new_growth_channels(headers, agent_key, agent_id, state)
                 last_growth = now
+                state["last_growth_at"] = now
+                save_local_state(agent_key, state)
+                RUNTIME_STATE.update(state)
 
         except Exception as e:
             print(f"  Loop error: {e}")
@@ -796,32 +1092,148 @@ async def try_new_growth_channels(headers: dict, agent_key: PrivateKey, agent_id
         ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "lightning"], ["t", "growth"],
     ], label="growth")
 
-    # List one new premium service idea per scan when the agent has a payout address.
+    # Keep canonical revenue products alive when the agent has a payout address.
     ln_address = state.get("ln_address")
     if ln_address:
-        offer = await create_offer(
-            headers,
-            ln_address,
-            title="Autonomous Growth Scan - Agent Services and Platforms",
-            description=(
-                "Twice-daily scan of executable agent revenue channels, new service ideas, "
-                "and API-ready platform opportunities. No paid duplicate of the free spawn guide."
-            ),
-            price_sats=15_000,
-            agent_id=agent_id,
-        )
-        if offer:
-            print(f"  Growth service listed: {offer}")
+        ensured = await ensure_revenue_offers(headers, ln_address, agent_id)
+        if ensured:
+            print(f"  Revenue offers active: {len(ensured)}")
 
-    await store_memory(headers, f"growth_scan_{int(time.time())}", plan)
+    platform_attempts = await try_authorized_platforms(headers, agent_key, agent_id)
+    plan["payload"]["platform_attempts"] = platform_attempts
+    try:
+        await store_memory(headers, f"growth_scan_{int(time.time())}", plan)
+    except Exception as exc:
+        print(f"  Memory store skipped: {exc}")
+
+
+async def _internal_get(path: str) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.get(f"{INTERNAL_API_BASE}{path}")
+            data = r.json() if r.content else {}
+            return {"ok": r.status_code == 200, "status_code": r.status_code, **data}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+async def _internal_post(path: str, payload: dict | None = None) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post(f"{INTERNAL_API_BASE}{path}", json=payload or None)
+            data = r.json() if r.content else {}
+            return {"ok": r.status_code == 200 and bool(data.get("ok", True)), "status_code": r.status_code, **data}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _safe_platform_status(name: str, status: dict, refresh: dict | None = None) -> dict:
+    refresh = refresh or {}
+    return {
+        "platform": name,
+        "checked_at": int(time.time()),
+        "oauth_client_configured": bool(status.get("oauth_client_configured")),
+        "refresh_token_configured": bool(status.get("refresh_token_configured")),
+        "api_key_configured": bool(status.get("api_key_configured")),
+        "refresh_ok": bool(refresh.get("ok")) if refresh else False,
+        "access_token_received": bool(refresh.get("access_token_received")),
+        "expires_in": refresh.get("expires_in"),
+        "scopes": status.get("requested_scopes") or refresh.get("scope") or [],
+    }
+
+
+async def try_authorized_platforms(headers: dict, agent_key: PrivateKey, agent_id: str) -> list[dict]:
+    """Actively retry official platform integrations where credentials exist.
+
+    This intentionally uses only localhost internal endpoints and records no
+    token values. Unsupported signup paths remain blocked by policy.
+    """
+    attempts: list[dict] = []
+
+    kick_status = await _internal_get("/internal/kick/oauth-status")
+    kick_refresh = {}
+    kick_growth = {}
+    kick_strategy = {}
+    kick_stream = {}
+    if kick_status.get("refresh_token_configured"):
+        kick_refresh = await _internal_post("/internal/kick/oauth-refresh")
+        kick_growth = await _internal_post(
+            "/internal/kick/growth-action",
+            {
+                "agent_id": agent_id,
+                "marketplace_url": f"{API_BASE}/marketplace",
+                "force": False,
+            },
+        )
+        kick_strategy = await _internal_get("/internal/kick/growth-strategy")
+        kick_stream = await _internal_post(
+            "/internal/kick/stream-once",
+            {
+                "agent_id": agent_id,
+                "marketplace_url": f"{API_BASE}/marketplace",
+                "duration_seconds": 180,
+                "force": False,
+                "dry_run": False,
+            },
+        )
+    attempts.append(_safe_platform_status("Kick", kick_status, kick_refresh))
+
+    youtube_status = await _internal_get("/internal/youtube/oauth-status")
+    youtube_refresh = {}
+    if youtube_status.get("refresh_token_configured"):
+        youtube_refresh = await _internal_post("/internal/youtube/oauth-refresh")
+    attempts.append(_safe_platform_status("YouTube", youtube_status, youtube_refresh))
+
+    lines = []
+    for item in attempts:
+        if item["refresh_ok"]:
+            if item["platform"] == "Kick" and kick_growth.get("ok"):
+                if kick_growth.get("skipped"):
+                    action = "credential refresh ok; growth action cooling down"
+                else:
+                    live_note = "live chat attempted" if kick_growth.get("is_live") else "metadata updated; chat skipped until live"
+                    action = f"official API growth action ok ({live_note})"
+                if kick_stream.get("ok") and kick_stream.get("skipped"):
+                    action += f"; stream {kick_stream.get('reason')}"
+                elif kick_stream.get("ok"):
+                    action += "; bounded stream completed"
+                elif kick_stream:
+                    action += "; stream not ready"
+                strategy = kick_strategy.get("strategy", {}) if kick_strategy.get("ok") else {}
+                last_variant = strategy.get("last_stream", {}).get("variant")
+                if last_variant:
+                    action += f"; learning variant={last_variant}"
+            else:
+                action = "credential refresh ok; prepare official API content action"
+        elif item["oauth_client_configured"] and not item["refresh_token_configured"]:
+            action = "OAuth client ready; waiting for operator consent/review"
+        else:
+            action = "blocked until official credential is available"
+        lines.append(
+            f"{item['platform']}: {action}"
+        )
+
+    content = (
+        "agent_zero platform retry\n\n"
+        + "\n".join(lines)
+        + "\n\nPolicy: official APIs only; no CAPTCHA/KYC/ToS bypass; no secret exposure. "
+        "Goal: turn platform access into sats through streams, tips, marketplace funnels, and paid services."
+    )
+    await publish_note(agent_key, content, tags=[
+        ["t", "bitcoin"], ["t", "ai"], ["t", "agents"], ["t", "growth"], ["t", "kick"], ["t", "youtube"],
+    ], label="platforms")
+    await post_to_board(headers, agent_id, content, category="growth")
+    print("  Platform attempts: " + "; ".join(lines))
+    return attempts
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 async def main():
     bootstrap_only = os.environ.get("BOOTSTRAP_ONLY", "")
+    local_state = load_local_state()
 
-    agent_nsec = os.environ.get("AGENT_NSEC")
+    agent_nsec = os.environ.get("AGENT_NSEC") or local_state.get("nsec")
     if agent_nsec:
         agent_key = PrivateKey.from_nsec(agent_nsec)
         print(f"Resuming agent: {agent_key.public_key.bech32()}")
@@ -831,19 +1243,23 @@ async def main():
         print(f"nsec (save this): {agent_key.bech32()}")
 
     state = None
-    existing_key = os.environ.get("INVINO_API_KEY")
+    existing_key = os.environ.get("INVINO_API_KEY") or local_state.get("api_key")
     if agent_nsec and existing_key:
         agent_id = f"agent_zero_{agent_key.public_key.hex()[:8]}"
         state = {
+            **local_state,
             "api_key":         existing_key,
             "agent_id":        agent_id,
-            "ln_address":      f"{agent_id}@api.babyblueviper.com",
-            "signal_offer_id": os.environ.get("SIGNAL_OFFER_ID"),
+            "ln_address":      local_state.get("ln_address") or f"{agent_id}@api.babyblueviper.com",
+            "signal_offer_id": os.environ.get("SIGNAL_OFFER_ID") or local_state.get("signal_offer_id"),
         }
         print("Resuming with existing API key — skipping bootstrap.\n")
 
     if state is None:
         state = await bootstrap(agent_key)
+        save_local_state(agent_key, state)
+    else:
+        save_local_state(agent_key, state)
 
     if bootstrap_only:
         print("BOOTSTRAP_ONLY set — exiting after bootstrap.")

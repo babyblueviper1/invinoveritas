@@ -56,6 +56,36 @@ Thumbs.db
 *.log
 logs/
 *.log.*
+agent_logs.txt
+rebalancer_report*.txt
+
+# Runtime state, local databases, and generated agent artifacts
+agent_memory.json
+agent_review_reports.jsonl
+portfolio.db
+invinoveritas_accounts.db
+pending_approvals.json
+latest_invoice.txt
+next_teaser.txt
+inbox_to_agent.txt
+hybrid_setup_xgb.json
+data/
+
+# Local backups and historical bot snapshots
+.env.backup.*
+*.bak
+*.backup.*
+old_versions/
+sovereign_earner.py.bak*
+sovereign-earner-v*.py
+sovereign-earner.backup.py
+bridge.py.old.backup.*
+
+# Accidental shell/editor paste artifacts
+ervice - *
+ion with the EXACT filename your service expects
+ystemctl *
+ystemd service
 
 # Render / deployment specific
 .render
