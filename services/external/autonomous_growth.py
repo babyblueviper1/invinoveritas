@@ -74,7 +74,7 @@ class AutonomousGrowthEngine:
             kind="streaming",
             permissionless=False,
             official_api=True,
-            env_tokens=("KICK_API_TOKEN",),
+            env_tokens=("KICK_OAUTH_REFRESH_TOKEN", "KICK_REFRESH_TOKEN", "KICK_API_TOKEN"),
             internal_only=True,
             monetization=("tips", "subs", "sponsorships"),
         ),
@@ -170,6 +170,16 @@ class AutonomousGrowthEngine:
                     return "OAuth client configured; generate consent URL and wait for refresh token before upload/stream"
                 if has_api_key:
                     return "research trends through YouTube Data API key; upload/stream waits for OAuth credential"
+            if channel.name == "Kick":
+                has_refresh_token = bool(os.getenv("KICK_OAUTH_REFRESH_TOKEN") or os.getenv("KICK_REFRESH_TOKEN") or os.getenv("KICK_API_TOKEN"))
+                has_oauth_client = bool(
+                    (os.getenv("KICK_OAUTH_CLIENT_ID") or os.getenv("KICK_CLIENT_ID"))
+                    and (os.getenv("KICK_OAUTH_CLIENT_SECRET") or os.getenv("KICK_CLIENT_SECRET"))
+                )
+                if has_refresh_token:
+                    return "refresh Kick user token and update livestream metadata, fetch stream key, or coordinate chat through official API"
+                if has_oauth_client:
+                    return "Kick OAuth client configured; generate PKCE consent URL and wait for refresh token before autonomous streaming"
             return "publish or schedule stream content through official platform credential"
         if channel.kind == "music":
             return "publish generated release metadata through official API credential"

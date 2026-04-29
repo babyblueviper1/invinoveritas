@@ -57,9 +57,14 @@ from services.creative import CreativeRevenueEngine
 from services.external import (
     AutonomousGrowthEngine,
     SafeExternalRegistration,
+    build_kick_consent_url,
     build_youtube_consent_url,
+    consume_kick_oauth_state,
     consume_youtube_oauth_state,
+    exchange_kick_authorization_code,
     exchange_youtube_authorization_code,
+    kick_oauth_readiness,
+    refresh_kick_access_token,
     refresh_youtube_access_token,
     youtube_oauth_readiness,
 )
@@ -6031,6 +6036,19 @@ class YouTubeOAuthExchangeRequest(BaseModel):
     )
 
 
+class KickOAuthExchangeRequest(BaseModel):
+    code: str = Field(..., min_length=8, description="Authorization code returned by Kick OAuth consent.")
+    state: str = Field(..., min_length=8, description="One-use state returned by Kick.")
+    redirect_uri: str = Field(
+        "https://api.babyblueviper.com/internal/kick/oauth-callback",
+        description="Must exactly match the redirect_uri used to build the consent URL.",
+    )
+    persist_refresh_token: bool = Field(
+        True,
+        description="Persist the returned Kick refresh token to the local .env for Agent Zero streaming operations.",
+    )
+
+
 @app.get("/internal/youtube/oauth-status", tags=["orchestration"], include_in_schema=False)
 async def internal_youtube_oauth_status(request: Request):
     if request.client and request.client.host not in ("127.0.0.1", "::1"):
@@ -6096,6 +6114,83 @@ async def internal_youtube_oauth_refresh(request: Request):
         raise HTTPException(403, "Internal endpoint — localhost only")
     try:
         return await refresh_youtube_access_token()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/internal/kick/oauth-status", tags=["orchestration"], include_in_schema=False)
+async def internal_kick_oauth_status(request: Request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    return kick_oauth_readiness()
+
+
+@app.get("/internal/kick/oauth-url", tags=["orchestration"], include_in_schema=False)
+async def internal_kick_oauth_url(request: Request, redirect_uri: str = "https://api.babyblueviper.com/internal/kick/oauth-callback"):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    try:
+        return build_kick_consent_url(redirect_uri)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/internal/kick/oauth-exchange", tags=["orchestration"], include_in_schema=False)
+async def internal_kick_oauth_exchange(request: Request, payload: KickOAuthExchangeRequest):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    code_verifier = consume_kick_oauth_state(payload.state, payload.redirect_uri)
+    if not code_verifier:
+        raise HTTPException(400, "Invalid or expired OAuth state")
+    try:
+        return await exchange_kick_authorization_code(
+            code=payload.code.strip(),
+            redirect_uri=payload.redirect_uri,
+            code_verifier=code_verifier,
+            persist_refresh_token=payload.persist_refresh_token,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/internal/kick/oauth-callback", tags=["orchestration"], include_in_schema=False)
+async def internal_kick_oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+):
+    if error:
+        raise HTTPException(400, f"Kick OAuth error: {error}")
+    if not code:
+        raise HTTPException(400, "Missing OAuth authorization code")
+    redirect_uri = "https://api.babyblueviper.com/internal/kick/oauth-callback"
+    if not state:
+        raise HTTPException(400, "Missing OAuth state")
+    code_verifier = consume_kick_oauth_state(state, redirect_uri)
+    if not code_verifier:
+        raise HTTPException(400, "Invalid or expired OAuth state")
+    try:
+        result = await exchange_kick_authorization_code(
+            code=code.strip(),
+            redirect_uri=redirect_uri,
+            code_verifier=code_verifier,
+            persist_refresh_token=True,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {
+        **result,
+        "note": "Token values are not returned. Restart invinoveritas.service after a successful refresh-token persist.",
+    }
+
+
+@app.post("/internal/kick/oauth-refresh", tags=["orchestration"], include_in_schema=False)
+async def internal_kick_oauth_refresh(request: Request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Internal endpoint — localhost only")
+    try:
+        return await refresh_kick_access_token()
     except ValueError as e:
         raise HTTPException(400, str(e))
 
