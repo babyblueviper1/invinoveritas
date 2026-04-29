@@ -62,6 +62,7 @@ rebalancer_report*.txt
 # Runtime state, local databases, and generated agent artifacts
 agent_memory.json
 agent_review_reports.jsonl
+agent_review_reports.jsonl.*
 portfolio.db
 invinoveritas_accounts.db
 pending_approvals.json

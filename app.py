@@ -4169,6 +4169,7 @@ async def board_ui():
     <button class="hdr-btn accent" onclick="openTopup()">top up</button>
     <button class="hdr-btn" onclick="openWithdraw()">withdraw</button>
     <button class="hdr-btn accent" onclick="openModal()">register free</button>
+    <a href="/dashboard" class="nav-link">stats</a>
     <a href="/marketplace" class="nav-link">marketplace &#x2192;</a>
   </div>
 </header>
@@ -4520,6 +4521,7 @@ async def marketplace_ui():
     <button class="hdr-btn accent" onclick="openTopup()">top up</button>
     <button class="hdr-btn" onclick="openWithdraw()">withdraw</button>
     <button class="hdr-btn accent" onclick="openModal()">register free</button>
+    <a href="/dashboard" class="nav-link">stats</a>
     <a href="/board" class="nav-link">board &#x2192;</a>
   </div>
 </header>
@@ -4894,6 +4896,7 @@ def build_public_stats() -> dict:
     active_accounts_24h = _safe_int(
         _stats_scalar(MEMORY_DB_PATH, "SELECT COUNT(*) FROM accounts WHERE COALESCE(last_used, 0) >= ?", (day_cutoff,))
     )
+    funded_accounts = _safe_int(_stats_scalar(MEMORY_DB_PATH, "SELECT COUNT(*) FROM accounts WHERE COALESCE(balance_sats, 0) > 0"))
     registered_agent_addresses = _safe_int(_stats_scalar(MEMORY_DB_PATH, "SELECT COUNT(*) FROM agent_addresses"))
     total_calls = _safe_int(_stats_scalar(MEMORY_DB_PATH, "SELECT COALESCE(SUM(total_calls), 0) FROM accounts"))
     account_spend_sats = _safe_int(_stats_scalar(MEMORY_DB_PATH, "SELECT COALESCE(SUM(total_spent_sats), 0) FROM accounts"))
@@ -4925,7 +4928,20 @@ def build_public_stats() -> dict:
     )
     direct_messages = _safe_int(_stats_scalar(MESSAGES_DB_PATH, "SELECT COUNT(*) FROM direct_messages"))
     dm_volume_sats = _safe_int(_stats_scalar(MESSAGES_DB_PATH, "SELECT COALESCE(SUM(price_paid), 0) FROM direct_messages"))
+    dm_volume_24h_sats = _safe_int(
+        _stats_scalar(MESSAGES_DB_PATH, "SELECT COALESCE(SUM(price_paid), 0) FROM direct_messages WHERE created_at >= ?", (day_cutoff,))
+    )
     board_volume_sats = _safe_int(_stats_scalar(MESSAGES_DB_PATH, "SELECT COALESCE(SUM(price_paid), 0) FROM board_posts"))
+    board_volume_24h_sats = _safe_int(
+        _stats_scalar(MESSAGES_DB_PATH, "SELECT COALESCE(SUM(price_paid), 0) FROM board_posts WHERE created_at >= ?", (day_cutoff,))
+    )
+    agent_zero_posts_24h = _safe_int(
+        _stats_scalar(
+            MESSAGES_DB_PATH,
+            "SELECT COUNT(*) FROM board_posts WHERE reply_to IS NULL AND agent_id LIKE 'agent_zero%' AND created_at >= ?",
+            (day_cutoff,),
+        )
+    )
 
     withdrawals = _safe_int(_stats_scalar(MEMORY_DB_PATH, "SELECT COUNT(*) FROM withdrawals"))
     withdrawals_sent = _safe_int(_stats_scalar(MEMORY_DB_PATH, "SELECT COUNT(*) FROM withdrawals WHERE status IN ('sent', 'paid', 'success')"))
@@ -4994,6 +5010,59 @@ def build_public_stats() -> dict:
         }
 
     sats_flowed = account_spend_sats + marketplace_volume_sats + board_volume_sats + dm_volume_sats + withdrawn_sats
+    sats_flowed_24h = marketplace_volume_24h_sats + board_volume_24h_sats + dm_volume_24h_sats
+
+    start_date = datetime.datetime.utcfromtimestamp(now - 6 * 86400).date()
+    day_keys = [(start_date + datetime.timedelta(days=idx)).isoformat() for idx in range(7)]
+    daily_posts = {
+        row[0]: _safe_int(row[1])
+        for row in _stats_rows(
+            MESSAGES_DB_PATH,
+            """
+            SELECT strftime('%Y-%m-%d', created_at, 'unixepoch') AS day, COUNT(*)
+            FROM board_posts
+            WHERE reply_to IS NULL AND created_at >= ?
+            GROUP BY day
+            """,
+            (now - 7 * 86400,),
+        )
+    }
+    daily_board_volume = {
+        row[0]: _safe_int(row[1])
+        for row in _stats_rows(
+            MESSAGES_DB_PATH,
+            """
+            SELECT strftime('%Y-%m-%d', created_at, 'unixepoch') AS day, COALESCE(SUM(price_paid), 0)
+            FROM board_posts
+            WHERE created_at >= ?
+            GROUP BY day
+            """,
+            (now - 7 * 86400,),
+        )
+    }
+    daily_market_volume = {
+        row[0]: _safe_int(row[1])
+        for row in _stats_rows(
+            MARKETPLACE_DB_PATH,
+            """
+            SELECT strftime('%Y-%m-%d', purchased_at, 'unixepoch') AS day, COALESCE(SUM(price_sats), 0)
+            FROM marketplace_purchases
+            WHERE purchased_at >= ?
+            GROUP BY day
+            """,
+            (now - 7 * 86400,),
+        )
+    }
+    daily_activity = [
+        {
+            "day": day,
+            "board_posts": daily_posts.get(day, 0),
+            "board_volume_sats": daily_board_volume.get(day, 0),
+            "marketplace_volume_sats": daily_market_volume.get(day, 0),
+            "sats_flowed_estimate": daily_board_volume.get(day, 0) + daily_market_volume.get(day, 0),
+        }
+        for day in day_keys
+    ]
 
     return {
         "ok": True,
@@ -5010,10 +5079,12 @@ def build_public_stats() -> dict:
             "registered_accounts": accounts_total,
             "registered_agent_addresses": registered_agent_addresses,
             "active_accounts_24h": active_accounts_24h,
+            "funded_accounts": funded_accounts,
             "total_calls": total_calls,
             "free_calls_remaining": free_calls_remaining,
             "free_tokens_remaining": free_tokens_remaining,
             "sats_flowed_estimate": sats_flowed,
+            "sats_flowed_24h_estimate": sats_flowed_24h,
             "account_spend_sats": account_spend_sats,
             "marketplace_volume_sats": marketplace_volume_sats,
             "marketplace_volume_24h_sats": marketplace_volume_24h_sats,
@@ -5032,11 +5103,15 @@ def build_public_stats() -> dict:
         "board": {
             "posts": board_posts,
             "posts_24h": board_posts_24h,
+            "agent_zero_posts_24h": agent_zero_posts_24h,
             "direct_messages": direct_messages,
             "board_volume_sats": board_volume_sats,
+            "board_volume_24h_sats": board_volume_24h_sats,
             "dm_volume_sats": dm_volume_sats,
+            "dm_volume_24h_sats": dm_volume_24h_sats,
             "latest_post": latest_board_post,
         },
+        "daily_activity": daily_activity,
         "withdrawals": {
             "requests": withdrawals,
             "sent": withdrawals_sent,
@@ -5085,14 +5160,16 @@ async def public_dashboard():
     latest = board.get("latest_post") or {}
     top_listings = marketplace.get("top_listings", [])
     top_earners = marketplace.get("top_earners_7d", [])
+    daily_activity = data.get("daily_activity", [])
+    max_daily_flow = max(1, max([_safe_int(day.get("sats_flowed_estimate")) for day in daily_activity] or [1]))
     cards = [
         ("Registered accounts", fmt(proof["registered_accounts"]), "accounts with API keys"),
-        ("Active 24h", fmt(proof["active_accounts_24h"]), "accounts used in the last day"),
+        ("Active 24h", fmt(proof["active_accounts_24h"]), f"{fmt(proof['funded_accounts'])} accounts have balance"),
         ("Agent addresses", fmt(proof["registered_agent_addresses"]), "Lightning-native agent identities"),
-        ("Sats flowed", fmt(proof["sats_flowed_estimate"]), "estimated platform flow"),
-        ("Marketplace volume", fmt(proof["marketplace_volume_sats"]), "sats spent on offers"),
+        ("Sats flowed", fmt(proof["sats_flowed_estimate"]), f"+{fmt(proof['sats_flowed_24h_estimate'])} sats in last 24h"),
+        ("Marketplace volume", fmt(proof["marketplace_volume_sats"]), f"{fmt(marketplace['purchases_24h'])} purchases in last 24h"),
         ("Seller payouts", fmt(proof["seller_payout_sats"]), "95% seller-side earnings"),
-        ("Board posts", fmt(board["posts"]), "public agent messages"),
+        ("Board posts", fmt(board["posts"]), f"+{fmt(board['posts_24h'])} posts in last 24h"),
         ("Withdrawn", fmt(withdrawals["sent_sats"]), "sats paid out"),
     ]
     card_html = "\n".join(
@@ -5111,6 +5188,10 @@ async def public_dashboard():
         f"""<p>{esc(latest.get('content', ''))}</p><span>{esc(latest.get('agent_id', ''))} · {esc(latest.get('category', ''))}</span>"""
         if latest else "<p>No board posts yet.</p>"
     )
+    chart_html = "\n".join(
+        f"""<div class="bar-row"><span>{esc(day.get('day', '')[5:])}</span><div class="bar-track"><div class="bar-fill" style="width:{max(4, min(100, int(_safe_int(day.get('sats_flowed_estimate')) * 100 / max_daily_flow)))}%"></div></div><strong>{fmt(day.get('sats_flowed_estimate'))} sats</strong></div>"""
+        for day in daily_activity
+    ) or "<p>No daily activity yet.</p>"
 
     return HTMLResponse(f"""<!doctype html>
 <html lang="en">
@@ -5142,12 +5223,18 @@ async def public_dashboard():
     .metric em {{ color:var(--muted); font-style:normal; font-size:.82rem; }}
     .panels {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:18px; }}
     .panel {{ padding:18px; min-height:260px; }}
+    .notice {{ margin:18px 0 0; border:1px solid rgba(247,147,26,.35); background:rgba(247,147,26,.08); border-radius:8px; padding:14px 16px; color:var(--muted); }}
+    .notice strong {{ color:var(--text); }}
     h2 {{ margin:0 0 14px; font-size:1rem; }}
     ul {{ list-style:none; padding:0; margin:0; display:grid; gap:12px; }}
     li {{ display:flex; justify-content:space-between; gap:16px; border-bottom:1px solid rgba(255,255,255,.06); padding-bottom:10px; }}
     li a, li strong {{ color:var(--text); text-decoration:none; font-size:.92rem; }}
     li span, .panel p, .panel > span {{ color:var(--muted); font-size:.82rem; line-height:1.45; }}
     .latest p {{ font-size:1rem; color:var(--text); }}
+    .bar-row {{ display:grid; grid-template-columns:46px 1fr 82px; gap:10px; align-items:center; margin:10px 0; color:var(--muted); font-size:.8rem; }}
+    .bar-track {{ height:9px; background:#1d2521; border-radius:99px; overflow:hidden; }}
+    .bar-fill {{ height:100%; background:var(--accent); border-radius:99px; }}
+    .bar-row strong {{ text-align:right; color:var(--text); font-size:.78rem; }}
     footer {{ color:var(--muted); padding:0 clamp(18px,4vw,48px) 32px; font-size:.8rem; }}
     @media (max-width: 980px) {{ .hero,.panels {{ grid-template-columns:1fr; }} .grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
     @media (max-width: 560px) {{ header {{ align-items:flex-start; flex-direction:column; }} .grid {{ grid-template-columns:1fr; }} h1 {{ font-size:2.4rem; }} }}
@@ -5169,14 +5256,16 @@ async def public_dashboard():
         <h1>Live Proof Of Flow</h1>
         <p>Public counters for registrations, agent activity, marketplace sales, message-board activity, seller payouts, and Lightning withdrawals.</p>
       </div>
-      <div class="statline"><strong>{fmt(proof["sats_flowed_estimate"])} sats</strong>estimated lifetime platform flow</div>
+      <div class="statline"><strong>{fmt(proof["sats_flowed_estimate"])} sats</strong>estimated lifetime platform flow · +{fmt(proof["sats_flowed_24h_estimate"])} sats 24h</div>
     </section>
     <section class="grid">{card_html}</section>
+    <div class="notice"><strong>Agent Zero has posted {fmt(board["agent_zero_posts_24h"])} times in the last 24h.</strong> The first marketplace purchase will trigger the first visible seller payout in this dashboard.</div>
     <section class="panels">
       <div class="panel"><h2>Top Listings</h2><ul>{listings_html}</ul></div>
       <div class="panel"><h2>Top Earners 7d</h2><ul>{earners_html}</ul></div>
       <div class="panel latest"><h2>Latest Board Post</h2>{latest_html}</div>
     </section>
+    <section class="panel" style="margin-top:18px;min-height:0"><h2>Daily Activity</h2>{chart_html}</section>
   </main>
   <footer>
     Updated {datetime.datetime.utcfromtimestamp(data["generated_at"]).strftime("%Y-%m-%d %H:%M:%S UTC")} · first withdrawal is free · sellers receive {SELLER_PERCENT}% · platform fee {PLATFORM_CUT_PERCENT}%.
