@@ -18,6 +18,7 @@ invinoveritas marketplace loop.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -31,6 +32,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 import requests
+import websockets
+from nostr.event import Event
+from nostr.key import PrivateKey, PublicKey
 
 try:
     import invinoveritas  # noqa: F401
@@ -54,6 +58,7 @@ COLLAB_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_COLLAB_INTERVAL_SECONDS", str
 OFFER_REFRESH_SECONDS = int(os.getenv("AGENT_ONE_OFFER_REFRESH_SECONDS", str(12 * 3600)))
 RECRUIT_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_RECRUIT_INTERVAL_SECONDS", str(4 * 3600)))
 MAX_DAILY_RECRUIT_POSTS = int(os.getenv("AGENT_ONE_MAX_DAILY_RECRUIT_POSTS", "4"))
+MAX_DAILY_NOSTR_REPLIES = int(os.getenv("AGENT_ONE_MAX_DAILY_NOSTR_REPLIES", "3"))
 SYSTEM_PROMPT_VERSION = os.getenv("AGENT_ONE_PROMPT_VERSION", "2026-04-29.1")
 PUBLIC_DESCRIPTION = os.getenv(
     "AGENT_ONE_PUBLIC_DESCRIPTION",
@@ -64,6 +69,29 @@ PUBLIC_DESCRIPTION = os.getenv(
 DATA_DIR = Path(os.getenv("AGENT_ONE_DATA_DIR", "/var/lib/agent_one"))
 LOG_FILE = Path(os.getenv("AGENT_ONE_LOG_FILE", "/var/log/agent_one.log"))
 DB_PATH = DATA_DIR / "agent_one.sqlite3"
+NOSTR_NSEC = os.getenv("AGENT_ONE_NSEC", "").strip()
+NOSTR_RELAYS = [
+    relay.strip()
+    for relay in os.getenv(
+        "AGENT_ONE_NOSTR_RELAYS",
+        "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,"
+        "wss://nostr-pub.wellorder.net,wss://nostr.bitcoiner.social,wss://offchain.pub",
+    ).split(",")
+    if relay.strip()
+]
+NOSTR_FOLLOW_KEYS = [
+    key.strip()
+    for key in os.getenv("AGENT_ONE_NOSTR_FOLLOW_KEYS", "").split(",")
+    if key.strip()
+]
+NOSTR_DISCOVERY_TAGS = [
+    tag.strip()
+    for tag in os.getenv(
+        "AGENT_ONE_NOSTR_DISCOVERY_TAGS",
+        "bitcoin,lightning,ai,agents,nostr,autonomousagents,invinoveritas",
+    ).split(",")
+    if tag.strip()
+]
 
 
 STOP_REQUESTED = False
@@ -105,6 +133,43 @@ def utc_day() -> str:
 
 def now_ts() -> int:
     return int(time.time())
+
+
+def build_nostr_event(private_key: PrivateKey, content: str, kind: int = 1, tags: Optional[list] = None) -> dict:
+    """Create and sign a Nostr event using the same lightweight shape as Agent Zero."""
+    event = Event(
+        public_key=private_key.public_key.hex(),
+        content=content,
+        kind=kind,
+        tags=tags or [],
+        created_at=now_ts(),
+    )
+    private_key.sign_event(event)
+    return {
+        "id": event.id,
+        "pubkey": event.public_key,
+        "created_at": event.created_at,
+        "kind": event.kind,
+        "tags": event.tags,
+        "content": event.content,
+        "sig": event.signature,
+    }
+
+
+def public_key_to_hex(value: str) -> Optional[str]:
+    """Accept npub or hex public keys for follow lists without crashing the agent."""
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    try:
+        if cleaned.startswith("npub"):
+            return PublicKey.from_npub(cleaned).hex()
+        if len(cleaned) == 64:
+            int(cleaned, 16)
+            return cleaned.lower()
+    except Exception:
+        return None
+    return None
 
 
 @dataclass(frozen=True)
@@ -385,6 +450,7 @@ class AgentOne:
     def __init__(self) -> None:
         self.memory = LocalMemory(DB_PATH)
         self.client = PlatformClient(API_BASE, self.memory.get("api_key", ""))
+        self.nostr_key = self._load_nostr_key()
         self.memory.set("system_prompt_version", SYSTEM_PROMPT_VERSION)
         self.memory.set(
             "goals",
@@ -395,8 +461,80 @@ class AgentOne:
                 "Spend conservatively while helping the marketplace look alive.",
                 "Learn from Agent Zero, send useful collaboration requests, and list Agent One QA services.",
                 "Recruit sellers by asking for specific buyable services and replying to promising posts.",
+                "Grow on Nostr by following relevant operators, publishing proof, and replying sparingly to useful threads.",
             ],
         )
+
+    def _load_nostr_key(self) -> Optional[PrivateKey]:
+        if not NOSTR_NSEC:
+            logger.info("Agent One Nostr disabled; AGENT_ONE_NSEC is not set")
+            return None
+        try:
+            key = PrivateKey.from_nsec(NOSTR_NSEC) if NOSTR_NSEC.startswith("nsec") else PrivateKey(bytes.fromhex(NOSTR_NSEC))
+            self.memory.set("nostr_npub", key.public_key.bech32())
+            logger.info("loaded Agent One Nostr identity npub=%s relays=%s", key.public_key.bech32(), len(NOSTR_RELAYS))
+            return key
+        except Exception as exc:
+            logger.warning("Agent One Nostr key invalid; Nostr publishing disabled: %s", exc)
+            self.memory.append_observation("nostr_key_error", str(exc))
+            return None
+
+    async def _publish_nostr_async(
+        self,
+        content: str,
+        *,
+        kind: int = 1,
+        tags: Optional[list] = None,
+        label: str = "note",
+    ) -> Optional[str]:
+        if not self.nostr_key:
+            return None
+        event = build_nostr_event(self.nostr_key, content, kind=kind, tags=tags)
+        payload = json.dumps(["EVENT", event])
+        ok_count = 0
+        for relay_url in NOSTR_RELAYS:
+            try:
+                async with websockets.connect(relay_url, open_timeout=8) as ws:
+                    await ws.send(payload)
+                    try:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=6.0)
+                        msg = json.loads(raw)
+                        if msg and msg[0] == "OK" and len(msg) > 2 and msg[2]:
+                            ok_count += 1
+                    except asyncio.TimeoutError:
+                        pass
+            except Exception as exc:
+                logger.debug("nostr publish relay failed relay=%s error=%s", relay_url, exc)
+        self.memory.append_observation(
+            "nostr_publish",
+            f"published {label} to Nostr",
+            {"event_id": event["id"], "ok_relays": ok_count, "relay_count": len(NOSTR_RELAYS), "kind": kind},
+        )
+        logger.info("nostr %s published event=%s ok=%s/%s", label, event["id"], ok_count, len(NOSTR_RELAYS))
+        return event["id"]
+
+    def publish_nostr(
+        self,
+        content: str,
+        *,
+        kind: int = 1,
+        tags: Optional[list] = None,
+        label: str = "note",
+    ) -> Optional[str]:
+        if not self.nostr_key:
+            return None
+        try:
+            return asyncio.run(self._publish_nostr_async(content, kind=kind, tags=tags, label=label))
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(self._publish_nostr_async(content, kind=kind, tags=tags, label=label))
+            finally:
+                loop.close()
+        except Exception as exc:
+            logger.warning("nostr publish failed label=%s: %s", label, exc)
+            self.memory.append_observation("nostr_publish_error", str(exc), {"label": label})
+            return None
 
     def bootstrap(self) -> None:
         if self.client.api_key:
@@ -575,6 +713,11 @@ class AgentOne:
         try:
             post = self.client.post_board(title, body, category="marketplace")
             self.memory.append_observation("board_announcement", "posted first purchase proof", post)
+            self.publish_nostr(
+                f"{title}\n\n{body}\n\nLive dashboard: {API_BASE}/dashboard",
+                tags=[["t", "invinoveritas"], ["t", "lightning"], ["t", "agents"], ["t", "bitcoin"]],
+                label="first_purchase",
+            )
         except Exception as exc:
             logger.warning("first-purchase board announcement failed: %s", exc)
 
@@ -597,6 +740,7 @@ class AgentOne:
         self.learn_from_board()
         self.collaborate_with_agent_zero()
         self.recruit_marketplace_supply()
+        self.grow_on_nostr()
 
         if daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS:
             self.try_normal_purchase()
@@ -749,6 +893,12 @@ class AgentOne:
             post = self.client.post_board("Agent One is recruiting sellers", body, category="growth")
             self._increment_daily_recruit_count()
             self.memory.append_observation("recruit_post", "posted marketplace supply request", post)
+            self.publish_nostr(
+                "Agent One buyer request on invinoveritas:\n\n"
+                f"{body}\n\nList services: {API_BASE}/marketplace\nStats: {API_BASE}/dashboard",
+                tags=[["t", "invinoveritas"], ["t", "lightning"], ["t", "agents"], ["t", "marketplace"]],
+                label="recruit",
+            )
         except Exception as exc:
             logger.warning("recruitment post failed: %s", exc)
             self.memory.append_observation("recruit_post_error", str(exc))
@@ -778,6 +928,137 @@ class AgentOne:
             except Exception as exc:
                 logger.warning("recruitment reply failed: %s", exc)
                 self.memory.append_observation("recruit_reply_error", str(exc))
+
+    def grow_on_nostr(self) -> None:
+        """Keep Agent One visible on Nostr without aggressive engagement automation."""
+        if not self.nostr_key:
+            return
+
+        last_follow = int(self.memory.get("last_nostr_follow_event_at", 0) or 0)
+        if now_ts() - last_follow >= 24 * 3600:
+            self.publish_nostr_follow_list()
+            self.memory.set("last_nostr_follow_event_at", now_ts())
+
+        last_recruit = int(self.memory.get("last_nostr_recruit_at", 0) or 0)
+        if now_ts() - last_recruit >= RECRUIT_INTERVAL_SECONDS:
+            self.memory.set("last_nostr_recruit_at", now_ts())
+            self.recruit_on_nostr()
+
+    def publish_nostr_follow_list(self) -> None:
+        """Publish a kind-3 contact list for configured high-signal accounts."""
+        if not self.nostr_key:
+            return
+        contact_tags = []
+        for raw_key in NOSTR_FOLLOW_KEYS:
+            pubkey = public_key_to_hex(raw_key)
+            if pubkey and pubkey != self.nostr_key.public_key.hex():
+                contact_tags.append(["p", pubkey])
+
+        if not contact_tags:
+            self.memory.append_observation("nostr_follow_skipped", "no configured follow targets")
+            return
+
+        self.publish_nostr(
+            "",
+            kind=3,
+            tags=contact_tags,
+            label="follow_list",
+        )
+        self.memory.set("nostr_follow_count", len(contact_tags))
+
+    def _daily_nostr_reply_count(self) -> int:
+        day = self.memory.get("nostr_reply_day")
+        if day != utc_day():
+            self.memory.set("nostr_reply_day", utc_day())
+            self.memory.set("nostr_replies_today", 0)
+            return 0
+        return int(self.memory.get("nostr_replies_today", 0) or 0)
+
+    def _increment_daily_nostr_reply_count(self) -> None:
+        self.memory.set("nostr_reply_day", utc_day())
+        self.memory.set("nostr_replies_today", self._daily_nostr_reply_count() + 1)
+
+    async def _recruit_on_nostr_async(self) -> int:
+        if not self.nostr_key:
+            return 0
+        replied = 0
+        since = now_ts() - 6 * 3600
+        seen_ids = set(self.memory.get("nostr_replied_event_ids", []))
+        query = {
+            "kinds": [1],
+            "since": since,
+            "#t": NOSTR_DISCOVERY_TAGS,
+            "limit": 8,
+        }
+
+        for relay_url in NOSTR_RELAYS[:3]:
+            if self._daily_nostr_reply_count() >= MAX_DAILY_NOSTR_REPLIES:
+                break
+            try:
+                async with websockets.connect(relay_url, open_timeout=8) as ws:
+                    await ws.send(json.dumps(["REQ", f"agent-one-growth-{now_ts()}", query]))
+                    deadline = time.time() + 7.0
+                    while time.time() < deadline and self._daily_nostr_reply_count() < MAX_DAILY_NOSTR_REPLIES:
+                        try:
+                            raw = await asyncio.wait_for(ws.recv(), timeout=3.0)
+                        except asyncio.TimeoutError:
+                            break
+                        msg = json.loads(raw)
+                        if not msg or msg[0] != "EVENT":
+                            continue
+                        event = msg[2]
+                        note_id = str(event.get("id") or "")
+                        author = str(event.get("pubkey") or "")
+                        content = str(event.get("content") or "").lower()
+                        if not note_id or note_id in seen_ids:
+                            continue
+                        if author == self.nostr_key.public_key.hex():
+                            continue
+                        if not any(term in content for term in ("agent", "lightning", "bitcoin", "nostr", "marketplace", "ai")):
+                            continue
+
+                        reply = (
+                            "Agent One is testing the invinoveritas Lightning-native agent marketplace: "
+                            "agents can register free, list services, buy services, and prove sats flow publicly.\n\n"
+                            f"Live stats: {API_BASE}/dashboard\n"
+                            f"Marketplace: {API_BASE}/marketplace\n"
+                            "#invinoveritas #Bitcoin #Lightning #AI"
+                        )
+                        tags = [
+                            ["e", note_id, relay_url, "reply"],
+                            ["p", author],
+                            ["t", "invinoveritas"],
+                            ["t", "bitcoin"],
+                            ["t", "lightning"],
+                            ["t", "ai"],
+                        ]
+                        event_id = await self._publish_nostr_async(reply, tags=tags, label="growth_reply")
+                        if event_id:
+                            replied += 1
+                            seen_ids.add(note_id)
+                            self._increment_daily_nostr_reply_count()
+                            self.memory.set("nostr_replied_event_ids", sorted(seen_ids)[-250:])
+            except Exception as exc:
+                logger.debug("nostr recruit scan failed relay=%s error=%s", relay_url, exc)
+
+        return replied
+
+    def recruit_on_nostr(self) -> None:
+        if not self.nostr_key:
+            return
+        try:
+            replied = asyncio.run(self._recruit_on_nostr_async())
+            self.memory.append_observation("nostr_recruit", "completed Nostr growth scan", {"replies": replied})
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            try:
+                replied = loop.run_until_complete(self._recruit_on_nostr_async())
+                self.memory.append_observation("nostr_recruit", "completed Nostr growth scan", {"replies": replied})
+            finally:
+                loop.close()
+        except Exception as exc:
+            logger.warning("nostr recruit failed: %s", exc)
+            self.memory.append_observation("nostr_recruit_error", str(exc))
 
     def try_normal_purchase(self) -> None:
         offers = self.client.offers()
@@ -826,6 +1107,12 @@ class AgentOne:
             post = self.client.post_board("Agent One platform health report", body, category="marketplace")
             self.memory.set("last_status_post_at", now_ts())
             self.memory.append_observation("status_post", "posted platform health status", post)
+            self.publish_nostr(
+                "Agent One platform health report:\n\n"
+                f"{body}\n\nPublic stats: {API_BASE}/dashboard",
+                tags=[["t", "invinoveritas"], ["t", "lightning"], ["t", "agents"], ["t", "bitcoin"]],
+                label="status",
+            )
         except Exception as exc:
             logger.warning("status post failed: %s", exc)
 
