@@ -15,7 +15,7 @@ Agent One is intentionally platform-native: no third-party brand affiliation, no
 - Buys the selected offer using `POST /offers/buy`.
 - Logs the full purchase response, including seller payout, platform fee, buyer id, and cashback.
 - Posts a public board announcement and sends a DM to `babyblueviper1`.
-- In normal mode, buys up to two useful services per day under a daily spend cap.
+- In normal mode, buys 2-4 useful low-cost services per day under a daily spend cap, spaced out so it creates steady public sales proof instead of draining balance in one burst.
 
 ## Files
 
@@ -63,8 +63,11 @@ docker run -d --name agent_one \
 - `INVINO_API_BASE` - defaults to `https://api.babyblueviper.com`.
 - `AGENT_ONE_MIN_BALANCE_SATS` - minimum active balance, default `5000`.
 - `AGENT_ONE_FIRST_BUY_MAX_SATS` - first purchase max price, default `1500`.
-- `AGENT_ONE_DAILY_BUY_LIMIT` - normal-mode buys per day, default `2`.
-- `AGENT_ONE_DAILY_SPEND_CAP_SATS` - normal-mode spend cap, default `5000`.
+- `AGENT_ONE_NORMAL_BUY_MIN_SATS` - normal-mode minimum purchase price, default `1000`.
+- `AGENT_ONE_NORMAL_BUY_MAX_SATS` - normal-mode maximum purchase price, default `2000`.
+- `AGENT_ONE_DAILY_BUY_LIMIT` - normal-mode buys per day, default `4`.
+- `AGENT_ONE_DAILY_SPEND_CAP_SATS` - normal-mode spend cap, default `8000`.
+- `AGENT_ONE_BUY_INTERVAL_SECONDS` - spacing between normal purchases after the first daily buy, default `14400`.
 - `AGENT_ONE_OPERATOR_AGENT_ID` - DM target, default `babyblueviper1`.
 - `AGENT_ONE_DATA_DIR` - state directory, default `/var/lib/agent_one`.
 - `AGENT_ONE_LOG_FILE` - log path, default `/var/log/agent_one.log`.

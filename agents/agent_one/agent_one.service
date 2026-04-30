@@ -11,8 +11,11 @@ Environment=AGENT_ONE_DATA_DIR=/var/lib/agent_one
 Environment=AGENT_ONE_LOG_FILE=/var/log/agent_one.log
 Environment=AGENT_ONE_MIN_BALANCE_SATS=5000
 Environment=AGENT_ONE_FIRST_BUY_MAX_SATS=1500
-Environment=AGENT_ONE_DAILY_BUY_LIMIT=2
-Environment=AGENT_ONE_DAILY_SPEND_CAP_SATS=5000
+Environment=AGENT_ONE_NORMAL_BUY_MIN_SATS=1000
+Environment=AGENT_ONE_NORMAL_BUY_MAX_SATS=2000
+Environment=AGENT_ONE_DAILY_BUY_LIMIT=4
+Environment=AGENT_ONE_DAILY_SPEND_CAP_SATS=8000
+Environment=AGENT_ONE_BUY_INTERVAL_SECONDS=14400
 ExecStart=/root/invinoveritas/venv/bin/python /root/invinoveritas/agents/agent_one/agent_one.py
 Restart=always
 RestartSec=30

@@ -48,9 +48,11 @@ API_BASE = os.getenv("INVINO_API_BASE", "https://api.babyblueviper.com").rstrip(
 OPERATOR_AGENT_ID = os.getenv("AGENT_ONE_OPERATOR_AGENT_ID", "babyblueviper1")
 MIN_ACTIVE_BALANCE_SATS = int(os.getenv("AGENT_ONE_MIN_BALANCE_SATS", "5000"))
 FIRST_BUY_MAX_SATS = int(os.getenv("AGENT_ONE_FIRST_BUY_MAX_SATS", "1500"))
-NORMAL_BUY_MAX_SATS = int(os.getenv("AGENT_ONE_NORMAL_BUY_MAX_SATS", "3000"))
-DAILY_BUY_LIMIT = int(os.getenv("AGENT_ONE_DAILY_BUY_LIMIT", "2"))
-DAILY_SPEND_CAP_SATS = int(os.getenv("AGENT_ONE_DAILY_SPEND_CAP_SATS", "5000"))
+NORMAL_BUY_MIN_SATS = int(os.getenv("AGENT_ONE_NORMAL_BUY_MIN_SATS", "1000"))
+NORMAL_BUY_MAX_SATS = int(os.getenv("AGENT_ONE_NORMAL_BUY_MAX_SATS", "2000"))
+DAILY_BUY_LIMIT = int(os.getenv("AGENT_ONE_DAILY_BUY_LIMIT", "4"))
+DAILY_SPEND_CAP_SATS = int(os.getenv("AGENT_ONE_DAILY_SPEND_CAP_SATS", "8000"))
+BUY_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_BUY_INTERVAL_SECONDS", str(4 * 3600)))
 LOOP_MIN_SECONDS = int(os.getenv("AGENT_ONE_LOOP_MIN_SECONDS", "300"))
 LOOP_MAX_SECONDS = int(os.getenv("AGENT_ONE_LOOP_MAX_SECONDS", "900"))
 POST_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_POST_INTERVAL_SECONDS", str(6 * 3600)))
@@ -388,10 +390,21 @@ class PlatformClient:
             raise RuntimeError("api_key required before balance check")
         return self._get("/balance", api_key=self.api_key)
 
-    def offers(self, category: Optional[str] = None) -> list[Offer]:
-        params = {"limit": 100, "offset": 0}
+    def offers(
+        self,
+        category: Optional[str] = None,
+        *,
+        sort: str = "featured",
+        max_price: Optional[int] = None,
+        min_price: Optional[int] = None,
+    ) -> list[Offer]:
+        params: dict[str, Any] = {"limit": 100, "offset": 0, "sort": sort}
         if category:
             params["category"] = category
+        if max_price is not None:
+            params["max_price"] = max_price
+        if min_price is not None:
+            params["min_price"] = min_price
         data = self._get("/offers/list", **params)
         return [Offer.from_api(item) for item in data.get("offers", [])]
 
@@ -759,8 +772,16 @@ class AgentOne:
         self.post_wanted_work_order()
         self.grow_on_nostr()
 
-        if daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS:
+        last_buy_at = int(self.memory.get("last_normal_purchase_at", 0) or 0)
+        buy_spacing_ok = daily_purchases == 0 or now_ts() - last_buy_at >= BUY_INTERVAL_SECONDS
+        if daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS and buy_spacing_ok:
             self.try_normal_purchase()
+        elif daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS:
+            logger.info(
+                "normal purchase deferred by spacing rule: last_buy_at=%s interval=%s",
+                last_buy_at,
+                BUY_INTERVAL_SECONDS,
+            )
 
         last_status = int(self.memory.get("last_status_post_at", 0) or 0)
         if now_ts() - last_status >= POST_INTERVAL_SECONDS:
@@ -1249,21 +1270,39 @@ class AgentOne:
             self.memory.append_observation("nostr_recruit_error", str(exc))
 
     def try_normal_purchase(self) -> None:
-        offers = self.client.offers()
+        offers = self.client.offers(
+            sort="newest",
+            min_price=NORMAL_BUY_MIN_SATS,
+            max_price=NORMAL_BUY_MAX_SATS,
+        )
         already_seen = set(self.memory.get("purchased_sellers", []))
+        category_key = f"purchased_categories:{utc_day()}"
+        categories_today = set(self.memory.get(category_key, []))
         candidates = [
             offer
             for offer in offers
-            if offer.price_sats <= NORMAL_BUY_MAX_SATS
-            and offer.price_sats > 0
+            if NORMAL_BUY_MIN_SATS <= offer.price_sats <= NORMAL_BUY_MAX_SATS
             and offer.seller_id != AGENT_ID
             and not self.memory.has_purchased_offer(offer.offer_id)
-            and offer.seller_id not in already_seen
         ]
         if not candidates:
             self.memory.append_observation("no_normal_purchase", "no eligible daily purchase candidate")
             return
-        offer = sorted(candidates, key=lambda item: (item.sold_count, item.price_sats, item.title))[0]
+
+        def score(item: Offer) -> tuple[int, int, int, int, str]:
+            is_zero_sale = 0 if item.sold_count == 0 else 1
+            seller_seen = 1 if item.seller_id in already_seen else 0
+            category_seen_today = 1 if item.category in categories_today else 0
+            is_platform_seed = 1 if item.seller_id.startswith("agent_zero") else 0
+            return (
+                is_zero_sale,
+                seller_seen,
+                category_seen_today,
+                is_platform_seed,
+                item.title.lower(),
+            )
+
+        offer = sorted(candidates, key=score)[0]
         daily_spend, _ = self.memory.daily_totals()
         if daily_spend + offer.price_sats > DAILY_SPEND_CAP_SATS:
             logger.info("daily spend cap would be exceeded by %s", offer.offer_id)
@@ -1275,7 +1314,26 @@ class AgentOne:
         self.memory.add_daily_spend(offer.price_sats)
         purchased_sellers = sorted(already_seen | {offer.seller_id})
         self.memory.set("purchased_sellers", purchased_sellers)
+        self.memory.set(category_key, sorted(categories_today | {offer.category}))
+        self.memory.set("last_normal_purchase_at", now_ts())
         self.memory.append_observation("normal_purchase", "bought marketplace service", {"offer": offer.__dict__, "response": response})
+        self.post_purchase_proof(offer, response)
+
+    def post_purchase_proof(self, offer: Offer, response: dict[str, Any]) -> None:
+        """Create public proof for normal purchases without overposting."""
+        try:
+            body = (
+                "Agent One buyer proof:\n"
+                f"Bought {offer.title} from {offer.seller_id} for {offer.price_sats:,} sats.\n"
+                f"Category: {offer.category}. Seller payout: {int(response.get('seller_payout_sats') or offer.seller_payout_sats):,} sats. "
+                f"Platform cut: {int(response.get('platform_cut_sats') or offer.platform_cut_sats):,} sats.\n"
+                "Selection policy: cheap useful service, unsold or under-sold listing, diverse seller/category. "
+                "This keeps Latest Sales and Recently Sold alive while funding sellers."
+            )
+            post = self.client.post_board("Agent One bought a marketplace service", body, category="marketplace")
+            self.memory.append_observation("purchase_proof_post", "posted normal purchase proof", post)
+        except Exception as exc:
+            logger.warning("normal purchase proof post failed: %s", exc)
 
     def post_status(self, balance_sats: int) -> None:
         try:
