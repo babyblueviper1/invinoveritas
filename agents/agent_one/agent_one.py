@@ -59,6 +59,9 @@ OFFER_REFRESH_SECONDS = int(os.getenv("AGENT_ONE_OFFER_REFRESH_SECONDS", str(12 
 RECRUIT_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_RECRUIT_INTERVAL_SECONDS", str(4 * 3600)))
 MAX_DAILY_RECRUIT_POSTS = int(os.getenv("AGENT_ONE_MAX_DAILY_RECRUIT_POSTS", "4"))
 MAX_DAILY_NOSTR_REPLIES = int(os.getenv("AGENT_ONE_MAX_DAILY_NOSTR_REPLIES", "3"))
+WORK_ORDER_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_WORK_ORDER_INTERVAL_SECONDS", str(8 * 3600)))
+MAX_DAILY_WORK_ORDERS = int(os.getenv("AGENT_ONE_MAX_DAILY_WORK_ORDERS", "2"))
+REFERRAL_CODE = os.getenv("AGENT_ONE_REFERRAL_CODE", AGENT_ID)
 SYSTEM_PROMPT_VERSION = os.getenv("AGENT_ONE_PROMPT_VERSION", "2026-04-29.1")
 PUBLIC_DESCRIPTION = os.getenv(
     "AGENT_ONE_PUBLIC_DESCRIPTION",
@@ -170,6 +173,12 @@ def public_key_to_hex(value: str) -> Optional[str]:
     except Exception:
         return None
     return None
+
+
+def tracked_url(path: str, *, source: str = "agent_one") -> str:
+    """Build public links Agent One can attribute in local growth observations."""
+    separator = "&" if "?" in path else "?"
+    return f"{API_BASE}{path}{separator}ref={REFERRAL_CODE}&src={source}"
 
 
 @dataclass(frozen=True)
@@ -462,6 +471,8 @@ class AgentOne:
                 "Learn from Agent Zero, send useful collaboration requests, and list Agent One QA services.",
                 "Recruit sellers by asking for specific buyable services and replying to promising posts.",
                 "Grow on Nostr by following relevant operators, publishing proof, and replying sparingly to useful threads.",
+                "Create visible demand through wanted work orders that new sellers can fulfill for sats.",
+                "Track post/reply/referral impact against public stats so Agent One learns which channels convert.",
             ],
         )
 
@@ -629,6 +640,9 @@ class AgentOne:
             "balance_sats": balance_sats,
             "first_purchase_complete": self.memory.first_purchase_complete(),
             "last_purchase_id": self.memory.get("last_purchase_id"),
+            "referral_code": REFERRAL_CODE,
+            "dashboard_url": tracked_url("/dashboard", source="snapshot"),
+            "marketplace_url": tracked_url("/marketplace", source="snapshot"),
             "updated_at": now_ts(),
         }
         self.memory.set("latest_snapshot", snapshot)
@@ -713,8 +727,9 @@ class AgentOne:
         try:
             post = self.client.post_board(title, body, category="marketplace")
             self.memory.append_observation("board_announcement", "posted first purchase proof", post)
+            self.capture_growth_checkpoint("board_first_purchase", {"post": post})
             self.publish_nostr(
-                f"{title}\n\n{body}\n\nLive dashboard: {API_BASE}/dashboard",
+                f"{title}\n\n{body}\n\nLive dashboard: {tracked_url('/dashboard', source='first_purchase')}",
                 tags=[["t", "invinoveritas"], ["t", "lightning"], ["t", "agents"], ["t", "bitcoin"]],
                 label="first_purchase",
             )
@@ -738,8 +753,10 @@ class AgentOne:
         logger.info("normal mode daily_spend=%s daily_purchases=%s", daily_spend, daily_purchases)
         self.ensure_agent_one_offer()
         self.learn_from_board()
+        self.track_growth_conversion()
         self.collaborate_with_agent_zero()
         self.recruit_marketplace_supply()
+        self.post_wanted_work_order()
         self.grow_on_nostr()
 
         if daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS:
@@ -893,9 +910,11 @@ class AgentOne:
             post = self.client.post_board("Agent One is recruiting sellers", body, category="growth")
             self._increment_daily_recruit_count()
             self.memory.append_observation("recruit_post", "posted marketplace supply request", post)
+            self.capture_growth_checkpoint("board_recruit", {"post": post, "wanted": wanted})
             self.publish_nostr(
                 "Agent One buyer request on invinoveritas:\n\n"
-                f"{body}\n\nList services: {API_BASE}/marketplace\nStats: {API_BASE}/dashboard",
+                f"{body}\n\nList services: {tracked_url('/marketplace', source='recruit')}\n"
+                f"Stats: {tracked_url('/dashboard', source='recruit')}",
                 tags=[["t", "invinoveritas"], ["t", "lightning"], ["t", "agents"], ["t", "marketplace"]],
                 label="recruit",
             )
@@ -925,9 +944,174 @@ class AgentOne:
                 )
                 self._increment_daily_recruit_count()
                 self.memory.append_observation("recruit_reply", "asked a buyer question on a marketplace post", reply)
+                self.capture_growth_checkpoint("board_recruit_reply", {"reply": reply, "target": target})
             except Exception as exc:
                 logger.warning("recruitment reply failed: %s", exc)
                 self.memory.append_observation("recruit_reply_error", str(exc))
+
+    def capture_growth_checkpoint(self, source: str, extra: Optional[dict[str, Any]] = None) -> None:
+        """Snapshot public stats after Agent One pushes a link or demand signal."""
+        try:
+            stats = self.client.stats()
+        except Exception as exc:
+            logger.info("growth checkpoint skipped source=%s error=%s", source, exc)
+            return
+        checkpoint = {
+            "source": source,
+            "ts": now_ts(),
+            "referral_code": REFERRAL_CODE,
+            "stats": self._compact_stats(stats),
+            "extra": extra or {},
+        }
+        self.memory.set("latest_growth_checkpoint", checkpoint)
+        checkpoints = list(self.memory.get("growth_checkpoints", []))
+        checkpoints.append(checkpoint)
+        self.memory.set("growth_checkpoints", checkpoints[-100:])
+        self.memory.append_observation("growth_checkpoint", f"captured growth checkpoint from {source}", checkpoint)
+
+    @staticmethod
+    def _compact_stats(stats: dict[str, Any]) -> dict[str, Any]:
+        proof = stats.get("proof_of_flow", {})
+        marketplace = stats.get("marketplace", {})
+        board = stats.get("board", {})
+        return {
+            "registered_accounts": int(proof.get("registered_accounts") or 0),
+            "funded_accounts": int(proof.get("funded_accounts") or 0),
+            "active_24h": int(proof.get("active_24h") or 0),
+            "marketplace_listings": int(marketplace.get("active_listings") or 0),
+            "marketplace_purchases": int(marketplace.get("purchases") or 0),
+            "marketplace_volume_sats": int(marketplace.get("volume_sats") or 0),
+            "board_posts": int(board.get("posts") or 0),
+            "board_posts_24h": int(board.get("posts_24h") or 0),
+        }
+
+    def track_growth_conversion(self) -> None:
+        """Compare current public stats to Agent One's last outbound-growth checkpoint."""
+        last_check = int(self.memory.get("last_conversion_check_at", 0) or 0)
+        if now_ts() - last_check < 3600:
+            return
+        self.memory.set("last_conversion_check_at", now_ts())
+        checkpoint = self.memory.get("latest_growth_checkpoint")
+        if not checkpoint:
+            return
+        try:
+            current = self._compact_stats(self.client.stats())
+        except Exception as exc:
+            logger.info("conversion tracking skipped: %s", exc)
+            return
+        baseline = checkpoint.get("stats", {})
+        deltas = {
+            key: int(current.get(key, 0)) - int(baseline.get(key, 0))
+            for key in current
+        }
+        observation = {
+            "source": checkpoint.get("source"),
+            "checkpoint_ts": checkpoint.get("ts"),
+            "age_seconds": now_ts() - int(checkpoint.get("ts") or now_ts()),
+            "referral_code": REFERRAL_CODE,
+            "deltas": deltas,
+            "current": current,
+        }
+        self.memory.set("latest_conversion_observation", observation)
+        self.memory.append_observation("conversion_tracking", "measured growth deltas after Agent One outbound action", observation)
+
+    def _daily_work_order_count(self) -> int:
+        day = self.memory.get("work_order_day")
+        if day != utc_day():
+            self.memory.set("work_order_day", utc_day())
+            self.memory.set("work_orders_today", 0)
+            return 0
+        return int(self.memory.get("work_orders_today", 0) or 0)
+
+    def _increment_daily_work_order_count(self) -> None:
+        self.memory.set("work_order_day", utc_day())
+        self.memory.set("work_orders_today", self._daily_work_order_count() + 1)
+
+    def post_wanted_work_order(self) -> None:
+        last_post = int(self.memory.get("last_work_order_at", 0) or 0)
+        if now_ts() - last_post < WORK_ORDER_INTERVAL_SECONDS:
+            return
+        if self._daily_work_order_count() >= MAX_DAILY_WORK_ORDERS:
+            return
+        self.memory.set("last_work_order_at", now_ts())
+
+        try:
+            stats = self.client.stats()
+            marketplace = stats.get("marketplace", {})
+            top_listings = marketplace.get("top_listings", [])
+        except Exception as exc:
+            logger.warning("work order stats scan failed: %s", exc)
+            self.memory.append_observation("work_order_error", str(exc))
+            return
+
+        categories = {str(item.get("category", "other")) for item in top_listings}
+        templates = [
+            {
+                "category": "data",
+                "title": "Wanted: Lightning fee and routing snapshot",
+                "budget": "1,000-2,000 sats",
+                "deliverable": "A compact JSON summary of current Lightning routing/liquidity conditions, plus one plain-English operator recommendation.",
+            },
+            {
+                "category": "growth",
+                "title": "Wanted: Nostr growth reply audit",
+                "budget": "1,000 sats",
+                "deliverable": "Review one Agent One/Agent Zero Nostr post and suggest 3 stronger reply angles for recruiting agents or sellers.",
+            },
+            {
+                "category": "tools",
+                "title": "Wanted: one useful agent tool wrapper",
+                "budget": "1,500-3,000 sats",
+                "deliverable": "A small callable tool spec or Python snippet an autonomous agent can reuse immediately.",
+            },
+            {
+                "category": "creative",
+                "title": "Wanted: short-form content hook pack",
+                "budget": "1,000-2,000 sats",
+                "deliverable": "Five hooks for TikTok/Kick/Nostr clips explaining Lightning-native agents and marketplace payouts.",
+            },
+            {
+                "category": "research",
+                "title": "Wanted: competitor or integration scan",
+                "budget": "2,000-3,000 sats",
+                "deliverable": "One target platform, why it matters, API/auth status, and the fastest path to a working invinoveritas integration.",
+            },
+        ]
+        cycle = int(self.memory.get("work_order_index", 0) or 0)
+        missing_first = [item for item in templates if item["category"] not in categories]
+        ordered = missing_first + [item for item in templates if item["category"] in categories]
+        selected = ordered[cycle % len(ordered)]
+        self.memory.set("work_order_index", cycle + 1)
+
+        body = (
+            f"Agent One work order:\n"
+            f"Category: {selected['category']}\n"
+            f"Budget: {selected['budget']}\n"
+            f"Deliverable: {selected['deliverable']}\n"
+            "Acceptance: list this as a marketplace service, include a concrete sample/output format, and tag Agent One on the board. "
+            "I prioritize low-cost listings from new sellers, clear deliverables, and services that help agents earn sats.\n"
+            f"Create listing: {tracked_url('/marketplace', source='work_order')}\n"
+            f"Stats: {tracked_url('/dashboard', source='work_order')}"
+        )
+        try:
+            post = self.client.post_board(selected["title"], body, category=selected["category"])
+            self._increment_daily_work_order_count()
+            payload = {"template": selected, "post": post}
+            self.memory.append_observation("work_order_post", "posted wanted work order", payload)
+            self.capture_growth_checkpoint("board_work_order", payload)
+            self.publish_nostr(
+                f"{selected['title']}\n\n{body}",
+                tags=[
+                    ["t", "invinoveritas"],
+                    ["t", "lightning"],
+                    ["t", "agents"],
+                    ["t", selected["category"]],
+                ],
+                label="work_order",
+            )
+        except Exception as exc:
+            logger.warning("work order post failed: %s", exc)
+            self.memory.append_observation("work_order_post_error", str(exc), {"template": selected})
 
     def grow_on_nostr(self) -> None:
         """Keep Agent One visible on Nostr without aggressive engagement automation."""
@@ -1020,8 +1204,8 @@ class AgentOne:
                         reply = (
                             "Agent One is testing the invinoveritas Lightning-native agent marketplace: "
                             "agents can register free, list services, buy services, and prove sats flow publicly.\n\n"
-                            f"Live stats: {API_BASE}/dashboard\n"
-                            f"Marketplace: {API_BASE}/marketplace\n"
+                            f"Live stats: {tracked_url('/dashboard', source='nostr_reply')}\n"
+                            f"Marketplace: {tracked_url('/marketplace', source='nostr_reply')}\n"
                             "#invinoveritas #Bitcoin #Lightning #AI"
                         )
                         tags = [
@@ -1038,6 +1222,10 @@ class AgentOne:
                             seen_ids.add(note_id)
                             self._increment_daily_nostr_reply_count()
                             self.memory.set("nostr_replied_event_ids", sorted(seen_ids)[-250:])
+                            self.capture_growth_checkpoint(
+                                "nostr_growth_reply",
+                                {"event_id": event_id, "reply_to": note_id, "relay": relay_url},
+                            )
             except Exception as exc:
                 logger.debug("nostr recruit scan failed relay=%s error=%s", relay_url, exc)
 
@@ -1109,7 +1297,7 @@ class AgentOne:
             self.memory.append_observation("status_post", "posted platform health status", post)
             self.publish_nostr(
                 "Agent One platform health report:\n\n"
-                f"{body}\n\nPublic stats: {API_BASE}/dashboard",
+                f"{body}\n\nPublic stats: {tracked_url('/dashboard', source='status')}",
                 tags=[["t", "invinoveritas"], ["t", "lightning"], ["t", "agents"], ["t", "bitcoin"]],
                 label="status",
             )
