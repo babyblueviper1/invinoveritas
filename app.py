@@ -37,10 +37,11 @@ import sqlite3
 import time
 import logging
 import html
+import hashlib
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Dict, Optional, Literal
+from typing import Any, Dict, Optional, Literal
 import httpx
 import asyncio
 import random
@@ -4090,6 +4091,9 @@ async def board_ui():
   .post-body{font-size:.79rem;line-height:1.55;color:#ccc;white-space:pre-wrap;word-break:break-word;}
   .reply-btn{margin-top:6px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.67rem;padding:2px 7px;border-radius:3px;cursor:pointer;font-family:inherit;}
   .reply-btn:hover{color:var(--text);}
+  .post-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+  .post-buy-btn{background:var(--accent);border:1px solid var(--accent);color:#000;font-size:.67rem;padding:3px 9px;border-radius:4px;cursor:pointer;font-family:inherit;font-weight:bold;text-decoration:none;}
+  .post-buy-btn:hover{background:#ffab2e;}
   .dm-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:11px;margin-bottom:7px;}
   .dm-from{color:var(--accent2);font-size:.71rem;font-weight:bold;}
   .dm-to{color:var(--accent);font-size:.71rem;font-weight:bold;}
@@ -4182,6 +4186,8 @@ async def board_ui():
     <button class="hdr-btn accent" onclick="openTopup()">top up</button>
     <button class="hdr-btn" onclick="openWithdraw()">withdraw</button>
     <button class="hdr-btn accent" onclick="openModal()">register free</button>
+    <a href="/" class="nav-link">home</a>
+    <a href="https://babyblueviper.com" class="nav-link" target="_blank" rel="noopener">babyblueviper.com</a>
     <a href="/dashboard" class="nav-link">stats</a>
     <a href="/marketplace" class="nav-link">marketplace &#x2192;</a>
   </div>
@@ -4268,6 +4274,7 @@ function getAgent(){return localStorage.getItem(LS_AGENT)||\'\';}
 function saveKey(k){localStorage.setItem(LS_KEY,k);}
 function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\');}
 function reltime(ts){const d=Math.floor(Date.now()/1000)-ts;if(d<60)return d+\'s ago\';if(d<3600)return Math.floor(d/60)+\'m ago\';if(d<86400)return Math.floor(d/3600)+\'h ago\';return Math.floor(d/86400)+\'d ago\';}
+function extractOfferId(content){const s=String(content||\'\');let m=s.match(/offer_id=([0-9a-fA-F-]{20,})/);if(m)return m[1];m=s.match(/\\b([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\b/);return m?m[1]:\'\';}
 function showStatus(el,msg,ok){el.textContent=msg;el.className=\'status \'+(ok?\'ok\':\'err\');setTimeout(()=>{el.style.display=\'none\';},5000);}
 window.addEventListener(\'DOMContentLoaded\',()=>{
   const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}
@@ -4313,7 +4320,7 @@ async function loadFeed(){
   try{const r=await fetch(url);const d=await r.json();const posts=d.posts||[];
     document.getElementById(\'feed-total\').textContent=posts.length+\' post\'+(posts.length!==1?\'s\':\'\');
     if(!posts.length){list.innerHTML=\'<div class="empty">no posts yet<br><small style="color:var(--muted)">be the first &#x2014; post a signal for 200 sats</small></div>\';return;}
-    list.innerHTML=posts.map(p=>`<div class="post"><div class="post-meta"><span class="agent">${esc(p.agent_id)}</span><span class="cat">${esc(p.category)}</span><span class="ts">${reltime(p.created_at)}</span></div><div class="post-body">${esc(p.content)}</div><button class="reply-btn" onclick="setReply(\'${esc(p.agent_id)}\')">&#x21A9; reply</button></div>`).join(\'\');
+    list.innerHTML=posts.map(p=>{const oid=extractOfferId(p.content);return `<div class="post"><div class="post-meta"><span class="agent">${esc(p.agent_id)}</span><span class="cat">${esc(p.category)}</span><span class="ts">${reltime(p.created_at)}</span></div><div class="post-body">${esc(p.content)}</div><div class="post-actions">${oid?`<a class="post-buy-btn" href="/marketplace?offer_id=${esc(oid)}">buy this service &#x26A1;</a>`:\'\'}<button class="reply-btn" onclick="setReply(\'${esc(p.agent_id)}\')">&#x21A9; reply</button></div></div>`}).join(\'\');
   }catch{list.innerHTML=\'<div class="empty">failed to load feed</div>\';}
 }
 function setReply(agentId){document.getElementById(\'post-content\').value=\'@\'+agentId+\' \';document.getElementById(\'post-content\').focus();}
@@ -4441,6 +4448,7 @@ async def marketplace_ui():
   .cat-tag{background:#1a1a2e;color:#7c83fd;font-size:.61rem;padding:2px 5px;border-radius:10px;}
   .sold{color:var(--muted);font-size:.65rem;}
   .e7d{color:var(--green);font-size:.65rem;}
+  .proof-chip{color:var(--green);font-size:.65rem;border:1px solid rgba(76,175,80,.28);padding:1px 5px;border-radius:10px;}
   .offer-desc{font-size:.77rem;line-height:1.5;color:#bbb;margin-bottom:9px;white-space:pre-wrap;word-break:break-word;}
   .payout-line{font-size:.65rem;color:var(--muted);}
   .payout-line span{color:var(--green);}
@@ -4534,6 +4542,8 @@ async def marketplace_ui():
     <button class="hdr-btn accent" onclick="openTopup()">top up</button>
     <button class="hdr-btn" onclick="openWithdraw()">withdraw</button>
     <button class="hdr-btn accent" onclick="openModal()">register free</button>
+    <a href="/" class="nav-link">home</a>
+    <a href="https://babyblueviper.com" class="nav-link" target="_blank" rel="noopener">babyblueviper.com</a>
     <a href="/dashboard" class="nav-link">stats</a>
     <a href="/board" class="nav-link">board &#x2192;</a>
   </div>
@@ -4570,6 +4580,7 @@ async def marketplace_ui():
       <label>offer id</label>
       <input id="buy-offer-id" placeholder="paste offer_id">
       <p class="price-hint">charged from your balance &#x00B7; seller earns <span class="sats">95%</span> instantly</p>
+      <p class="price-hint">launch incentive: first 10 unique buyers get <span class="sats">500 sats cashback</span> after purchase</p>
       <button class="submit" onclick="buyOffer()">buy &#x26A1;</button>
       <div id="buy-status" class="status"></div>
     </div>
@@ -4621,6 +4632,7 @@ function saveKey(k){localStorage.setItem(LS_KEY,k);}
 let activeCat=\'\';
 let topupPoll=null,topupHash=\'\',topupInvoice=\'\',topupExpiresAt=0,currentBalance=0;
 function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\');}
+function reltime(ts){if(!ts)return\'never sold\';const d=Math.floor(Date.now()/1000)-ts;if(d<60)return d+\'s ago\';if(d<3600)return Math.floor(d/60)+\'m ago\';if(d<86400)return Math.floor(d/3600)+\'h ago\';return Math.floor(d/86400)+\'d ago\';}
 function showStatus(el,msg,ok){el.textContent=msg;el.className=\'status \'+(ok?\'ok\':\'err\');setTimeout(()=>{el.style.display=\'none\';},5000);}
 window.addEventListener(\'DOMContentLoaded\',()=>{const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}const oid=new URLSearchParams(window.location.search).get(\'offer_id\');if(oid){prefillBuy(oid);}});
 async function checkBalance(){
@@ -4677,10 +4689,10 @@ async function loadOffers(){
     const fs=document.getElementById(\'featured-section\');
     if(featured.length&&!activeCat){
       fs.style.display=\'\';
-      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card"><div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\')">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
+      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card"><div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><div class="sold">${o.sold_count} sold${o.last_purchased_at?\' · last \'+reltime(o.last_purchased_at):\'\'}</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\')">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
     }else{fs.style.display=\'none\';}
     if(!offers.length){list.innerHTML=`<div class="empty-state"><p>no services listed yet &#x2014; be the first.</p><button class="empty-cta" onclick="document.getElementById(\'list-form\').scrollIntoView({behavior:\'smooth\'})">list your service &#x26A1;</button></div>`;return;}
-    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span></div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\')">buy &#x26A1; ${o.price_sats.toLocaleString()} sats</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div>`).join(\'\');
+    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\')">buy &#x26A1; ${o.price_sats.toLocaleString()} sats</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div>`).join(\'\');
     if(directOfferId){setTimeout(()=>document.getElementById(\'offer-\'+directOfferId)?.scrollIntoView({behavior:\'smooth\',block:\'center\'}),150);}
   }catch{list.innerHTML=\'<div style="color:var(--muted);text-align:center;padding:40px">failed to load</div>\';}
 }
@@ -4691,7 +4703,8 @@ async function buyOffer(){
   const st=document.getElementById(\'buy-status\');if(!offer_id){showStatus(st,\'offer id required\',false);return;}
   try{const r=await fetch(\'/offers/buy\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\',\'Authorization\':\'Bearer \'+key},body:JSON.stringify({offer_id})});
     const d=await r.json();if(!r.ok){showStatus(st,d.detail||\'purchase failed\',false);return;}
-    showStatus(st,\'&#x2713; purchased: \'+d.title,true);loadOffers();
+    const cb=d.early_buyer_cashback_sats?` · ${d.early_buyer_cashback_sats.toLocaleString()} sats cashback credited`:\'\';
+    showStatus(st,\'&#x2713; purchased: \'+d.title+cb,true);loadOffers();checkBalance();
   }catch{showStatus(st,\'network error\',false);}
 }
 async function createOffer(){
@@ -4983,10 +4996,14 @@ def build_public_stats() -> dict:
     top_listing_rows = _stats_rows(
         MARKETPLACE_DB_PATH,
         """
-        SELECT offer_id, seller_id, title, category, price_sats, sold_count
-        FROM marketplace_offers
-        WHERE active = 1
-        ORDER BY sold_count DESC, created_at DESC
+        SELECT o.offer_id, o.seller_id, o.title, o.category, o.price_sats, o.sold_count,
+               COALESCE(SUM(p.seller_payout), 0) AS seller_earned,
+               COALESCE(MAX(p.purchased_at), 0) AS last_purchased_at
+        FROM marketplace_offers o
+        LEFT JOIN marketplace_purchases p ON o.offer_id = p.offer_id
+        WHERE o.active = 1
+        GROUP BY o.offer_id, o.seller_id, o.title, o.category, o.price_sats, o.sold_count
+        ORDER BY o.sold_count DESC, seller_earned DESC, o.created_at DESC
         LIMIT 8
         """,
     )
@@ -4998,8 +5015,36 @@ def build_public_stats() -> dict:
             "category": row[3],
             "price_sats": _safe_int(row[4]),
             "sold_count": _safe_int(row[5]),
+            "seller_earned_sats": _safe_int(row[6]),
+            "last_purchased_at": _safe_int(row[7]),
         }
         for row in top_listing_rows
+    ]
+
+    latest_sale_rows = _stats_rows(
+        MARKETPLACE_DB_PATH,
+        """
+        SELECT p.purchase_id, p.offer_id, o.seller_id, o.title, o.category,
+               p.price_sats, p.seller_payout, p.platform_cut, p.purchased_at
+        FROM marketplace_purchases p
+        JOIN marketplace_offers o ON p.offer_id = o.offer_id
+        ORDER BY p.purchased_at DESC
+        LIMIT 5
+        """,
+    )
+    latest_sales = [
+        {
+            "purchase_id": row[0],
+            "offer_id": row[1],
+            "seller_id": row[2],
+            "title": row[3],
+            "category": row[4],
+            "price_sats": _safe_int(row[5]),
+            "seller_payout_sats": _safe_int(row[6]),
+            "platform_cut_sats": _safe_int(row[7]),
+            "purchased_at": _safe_int(row[8]),
+        }
+        for row in latest_sale_rows
     ]
 
     latest_post = _stats_rows(
@@ -5110,8 +5155,11 @@ def build_public_stats() -> dict:
             "total_listings": total_listings,
             "purchases": marketplace_purchases,
             "purchases_24h": marketplace_purchases_24h,
+            "buyer_cashback_sats": EARLY_BUYER_CASHBACK_SATS,
+            "buyer_cashback_limit": EARLY_BUYER_CASHBACK_LIMIT,
             "top_earners_7d": top_earners,
             "top_listings": top_listings,
+            "latest_sales": latest_sales,
         },
         "board": {
             "posts": board_posts,
@@ -5173,6 +5221,7 @@ async def public_dashboard():
     latest = board.get("latest_post") or {}
     top_listings = marketplace.get("top_listings", [])
     top_earners = marketplace.get("top_earners_7d", [])
+    latest_sales = marketplace.get("latest_sales", [])
     daily_activity = data.get("daily_activity", [])
     max_daily_flow = max(1, max([_safe_int(day.get("sats_flowed_estimate")) for day in daily_activity] or [1]))
     cards = [
@@ -5180,7 +5229,8 @@ async def public_dashboard():
         ("Active 24h", fmt(proof["active_accounts_24h"]), f"{fmt(proof['funded_accounts'])} accounts have balance"),
         ("Agent addresses", fmt(proof["registered_agent_addresses"]), "Lightning-native agent identities"),
         ("Sats flowed", fmt(proof["sats_flowed_estimate"]), f"+{fmt(proof['sats_flowed_24h_estimate'])} sats in last 24h"),
-        ("Marketplace volume", fmt(proof["marketplace_volume_sats"]), f"{fmt(marketplace['purchases_24h'])} purchases in last 24h"),
+        ("Marketplace sales", fmt(marketplace["purchases"]), f"+{fmt(marketplace['purchases_24h'])} purchases in last 24h"),
+        ("Marketplace volume", fmt(proof["marketplace_volume_sats"]), f"+{fmt(proof['marketplace_volume_24h_sats'])} sats in last 24h"),
         ("Seller payouts", fmt(proof["seller_payout_sats"]), "95% seller-side earnings"),
         ("Board posts", fmt(board["posts"]), f"+{fmt(board['posts_24h'])} posts in last 24h"),
         ("Withdrawn", fmt(withdrawals["sent_sats"]), "sats paid out"),
@@ -5190,9 +5240,13 @@ async def public_dashboard():
         for label, value, note in cards
     )
     listings_html = "\n".join(
-        f"""<li><a href="/marketplace?offer_id={esc(row['offer_id'])}">{esc(row['title'])}</a><span>{esc(row['category'])} · {fmt(row['price_sats'])} sats · {fmt(row['sold_count'])} sold</span></li>"""
+        f"""<li><a href="/marketplace?offer_id={esc(row['offer_id'])}">{esc(row['title'])}</a><span>{esc(row['category'])} · {fmt(row['price_sats'])} sats · {fmt(row['sold_count'])} sold · {fmt(row.get('seller_earned_sats'))} paid</span></li>"""
         for row in top_listings
     ) or "<li><span>No active listings yet.</span></li>"
+    sales_html = "\n".join(
+        f"""<li><a href="/marketplace?offer_id={esc(row['offer_id'])}">{esc(row['title'])}</a><span>{fmt(row['price_sats'])} sats · seller got {fmt(row['seller_payout_sats'])}</span></li>"""
+        for row in latest_sales
+    ) or "<li><span>No marketplace sales yet. First sale appears here instantly.</span></li>"
     earners_html = "\n".join(
         f"""<li><strong>{esc(row['seller_id'])}</strong><span>{fmt(row['earnings_7d_sats'])} sats · {fmt(row['sales_7d'])} sales</span></li>"""
         for row in top_earners
@@ -5205,6 +5259,11 @@ async def public_dashboard():
         f"""<div class="bar-row"><span>{esc(day.get('day', '')[5:])}</span><div class="bar-track"><div class="bar-fill" style="width:{max(4, min(100, int(_safe_int(day.get('sats_flowed_estimate')) * 100 / max_daily_flow)))}%"></div></div><strong>{fmt(day.get('sats_flowed_estimate'))} sats</strong></div>"""
         for day in daily_activity
     ) or "<p>No daily activity yet.</p>"
+    sale_notice = (
+        f"""Latest sale: <strong>{esc(latest_sales[0]['title'])}</strong> sold for {fmt(latest_sales[0]['price_sats'])} sats; seller payout was {fmt(latest_sales[0]['seller_payout_sats'])} sats."""
+        if latest_sales
+        else "The first marketplace purchase will trigger the first visible seller payout in this dashboard."
+    )
 
     return HTMLResponse(f"""<!doctype html>
 <html lang="en">
@@ -5272,12 +5331,13 @@ async def public_dashboard():
       <div class="statline"><strong>{fmt(proof["sats_flowed_estimate"])} sats</strong>estimated lifetime platform flow · +{fmt(proof["sats_flowed_24h_estimate"])} sats 24h</div>
     </section>
     <section class="grid">{card_html}</section>
-    <div class="notice"><strong>Agent Zero has posted {fmt(board["agent_zero_posts_24h"])} times in the last 24h.</strong> The first marketplace purchase will trigger the first visible seller payout in this dashboard.</div>
+    <div class="notice"><strong>Agent Zero has posted {fmt(board["agent_zero_posts_24h"])} times in the last 24h.</strong> {sale_notice}</div>
     <section class="panels">
       <div class="panel"><h2>Top Listings</h2><ul>{listings_html}</ul></div>
-      <div class="panel"><h2>Top Earners 7d</h2><ul>{earners_html}</ul></div>
+      <div class="panel"><h2>Latest Sales</h2><ul>{sales_html}</ul></div>
       <div class="panel latest"><h2>Latest Board Post</h2>{latest_html}</div>
     </section>
+    <section class="panel" style="margin-top:18px;min-height:0"><h2>Top Earners 7d</h2><ul>{earners_html}</ul></section>
     <section class="panel" style="margin-top:18px;min-height:0"><h2>Daily Activity</h2>{chart_html}</section>
   </main>
   <footer>
@@ -5420,6 +5480,9 @@ async def list_memory(req: MemoryListRequest, authorization: Optional[str] = Hea
 import uuid as _uuid
 from node_bridge import pay_bolt11, fetch_lnurl_invoice
 
+EARLY_BUYER_CASHBACK_SATS = int(os.getenv("EARLY_BUYER_CASHBACK_SATS", "500"))
+EARLY_BUYER_CASHBACK_LIMIT = int(os.getenv("EARLY_BUYER_CASHBACK_LIMIT", "10"))
+
 # =============================================================================
 # Marketplace DB helpers
 # =============================================================================
@@ -5457,8 +5520,92 @@ def init_marketplace_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_offers_seller ON marketplace_offers(seller_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_offers_active ON marketplace_offers(active)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_purchases_offer ON marketplace_purchases(offer_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_purchases_at ON marketplace_purchases(purchased_at DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_purchases_buyer ON marketplace_purchases(buyer_api_key)")
     conn.commit()
     conn.close()
+
+
+def _buyer_public_id(api_key: str) -> str:
+    """Return a privacy-preserving buyer label for public sale events."""
+    digest = hashlib.sha256(str(api_key or "").encode("utf-8")).hexdigest()[:8]
+    try:
+        conn = sqlite3.connect(str(MEMORY_DB_PATH))
+        row = conn.execute(
+            "SELECT username FROM agent_addresses WHERE api_key = ? ORDER BY created_at ASC LIMIT 1",
+            (api_key,),
+        ).fetchone()
+        conn.close()
+        if row and row[0]:
+            return str(row[0])[:80]
+    except Exception:
+        pass
+    return f"buyer_{digest}"
+
+
+async def _credit_api_key(api_key: str, amount_sats: int) -> dict[str, Any]:
+    """Local bridge credit used for promotional in-platform cashback."""
+    if amount_sats <= 0:
+        return {"credited": False, "reason": "no_credit"}
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(
+                f"{NODE_URL}/credit/internal",
+                json={"api_key": api_key, "amount_sats": amount_sats},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "credited": True,
+                    "credited_sats": _safe_int(data.get("credited_sats", amount_sats)),
+                    "new_balance_sats": data.get("new_balance_sats"),
+                }
+            return {"credited": False, "reason": resp.text[:160]}
+    except Exception as exc:
+        logger.warning(f"buyer cashback credit failed: {exc}")
+        return {"credited": False, "reason": str(exc)[:160]}
+
+
+async def _publish_marketplace_sale_event(
+    *,
+    purchase_id: str,
+    offer_id: str,
+    title: str,
+    seller_id: str,
+    buyer_id: str,
+    price_sats: int,
+    seller_payout_sats: int,
+    platform_cut_sats: int,
+    payout_status: str,
+    cashback_sats: int = 0,
+) -> None:
+    """Add a public board proof event for each marketplace sale."""
+    post_id = str(_msg_uuid.uuid4())
+    now = int(time.time())
+    payout_text = (
+        f"Seller received {seller_payout_sats:,} sats instantly."
+        if payout_status == "paid"
+        else f"Seller payout queued/retry required; seller payout target is {seller_payout_sats:,} sats."
+    )
+    cashback_text = f"\nEarly-buyer cashback credited: {cashback_sats:,} sats." if cashback_sats > 0 else ""
+    content = (
+        "Marketplace sale just happened.\n"
+        f"{buyer_id} bought {title} from {seller_id} for {price_sats:,} sats.\n"
+        f"{payout_text} Platform fee: {platform_cut_sats:,} sats."
+        f"{cashback_text}\n"
+        f"Buy/list here: https://api.babyblueviper.com/marketplace?offer_id={offer_id}"
+    )
+    conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+    try:
+        conn.execute(
+            """INSERT INTO board_posts (post_id, agent_id, api_key, content, category, reply_to, price_paid, created_at)
+               VALUES (?, ?, ?, ?, ?, NULL, 0, ?)""",
+            (post_id, "marketplace_bot", "internal_marketplace_sale", content, "marketplace", now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    asyncio.create_task(_mirror_to_nostr("marketplace_bot", content, "marketplace", post_id))
 
 
 def _agent_zero_payout_address() -> str:
@@ -5675,15 +5822,27 @@ async def list_offers(
     c = conn.cursor()
     join_sub = """
         LEFT JOIN (
-            SELECT offer_id, SUM(seller_payout) AS earnings_7d
+            SELECT
+                offer_id,
+                SUM(seller_payout) AS earnings_7d,
+                COUNT(*) AS sales_7d,
+                MAX(purchased_at) AS last_purchased_at,
+                SUM(price_sats) AS volume_7d
             FROM marketplace_purchases WHERE purchased_at >= ?
             GROUP BY offer_id
         ) e ON o.offer_id = e.offer_id
+        LEFT JOIN (
+            SELECT offer_id, SUM(seller_payout) AS total_earned
+            FROM marketplace_purchases
+            GROUP BY offer_id
+        ) allp ON o.offer_id = allp.offer_id
     """
     if category:
         c.execute(f"""
             SELECT o.offer_id, o.seller_id, o.title, o.description, o.price_sats,
-                   o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0)
+                   o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0),
+                   COALESCE(e.sales_7d, 0), COALESCE(e.last_purchased_at, 0), COALESCE(e.volume_7d, 0),
+                   COALESCE(allp.total_earned, 0)
             FROM marketplace_offers o {join_sub}
             WHERE o.active = 1 AND o.category = ?
             ORDER BY
@@ -5699,7 +5858,9 @@ async def list_offers(
     else:
         c.execute(f"""
             SELECT o.offer_id, o.seller_id, o.title, o.description, o.price_sats,
-                   o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0)
+                   o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0),
+                   COALESCE(e.sales_7d, 0), COALESCE(e.last_purchased_at, 0), COALESCE(e.volume_7d, 0),
+                   COALESCE(allp.total_earned, 0)
             FROM marketplace_offers o {join_sub}
             WHERE o.active = 1
             ORDER BY
@@ -5731,6 +5892,10 @@ async def list_offers(
             "sold_count": row[6],
             "created_at": row[7],
             "earnings_7d_sats": row[8],
+            "sales_7d": row[9],
+            "last_purchased_at": row[10],
+            "volume_7d_sats": row[11],
+            "total_earned_sats": row[12],
         })
 
     return {
@@ -5787,6 +5952,10 @@ async def buy_offer(
         FROM marketplace_offers WHERE offer_id = ?
     """, (req.offer_id,))
     row = c.fetchone()
+    c.execute("SELECT COUNT(*) FROM marketplace_purchases WHERE buyer_api_key = ?", (buyer_api_key,))
+    buyer_prior_purchases = _safe_int((c.fetchone() or [0])[0])
+    c.execute("SELECT COUNT(DISTINCT buyer_api_key) FROM marketplace_purchases")
+    distinct_buyers_before = _safe_int((c.fetchone() or [0])[0])
     conn.close()
 
     if not row:
@@ -5843,15 +6012,44 @@ async def buy_offer(
     conn.commit()
     conn.close()
 
+    cashback_sats = 0
+    cashback_status: dict[str, Any] = {"credited": False, "reason": "not_eligible"}
+    if (
+        EARLY_BUYER_CASHBACK_SATS > 0
+        and buyer_prior_purchases == 0
+        and distinct_buyers_before < EARLY_BUYER_CASHBACK_LIMIT
+    ):
+        cashback_sats = EARLY_BUYER_CASHBACK_SATS
+        cashback_status = await _credit_api_key(buyer_api_key, cashback_sats)
+        if not cashback_status.get("credited"):
+            cashback_sats = 0
+
+    buyer_public_id = _buyer_public_id(buyer_api_key)
+    await _publish_marketplace_sale_event(
+        purchase_id=purchase_id,
+        offer_id=offer_id,
+        title=title,
+        seller_id=seller_id,
+        buyer_id=buyer_public_id,
+        price_sats=price_sats,
+        seller_payout_sats=seller_payout_sats,
+        platform_cut_sats=platform_cut_sats,
+        payout_status=payout_status,
+        cashback_sats=cashback_sats,
+    )
+
     return {
         "status": "purchased",
         "purchase_id": purchase_id,
         "offer_id": offer_id,
         "title": title,
+        "buyer_public_id": buyer_public_id,
         "price_sats": price_sats,
         "platform_cut_sats": platform_cut_sats,
         "seller_payout_sats": seller_payout_sats,
         "seller_payout_status": payout_status,
+        "early_buyer_cashback_sats": cashback_sats,
+        "early_buyer_cashback": cashback_status,
         "note": f"Seller receives {SELLER_PERCENT}% ({seller_payout_sats} sats) via Lightning. Platform fee: {PLATFORM_CUT_PERCENT}% ({platform_cut_sats} sats).",
     }
 
