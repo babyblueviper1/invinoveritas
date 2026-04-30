@@ -5566,6 +5566,41 @@ async def _credit_api_key(api_key: str, amount_sats: int) -> dict[str, Any]:
         return {"credited": False, "reason": str(exc)[:160]}
 
 
+async def _credit_agent_id(agent_id: str, amount_sats: int) -> dict[str, Any]:
+    """Credit a registered platform agent without forcing same-node Lightning self-payment."""
+    if amount_sats <= 0:
+        return {"credited": False, "reason": "no_credit"}
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(
+                f"{NODE_URL}/credit/by-agent",
+                json={"agent_id": agent_id, "amount_sats": amount_sats},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "credited": bool(data.get("credited", True)),
+                    "credited_sats": amount_sats,
+                    "agent_id": agent_id,
+                    "raw": data,
+                }
+            return {"credited": False, "reason": resp.text[:160]}
+    except Exception as exc:
+        logger.warning(f"agent credit failed for {agent_id}: {exc}")
+        return {"credited": False, "reason": str(exc)[:160]}
+
+
+def _local_agent_from_ln_address(ln_address: str) -> str:
+    """Return the platform agent id for api.babyblueviper.com Lightning addresses."""
+    value = str(ln_address or "").strip()
+    if "@" not in value:
+        return ""
+    username, domain = value.rsplit("@", 1)
+    if domain.lower() != "api.babyblueviper.com":
+        return ""
+    return username.strip()
+
+
 async def _publish_marketplace_sale_event(
     *,
     purchase_id: str,
@@ -5977,23 +6012,38 @@ async def buy_offer(
         if not data.get("allowed", False):
             raise HTTPException(402, data.get("detail", f"Payment required ({price_sats} sats)"))
 
-    # Pay seller 95% via their Lightning address
+    # Pay seller 95%. Local platform agent addresses are credited directly to
+    # avoid same-node Lightning self-payment failures; external Lightning
+    # addresses still use LNURL + bolt11 payout.
     seller_payment_hash = ""
     payout_status = "pending"
+    local_seller_agent = _local_agent_from_ln_address(ln_address) or (
+        seller_id if str(seller_id).startswith("agent_") else ""
+    )
     try:
-        invoice_result = fetch_lnurl_invoice(ln_address, seller_payout_sats)
-        if "error" not in invoice_result:
-            pay_result = pay_bolt11(invoice_result["bolt11"], memo=f"marketplace sale: {title[:40]}")
-            if "error" not in pay_result:
-                seller_payment_hash = pay_result.get("payment_hash", "")
+        if local_seller_agent:
+            credit_result = await _credit_agent_id(local_seller_agent, seller_payout_sats)
+            if credit_result.get("credited"):
+                seller_payment_hash = f"internal_credit:{local_seller_agent}:{now_ts()}"
                 payout_status = "paid"
-                logger.info(f"Seller payout {seller_payout_sats} sats to {ln_address}: {seller_payment_hash[:16]}...")
+                logger.info(f"Seller credited internally: {seller_payout_sats} sats to {local_seller_agent}")
             else:
-                logger.error(f"Seller payout failed: {pay_result['error']}")
+                logger.error(f"Internal seller credit failed for {local_seller_agent}: {credit_result}")
                 payout_status = "failed"
         else:
-            logger.error(f"Failed to fetch seller invoice from {ln_address}: {invoice_result['error']}")
-            payout_status = "failed"
+            invoice_result = fetch_lnurl_invoice(ln_address, seller_payout_sats)
+            if "error" not in invoice_result:
+                pay_result = pay_bolt11(invoice_result["bolt11"], memo=f"marketplace sale: {title[:40]}")
+                if "error" not in pay_result:
+                    seller_payment_hash = pay_result.get("payment_hash", "")
+                    payout_status = "paid"
+                    logger.info(f"Seller payout {seller_payout_sats} sats to {ln_address}: {seller_payment_hash[:16]}...")
+                else:
+                    logger.error(f"Seller payout failed: {pay_result['error']}")
+                    payout_status = "failed"
+            else:
+                logger.error(f"Failed to fetch seller invoice from {ln_address}: {invoice_result['error']}")
+                payout_status = "failed"
     except Exception as e:
         logger.error(f"Seller payout exception: {e}")
         payout_status = "failed"
