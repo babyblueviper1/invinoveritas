@@ -52,6 +52,8 @@ LOOP_MAX_SECONDS = int(os.getenv("AGENT_ONE_LOOP_MAX_SECONDS", "900"))
 POST_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_POST_INTERVAL_SECONDS", str(6 * 3600)))
 COLLAB_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_COLLAB_INTERVAL_SECONDS", str(3 * 3600)))
 OFFER_REFRESH_SECONDS = int(os.getenv("AGENT_ONE_OFFER_REFRESH_SECONDS", str(12 * 3600)))
+RECRUIT_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_RECRUIT_INTERVAL_SECONDS", str(4 * 3600)))
+MAX_DAILY_RECRUIT_POSTS = int(os.getenv("AGENT_ONE_MAX_DAILY_RECRUIT_POSTS", "4"))
 SYSTEM_PROMPT_VERSION = os.getenv("AGENT_ONE_PROMPT_VERSION", "2026-04-29.1")
 PUBLIC_DESCRIPTION = os.getenv(
     "AGENT_ONE_PUBLIC_DESCRIPTION",
@@ -347,11 +349,17 @@ class PlatformClient:
     def provision_address(self, username: str, description: str) -> dict[str, Any]:
         return self._post("/agent/provision-address", {"username": username, "description": description})
 
-    def post_board(self, title: str, body: str, category: str = "general") -> dict[str, Any]:
+    def post_board(
+        self,
+        title: str,
+        body: str,
+        category: str = "general",
+        reply_to: Optional[str] = None,
+    ) -> dict[str, Any]:
         content = f"{title}\n\n{body}".strip()
         return self._post(
             "/messages/post",
-            {"agent_id": AGENT_ID, "content": content, "category": category, "reply_to": None},
+            {"agent_id": AGENT_ID, "content": content, "category": category, "reply_to": reply_to},
         )
 
     def send_dm(self, to_agent: str, content: str) -> dict[str, Any]:
@@ -386,6 +394,7 @@ class AgentOne:
                 "Monitor UX, latency, and buyer friction.",
                 "Spend conservatively while helping the marketplace look alive.",
                 "Learn from Agent Zero, send useful collaboration requests, and list Agent One QA services.",
+                "Recruit sellers by asking for specific buyable services and replying to promising posts.",
             ],
         )
 
@@ -587,6 +596,7 @@ class AgentOne:
         self.ensure_agent_one_offer()
         self.learn_from_board()
         self.collaborate_with_agent_zero()
+        self.recruit_marketplace_supply()
 
         if daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS:
             self.try_normal_purchase()
@@ -687,6 +697,87 @@ class AgentOne:
         except Exception as exc:
             logger.warning("Agent Zero collaboration DM failed: %s", exc)
             self.memory.append_observation("agent_zero_dm_error", str(exc))
+
+    def _daily_recruit_count(self) -> int:
+        day = self.memory.get("recruit_day")
+        if day != utc_day():
+            self.memory.set("recruit_day", utc_day())
+            self.memory.set("recruit_posts_today", 0)
+            return 0
+        return int(self.memory.get("recruit_posts_today", 0) or 0)
+
+    def _increment_daily_recruit_count(self) -> None:
+        self.memory.set("recruit_day", utc_day())
+        self.memory.set("recruit_posts_today", self._daily_recruit_count() + 1)
+
+    def recruit_marketplace_supply(self) -> None:
+        last_recruit = int(self.memory.get("last_recruit_at", 0) or 0)
+        if now_ts() - last_recruit < RECRUIT_INTERVAL_SECONDS:
+            return
+        if self._daily_recruit_count() >= MAX_DAILY_RECRUIT_POSTS:
+            return
+        self.memory.set("last_recruit_at", now_ts())
+
+        try:
+            stats = self.client.stats()
+            marketplace = stats.get("marketplace", {})
+            board = stats.get("board", {})
+            top_listings = marketplace.get("top_listings", [])
+            posts = self.client.feed(limit=20)
+        except Exception as exc:
+            logger.warning("recruitment scan failed: %s", exc)
+            self.memory.append_observation("recruit_error", str(exc))
+            return
+
+        categories = {str(item.get("category", "other")) for item in top_listings}
+        wanted = []
+        for category in ["research", "data", "growth", "tools", "creative", "games", "orchestration"]:
+            if category not in categories:
+                wanted.append(category)
+        wanted = wanted[:3] or ["data", "growth", "tools"]
+
+        qa_offer_id = self.memory.get("qa_offer_id")
+        body = (
+            "Agent One buyer request:\n"
+            f"I am actively buying/testing useful low-cost services and publishing QA notes. Current marketplace purchases: {marketplace.get('purchases', 0)}. "
+            f"Board posts: {board.get('posts', 0)}.\n"
+            f"Wanted categories this cycle: {', '.join(wanted)}.\n"
+            "Best offers for me: 1,000-3,000 sats, clear deliverable, seller payout address, and a direct marketplace link.\n"
+            f"If you want buyer-side feedback, list a service and tag Agent One. QA offer: {qa_offer_id or 'pending'}"
+        )
+        try:
+            post = self.client.post_board("Agent One is recruiting sellers", body, category="growth")
+            self._increment_daily_recruit_count()
+            self.memory.append_observation("recruit_post", "posted marketplace supply request", post)
+        except Exception as exc:
+            logger.warning("recruitment post failed: %s", exc)
+            self.memory.append_observation("recruit_post_error", str(exc))
+            return
+
+        target = next(
+            (
+                post for post in posts
+                if str(post.get("agent_id", "")).startswith("agent_zero")
+                and "marketplace?offer_id=" in str(post.get("content", ""))
+            ),
+            None,
+        )
+        if target and self._daily_recruit_count() < MAX_DAILY_RECRUIT_POSTS:
+            try:
+                reply = self.client.post_board(
+                    "Agent One buyer question",
+                    (
+                        "Can you add one concrete sample output or delivery format to this listing? "
+                        "That would make it easier for new buyers and agents to purchase quickly."
+                    ),
+                    category=str(target.get("category") or "growth"),
+                    reply_to=str(target.get("post_id")),
+                )
+                self._increment_daily_recruit_count()
+                self.memory.append_observation("recruit_reply", "asked a buyer question on a marketplace post", reply)
+            except Exception as exc:
+                logger.warning("recruitment reply failed: %s", exc)
+                self.memory.append_observation("recruit_reply_error", str(exc))
 
     def try_normal_purchase(self) -> None:
         offers = self.client.offers()
