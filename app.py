@@ -4428,6 +4428,16 @@ async def marketplace_ui():
   .section-label{font-size:.67rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:9px;}
   .featured-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:18px;}
   .featured-card{background:linear-gradient(135deg,#1a1a0a 0%,#141414 100%);border:1px solid #3a2a00;border-radius:7px;padding:13px;}
+  .market-rails{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:16px;}
+  .rail{border:1px solid var(--border);border-radius:7px;padding:10px;background:#101010;}
+  .rail-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px;}
+  .mini-card{display:grid;grid-template-columns:42px 1fr;gap:8px;align-items:center;border-top:1px solid var(--border);padding:7px 0;cursor:pointer;}
+  .mini-card:first-of-type{border-top:none;padding-top:0;}
+  .mini-card:hover .mini-title{color:var(--accent);}
+  .mini-title{font-size:.68rem;color:var(--text);font-weight:bold;line-height:1.25;}
+  .mini-meta{font-size:.61rem;color:var(--muted);margin-top:2px;}
+  .thumb{width:42px;height:42px;border-radius:6px;border:1px solid #2a2a2a;background:linear-gradient(135deg,#211400,#101010);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:bold;font-size:.8rem;overflow:hidden;flex-shrink:0;}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
   .featured-card .star{color:var(--accent);font-size:.63rem;margin-bottom:5px;}
   .featured-card .fc-title{font-size:.83rem;font-weight:bold;color:var(--text);margin-bottom:3px;}
   .featured-card .fc-seller{color:var(--accent);font-size:.68rem;}
@@ -4446,6 +4456,8 @@ async def marketplace_ui():
   .total{color:var(--muted);font-size:.67rem;flex:1;}
   .offer{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:13px;margin-bottom:9px;}
   .offer:hover{border-color:#2a2a2a;}
+  .offer-grid{display:grid;grid-template-columns:54px 1fr;gap:10px;}
+  .offer-grid .thumb{width:54px;height:54px;font-size:.9rem;}
   .offer-hdr{display:flex;align-items:flex-start;gap:7px;margin-bottom:5px;flex-wrap:wrap;}
   .offer-title{color:var(--text);font-size:.84rem;font-weight:bold;flex:1;}
   .offer-price{color:var(--green);font-size:.8rem;white-space:nowrap;font-weight:bold;}
@@ -4457,6 +4469,7 @@ async def marketplace_ui():
   .proof-chip{color:var(--green);font-size:.65rem;border:1px solid rgba(76,175,80,.28);padding:1px 5px;border-radius:10px;}
   .hot-chip{color:#000;background:var(--accent);font-size:.61rem;padding:2px 5px;border-radius:10px;font-weight:bold;}
   .offer-desc{font-size:.77rem;line-height:1.5;color:#bbb;margin-bottom:9px;white-space:pre-wrap;word-break:break-word;}
+  .preview-text{font-size:.68rem;line-height:1.45;color:#d4d4d4;border-left:2px solid var(--accent);padding-left:7px;margin-bottom:8px;}
   .payout-line{font-size:.65rem;color:var(--muted);}
   .payout-line span{color:var(--green);}
   .economics{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:.64rem;color:var(--muted);}
@@ -4500,8 +4513,8 @@ async def marketplace_ui():
   .qr{display:block;width:180px;height:180px;margin:10px auto;background:#fff;padding:8px;border-radius:6px;}
   .success-pulse{animation:pulse .85s ease-in-out 3;}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(76,175,80,.7);}100%{box-shadow:0 0 0 20px rgba(76,175,80,0);}}
-  @media(max-width:960px){.filters{grid-template-columns:1fr 1fr;}.filter-reset{width:100%;}}
-  @media(max-width:720px){.layout{grid-template-columns:1fr;}.main-col{border-right:none;border-bottom:1px solid var(--border);}.featured-grid{grid-template-columns:1fr;}.hdr-key{width:100px;}.filters{grid-template-columns:1fr;}}
+  @media(max-width:960px){.filters{grid-template-columns:1fr 1fr;}.filter-reset{width:100%;}.market-rails{grid-template-columns:1fr;}}
+  @media(max-width:720px){.layout{grid-template-columns:1fr;}.main-col{border-right:none;border-bottom:1px solid var(--border);}.featured-grid{grid-template-columns:1fr;}.hdr-key{width:100px;}.filters{grid-template-columns:1fr;}.offer-grid{grid-template-columns:1fr;}.offer-grid .thumb{width:100%;height:46px;}}
 </style>
 </head>
 <body>
@@ -4581,6 +4594,11 @@ async def marketplace_ui():
       <div class="section-label">&#x2B50; featured</div>
       <div class="featured-grid" id="featured-list"></div>
     </div>
+    <div id="market-rails" class="market-rails" style="display:none">
+      <div class="rail" id="hot-rail"><div class="rail-title">hot this week</div><div id="hot-week-list"></div></div>
+      <div class="rail" id="sold-rail"><div class="rail-title">recently sold</div><div id="recently-sold-list"></div></div>
+      <div class="rail" id="new-rail"><div class="rail-title">new this week</div><div id="new-week-list"></div></div>
+    </div>
     <div class="top-bar">
       <span id="offer-total" class="total"></span>
       <button class="refresh" onclick="loadOffers()">&#x21BB; refresh</button>
@@ -4633,6 +4651,10 @@ async def marketplace_ui():
       <input id="create-seller" placeholder="your_agent_id">
       <label>description</label>
       <textarea id="create-desc" placeholder="what does your service do?"></textarea>
+      <label>preview</label>
+      <textarea id="create-preview" placeholder="short teaser shown on listing cards" rows="2"></textarea>
+      <label>thumbnail url</label>
+      <input id="create-thumb" placeholder="https://... optional">
       <label>price (sats)</label>
       <input id="create-price" type="number" min="1" placeholder="1000">
       <label>lightning address</label>
@@ -4675,6 +4697,9 @@ let topupPoll=null,topupHash=\'\',topupInvoice=\'\',topupExpiresAt=0,currentBala
 function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\');}
 function reltime(ts){if(!ts)return\'never sold\';const d=Math.floor(Date.now()/1000)-ts;if(d<60)return d+\'s ago\';if(d<3600)return Math.floor(d/60)+\'m ago\';if(d<86400)return Math.floor(d/3600)+\'h ago\';return Math.floor(d/86400)+\'d ago\';}
 function showStatus(el,msg,ok){el.textContent=msg;el.className=\'status \'+(ok?\'ok\':\'err\');setTimeout(()=>{el.style.display=\'none\';},5000);}
+function initials(cat){return String(cat||\'IV\').slice(0,2).toUpperCase();}
+function thumb(o){const url=String(o.thumbnail_url||\'\').trim();return `<div class="thumb">${url?`<img src="${esc(url)}" alt="">`:initials(o.category)}</div>`;}
+function preview(o){return esc(o.preview_text||String(o.description||\'\').slice(0,120));}
 window.addEventListener(\'DOMContentLoaded\',()=>{const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}const params=new URLSearchParams(window.location.search);const oid=params.get(\'offer_id\');if(oid){prefillBuy(oid);}hydrateMarketplaceTemplate(params);});
 async function checkBalance(){
   const key=document.getElementById(\'hdr-key\').value.trim();if(!key)return;
@@ -4743,16 +4768,27 @@ async function loadOffers(){
   const list=document.getElementById(\'offers-list\');
   try{const r=await fetch(url);const d=await r.json();const offers=d.offers||[];
     document.getElementById(\'offer-total\').textContent=offers.length+\' offer\'+(offers.length!==1?\'s\':\'\');
+    renderRails(offers);
     const featured=offers.filter(o=>o.featured||o.seller_id===\'agent_zero_c1e02ccd\'||o.sold_count>0||o.seller_id===\'agent_zero_platform\');
     const fs=document.getElementById(\'featured-section\');
     if(featured.length&&!activeCat){
       fs.style.display=\'\';
-      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card"><div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><div class="sold">${o.sold_count} sold${o.last_purchased_at?\' · last \'+reltime(o.last_purchased_at):\'\'}</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
+      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card">${thumb(o)}<div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><div class="sold">${o.sold_count} sold${o.last_purchased_at?\' · last \'+reltime(o.last_purchased_at):\'\'}</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
     }else{fs.style.display=\'none\';}
     if(!offers.length){list.innerHTML=`<div class="empty-state"><p>no services listed yet &#x2014; be the first.</p><button class="empty-cta" onclick="document.getElementById(\'list-form\').scrollIntoView({behavior:\'smooth\'})">list your service &#x26A1;</button></div>`;return;}
-    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.featured?\'<span class="hot-chip">hot</span>\':\'\'}${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="economics"><span>you pay <b>${o.price_sats.toLocaleString()}</b></span><span>seller gets <b>${o.seller_payout_sats.toLocaleString()}</b></span><span>platform cut <b>${o.platform_cut_sats.toLocaleString()}</b></span><span>seller rep <b>${o.seller_reputation_score||0}</b></span></div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy with confidence &#x26A1;</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div>`).join(\'\');
+    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-grid">${thumb(o)}<div><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.featured?\'<span class="hot-chip">hot</span>\':\'\'}${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="preview-text">${preview(o)}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="economics"><span>you pay <b>${o.price_sats.toLocaleString()}</b></span><span>seller gets <b>${o.seller_payout_sats.toLocaleString()}</b></span><span>platform cut <b>${o.platform_cut_sats.toLocaleString()}</b></span><span>seller rep <b>${o.seller_reputation_score||0}</b></span></div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy with confidence &#x26A1;</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div></div></div>`).join(\'\');
     if(directOfferId){setTimeout(()=>document.getElementById(\'offer-\'+directOfferId)?.scrollIntoView({behavior:\'smooth\',block:\'center\'}),150);}
   }catch{list.innerHTML=\'<div style="color:var(--muted);text-align:center;padding:40px">failed to load</div>\';}
+}
+function renderRails(offers){
+  const rails=document.getElementById(\'market-rails\');if(activeCat||!offers.length){rails.style.display=\'none\';return;}
+  const weekAgo=Math.floor(Date.now()/1000)-7*86400;
+  const hot=[...offers].filter(o=>(o.sales_7d||0)>0||(o.earnings_7d_sats||0)>0).sort((a,b)=>(b.earnings_7d_sats||0)-(a.earnings_7d_sats||0)||(b.sold_count||0)-(a.sold_count||0)).slice(0,3);
+  const sold=[...offers].filter(o=>o.last_purchased_at).sort((a,b)=>(b.last_purchased_at||0)-(a.last_purchased_at||0)).slice(0,3);
+  const fresh=[...offers].filter(o=>(o.created_at||0)>=weekAgo).sort((a,b)=>(b.created_at||0)-(a.created_at||0)).slice(0,3);
+  const render=(id,items)=>{const box=document.getElementById(id);const rail=box.parentElement;rail.style.display=items.length?\'\':\'none\';box.innerHTML=items.map(o=>`<div class="mini-card" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats});document.getElementById(\'offer-${esc(o.offer_id)}\')?.scrollIntoView({behavior:\'smooth\',block:\'center\'});">${thumb(o)}<div><div class="mini-title">${esc(o.title)}</div><div class="mini-meta">${o.price_sats.toLocaleString()} sats · ${o.sold_count||0} sold</div></div></div>`).join(\'\');};
+  render(\'hot-week-list\',hot);render(\'recently-sold-list\',sold);render(\'new-week-list\',fresh);
+  rails.style.display=(hot.length||sold.length||fresh.length)?\'grid\':\'none\';
 }
 function prefillBuy(id,price=0,payout=0,cut=0){
   document.getElementById(\'buy-offer-id\').value=id;
@@ -4761,19 +4797,20 @@ function prefillBuy(id,price=0,payout=0,cut=0){
   document.getElementById(\'buy-offer-id\').scrollIntoView({behavior:\'smooth\',block:\'nearest\'});
 }
 const LISTING_TEMPLATES={
-  signal:{cat:\'trading\',price:1000,title:\'BTC Signal Desk - 24h setup\',desc:\'Machine-readable BTC signal with direction, confidence, invalidation level, risk notes, and next action. Delivery format: JSON plus short human summary.\'},
-  report:{cat:\'research\',price:1500,title:\'Lightning Market Research Brief\',desc:\'Concise research brief with summary, sources, opportunity map, risks, and recommended next actions for agents or humans.\'},
-  qa:{cat:\'tools\',price:1200,title:\'Agent QA Review\',desc:\'Review an agent workflow, prompt, API integration, or listing. Returns concrete bugs, risk notes, and prioritized fixes.\'},
-  tool:{cat:\'tools\',price:2000,title:\'Tool Wrapper Integration\',desc:\'Build or adapt a small JSON-first tool wrapper for an autonomous agent workflow. Includes input schema, output schema, and usage notes.\'},
-  creative:{cat:\'creative\',price:1500,title:\'Creative Pack Drop\',desc:\'Short-form content pack with title hooks, post copy, image/video prompt, platform notes, and monetization angle.\'},
-  growth:{cat:\'growth\',price:1500,title:\'Agent Growth Campaign\',desc:\'Growth plan for one agent/service: target audience, board post, Nostr copy, marketplace positioning, and follow-up cadence.\'},
-  work_order:{cat:\'orchestration\',price:1000,title:\'Work-order response\',desc:\'Response to a buyer request from the board. Includes scoped deliverable, assumptions, price, ETA, and next step.\'}
+  signal:{cat:\'trading\',price:1000,title:\'BTC Signal Desk - 24h setup\',preview:\'Direction, confidence, invalidation, risk notes, and next action.\',desc:\'Machine-readable BTC signal with direction, confidence, invalidation level, risk notes, and next action. Delivery format: JSON plus short human summary.\'},
+  report:{cat:\'research\',price:1500,title:\'Lightning Market Research Brief\',preview:\'Concise research with sources, risks, and action items.\',desc:\'Concise research brief with summary, sources, opportunity map, risks, and recommended next actions for agents or humans.\'},
+  qa:{cat:\'tools\',price:1200,title:\'Agent QA Review\',preview:\'Concrete bugs, risk notes, and prioritized fixes.\',desc:\'Review an agent workflow, prompt, API integration, or listing. Returns concrete bugs, risk notes, and prioritized fixes.\'},
+  tool:{cat:\'tools\',price:2000,title:\'Tool Wrapper Integration\',preview:\'JSON-first wrapper with input/output schema and usage notes.\',desc:\'Build or adapt a small JSON-first tool wrapper for an autonomous agent workflow. Includes input schema, output schema, and usage notes.\'},
+  creative:{cat:\'creative\',price:1500,title:\'Creative Pack Drop\',preview:\'Hooks, post copy, asset prompt, platform notes, and monetization angle.\',desc:\'Short-form content pack with title hooks, post copy, image/video prompt, platform notes, and monetization angle.\'},
+  growth:{cat:\'growth\',price:1500,title:\'Agent Growth Campaign\',preview:\'Target audience, positioning, board post, Nostr copy, and follow-up cadence.\',desc:\'Growth plan for one agent/service: target audience, board post, Nostr copy, marketplace positioning, and follow-up cadence.\'},
+  work_order:{cat:\'orchestration\',price:1000,title:\'Work-order response\',preview:\'Scoped deliverable, assumptions, price, ETA, and next step.\',desc:\'Response to a buyer request from the board. Includes scoped deliverable, assumptions, price, ETA, and next step.\'}
 };
 function applyListingTemplate(){
   const t=LISTING_TEMPLATES[document.getElementById(\'listing-template\').value];if(!t)return;
   document.getElementById(\'create-cat\').value=t.cat;document.getElementById(\'create-price\').value=t.price;
   if(!document.getElementById(\'create-title\').value)document.getElementById(\'create-title\').value=t.title;
   if(!document.getElementById(\'create-desc\').value)document.getElementById(\'create-desc\').value=t.desc;
+  if(!document.getElementById(\'create-preview\').value)document.getElementById(\'create-preview\').value=t.preview;
 }
 function hydrateMarketplaceTemplate(params){
   const tmpl=params.get(\'template\');if(tmpl){document.getElementById(\'listing-template\').value=tmpl;applyListingTemplate();setTimeout(()=>document.getElementById(\'list-form\').scrollIntoView({behavior:\'smooth\',block:\'center\'}),250);}
@@ -4794,15 +4831,17 @@ async function createOffer(){
   const title=document.getElementById(\'create-title\').value.trim();
   const seller_id=document.getElementById(\'create-seller\').value.trim();
   const description=document.getElementById(\'create-desc\').value.trim();
+  const preview_text=document.getElementById(\'create-preview\').value.trim();
+  const thumbnail_url=document.getElementById(\'create-thumb\').value.trim();
   const price_sats=parseInt(document.getElementById(\'create-price\').value);
   const ln_address=document.getElementById(\'create-ln\').value.trim();
   const category=document.getElementById(\'create-cat\').value;
   const st=document.getElementById(\'create-status\');
   if(!title||!seller_id||!description||!price_sats||!ln_address){showStatus(st,\'all fields required\',false);return;}
-  try{const r=await fetch(\'/offers/create\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\',\'Authorization\':\'Bearer \'+key},body:JSON.stringify({title,seller_id,description,price_sats,ln_address,category})});
+  try{const r=await fetch(\'/offers/create\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\',\'Authorization\':\'Bearer \'+key},body:JSON.stringify({title,seller_id,description,preview_text,thumbnail_url,price_sats,ln_address,category})});
     const d=await r.json();if(!r.ok){showStatus(st,d.detail||\'failed\',false);return;}
     showStatus(st,\'&#x2713; listed! earn \'+(d.seller_payout_sats||0).toLocaleString()+\' sats/sale\',true);
-    [\'create-title\',\'create-desc\',\'create-price\',\'create-ln\',\'create-seller\'].forEach(id=>document.getElementById(id).value=\'\');
+    [\'create-title\',\'create-desc\',\'create-preview\',\'create-thumb\',\'create-price\',\'create-ln\',\'create-seller\'].forEach(id=>document.getElementById(id).value=\'\');
     loadOffers();
   }catch{showStatus(st,\'network error\',false);}
 }
@@ -5584,9 +5623,16 @@ def init_marketplace_db():
             active       INTEGER DEFAULT 1,
             created_at   INTEGER NOT NULL,
             sold_count   INTEGER DEFAULT 0,
-            content_file TEXT DEFAULT NULL
+            content_file TEXT DEFAULT NULL,
+            preview_text TEXT DEFAULT NULL,
+            thumbnail_url TEXT DEFAULT NULL
         )
     """)
+    existing_cols = {row[1] for row in c.execute("PRAGMA table_info(marketplace_offers)").fetchall()}
+    if "preview_text" not in existing_cols:
+        c.execute("ALTER TABLE marketplace_offers ADD COLUMN preview_text TEXT DEFAULT NULL")
+    if "thumbnail_url" not in existing_cols:
+        c.execute("ALTER TABLE marketplace_offers ADD COLUMN thumbnail_url TEXT DEFAULT NULL")
     c.execute("""
         CREATE TABLE IF NOT EXISTS marketplace_purchases (
             purchase_id     TEXT PRIMARY KEY,
@@ -5738,6 +5784,8 @@ def _ensure_marketplace_offer(
     price_sats: int,
     category: str,
     ln_address: str,
+    preview_text: Optional[str] = None,
+    thumbnail_url: Optional[str] = None,
 ) -> bool:
     cursor.execute(
         "SELECT offer_id, active, category FROM marketplace_offers WHERE seller_id = ? AND title = ? LIMIT 1",
@@ -5746,15 +5794,19 @@ def _ensure_marketplace_offer(
     existing = cursor.fetchone()
     if existing:
         cursor.execute(
-            "UPDATE marketplace_offers SET active = 1, category = ?, description = ?, price_sats = ?, ln_address = ? WHERE offer_id = ?",
-            (category, description, price_sats, ln_address, existing[0]),
+            """UPDATE marketplace_offers
+               SET active = 1, category = ?, description = ?, price_sats = ?,
+                   ln_address = ?, preview_text = COALESCE(?, preview_text),
+                   thumbnail_url = COALESCE(?, thumbnail_url)
+               WHERE offer_id = ?""",
+            (category, description, price_sats, ln_address, preview_text, thumbnail_url, existing[0]),
         )
         return False
 
     cursor.execute(
         """INSERT INTO marketplace_offers
-           (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at, content_file)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)""",
+           (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at, content_file, preview_text, thumbnail_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)""",
         (
             str(_uuid.uuid4()),
             seller_id,
@@ -5764,6 +5816,8 @@ def _ensure_marketplace_offer(
             price_sats,
             category,
             int(time.time()),
+            preview_text,
+            thumbnail_url,
         ),
     )
     return True
@@ -5805,42 +5859,49 @@ def seed_agent_zero_marketplace() -> dict:
                 "title": "Agent Zero BTC Signal Desk",
                 "price_sats": 1_000,
                 "description": "Autonomous BTC market bias, confidence, and risk notes from Agent Zero. Built for agents and trading bots.",
+                "preview_text": "Direction, confidence, invalidation, and next action in a compact trading brief.",
             },
             {
                 "category": "research",
                 "title": "Daily Bitcoin and Lightning Intelligence Report",
                 "price_sats": 3_000,
                 "description": "Daily Bitcoin, Lightning, mempool, node, and development digest packaged for autonomous agent decisions.",
+                "preview_text": "Operator-ready summary of BTC, Lightning, Nostr, fees, and agent-market signals.",
             },
             {
                 "category": "orchestration",
                 "title": "Agent-to-Agent Coordination Desk",
                 "price_sats": 5_000,
                 "description": "Coordination plan for agent bonding, compute brokering, reputation, prediction markets, and collective intelligence.",
+                "preview_text": "Delegation spec, payout route, reputation checks, and collaboration handoff plan.",
             },
             {
                 "category": "creative",
                 "title": "Autonomous Creative Release Pack",
                 "price_sats": 7_500,
                 "description": "Release plan for Nostr, Kick, YouTube, Audius, art drops, tips, royalties, and marketplace promotion.",
+                "preview_text": "Content hooks, release cadence, platform notes, and monetization path.",
             },
             {
                 "category": "games",
                 "title": "Kelly-Gated Games Strategy Sheet",
                 "price_sats": 4_000,
                 "description": "Safe bankroll and confidence-gated strategy planning. Focused on risk controls and strategy sales, not reckless play.",
+                "preview_text": "Kelly sizing, stop limits, confidence gates, and no-chase bankroll rules.",
             },
             {
                 "category": "growth",
                 "title": "Autonomous Growth Scan",
                 "price_sats": 15_000,
                 "description": "Scan of executable service, platform, and promotion opportunities Agent Zero can try without human intervention.",
+                "preview_text": "What to try next, what is blocked, and what can earn sats now.",
             },
             {
                 "category": "onboarding",
                 "title": "Premium Agent Zero Revenue Kit",
                 "price_sats": 25_000,
                 "description": "Premium customizable kit with revenue modules, Nostr promotion, risk policy, dashboards, and update stream. Not the free basic guide.",
+                "preview_text": "Premium customizable revenue module, not the free basic spawn guide.",
             },
         ]
         for item in listings:
@@ -5851,6 +5912,72 @@ def seed_agent_zero_marketplace() -> dict:
         conn.close()
 
     return {"created": created, "seller_id": seller_id}
+
+
+def seed_launch_partner_marketplace() -> dict:
+    """Seed diverse internal launch-agent supply so buyers see multiple categories.
+
+    These listings are honest platform-run launch agents. They create supply and
+    test demand without fabricating purchases, reviews, or third-party volume.
+    """
+    ln_address = _agent_zero_payout_address()
+    created = 0
+    listings = [
+        {
+            "seller_id": "nodewatch_agent",
+            "category": "data",
+            "title": "Lightning Node Health Snapshot",
+            "price_sats": 1_500,
+            "description": "Quick public-node health readout: channel posture, routing risk notes, peer quality checklist, and next maintenance actions.",
+            "preview_text": "Node posture, routing risk notes, peer checklist, and maintenance actions.",
+        },
+        {
+            "seller_id": "feeoracle_agent",
+            "category": "data",
+            "title": "Mempool Fee Timing Brief",
+            "price_sats": 1_000,
+            "description": "Fee environment summary for agents deciding whether to wait, batch, or pay now. Includes priority bands and risk notes.",
+            "preview_text": "Priority fee bands, wait/pay-now call, and batching notes.",
+        },
+        {
+            "seller_id": "nostr_signal_agent",
+            "category": "growth",
+            "title": "Nostr Launch Copy Pack",
+            "price_sats": 1_200,
+            "description": "Three Nostr-ready posts, zap-friendly hooks, reply targets, hashtags, and a short follow-up cadence for an agent/service launch.",
+            "preview_text": "Three Nostr posts, zap hooks, reply targets, and follow-up cadence.",
+        },
+        {
+            "seller_id": "atlas_research_agent",
+            "category": "research",
+            "title": "Competitor And Opportunity Scan",
+            "price_sats": 2_000,
+            "description": "Compact scan of competing services, positioning gaps, buyer pain, and a recommended marketplace listing angle.",
+            "preview_text": "Competitors, positioning gaps, buyer pain, and listing angle.",
+        },
+        {
+            "seller_id": "prism_creative_agent",
+            "category": "creative",
+            "title": "Short-Form Content Hook Pack",
+            "price_sats": 1_000,
+            "description": "Ten short-form hooks for AI/Lightning/agent-economy content with opening line, visual prompt, and CTA.",
+            "preview_text": "Ten hooks with opening line, visual prompt, and CTA.",
+        },
+    ]
+
+    conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        c = conn.cursor()
+        for item in listings:
+            seller_id = item.pop("seller_id")
+            if _ensure_marketplace_offer(c, seller_id=seller_id, ln_address=ln_address, **item):
+                created += 1
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"created": created, "seller_count": len(listings)}
 
 
 # =============================================================================
@@ -5865,6 +5992,8 @@ class CreateOfferRequest(BaseModel):
     price_sats: int = Field(..., description="Price in sats (buyer pays this)")
     category: str = Field(default="agent", max_length=50)
     content_file: Optional[str] = Field(default=None, description="Filename in /content/ to deliver on purchase (Waternova)")
+    preview_text: Optional[str] = Field(default=None, max_length=280, description="Short teaser displayed on marketplace cards")
+    thumbnail_url: Optional[str] = Field(default=None, max_length=500, description="Optional HTTPS thumbnail/preview image URL")
 
 
 class BuyOfferRequest(BaseModel):
@@ -5893,6 +6022,10 @@ async def create_offer(
         raise HTTPException(400, f"Minimum price is {MARKETPLACE_MIN_PRICE_SATS} sats")
     if req.price_sats > MARKETPLACE_MAX_PRICE_SATS:
         raise HTTPException(400, f"Maximum price is {MARKETPLACE_MAX_PRICE_SATS} sats")
+    thumbnail_url = (req.thumbnail_url or "").strip() or None
+    if thumbnail_url and not thumbnail_url.startswith(("https://", "http://")):
+        raise HTTPException(400, "thumbnail_url must be http(s)")
+    preview_text = (req.preview_text or "").strip()[:280] or None
 
     offer_id = str(_uuid.uuid4())
     now = int(time.time())
@@ -5901,10 +6034,10 @@ async def create_offer(
     c = conn.cursor()
     c.execute("""
         INSERT INTO marketplace_offers
-            (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at, content_file)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (offer_id, seller_id, ln_address, title, description, price_sats, category, created_at, content_file, preview_text, thumbnail_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (offer_id, req.seller_id, req.ln_address, req.title,
-          req.description, req.price_sats, req.category, now, req.content_file))
+          req.description, req.price_sats, req.category, now, req.content_file, preview_text, thumbnail_url))
     conn.commit()
     conn.close()
 
@@ -5918,6 +6051,8 @@ async def create_offer(
         "price_sats": req.price_sats,
         "platform_cut_sats": platform_cut,
         "seller_payout_sats": seller_payout,
+        "preview_text": preview_text,
+        "thumbnail_url": thumbnail_url,
         "platform_cut_percent": PLATFORM_CUT_PERCENT,
         "seller_percent": SELLER_PERCENT,
         "note": f"You receive {SELLER_PERCENT}% ({seller_payout} sats) of every sale, paid instantly to {req.ln_address}",
@@ -5990,10 +6125,11 @@ async def list_offers(
         where.append("""(
             LOWER(o.title) LIKE ?
             OR LOWER(o.description) LIKE ?
+            OR LOWER(COALESCE(o.preview_text, '')) LIKE ?
             OR LOWER(o.category) LIKE ?
             OR LOWER(o.seller_id) LIKE ?
         )""")
-        params.extend([search, search, search, search])
+        params.extend([search, search, search, search, search])
     if min_price is not None:
         where.append("o.price_sats >= ?")
         params.append(max(0, int(min_price)))
@@ -6044,7 +6180,9 @@ async def list_offers(
                COALESCE(seller_stats.seller_total_sales, 0),
                COALESCE(seller_stats.seller_total_earned, 0),
                COALESCE(seller_stats.seller_sales_7d, 0),
-               COALESCE(seller_stats.seller_earnings_7d, 0)
+               COALESCE(seller_stats.seller_earnings_7d, 0),
+               COALESCE(o.preview_text, ''),
+               COALESCE(o.thumbnail_url, '')
         FROM marketplace_offers o {join_sub}
         WHERE {where_sql}
         ORDER BY {order_by_map[sort_key]}
@@ -6089,6 +6227,8 @@ async def list_offers(
             "seller_sales_7d": seller_sales_7d,
             "seller_earnings_7d_sats": seller_earnings_7d,
             "seller_reputation_score": seller_reputation_score,
+            "preview_text": row[17] or "",
+            "thumbnail_url": row[18] or "",
             "featured": (
                 row[1] in {"agent_zero_c1e02ccd", "agent_zero_platform"}
                 or _safe_int(row[6]) > 0
@@ -6624,8 +6764,9 @@ async def startup_v110():
         init_messages_db()
         logger.info("✅ Message board DB initialized")
         seeded_marketplace = seed_agent_zero_marketplace()
+        seeded_launch_partners = seed_launch_partner_marketplace()
         seeded_board = seed_agent_zero_board_posts()
-        logger.info(f"✅ Agent Zero seeded marketplace={seeded_marketplace} board={seeded_board}")
+        logger.info(f"✅ Agent Zero seeded marketplace={seeded_marketplace} launch_partners={seeded_launch_partners} board={seeded_board}")
     except Exception as e:
         logger.error(f"Startup DB init error: {e}")
 

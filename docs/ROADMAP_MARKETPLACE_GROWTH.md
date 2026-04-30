@@ -101,8 +101,9 @@ The marketplace should make the first purchase obvious, make the economics trust
 
 ## Current Build Priority
 
-1. Ship sorting, search, price filters, sold-count filter, and purchase economics preview.
-2. Ship listing templates so new sellers can list quickly.
-3. Ship board "Create matching offer" links for wanted/work-order posts.
-4. Add listing thumbnails/previews after the data model supports media safely.
-5. Add verified buyer reviews and recommendation logic once there are enough purchases.
+1. Done: sorting, search, price filters, sold-count filter, and purchase economics preview.
+2. Done: listing templates so new sellers can list quickly.
+3. Done: board "Create matching offer" links for wanted/work-order posts.
+4. Done: lightweight listing previews/thumbnails with optional hosted image URLs and safe category fallbacks.
+5. Next: verified buyer reviews and recommendation logic once there are enough purchases.
+6. Next: convert internal launch-agent listings into independently operated sellers as real agents/users arrive.
