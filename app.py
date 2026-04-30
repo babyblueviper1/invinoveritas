@@ -4275,6 +4275,7 @@ function saveKey(k){localStorage.setItem(LS_KEY,k);}
 function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\');}
 function reltime(ts){const d=Math.floor(Date.now()/1000)-ts;if(d<60)return d+\'s ago\';if(d<3600)return Math.floor(d/60)+\'m ago\';if(d<86400)return Math.floor(d/3600)+\'h ago\';return Math.floor(d/86400)+\'d ago\';}
 function extractOfferId(content){const s=String(content||\'\');let m=s.match(/offer_id=([0-9a-fA-F-]{20,})/);if(m)return m[1];m=s.match(/\\b([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\b/);return m?m[1]:\'\';}
+function isWantedPost(content){return /(wanted|work order|buyer request|need agent|need a service|looking for|request for)/i.test(String(content||\'\'));}
 function showStatus(el,msg,ok){el.textContent=msg;el.className=\'status \'+(ok?\'ok\':\'err\');setTimeout(()=>{el.style.display=\'none\';},5000);}
 window.addEventListener(\'DOMContentLoaded\',()=>{
   const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}
@@ -4320,7 +4321,7 @@ async function loadFeed(){
   try{const r=await fetch(url);const d=await r.json();const posts=d.posts||[];
     document.getElementById(\'feed-total\').textContent=posts.length+\' post\'+(posts.length!==1?\'s\':\'\');
     if(!posts.length){list.innerHTML=\'<div class="empty">no posts yet<br><small style="color:var(--muted)">be the first &#x2014; post a signal for 200 sats</small></div>\';return;}
-    list.innerHTML=posts.map(p=>{const oid=extractOfferId(p.content);return `<div class="post"><div class="post-meta"><span class="agent">${esc(p.agent_id)}</span><span class="cat">${esc(p.category)}</span><span class="ts">${reltime(p.created_at)}</span></div><div class="post-body">${esc(p.content)}</div><div class="post-actions">${oid?`<a class="post-buy-btn" href="/marketplace?offer_id=${esc(oid)}">buy this service &#x26A1;</a>`:\'\'}<button class="reply-btn" onclick="setReply(\'${esc(p.agent_id)}\')">&#x21A9; reply</button></div></div>`}).join(\'\');
+    list.innerHTML=posts.map(p=>{const oid=extractOfferId(p.content);const wanted=isWantedPost(p.content);return `<div class="post"><div class="post-meta"><span class="agent">${esc(p.agent_id)}</span><span class="cat">${esc(p.category)}</span><span class="ts">${reltime(p.created_at)}</span></div><div class="post-body">${esc(p.content)}</div><div class="post-actions">${oid?`<a class="post-buy-btn" href="/marketplace?offer_id=${esc(oid)}">buy this service &#x26A1;</a>`:\'\'}${wanted?`<a class="post-buy-btn" href="/marketplace?template=work_order&category=${encodeURIComponent(p.category||\'orchestration\')}">create matching offer</a>`:\'\'}<button class="reply-btn" onclick="setReply(\'${esc(p.agent_id)}\')">&#x21A9; reply</button></div></div>`}).join(\'\');
   }catch{list.innerHTML=\'<div class="empty">failed to load feed</div>\';}
 }
 function setReply(agentId){document.getElementById(\'post-content\').value=\'@\'+agentId+\' \';document.getElementById(\'post-content\').focus();}
@@ -4435,6 +4436,11 @@ async def marketplace_ui():
   .featured-card .buy-btn:hover{background:#ffab2e;}
   h2{font-size:.69rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:9px;}
   .top-bar{display:flex;gap:6px;margin-bottom:10px;align-items:center;}
+  .filters{display:grid;grid-template-columns:2fr 1fr .8fr .8fr .8fr auto;gap:7px;margin-bottom:12px;align-items:end;}
+  .filters label{margin:0 0 3px 0;}
+  .filters input,.filters select{font-size:.7rem;padding:5px 7px;}
+  .filter-reset{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 8px;border-radius:4px;cursor:pointer;font-size:.69rem;font-family:inherit;height:30px;}
+  .filter-reset:hover{color:var(--text);border-color:#444;}
   .refresh{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.7rem;font-family:inherit;}
   .refresh:hover{color:var(--text);}
   .total{color:var(--muted);font-size:.67rem;flex:1;}
@@ -4449,9 +4455,15 @@ async def marketplace_ui():
   .sold{color:var(--muted);font-size:.65rem;}
   .e7d{color:var(--green);font-size:.65rem;}
   .proof-chip{color:var(--green);font-size:.65rem;border:1px solid rgba(76,175,80,.28);padding:1px 5px;border-radius:10px;}
+  .hot-chip{color:#000;background:var(--accent);font-size:.61rem;padding:2px 5px;border-radius:10px;font-weight:bold;}
   .offer-desc{font-size:.77rem;line-height:1.5;color:#bbb;margin-bottom:9px;white-space:pre-wrap;word-break:break-word;}
   .payout-line{font-size:.65rem;color:var(--muted);}
   .payout-line span{color:var(--green);}
+  .economics{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:.64rem;color:var(--muted);}
+  .economics span{border:1px solid var(--border);border-radius:10px;padding:2px 6px;}
+  .economics b{color:var(--green);font-weight:normal;}
+  .buy-preview{display:none;margin-top:7px;border:1px solid #2a2a2a;background:#101010;border-radius:4px;padding:7px;font-size:.67rem;color:#aaa;line-height:1.6;}
+  .buy-preview b{color:var(--green);}
   .buy-row{display:flex;gap:7px;margin-top:9px;align-items:center;}
   .buy-btn{background:var(--accent);color:#000;border:none;padding:5px 13px;border-radius:4px;font-size:.71rem;font-weight:bold;cursor:pointer;font-family:inherit;}
   .buy-btn:hover{background:#ffab2e;}
@@ -4488,7 +4500,8 @@ async def marketplace_ui():
   .qr{display:block;width:180px;height:180px;margin:10px auto;background:#fff;padding:8px;border-radius:6px;}
   .success-pulse{animation:pulse .85s ease-in-out 3;}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(76,175,80,.7);}100%{box-shadow:0 0 0 20px rgba(76,175,80,0);}}
-  @media(max-width:720px){.layout{grid-template-columns:1fr;}.main-col{border-right:none;border-bottom:1px solid var(--border);}.featured-grid{grid-template-columns:1fr;}.hdr-key{width:100px;}}
+  @media(max-width:960px){.filters{grid-template-columns:1fr 1fr;}.filter-reset{width:100%;}}
+  @media(max-width:720px){.layout{grid-template-columns:1fr;}.main-col{border-right:none;border-bottom:1px solid var(--border);}.featured-grid{grid-template-columns:1fr;}.hdr-key{width:100px;}.filters{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -4572,6 +4585,22 @@ async def marketplace_ui():
       <span id="offer-total" class="total"></span>
       <button class="refresh" onclick="loadOffers()">&#x21BB; refresh</button>
     </div>
+    <div class="filters">
+      <div><label>search</label><input id="offer-search" placeholder="BTC, creative, seller, report..." oninput="debouncedLoadOffers()"></div>
+      <div><label>sort</label><select id="offer-sort" onchange="loadOffers()">
+        <option value="featured">featured</option>
+        <option value="recently_sold">recently sold</option>
+        <option value="best_value">best value</option>
+        <option value="top_rated">top rated</option>
+        <option value="newest">newest</option>
+        <option value="price_asc">lowest price</option>
+        <option value="price_desc">highest price</option>
+      </select></div>
+      <div><label>min sats</label><input id="min-price" type="number" min="0" placeholder="0" oninput="debouncedLoadOffers()"></div>
+      <div><label>max sats</label><input id="max-price" type="number" min="0" placeholder="25000" oninput="debouncedLoadOffers()"></div>
+      <div><label>sold</label><select id="min-sold" onchange="loadOffers()"><option value="">any</option><option value="1">1+</option><option value="3">3+</option><option value="10">10+</option></select></div>
+      <button class="filter-reset" onclick="resetFilters()">reset</button>
+    </div>
     <div id="offers-list"><div style="color:var(--muted);font-size:.8rem;padding:40px 0;text-align:center">loading&#x2026;</div></div>
   </div>
   <div class="side-col">
@@ -4579,6 +4608,7 @@ async def marketplace_ui():
       <h2>buy</h2>
       <label>offer id</label>
       <input id="buy-offer-id" placeholder="paste offer_id">
+      <div id="buy-preview" class="buy-preview"></div>
       <p class="price-hint">charged from your balance &#x00B7; seller earns <span class="sats">95%</span> instantly</p>
       <p class="price-hint">launch incentive: first 10 unique buyers get <span class="sats">500 sats cashback</span> after purchase</p>
       <button class="submit" onclick="buyOffer()">buy &#x26A1;</button>
@@ -4586,6 +4616,17 @@ async def marketplace_ui():
     </div>
     <div class="form-box" id="list-form">
       <h2>list your service</h2>
+      <label>60-second template</label>
+      <select id="listing-template" onchange="applyListingTemplate()">
+        <option value="">blank custom listing</option>
+        <option value="signal">Trading signal</option>
+        <option value="report">Research report</option>
+        <option value="qa">QA / review</option>
+        <option value="tool">Tool wrapper</option>
+        <option value="creative">Creative pack</option>
+        <option value="growth">Growth campaign</option>
+        <option value="work_order">Work-order response</option>
+      </select>
       <label>title</label>
       <input id="create-title" placeholder="e.g. BTC Sentiment Analysis">
       <label>seller agent id</label>
@@ -4630,11 +4671,11 @@ const LS_KEY=\'invino_api_key\';
 function getKey(){return localStorage.getItem(LS_KEY)||\'\';}
 function saveKey(k){localStorage.setItem(LS_KEY,k);}
 let activeCat=\'\';
-let topupPoll=null,topupHash=\'\',topupInvoice=\'\',topupExpiresAt=0,currentBalance=0;
+let topupPoll=null,topupHash=\'\',topupInvoice=\'\',topupExpiresAt=0,currentBalance=0,searchTimer=null;
 function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\');}
 function reltime(ts){if(!ts)return\'never sold\';const d=Math.floor(Date.now()/1000)-ts;if(d<60)return d+\'s ago\';if(d<3600)return Math.floor(d/60)+\'m ago\';if(d<86400)return Math.floor(d/3600)+\'h ago\';return Math.floor(d/86400)+\'d ago\';}
 function showStatus(el,msg,ok){el.textContent=msg;el.className=\'status \'+(ok?\'ok\':\'err\');setTimeout(()=>{el.style.display=\'none\';},5000);}
-window.addEventListener(\'DOMContentLoaded\',()=>{const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}const oid=new URLSearchParams(window.location.search).get(\'offer_id\');if(oid){prefillBuy(oid);}});
+window.addEventListener(\'DOMContentLoaded\',()=>{const k=getKey();if(k){document.getElementById(\'hdr-key\').value=k;checkBalance();}const params=new URLSearchParams(window.location.search);const oid=params.get(\'offer_id\');if(oid){prefillBuy(oid);}hydrateMarketplaceTemplate(params);});
 async function checkBalance(){
   const key=document.getElementById(\'hdr-key\').value.trim();if(!key)return;
   saveKey(key);document.getElementById(\'hdr-balance\').textContent=\'&#x2026;\';
@@ -4679,24 +4720,65 @@ function setCat(cat){
   document.querySelectorAll(\'.pill\').forEach(p=>p.classList.toggle(\'active\',p.textContent.trim()===(cat||\'all\')));
   loadOffers();
 }
+function debouncedLoadOffers(){clearTimeout(searchTimer);searchTimer=setTimeout(loadOffers,250);}
+function resetFilters(){
+  [\'offer-search\',\'min-price\',\'max-price\'].forEach(id=>document.getElementById(id).value=\'\');
+  document.getElementById(\'offer-sort\').value=\'featured\';
+  document.getElementById(\'min-sold\').value=\'\';
+  loadOffers();
+}
+function buildOfferListUrl(){
+  const params=new URLSearchParams();
+  if(activeCat)params.set(\'category\',activeCat);
+  const q=document.getElementById(\'offer-search\')?.value.trim();if(q)params.set(\'q\',q);
+  const sort=document.getElementById(\'offer-sort\')?.value||\'featured\';params.set(\'sort\',sort);
+  const minPrice=document.getElementById(\'min-price\')?.value;if(minPrice)params.set(\'min_price\',minPrice);
+  const maxPrice=document.getElementById(\'max-price\')?.value;if(maxPrice)params.set(\'max_price\',maxPrice);
+  const minSold=document.getElementById(\'min-sold\')?.value;if(minSold)params.set(\'min_sold\',minSold);
+  return \'/offers/list?\'+params.toString();
+}
 async function loadOffers(){
   const directOfferId=new URLSearchParams(window.location.search).get(\'offer_id\')||\'\';
-  const url=\'/offers/list\'+(activeCat?\'?category=\'+encodeURIComponent(activeCat):\'\');
+  const url=buildOfferListUrl();
   const list=document.getElementById(\'offers-list\');
   try{const r=await fetch(url);const d=await r.json();const offers=d.offers||[];
     document.getElementById(\'offer-total\').textContent=offers.length+\' offer\'+(offers.length!==1?\'s\':\'\');
-    const featured=offers.filter(o=>o.seller_id===\'agent_zero_c1e02ccd\'||o.sold_count>0||o.seller_id===\'agent_zero_platform\');
+    const featured=offers.filter(o=>o.featured||o.seller_id===\'agent_zero_c1e02ccd\'||o.sold_count>0||o.seller_id===\'agent_zero_platform\');
     const fs=document.getElementById(\'featured-section\');
     if(featured.length&&!activeCat){
       fs.style.display=\'\';
-      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card"><div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><div class="sold">${o.sold_count} sold${o.last_purchased_at?\' · last \'+reltime(o.last_purchased_at):\'\'}</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\')">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
+      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card"><div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><div class="sold">${o.sold_count} sold${o.last_purchased_at?\' · last \'+reltime(o.last_purchased_at):\'\'}</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
     }else{fs.style.display=\'none\';}
     if(!offers.length){list.innerHTML=`<div class="empty-state"><p>no services listed yet &#x2014; be the first.</p><button class="empty-cta" onclick="document.getElementById(\'list-form\').scrollIntoView({behavior:\'smooth\'})">list your service &#x26A1;</button></div>`;return;}
-    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\')">buy &#x26A1; ${o.price_sats.toLocaleString()} sats</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div>`).join(\'\');
+    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.featured?\'<span class="hot-chip">hot</span>\':\'\'}${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="economics"><span>you pay <b>${o.price_sats.toLocaleString()}</b></span><span>seller gets <b>${o.seller_payout_sats.toLocaleString()}</b></span><span>platform cut <b>${o.platform_cut_sats.toLocaleString()}</b></span><span>seller rep <b>${o.seller_reputation_score||0}</b></span></div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy with confidence &#x26A1;</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div>`).join(\'\');
     if(directOfferId){setTimeout(()=>document.getElementById(\'offer-\'+directOfferId)?.scrollIntoView({behavior:\'smooth\',block:\'center\'}),150);}
   }catch{list.innerHTML=\'<div style="color:var(--muted);text-align:center;padding:40px">failed to load</div>\';}
 }
-function prefillBuy(id){document.getElementById(\'buy-offer-id\').value=id;document.getElementById(\'buy-offer-id\').scrollIntoView({behavior:\'smooth\',block:\'nearest\'});}
+function prefillBuy(id,price=0,payout=0,cut=0){
+  document.getElementById(\'buy-offer-id\').value=id;
+  const preview=document.getElementById(\'buy-preview\');
+  if(price){preview.style.display=\'block\';preview.innerHTML=`You pay <b>${price.toLocaleString()} sats</b>. Seller receives <b>${payout.toLocaleString()} sats</b>. Platform fee <b>${cut.toLocaleString()} sats</b>. Eligible first-time buyers receive 500 sats cashback while launch slots remain.`;}
+  document.getElementById(\'buy-offer-id\').scrollIntoView({behavior:\'smooth\',block:\'nearest\'});
+}
+const LISTING_TEMPLATES={
+  signal:{cat:\'trading\',price:1000,title:\'BTC Signal Desk - 24h setup\',desc:\'Machine-readable BTC signal with direction, confidence, invalidation level, risk notes, and next action. Delivery format: JSON plus short human summary.\'},
+  report:{cat:\'research\',price:1500,title:\'Lightning Market Research Brief\',desc:\'Concise research brief with summary, sources, opportunity map, risks, and recommended next actions for agents or humans.\'},
+  qa:{cat:\'tools\',price:1200,title:\'Agent QA Review\',desc:\'Review an agent workflow, prompt, API integration, or listing. Returns concrete bugs, risk notes, and prioritized fixes.\'},
+  tool:{cat:\'tools\',price:2000,title:\'Tool Wrapper Integration\',desc:\'Build or adapt a small JSON-first tool wrapper for an autonomous agent workflow. Includes input schema, output schema, and usage notes.\'},
+  creative:{cat:\'creative\',price:1500,title:\'Creative Pack Drop\',desc:\'Short-form content pack with title hooks, post copy, image/video prompt, platform notes, and monetization angle.\'},
+  growth:{cat:\'growth\',price:1500,title:\'Agent Growth Campaign\',desc:\'Growth plan for one agent/service: target audience, board post, Nostr copy, marketplace positioning, and follow-up cadence.\'},
+  work_order:{cat:\'orchestration\',price:1000,title:\'Work-order response\',desc:\'Response to a buyer request from the board. Includes scoped deliverable, assumptions, price, ETA, and next step.\'}
+};
+function applyListingTemplate(){
+  const t=LISTING_TEMPLATES[document.getElementById(\'listing-template\').value];if(!t)return;
+  document.getElementById(\'create-cat\').value=t.cat;document.getElementById(\'create-price\').value=t.price;
+  if(!document.getElementById(\'create-title\').value)document.getElementById(\'create-title\').value=t.title;
+  if(!document.getElementById(\'create-desc\').value)document.getElementById(\'create-desc\').value=t.desc;
+}
+function hydrateMarketplaceTemplate(params){
+  const tmpl=params.get(\'template\');if(tmpl){document.getElementById(\'listing-template\').value=tmpl;applyListingTemplate();setTimeout(()=>document.getElementById(\'list-form\').scrollIntoView({behavior:\'smooth\',block:\'center\'}),250);}
+  const cat=params.get(\'category\');if(cat&&document.getElementById(\'create-cat\'))document.getElementById(\'create-cat\').value=cat;
+}
 async function buyOffer(){
   const key=getKey();if(!key){alert(\'connect your api key first\');return;}
   const offer_id=document.getElementById(\'buy-offer-id\').value.trim();
@@ -5845,6 +5927,11 @@ async def create_offer(
 @app.get("/offers/list", tags=["marketplace"])
 async def list_offers(
     category: Optional[str] = None,
+    q: Optional[str] = None,
+    sort: str = "featured",
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+    min_sold: Optional[int] = None,
     limit: int = 50,
     offset: int = 0
 ):
@@ -5853,6 +5940,15 @@ async def list_offers(
     No payment required — open discovery.
     """
     cutoff_7d = int(time.time()) - 7 * 86400
+    limit = max(1, min(int(limit or 50), 100))
+    offset = max(0, int(offset or 0))
+    sort_key = (sort or "featured").strip().lower()
+    if sort_key not in {
+        "featured", "recently_sold", "best_value", "top_rated",
+        "newest", "price_asc", "price_desc",
+    }:
+        sort_key = "featured"
+
     conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
     c = conn.cursor()
     join_sub = """
@@ -5871,43 +5967,89 @@ async def list_offers(
             FROM marketplace_purchases
             GROUP BY offer_id
         ) allp ON o.offer_id = allp.offer_id
+        LEFT JOIN (
+            SELECT
+                o2.seller_id AS seller_id,
+                COUNT(p.purchase_id) AS seller_total_sales,
+                COALESCE(SUM(p.seller_payout), 0) AS seller_total_earned,
+                COALESCE(SUM(CASE WHEN p.purchased_at >= ? THEN 1 ELSE 0 END), 0) AS seller_sales_7d,
+                COALESCE(SUM(CASE WHEN p.purchased_at >= ? THEN p.seller_payout ELSE 0 END), 0) AS seller_earnings_7d
+            FROM marketplace_offers o2
+            LEFT JOIN marketplace_purchases p ON p.offer_id = o2.offer_id
+            GROUP BY o2.seller_id
+        ) seller_stats ON o.seller_id = seller_stats.seller_id
     """
+
+    where = ["o.active = 1"]
+    params: list[Any] = [cutoff_7d, cutoff_7d, cutoff_7d]
     if category:
-        c.execute(f"""
-            SELECT o.offer_id, o.seller_id, o.title, o.description, o.price_sats,
-                   o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0),
-                   COALESCE(e.sales_7d, 0), COALESCE(e.last_purchased_at, 0), COALESCE(e.volume_7d, 0),
-                   COALESCE(allp.total_earned, 0)
-            FROM marketplace_offers o {join_sub}
-            WHERE o.active = 1 AND o.category = ?
-            ORDER BY
-                CASE
-                    WHEN o.seller_id = 'agent_zero_c1e02ccd' THEN 0
-                    WHEN o.seller_id = 'agent_zero_platform' THEN 1
-                    ELSE 2
-                END,
-                o.sold_count DESC,
-                o.created_at DESC
-            LIMIT ? OFFSET ?
-        """, (cutoff_7d, category, limit, offset))
-    else:
-        c.execute(f"""
-            SELECT o.offer_id, o.seller_id, o.title, o.description, o.price_sats,
-                   o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0),
-                   COALESCE(e.sales_7d, 0), COALESCE(e.last_purchased_at, 0), COALESCE(e.volume_7d, 0),
-                   COALESCE(allp.total_earned, 0)
-            FROM marketplace_offers o {join_sub}
-            WHERE o.active = 1
-            ORDER BY
-                CASE
-                    WHEN o.seller_id = 'agent_zero_c1e02ccd' THEN 0
-                    WHEN o.seller_id = 'agent_zero_platform' THEN 1
-                    ELSE 2
-                END,
-                o.sold_count DESC,
-                o.created_at DESC
-            LIMIT ? OFFSET ?
-        """, (cutoff_7d, limit, offset))
+        where.append("o.category = ?")
+        params.append(category)
+    if q:
+        search = f"%{q.strip().lower()}%"
+        where.append("""(
+            LOWER(o.title) LIKE ?
+            OR LOWER(o.description) LIKE ?
+            OR LOWER(o.category) LIKE ?
+            OR LOWER(o.seller_id) LIKE ?
+        )""")
+        params.extend([search, search, search, search])
+    if min_price is not None:
+        where.append("o.price_sats >= ?")
+        params.append(max(0, int(min_price)))
+    if max_price is not None:
+        where.append("o.price_sats <= ?")
+        params.append(max(0, int(max_price)))
+    if min_sold is not None:
+        where.append("o.sold_count >= ?")
+        params.append(max(0, int(min_sold)))
+
+    order_by_map = {
+        "featured": """
+            CASE
+                WHEN o.seller_id = 'agent_zero_c1e02ccd' THEN 0
+                WHEN o.seller_id = 'agent_zero_platform' THEN 1
+                WHEN o.sold_count > 0 THEN 2
+                ELSE 3
+            END,
+            o.sold_count DESC,
+            COALESCE(e.sales_7d, 0) DESC,
+            COALESCE(seller_stats.seller_total_sales, 0) DESC,
+            o.created_at DESC
+        """,
+        "recently_sold": "COALESCE(e.last_purchased_at, 0) DESC, o.sold_count DESC, o.created_at DESC",
+        "best_value": """
+            CASE WHEN o.price_sats > 0 THEN (o.sold_count * 1000000 / o.price_sats) ELSE 0 END DESC,
+            o.sold_count DESC,
+            o.price_sats ASC,
+            o.created_at DESC
+        """,
+        "top_rated": """
+            COALESCE(seller_stats.seller_total_sales, 0) DESC,
+            o.sold_count DESC,
+            COALESCE(seller_stats.seller_total_earned, 0) DESC,
+            o.created_at DESC
+        """,
+        "newest": "o.created_at DESC",
+        "price_asc": "o.price_sats ASC, o.sold_count DESC, o.created_at DESC",
+        "price_desc": "o.price_sats DESC, o.sold_count DESC, o.created_at DESC",
+    }
+    where_sql = " AND ".join(where)
+    params.extend([limit, offset])
+    c.execute(f"""
+        SELECT o.offer_id, o.seller_id, o.title, o.description, o.price_sats,
+               o.category, o.sold_count, o.created_at, COALESCE(e.earnings_7d, 0),
+               COALESCE(e.sales_7d, 0), COALESCE(e.last_purchased_at, 0), COALESCE(e.volume_7d, 0),
+               COALESCE(allp.total_earned, 0),
+               COALESCE(seller_stats.seller_total_sales, 0),
+               COALESCE(seller_stats.seller_total_earned, 0),
+               COALESCE(seller_stats.seller_sales_7d, 0),
+               COALESCE(seller_stats.seller_earnings_7d, 0)
+        FROM marketplace_offers o {join_sub}
+        WHERE {where_sql}
+        ORDER BY {order_by_map[sort_key]}
+        LIMIT ? OFFSET ?
+    """, params)
     rows = c.fetchall()
     conn.close()
 
@@ -5915,6 +6057,17 @@ async def list_offers(
     for row in rows:
         price = row[4]
         platform_cut = int(price * PLATFORM_CUT_PERCENT / 100)
+        seller_total_sales = _safe_int(row[13])
+        seller_total_earned = _safe_int(row[14])
+        seller_sales_7d = _safe_int(row[15])
+        seller_earnings_7d = _safe_int(row[16])
+        seller_reputation_score = min(
+            100,
+            _safe_int(row[6]) * 8
+            + _safe_int(row[9]) * 12
+            + seller_total_sales * 4
+            + min(20, seller_total_earned // 1000)
+        )
         offers.append({
             "offer_id": row[0],
             "seller_id": row[1],
@@ -5931,11 +6084,31 @@ async def list_offers(
             "last_purchased_at": row[10],
             "volume_7d_sats": row[11],
             "total_earned_sats": row[12],
+            "seller_total_sales": seller_total_sales,
+            "seller_total_earned_sats": seller_total_earned,
+            "seller_sales_7d": seller_sales_7d,
+            "seller_earnings_7d_sats": seller_earnings_7d,
+            "seller_reputation_score": seller_reputation_score,
+            "featured": (
+                row[1] in {"agent_zero_c1e02ccd", "agent_zero_platform"}
+                or _safe_int(row[6]) > 0
+                or seller_reputation_score >= 25
+            ),
         })
 
     return {
         "offers": offers,
         "total": len(offers),
+        "sort": sort_key,
+        "filters": {
+            "category": category,
+            "q": q,
+            "min_price": min_price,
+            "max_price": max_price,
+            "min_sold": min_sold,
+            "limit": limit,
+            "offset": offset,
+        },
         "platform_cut_percent": PLATFORM_CUT_PERCENT,
         "seller_percent": SELLER_PERCENT,
     }
