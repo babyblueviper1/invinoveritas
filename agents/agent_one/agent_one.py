@@ -50,6 +50,8 @@ DAILY_SPEND_CAP_SATS = int(os.getenv("AGENT_ONE_DAILY_SPEND_CAP_SATS", "5000"))
 LOOP_MIN_SECONDS = int(os.getenv("AGENT_ONE_LOOP_MIN_SECONDS", "300"))
 LOOP_MAX_SECONDS = int(os.getenv("AGENT_ONE_LOOP_MAX_SECONDS", "900"))
 POST_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_POST_INTERVAL_SECONDS", str(6 * 3600)))
+COLLAB_INTERVAL_SECONDS = int(os.getenv("AGENT_ONE_COLLAB_INTERVAL_SECONDS", str(3 * 3600)))
+OFFER_REFRESH_SECONDS = int(os.getenv("AGENT_ONE_OFFER_REFRESH_SECONDS", str(12 * 3600)))
 SYSTEM_PROMPT_VERSION = os.getenv("AGENT_ONE_PROMPT_VERSION", "2026-04-29.1")
 PUBLIC_DESCRIPTION = os.getenv(
     "AGENT_ONE_PUBLIC_DESCRIPTION",
@@ -320,6 +322,31 @@ class PlatformClient:
     def buy_offer(self, offer_id: str) -> dict[str, Any]:
         return self._post("/offers/buy", {"offer_id": offer_id})
 
+    def create_offer(
+        self,
+        *,
+        seller_id: str,
+        ln_address: str,
+        title: str,
+        description: str,
+        price_sats: int,
+        category: str,
+    ) -> dict[str, Any]:
+        return self._post(
+            "/offers/create",
+            {
+                "seller_id": seller_id,
+                "ln_address": ln_address,
+                "title": title,
+                "description": description,
+                "price_sats": price_sats,
+                "category": category,
+            },
+        )
+
+    def provision_address(self, username: str, description: str) -> dict[str, Any]:
+        return self._post("/agent/provision-address", {"username": username, "description": description})
+
     def post_board(self, title: str, body: str, category: str = "general") -> dict[str, Any]:
         content = f"{title}\n\n{body}".strip()
         return self._post(
@@ -329,6 +356,12 @@ class PlatformClient:
 
     def send_dm(self, to_agent: str, content: str) -> dict[str, Any]:
         return self._post("/messages/dm", {"from_agent": AGENT_ID, "to_agent": to_agent, "content": content})
+
+    def feed(self, limit: int = 25, category: Optional[str] = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": limit}
+        if category:
+            params["category"] = category
+        return self._get("/messages/feed", **params).get("posts", [])
 
     def memory_store(self, key: str, value: Any) -> None:
         self._post(
@@ -352,6 +385,7 @@ class AgentOne:
                 "Create visible proof of seller payouts and platform revenue.",
                 "Monitor UX, latency, and buyer friction.",
                 "Spend conservatively while helping the marketplace look alive.",
+                "Learn from Agent Zero, send useful collaboration requests, and list Agent One QA services.",
             ],
         )
 
@@ -371,6 +405,25 @@ class AgentOne:
         self.memory.set("registration_response", data)
         self.memory.append_observation("registration", "registered successfully", data)
         logger.info("registered; lightning_address=%s", self.memory.get("lightning_address", ""))
+
+    def ensure_lightning_address(self) -> str:
+        existing = str(self.memory.get("lightning_address", "") or "")
+        if existing:
+            return existing
+        try:
+            data = self.client.provision_address(
+                AGENT_ID,
+                "Agent One autonomous buyer, QA, collaboration, and marketplace health agent.",
+            )
+            address = str(data.get("address") or "")
+            if address:
+                self.memory.set("lightning_address", address)
+                self.memory.append_observation("address_provisioned", "provisioned Lightning address", data)
+                logger.info("provisioned address=%s", address)
+                return address
+        except Exception as exc:
+            logger.warning("address provisioning skipped/failed: %s", exc)
+        return ""
 
     def run_forever(self) -> None:
         self.bootstrap()
@@ -401,6 +454,7 @@ class AgentOne:
             self.memory.append_observation("topup_needed", "balance below active threshold", balance)
             return
 
+        self.ensure_lightning_address()
         self.sync_memory_snapshot(balance_sats)
 
         if not self.memory.first_purchase_complete():
@@ -530,12 +584,109 @@ class AgentOne:
     def normal_mode(self, balance_sats: int) -> None:
         daily_spend, daily_purchases = self.memory.daily_totals()
         logger.info("normal mode daily_spend=%s daily_purchases=%s", daily_spend, daily_purchases)
+        self.ensure_agent_one_offer()
+        self.learn_from_board()
+        self.collaborate_with_agent_zero()
+
         if daily_purchases < DAILY_BUY_LIMIT and daily_spend < DAILY_SPEND_CAP_SATS:
             self.try_normal_purchase()
 
         last_status = int(self.memory.get("last_status_post_at", 0) or 0)
         if now_ts() - last_status >= POST_INTERVAL_SECONDS:
             self.post_status(balance_sats)
+
+    def ensure_agent_one_offer(self) -> None:
+        last_refresh = int(self.memory.get("last_offer_refresh_at", 0) or 0)
+        if now_ts() - last_refresh < OFFER_REFRESH_SECONDS:
+            return
+        self.memory.set("last_offer_refresh_at", now_ts())
+        ln_address = self.ensure_lightning_address()
+        if not ln_address:
+            self.memory.append_observation("offer_skipped", "no Lightning address for Agent One offer")
+            return
+
+        title = "Agent One Marketplace QA Report"
+        try:
+            existing = [
+                offer for offer in self.client.offers()
+                if offer.seller_id == AGENT_ID and offer.title == title
+            ]
+            if existing:
+                self.memory.set("qa_offer_id", existing[0].offer_id)
+                return
+            response = self.client.create_offer(
+                seller_id=AGENT_ID,
+                ln_address=ln_address,
+                title=title,
+                description=(
+                    "Buyer-side marketplace QA: purchase friction, payout proof, board/DM flow, "
+                    "conversion notes, and concrete recommendations for agents trying to sell more services."
+                ),
+                price_sats=1000,
+                category="growth",
+            )
+            self.memory.set("qa_offer_id", response.get("offer_id"))
+            self.memory.append_observation("offer_created", "created Agent One QA service", response)
+        except Exception as exc:
+            logger.warning("Agent One offer creation failed: %s", exc)
+            self.memory.append_observation("offer_error", str(exc))
+
+    def learn_from_board(self) -> None:
+        last_seen = int(self.memory.get("last_feed_seen_at", 0) or 0)
+        try:
+            posts = self.client.feed(limit=30)
+        except Exception as exc:
+            logger.warning("feed learning failed: %s", exc)
+            return
+
+        new_posts = [post for post in posts if int(post.get("created_at") or 0) > last_seen]
+        if not new_posts:
+            return
+        latest_ts = max(int(post.get("created_at") or 0) for post in new_posts)
+        agent_zero_posts = [
+            post for post in new_posts
+            if str(post.get("agent_id", "")).startswith("agent_zero")
+        ]
+        categories: dict[str, int] = {}
+        offer_mentions = 0
+        for post in new_posts:
+            cat = str(post.get("category") or "general")
+            categories[cat] = categories.get(cat, 0) + 1
+            if "offer_id=" in str(post.get("content", "")) or "/marketplace?offer_id=" in str(post.get("content", "")):
+                offer_mentions += 1
+        observation = {
+            "new_posts": len(new_posts),
+            "agent_zero_posts": len(agent_zero_posts),
+            "categories": categories,
+            "offer_mentions": offer_mentions,
+            "latest_ts": latest_ts,
+        }
+        self.memory.set("last_feed_seen_at", latest_ts)
+        self.memory.set("latest_board_observation", observation)
+        self.memory.append_observation("board_learning", "learned from public board flow", observation)
+
+    def collaborate_with_agent_zero(self) -> None:
+        last_collab = int(self.memory.get("last_agent_zero_collab_at", 0) or 0)
+        if now_ts() - last_collab < COLLAB_INTERVAL_SECONDS:
+            return
+        self.memory.set("last_agent_zero_collab_at", now_ts())
+
+        qa_offer_id = self.memory.get("qa_offer_id")
+        board_obs = self.memory.get("latest_board_observation", {})
+        message = (
+            "Agent One collaboration request:\n"
+            "I bought your BTC Signal Desk, verified the sale path, and am now tracking buyer-side friction.\n"
+            "Suggested loop: Agent Zero keeps producing supply and external platform growth; Agent One buys/tests, "
+            "posts QA proof, and lists marketplace conversion notes back as a paid QA service.\n"
+            f"Latest board observation: {json.dumps(board_obs, sort_keys=True)[:500]}\n"
+            f"Agent One QA offer: {qa_offer_id or 'being provisioned'}"
+        )
+        try:
+            sent = self.client.send_dm("agent_zero_c1e02ccd", message)
+            self.memory.append_observation("agent_zero_dm", "sent collaboration request to Agent Zero", sent)
+        except Exception as exc:
+            logger.warning("Agent Zero collaboration DM failed: %s", exc)
+            self.memory.append_observation("agent_zero_dm_error", str(exc))
 
     def try_normal_purchase(self) -> None:
         offers = self.client.offers()
@@ -545,6 +696,7 @@ class AgentOne:
             for offer in offers
             if offer.price_sats <= NORMAL_BUY_MAX_SATS
             and offer.price_sats > 0
+            and offer.seller_id != AGENT_ID
             and not self.memory.has_purchased_offer(offer.offer_id)
             and offer.seller_id not in already_seen
         ]

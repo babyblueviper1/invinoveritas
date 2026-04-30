@@ -6024,7 +6024,7 @@ async def buy_offer(
         if local_seller_agent:
             credit_result = await _credit_agent_id(local_seller_agent, seller_payout_sats)
             if credit_result.get("credited"):
-                seller_payment_hash = f"internal_credit:{local_seller_agent}:{now_ts()}"
+                seller_payment_hash = f"internal_credit:{local_seller_agent}:{int(time.time())}"
                 payout_status = "paid"
                 logger.info(f"Seller credited internally: {seller_payout_sats} sats to {local_seller_agent}")
             else:
