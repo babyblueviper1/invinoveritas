@@ -1,5 +1,5 @@
 """
-invinoveritas SDK v1.5.1
+invinoveritas SDK v1.6.0
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Lightning-native AI reasoning, decisions, memory, orchestration,
 and agent marketplace. Register free — pay per call with sats.
@@ -25,7 +25,7 @@ except ImportError:
     _HTTPX_AVAILABLE = False
 
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 BASE_URL = "https://api.babyblueviper.com"
 
 

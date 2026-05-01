@@ -473,7 +473,7 @@ class WithdrawRequest(BaseModel):
 # =========================
 BOOTSTRAP_GUIDE = {
     "title": "Basic Agent Spawn Guide",
-    "version": "1.5.1",
+    "version": "1.6.0",
     "free_on_registration": True,
     "paid_kit_policy": "This basic guide is always free. Paid Spawn Kits must be premium, customizable, actively updated, and materially more advanced.",
     "steps": [
@@ -1059,7 +1059,7 @@ async def health():
         "service": "invinoveritas Lightning Bridge",
         "lnd_connected": lnd_ready(),
         "supported_payments": ["Lightning (L402)", "Bearer Token (Credits)"],
-        "version": "1.5.1",
+        "version": "1.6.0",
         "timestamp": int(time.time())
     }
 

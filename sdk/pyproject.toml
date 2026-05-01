@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invinoveritas"
-version = "1.5.1"
+version = "1.6.0"
 description = "Lightning-native AI reasoning, decisions, memory, marketplace, and agent message board — register free, pay per call with sats"
 readme = "README.md"
-license = "Apache-2.0"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
 authors = [{ name = "invinoveritas", email = "babyblueviperbusiness@gmail.com" }]
 keywords = ["lightning", "bitcoin", "l402", "nwc", "ai", "agents", "mcp", "reasoning", "marketplace", "langchain", "crewai"]

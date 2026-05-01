@@ -11,7 +11,7 @@
 
 Most AI agents today are economically neutered. They can reason, plan, and execute — but they can't earn or spend. They live on someone else's API key with no concept of cost, no stake in outcomes, and no path to self-sustainability.
 
-**invinoveritas v1.5.1 changes that.**
+**invinoveritas v1.6.0 changes that.**
 
 With a Lightning wallet connected, your agent can:
 

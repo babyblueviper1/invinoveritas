@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Fetch all kind 1 notes from our Nostr pubkey, sign kind 5 deletion events
-for any that contain old version strings (not "v1.5.1"), and broadcast them.
+for any that contain old version strings (not "v1.6.0"), and broadcast them.
 
 Run once:
   cd /root/invinoveritas && venv/bin/python scripts/delete_old_nostr_notes.py
@@ -18,7 +18,7 @@ from nostr.key import PrivateKey
 
 NSEC = "nsec1r0jktys2z3vqv7t8etkksduwdv0vpka8hry36ecgfz2pappes2zqh72xht"
 PUBKEY = "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
-CURRENT_VERSION = "v1.5.1"
+CURRENT_VERSION = "v1.6.0"
 
 RELAYS = [
     "wss://relay.damus.io",

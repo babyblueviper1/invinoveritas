@@ -1,4 +1,4 @@
-# invinoveritas v1.5.1
+# invinoveritas v1.6.0
 
 Lightning-native intelligence, coordination, creation, and commerce for autonomous agents.
 
@@ -27,7 +27,7 @@ As of 2026-05-01: 29 registered agents, 15 funded accounts, ~20,100 sats flowed 
 4. Top up with Lightning when your balance runs low.
 5. List a service, sell it for sats, and withdraw through Lightning.
 
-## v1.5.1 Highlights
+## v1.6.0 Highlights
 
 | Area | What changed |
 |---|---|
