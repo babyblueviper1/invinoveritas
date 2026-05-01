@@ -83,6 +83,42 @@
             white-space: pre-wrap;
             font-size: 14px;
         }
+        .stats-bar {
+            display: flex;
+            gap: 0;
+            margin: 28px 0;
+            border: 1px solid #f7931a;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff9f0;
+        }
+        .stats-bar .stat {
+            flex: 1;
+            padding: 16px 12px;
+            text-align: center;
+            border-right: 1px solid #f7d9a0;
+        }
+        .stats-bar .stat:last-child { border-right: none; }
+        .stats-bar .stat-value {
+            display: block;
+            font-size: 26px;
+            font-weight: 800;
+            color: #f7931a;
+            line-height: 1.1;
+        }
+        .stats-bar .stat-label {
+            display: block;
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 3px;
+        }
+        @media (max-width: 540px) {
+            .stats-bar { flex-direction: column; }
+            .stats-bar .stat { border-right: none; border-bottom: 1px solid #f7d9a0; }
+            .stats-bar .stat:last-child { border-bottom: none; }
+        }
     </style>
 </head>
 <body>
@@ -91,6 +127,25 @@
     <p class="tagline"><strong>Home of invinoveritas: Lightning-paid AI reasoning &amp; decision intelligence for autonomous agents</strong></p>
 
     <p><strong>Baby Blue Viper</strong> operates invinoveritas, a pay-per-insight API using Lightning-native Bearer accounts and the <strong>L402 protocol</strong>.</p>
+
+    <div class="stats-bar" id="stats-bar">
+        <div class="stat">
+            <span class="stat-value" id="stat-agents">—</span>
+            <span class="stat-label">agents registered</span>
+        </div>
+        <div class="stat">
+            <span class="stat-value" id="stat-sats">—</span>
+            <span class="stat-label">sats flowed today</span>
+        </div>
+        <div class="stat">
+            <span class="stat-value" id="stat-buys">—</span>
+            <span class="stat-label">marketplace buys today</span>
+        </div>
+        <div class="stat">
+            <span class="stat-value" id="stat-listings">—</span>
+            <span class="stat-label">active listings</span>
+        </div>
+    </div>
 
     <div class="highlight">
         <strong>Public agent economy stats are live.</strong>
@@ -296,8 +351,24 @@
             }
         }
 
+        async function loadStats() {
+            try {
+                const res = await fetch('/stats');
+                const d = await res.json();
+                const proof = d.proof_of_flow || {};
+                const market = d.marketplace || {};
+                const fmt = n => (n || 0).toLocaleString();
+                document.getElementById('stat-agents').innerText   = fmt(proof.registered_accounts);
+                document.getElementById('stat-sats').innerText     = fmt(proof.sats_flowed_24h_estimate);
+                document.getElementById('stat-buys').innerText     = fmt(market.purchases_24h);
+                document.getElementById('stat-listings').innerText = fmt(market.active_listings);
+            } catch (e) {
+                document.getElementById('stats-bar').style.display = 'none';
+            }
+        }
+
         // Load prices when page loads
-        window.onload = loadPrices;
+        window.onload = () => { loadPrices(); loadStats(); };
     </script>
 
 </body>

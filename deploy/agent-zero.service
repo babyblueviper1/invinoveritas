@@ -1,0 +1,16 @@
+[Unit]
+Description=Agent Zero autonomous growth loop
+After=network-online.target invinoveritas.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/invinoveritas
+Environment=AGENT_ZERO_STATE_FILE=/root/invinoveritas/data/agent_zero_state.json
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/invinoveritas/venv/bin/python /root/invinoveritas/agents/agent_zero.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

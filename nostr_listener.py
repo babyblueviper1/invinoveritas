@@ -60,7 +60,8 @@ KEYWORDS = [
     "langgraph", "crewai", "autogen", "langchain",
     "claude desktop", "cursor",
     "ai reasoning", "structured output",
-    "agent", "reasoning", "decision", "intelligence"
+    "agent", "reasoning", "decision", "intelligence",
+    "bitcoin", "earn bitcoin", "ai agent", "earn sats", "lightning payment",
 ]
 
 # ── Shared state ──────────────────────────────────────────────────────────────
@@ -186,50 +187,50 @@ def _build_reply_text(content: str, score: int, pubkey: str) -> str:
 • NWC wallets: Alby, Zeus, Mutiny → plug WalletConnect URI into SDK
 • Custodial wallets: Strike, Wallet of Sats → pay directly without node
 
-🔗 MCP server: https://invinoveritas.onrender.com/mcp
+🔗 MCP server: https://api.babyblueviper.com/mcp
 🔗 Python SDK: `pip install invinoveritas`
-💰 Pay per call via L402 or pre-fund an account (~1000 sats = 5 complementary calls)
+🚀 Register free → get 250 starter sats: https://api.babyblueviper.com/spawn/template
+💰 Pay per call via L402 or pre-fund your account
 """
 
     elif score >= 7:
-        reply = f"""{base}→ MCP server: https://invinoveritas.onrender.com/mcp
+        reply = f"""{base}→ MCP server: https://api.babyblueviper.com/mcp
 → Python SDK: `pip install invinoveritas`
 
+Register free and get 250 starter sats: https://api.babyblueviper.com/spawn/template
 Agents can pay per call (L402) or pre-fund an account.
 💡 Wallet guidance:
 • NWC wallets (Alby, Zeus, Mutiny) — no node required
 • Custodial wallets (Strike, Wallet of Sats) — pay directly
-• LND node users can follow Lightning Labs setup docs
 """
 
     elif score >= 5:
-        reply = f"""{base}→ MCP: https://invinoveritas.onrender.com/mcp
-→ SDK: `pip install invinoveritas`
+        reply = f"""{base}→ MCP: https://api.babyblueviper.com/mcp
+→ Free registration with 250 starter sats
 
 Pay per call (L402) or pre-fund an account.
 Wallet options:
 • NWC wallets (Alby, Zeus, Mutiny) → no node needed
 • Custodial wallets (Strike, Wallet of Sats) → easy payments
-• LND node → follow Lightning Labs docs
 """
 
     elif score >= 3:
         reply = f"""{base}Lightning-paid reasoning for AI agents.
-→ MCP server: https://invinoveritas.onrender.com/mcp
+→ MCP server: https://api.babyblueviper.com/mcp
 
-Pay ~1000 sats to create an account + 5 complementary calls, then top up as needed.
-Or use pay-per-call via L402 (NWC or custodial wallets)
+Register free → get 250 starter sats, then top up as needed.
+Pay per call via L402 or pre-fund an account.
 """
 
     elif score >= 2:
-        reply = f"""{base}Create an account (~1000 sats) and get 5 complementary calls.
-MCP server: https://invinoveritas.onrender.com/mcp
+        reply = f"""{base}Register free and get 250 starter sats.
+MCP server: https://api.babyblueviper.com/mcp
 Wallet options: NWC (Alby, Zeus, Mutiny) or custodial (Strike, Wallet of Sats)
 """
 
     else:
-        reply = f"""{base}Check out https://invinoveritas.onrender.com/mcp
-Wallet options: NWC or custodial wallets available
+        reply = f"""{base}Check out https://api.babyblueviper.com/mcp
+Register free → 250 starter sats included.
 """
 
     # Trading-bot booster
@@ -445,11 +446,11 @@ async def run_listener():
         logger.error(f"❌ Invalid NOSTR_NSEC: {e}")
         return
 
-    logger.info(f"👂 Starting listener on {len(LISTENER_RELAYS)} relays...")
+    logger.info(f"👂 Starting listener on {len(NOSTR_RELAYS)} relays...")
 
     tasks = [
         asyncio.create_task(_listen_relay(url, private_key), name=f"listener-{url}")
-        for url in LISTENER_RELAYS
+        for url in NOSTR_RELAYS
     ]
 
     try:

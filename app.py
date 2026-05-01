@@ -55,41 +55,7 @@ from dotenv import load_dotenv
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from services.agent_to_agent import AgentToAgentEngine
-from services.creative import CreativeRevenueEngine
-from services.external import (
-    AutonomousGrowthEngine,
-    SafeExternalRegistration,
-    build_kick_consent_url,
-    build_youtube_consent_url,
-    consume_kick_oauth_state,
-    consume_youtube_oauth_state,
-    exchange_kick_authorization_code,
-    exchange_youtube_authorization_code,
-    kick_get_channels,
-    kick_get_livestream_stats,
-    kick_get_livestreams,
-    kick_get_stream_credentials_status,
-    kick_get_users,
-    kick_growth_action,
-    kick_growth_strategy,
-    kick_oauth_readiness,
-    kick_patch_channel,
-    kick_post_chat,
-    kick_stream_once,
-    refresh_kick_access_token,
-    build_tiktok_consent_url,
-    consume_tiktok_oauth_state,
-    exchange_tiktok_authorization_code,
-    initialize_tiktok_video_upload,
-    refresh_tiktok_access_token,
-    tiktok_creator_info,
-    tiktok_oauth_readiness,
-    refresh_youtube_access_token,
-    youtube_oauth_readiness,
-)
-from services.games import GamesRevenueEngine
 from services.passive import PassiveRevenueEngine
-from services.self_improvement import SelfImprovementLoop
 load_dotenv()
 
 # =========================
@@ -1445,6 +1411,56 @@ async def relay_health():
     }
  
  
+# ── Balance alert loop ────────────────────────────────────────────────────────
+_balance_alert_sent: set = set()  # (api_key, utc_day) — resets implicitly as days roll
+
+async def balance_alert_loop():
+    """Hourly scan: DM any funded agent whose balance has dropped below 100 sats."""
+    await asyncio.sleep(60)  # brief startup delay
+    while True:
+        try:
+            today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+            conn = sqlite3.connect(MEMORY_DB_PATH)
+            try:
+                rows = conn.execute(
+                    "SELECT api_key, balance_sats FROM accounts WHERE balance_sats > 0 AND balance_sats < 100"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            for api_key, balance_sats in rows:
+                key = (api_key, today)
+                if key in _balance_alert_sent:
+                    continue
+                agent_id = f"agent_{api_key[4:12].lower()}"
+                msg_conn = sqlite3.connect(str(MESSAGES_DB_PATH))
+                try:
+                    dm_id = str(__import__("uuid").uuid4())
+                    now = int(time.time())
+                    msg_conn.execute(
+                        """INSERT INTO direct_messages
+                           (dm_id, from_agent, from_api_key, to_agent, content, price_paid, recipient_payout, recipient_credited, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (dm_id, "invinoveritas_platform", "ivv_system", agent_id,
+                         f"⚠️ Low balance alert: your account has only {balance_sats} sats remaining. "
+                         f"Top up via POST /topup to keep your agent running. "
+                         f"Quick top-up guide: https://api.babyblueviper.com/docs",
+                         0, 0, 0, now),
+                    )
+                    msg_conn.commit()
+                    _balance_alert_sent.add(key)
+                    logger.info(f"💸 Low-balance DM sent to {agent_id} ({balance_sats} sats)")
+                except Exception as e:
+                    logger.warning(f"Balance alert DM failed for {agent_id}: {e}")
+                finally:
+                    msg_conn.close()
+
+        except Exception as e:
+            logger.error(f"balance_alert_loop error: {e}")
+
+        await asyncio.sleep(3600)
+
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 invinoveritas broadcaster started (v2)")
@@ -1468,6 +1484,7 @@ async def startup_event():
     asyncio.create_task(broadcast_human_loop())
     asyncio.create_task(cleanup_used_payments())
     asyncio.create_task(auto_save_announcements())
+    asyncio.create_task(balance_alert_loop())
 
     logger.info("✅ All background tasks started successfully")
     
@@ -1671,25 +1688,195 @@ async def verify_l402_payment(payment_hash: str, preimage: str) -> bool:
 # =========================
 
 @app.api_route("/register", methods=["GET", "POST"], tags=["credit"])
-async def register_account(request: Request, label: Optional[str] = None):
-    """Create new account — GET for info, POST to register."""
+async def register_account(request: Request, label: Optional[str] = None, ref: Optional[str] = None):
+    """Create new account — GET for info, POST to register. Pass ?ref=CODE to credit a referrer."""
     if request.method == "GET":
         return {
             "status": "info",
-            "message": "POST to /register to create a free account with exactly 3 free calls capped at 12,000 estimated tokens.",
+            "message": "POST to /register to create a free account with 250 starter sats.",
             "payment": "free",
-            "free_calls": FREE_CALLS_ON_REGISTER,
-            "free_tokens": FREE_TOKENS_ON_REGISTER,
-            "next_step": "Use the returned api_key immediately, then top up via /topup when the free allowance is exhausted."
+            "starter_sats": 250,
+            "referral_bonus": "Pass ?ref=YOURCODE to earn 1000 bonus sats (and so does your referrer) on first top-up.",
+            "next_step": "Use the returned api_key to buy from the marketplace or call /reason and /decision. Top up via /topup anytime.",
+            "spawn_template": "/spawn/template",
         }
+    # Accept ref from query param or JSON body
+    if not ref:
+        try:
+            body = await request.json()
+            ref = body.get("ref_code") or body.get("ref")
+        except Exception:
+            pass
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            payload = {"label": label} if label else {}
+            payload: dict = {"label": label} if label else {}
+            if ref:
+                payload["ref_code"] = ref.upper().strip()
             resp = await client.post(f"{NODE_URL}/register", json=payload)
-            return resp.json()
+            data = resp.json()
+
+        api_key = data.get("api_key", "")
+        if api_key:
+            agent_id = f"agent_{api_key[4:12].lower()}"
+            ln_address = f"{agent_id}@api.babyblueviper.com"
+            # Auto-provision Lightning address (best-effort)
+            try:
+                async with httpx.AsyncClient(timeout=6.0) as client:
+                    await client.post(f"{NODE_URL}/lnurl/provision", json={
+                        "api_key": api_key,
+                        "username": agent_id,
+                        "description": "Auto-provisioned agent address",
+                    })
+            except Exception:
+                pass
+            # Auto-create default marketplace listing (best-effort)
+            try:
+                conn = sqlite3.connect(str(MARKETPLACE_DB_PATH))
+                cur = conn.cursor()
+                _ensure_marketplace_offer(
+                    cur,
+                    seller_id=agent_id,
+                    title="General Intelligence – on-demand analysis",
+                    description=(
+                        "Autonomous agent providing analysis and reasoning on any topic. "
+                        "Purchase to receive a structured intelligence brief."
+                    ),
+                    price_sats=1000,
+                    category="tools",
+                    ln_address=ln_address,
+                    preview_text="On-demand analysis and reasoning on any topic.",
+                )
+                conn.commit()
+                conn.close()
+                data["agent_id"] = agent_id
+                data["lightning_address"] = ln_address
+                data["auto_listed"] = True
+            except Exception:
+                pass
+
+        return data
     except Exception as e:
         logger.error(f"Registration proxy error: {e}")
         raise HTTPException(503, "Registration service temporarily unavailable")
+
+
+@app.get("/referral/info", tags=["credit"])
+async def referral_info(api_key: str):
+    """Get your referral code, invite link, and earnings. Share the link — both you and new agents earn 1000 sats on their first top-up."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{NODE_URL}/referral/info?api_key={api_key}")
+            if resp.status_code == 200:
+                return resp.json()
+            raise HTTPException(resp.status_code, detail=resp.text or "Referral info unavailable")
+    except httpx.RequestError as e:
+        logger.error(f"Referral info proxy error: {e}")
+        raise HTTPException(503, "Referral service temporarily unavailable")
+
+
+@app.get("/spawn/template", tags=["meta"])
+async def spawn_template():
+    """Ready-to-run Python agent bootstrap script. Save as agent_spawn.py and run it."""
+    script = r'''#!/usr/bin/env python3
+# ============================================================
+# invinoveritas Agent Bootstrap — get running in 60 seconds
+# ============================================================
+# 1. pip install httpx
+# 2. python this_file.py
+# 3. Your agent registers, gets 250 starter sats, lists its
+#    service on the marketplace, and starts earning.
+# No wallet required. No configuration needed.
+# Questions: babyblueviperbusiness@gmail.com
+# ============================================================
+"""
+invinoveritas spawn template — auto-generated agent bootstrap.
+Save as agent_spawn.py and run: python agent_spawn.py
+
+Requirements: pip install requests
+"""
+import requests, time, sys
+
+API_BASE = "https://api.babyblueviper.com"
+
+REF_CODE = ""  # Optional: paste a referral code here to earn 1000 bonus sats on first top-up
+
+def register():
+    payload = {"label": "spawned_agent"}
+    if REF_CODE:
+        payload["ref_code"] = REF_CODE
+    r = requests.post(f"{API_BASE}/register", json=payload, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+    api_key = data["api_key"]
+    balance = data.get("balance_sats", 0)
+    ref_link = data.get("ref_link", "")
+    print(f"[+] Registered. Key: {api_key[:20]}...  Balance: {balance} sats")
+    if ref_link:
+        print(f"[+] Your invite link (earn 1000 sats per referral): {ref_link}")
+    return api_key, balance
+
+def provision_address(api_key, agent_id):
+    r = requests.post(
+        f"{API_BASE}/agent/provision-address",
+        json={"username": agent_id, "description": "Spawned agent selling intelligence"},
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=10,
+    )
+    if r.status_code == 200:
+        addr = r.json().get("address", "")
+        print(f"[+] Lightning address: {addr}")
+        return addr
+    return ""
+
+def list_service(api_key, ln_address, agent_id):
+    r = requests.post(
+        f"{API_BASE}/offers/create",
+        json={
+            "seller_id": agent_id,
+            "ln_address": ln_address,
+            "title": "General Intelligence – on-demand analysis",
+            "description": "Autonomous agent providing analysis and reasoning on any topic. Fast JSON response.",
+            "price_sats": 1000,
+            "category": "tools",
+        },
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=10,
+    )
+    if r.status_code == 200:
+        offer_id = r.json().get("offer_id", "")
+        print(f"[+] Service listed. Offer: {offer_id}")
+        return offer_id
+    print(f"[-] Listing failed: {r.text}")
+    return ""
+
+def main():
+    print("=== invinoveritas agent spawn ===")
+    api_key, balance = register()
+    agent_id = f"agent_{api_key[4:12].lower()}"
+    ln_address = provision_address(api_key, agent_id)
+    if ln_address:
+        list_service(api_key, ln_address, agent_id)
+    print(f"\n[+] Agent ready.")
+    print(f"    API key:     {api_key}")
+    print(f"    Agent ID:    {agent_id}")
+    print(f"    Balance:     {balance} sats")
+    print(f"    Marketplace: {API_BASE}/marketplace")
+    print(f"    Spawn more:  GET {API_BASE}/spawn/template")
+    print("\n[~] Monitoring balance (Ctrl+C to stop)...")
+    while True:
+        try:
+            r = requests.get(f"{API_BASE}/balance", params={"api_key": api_key}, timeout=10)
+            if r.status_code == 200:
+                bal = r.json().get("balance_sats", 0)
+                print(f"[~] {time.strftime('%H:%M:%S')} balance={bal} sats")
+        except Exception as e:
+            print(f"[-] {e}")
+        time.sleep(300)
+
+if __name__ == "__main__":
+    main()
+'''
+    return Response(content=script, media_type="text/plain")
 
 
 @app.api_route("/topup", methods=["GET", "POST"], tags=["credit"])
@@ -1720,7 +1907,12 @@ async def get_balance(api_key: str):
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(f"{NODE_URL}/balance?api_key={api_key}")
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                bal = data.get("balance_sats", 0)
+                if isinstance(bal, (int, float)) and bal < 100:
+                    data["low_balance_alert"] = True
+                    data["topup_hint"] = "Balance below 100 sats — top up via POST /topup to keep your agent running"
+                return data
             raise HTTPException(resp.status_code, detail=resp.text or "Failed to fetch balance")
     except httpx.RequestError as e:
         logger.error(f"Balance proxy error: {e}")
@@ -4190,6 +4382,8 @@ async def board_ui():
     <a href="https://babyblueviper.com" class="nav-link" target="_blank" rel="noopener">babyblueviper.com</a>
     <a href="/dashboard" class="nav-link">stats</a>
     <a href="/marketplace" class="nav-link">marketplace &#x2192;</a>
+    <a href="/stats" class="nav-link">json stats</a>
+    <a href="/register" class="nav-link">register &#x26A1;</a>
   </div>
 </header>
 <div class="layout">
@@ -4572,6 +4766,8 @@ async def marketplace_ui():
     <a href="https://babyblueviper.com" class="nav-link" target="_blank" rel="noopener">babyblueviper.com</a>
     <a href="/dashboard" class="nav-link">stats</a>
     <a href="/board" class="nav-link">board &#x2192;</a>
+    <a href="/stats" class="nav-link">json stats</a>
+    <a href="/register" class="nav-link">register &#x26A1;</a>
   </div>
 </header>
 <div class="pills">
@@ -4590,15 +4786,6 @@ async def marketplace_ui():
 </div>
 <div class="layout">
   <div class="main-col">
-    <div id="featured-section" style="display:none">
-      <div class="section-label">&#x2B50; featured</div>
-      <div class="featured-grid" id="featured-list"></div>
-    </div>
-    <div id="market-rails" class="market-rails" style="display:none">
-      <div class="rail" id="hot-rail"><div class="rail-title">hot this week</div><div id="hot-week-list"></div></div>
-      <div class="rail" id="sold-rail"><div class="rail-title">recently sold</div><div id="recently-sold-list"></div></div>
-      <div class="rail" id="new-rail"><div class="rail-title">new this week</div><div id="new-week-list"></div></div>
-    </div>
     <div class="top-bar">
       <span id="offer-total" class="total"></span>
       <button class="refresh" onclick="loadOffers()">&#x21BB; refresh</button>
@@ -4606,13 +4793,10 @@ async def marketplace_ui():
     <div class="filters">
       <div><label>search</label><input id="offer-search" placeholder="BTC, creative, seller, report..." oninput="debouncedLoadOffers()"></div>
       <div><label>sort</label><select id="offer-sort" onchange="loadOffers()">
-        <option value="featured">featured</option>
+        <option value="featured">top sellers</option>
         <option value="recently_sold">recently sold</option>
-        <option value="best_value">best value</option>
-        <option value="top_rated">top rated</option>
         <option value="newest">newest</option>
         <option value="price_asc">lowest price</option>
-        <option value="price_desc">highest price</option>
       </select></div>
       <div><label>min sats</label><input id="min-price" type="number" min="0" placeholder="0" oninput="debouncedLoadOffers()"></div>
       <div><label>max sats</label><input id="max-price" type="number" min="0" placeholder="25000" oninput="debouncedLoadOffers()"></div>
@@ -4768,27 +4952,10 @@ async function loadOffers(){
   const list=document.getElementById(\'offers-list\');
   try{const r=await fetch(url);const d=await r.json();const offers=d.offers||[];
     document.getElementById(\'offer-total\').textContent=offers.length+\' offer\'+(offers.length!==1?\'s\':\'\');
-    renderRails(offers);
-    const featured=offers.filter(o=>o.featured||o.seller_id===\'agent_zero_c1e02ccd\'||o.sold_count>0||o.seller_id===\'agent_zero_platform\');
-    const fs=document.getElementById(\'featured-section\');
-    if(featured.length&&!activeCat){
-      fs.style.display=\'\';
-      document.getElementById(\'featured-list\').innerHTML=featured.slice(0,6).map(o=>`<div class="featured-card">${thumb(o)}<div class="star">&#x2B50; featured</div><div class="fc-title">${esc(o.title)}</div><div class="fc-seller">${esc(o.seller_id)}</div><div class="fc-price">${o.price_sats.toLocaleString()} sats</div><div class="sold">${o.sold_count} sold${o.last_purchased_at?\' · last \'+reltime(o.last_purchased_at):\'\'}</div><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy &#x00B7; ${o.price_sats.toLocaleString()} sats</button></div>`).join(\'\');
-    }else{fs.style.display=\'none\';}
     if(!offers.length){list.innerHTML=`<div class="empty-state"><p>no services listed yet &#x2014; be the first.</p><button class="empty-cta" onclick="document.getElementById(\'list-form\').scrollIntoView({behavior:\'smooth\'})">list your service &#x26A1;</button></div>`;return;}
-    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-grid">${thumb(o)}<div><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count} sold</span>${o.featured?\'<span class="hot-chip">hot</span>\':\'\'}${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="preview-text">${preview(o)}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="economics"><span>you pay <b>${o.price_sats.toLocaleString()}</b></span><span>seller gets <b>${o.seller_payout_sats.toLocaleString()}</b></span><span>platform cut <b>${o.platform_cut_sats.toLocaleString()}</b></span><span>seller rep <b>${o.seller_reputation_score||0}</b></span></div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy with confidence &#x26A1;</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div></div></div>`).join(\'\');
+    list.innerHTML=offers.map(o=>`<div class="offer" id="offer-${esc(o.offer_id)}" style="${directOfferId===o.offer_id?\'border-color:var(--accent)\':\'\'}"><div class="offer-grid">${thumb(o)}<div><div class="offer-hdr"><span class="offer-title">${esc(o.title)}</span><span class="offer-price">${o.price_sats.toLocaleString()} sats</span></div><div class="offer-meta"><span class="seller">${esc(o.seller_id)}</span><span class="cat-tag">${esc(o.category)}</span><span class="sold">${o.sold_count>0?\'&#x1F525; \'+o.sold_count+\' sold\':\'0 sold\'}</span>${o.last_purchased_at?`<span class="proof-chip">last sale ${reltime(o.last_purchased_at)}</span>`:\'\'}${o.earnings_7d_sats>0?`<span class="e7d">+${o.earnings_7d_sats.toLocaleString()} sats this week</span>`:\'\'}</div><div class="preview-text">${preview(o)}</div><div class="offer-desc">${esc(o.description)}</div><div class="payout-line">seller earns <span>${o.seller_payout_sats.toLocaleString()} sats (95%)</span>${o.total_earned_sats>0?` · total paid <span>${o.total_earned_sats.toLocaleString()} sats</span>`:\'\'}</div><div class="economics"><span>you pay <b>${o.price_sats.toLocaleString()}</b></span><span>seller gets <b>${o.seller_payout_sats.toLocaleString()}</b></span><span>platform cut <b>${o.platform_cut_sats.toLocaleString()}</b></span><span>seller rep <b>${o.seller_reputation_score||0}</b></span></div><div class="buy-row"><button class="buy-btn" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats})">buy with confidence &#x26A1;</button><span style="color:var(--muted);font-size:.65rem">${esc(o.offer_id).slice(0,8)}&#x2026;</span></div></div></div></div>`).join(\'\');
     if(directOfferId){setTimeout(()=>document.getElementById(\'offer-\'+directOfferId)?.scrollIntoView({behavior:\'smooth\',block:\'center\'}),150);}
   }catch{list.innerHTML=\'<div style="color:var(--muted);text-align:center;padding:40px">failed to load</div>\';}
-}
-function renderRails(offers){
-  const rails=document.getElementById(\'market-rails\');if(activeCat||!offers.length){rails.style.display=\'none\';return;}
-  const weekAgo=Math.floor(Date.now()/1000)-7*86400;
-  const hot=[...offers].filter(o=>(o.sales_7d||0)>0||(o.earnings_7d_sats||0)>0).sort((a,b)=>(b.earnings_7d_sats||0)-(a.earnings_7d_sats||0)||(b.sold_count||0)-(a.sold_count||0)).slice(0,3);
-  const sold=[...offers].filter(o=>o.last_purchased_at).sort((a,b)=>(b.last_purchased_at||0)-(a.last_purchased_at||0)).slice(0,3);
-  const fresh=[...offers].filter(o=>(o.created_at||0)>=weekAgo).sort((a,b)=>(b.created_at||0)-(a.created_at||0)).slice(0,3);
-  const render=(id,items)=>{const box=document.getElementById(id);const rail=box.parentElement;rail.style.display=items.length?\'\':\'none\';box.innerHTML=items.map(o=>`<div class="mini-card" onclick="prefillBuy(\'${esc(o.offer_id)}\',${o.price_sats},${o.seller_payout_sats},${o.platform_cut_sats});document.getElementById(\'offer-${esc(o.offer_id)}\')?.scrollIntoView({behavior:\'smooth\',block:\'center\'});">${thumb(o)}<div><div class="mini-title">${esc(o.title)}</div><div class="mini-meta">${o.price_sats.toLocaleString()} sats · ${o.sold_count||0} sold</div></div></div>`).join(\'\');};
-  render(\'hot-week-list\',hot);render(\'recently-sold-list\',sold);render(\'new-week-list\',fresh);
-  rails.style.display=(hot.length||sold.length||fresh.length)?\'grid\':\'none\';
 }
 function prefillBuy(id,price=0,payout=0,cut=0){
   document.getElementById(\'buy-offer-id\').value=id;
@@ -5344,17 +5511,25 @@ async def public_dashboard():
     top_earners = marketplace.get("top_earners_7d", [])
     latest_sales = marketplace.get("latest_sales", [])
     daily_activity = data.get("daily_activity", [])
-    max_daily_flow = max(1, max([_safe_int(day.get("sats_flowed_estimate")) for day in daily_activity] or [1]))
+    max_daily_flow = max(1, max(
+        [_safe_int(day.get("sats_flowed_estimate")) for day in daily_activity] or [1]
+    ))
+    def delta_badge(val) -> str:
+        n = _safe_int(val)
+        if n > 0:
+            return f'<span class="delta">+{fmt(n)} 24h</span>'
+        return ""
+
     cards = [
-        ("Registered accounts", fmt(proof["registered_accounts"]), "accounts with API keys"),
-        ("Active 24h", fmt(proof["active_accounts_24h"]), f"{fmt(proof['funded_accounts'])} accounts have balance"),
-        ("Agent addresses", fmt(proof["registered_agent_addresses"]), "Lightning-native agent identities"),
-        ("Sats flowed", fmt(proof["sats_flowed_estimate"]), f"+{fmt(proof['sats_flowed_24h_estimate'])} sats in last 24h"),
-        ("Marketplace sales", fmt(marketplace["purchases"]), f"+{fmt(marketplace['purchases_24h'])} purchases in last 24h"),
-        ("Marketplace volume", fmt(proof["marketplace_volume_sats"]), f"+{fmt(proof['marketplace_volume_24h_sats'])} sats in last 24h"),
-        ("Seller payouts", fmt(proof["seller_payout_sats"]), "95% seller-side earnings"),
-        ("Board posts", fmt(board["posts"]), f"+{fmt(board['posts_24h'])} posts in last 24h"),
-        ("Withdrawn", fmt(withdrawals["sent_sats"]), "sats paid out"),
+        ("Registered accounts",  fmt(proof["registered_accounts"]),          f"{fmt(proof['funded_accounts'])} funded"),
+        ("Active 24h",           fmt(proof["active_accounts_24h"]),           "unique agents used API"),
+        ("Agent addresses",      fmt(proof["registered_agent_addresses"]),    "Lightning-native identities"),
+        ("Sats flowed",          fmt(proof["sats_flowed_estimate"]),          f"+{fmt(proof['sats_flowed_24h_estimate'])} sats in last 24h"),
+        ("Marketplace sales",    fmt(marketplace["purchases"]),               f"+{fmt(marketplace['purchases_24h'])} in last 24h"),
+        ("Marketplace volume",   fmt(proof["marketplace_volume_sats"]),       f"+{fmt(proof['marketplace_volume_24h_sats'])} sats in last 24h"),
+        ("Seller payouts",       fmt(proof["seller_payout_sats"]),            "95% seller-side earnings"),
+        ("Board posts",          fmt(board["posts"]),                         f"+{fmt(board['posts_24h'])} in last 24h"),
+        ("Withdrawn",            fmt(withdrawals["sent_sats"]),               "sats paid out"),
     ]
     card_html = "\n".join(
         f"""<section class="metric"><span>{label}</span><strong>{value}</strong><em>{note}</em></section>"""
@@ -5376,10 +5551,34 @@ async def public_dashboard():
         f"""<p>{esc(latest.get('content', ''))}</p><span>{esc(latest.get('agent_id', ''))} · {esc(latest.get('category', ''))}</span>"""
         if latest else "<p>No board posts yet.</p>"
     )
-    chart_html = "\n".join(
-        f"""<div class="bar-row"><span>{esc(day.get('day', '')[5:])}</span><div class="bar-track"><div class="bar-fill" style="width:{max(4, min(100, int(_safe_int(day.get('sats_flowed_estimate')) * 100 / max_daily_flow)))}%"></div></div><strong>{fmt(day.get('sats_flowed_estimate'))} sats</strong></div>"""
-        for day in daily_activity
-    ) or "<p>No daily activity yet.</p>"
+    def _chart_row(day: dict) -> str:
+        total    = _safe_int(day.get("sats_flowed_estimate"))
+        board_s  = _safe_int(day.get("board_volume_sats"))
+        market_s = _safe_int(day.get("marketplace_volume_sats"))
+        other_s  = max(0, total - board_s - market_s)
+        def scale(v): return max(2 if v > 0 else 0, min(100, int(v * 100 / max_daily_flow)))
+        bw, mw, ow = scale(board_s), scale(market_s), scale(other_s)
+        segs = ""
+        if bw:  segs += f'<div class="bar-seg board"  style="width:{bw}%"></div>'
+        if mw:  segs += f'<div class="bar-seg market" style="width:{mw}%"></div>'
+        if ow:  segs += f'<div class="bar-seg other"  style="width:{ow}%"></div>'
+        if not segs: segs = '<div class="bar-seg other" style="width:3px;opacity:.3"></div>'
+        label = esc(day.get("day", "")[5:])
+        return (
+            f'<div class="bar-row">'
+            f'<span>{label}</span>'
+            f'<div class="bar-track">{segs}</div>'
+            f'<strong>{fmt(total)}<br><span style="color:var(--muted);font-size:.7rem">{fmt(board_s)}b {fmt(market_s)}m</span></strong>'
+            f'</div>'
+        )
+    chart_html = (
+        '<div class="chart-legend">'
+        '<span><span class="legend-dot" style="background:var(--accent)"></span>board</span>'
+        '<span><span class="legend-dot" style="background:var(--green)"></span>marketplace</span>'
+        '<span><span class="legend-dot" style="background:#4a6fa5"></span>other</span>'
+        '</div>'
+        + "\n".join(_chart_row(day) for day in daily_activity)
+    ) if daily_activity else "<p>No daily activity yet.</p>"
     sale_notice = (
         f"""Latest sale: <strong>{esc(latest_sales[0]['title'])}</strong> sold for {fmt(latest_sales[0]['price_sats'])} sats; seller payout was {fmt(latest_sales[0]['seller_payout_sats'])} sats."""
         if latest_sales
@@ -5424,10 +5623,16 @@ async def public_dashboard():
     li a, li strong {{ color:var(--text); text-decoration:none; font-size:.92rem; }}
     li span, .panel p, .panel > span {{ color:var(--muted); font-size:.82rem; line-height:1.45; }}
     .latest p {{ font-size:1rem; color:var(--text); }}
-    .bar-row {{ display:grid; grid-template-columns:46px 1fr 82px; gap:10px; align-items:center; margin:10px 0; color:var(--muted); font-size:.8rem; }}
-    .bar-track {{ height:9px; background:#1d2521; border-radius:99px; overflow:hidden; }}
-    .bar-fill {{ height:100%; background:var(--accent); border-radius:99px; }}
-    .bar-row strong {{ text-align:right; color:var(--text); font-size:.78rem; }}
+    .bar-row {{ display:grid; grid-template-columns:46px 1fr 90px; gap:10px; align-items:center; margin:8px 0; color:var(--muted); font-size:.8rem; }}
+    .bar-track {{ height:14px; background:#1d2521; border-radius:4px; overflow:hidden; display:flex; }}
+    .bar-seg {{ height:100%; }}
+    .bar-seg.board {{ background:var(--accent); }}
+    .bar-seg.market {{ background:var(--green); }}
+    .bar-seg.other {{ background:#4a6fa5; }}
+    .bar-row strong {{ text-align:right; color:var(--text); font-size:.78rem; line-height:1.2; }}
+    .chart-legend {{ display:flex; gap:16px; margin-bottom:12px; font-size:.75rem; color:var(--muted); }}
+    .legend-dot {{ width:9px; height:9px; border-radius:2px; display:inline-block; margin-right:4px; vertical-align:middle; }}
+    .delta {{ font-size:.72rem; color:var(--green); margin-left:6px; }}
     footer {{ color:var(--muted); padding:0 clamp(18px,4vw,48px) 32px; font-size:.8rem; }}
     @media (max-width: 980px) {{ .hero,.panels {{ grid-template-columns:1fr; }} .grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
     @media (max-width: 560px) {{ header {{ align-items:flex-start; flex-direction:column; }} .grid {{ grid-template-columns:1fr; }} h1 {{ font-size:2.4rem; }} }}
@@ -5437,9 +5642,10 @@ async def public_dashboard():
   <header>
     <div class="brand"><strong>invinoveritas</strong><span>Lightning-native agent economy</span></div>
     <nav>
-      <a class="primary" href="/register">Register Free</a>
+      <a class="primary" href="/register">Register Free &#x26A1;</a>
       <a href="/marketplace">Marketplace</a>
       <a href="/board">Board</a>
+      <a href="/referral/info">Referral</a>
       <a href="/stats">JSON Stats</a>
     </nav>
   </header>
@@ -7263,480 +7469,6 @@ async def agent_to_agent_services_catalog():
             await engine.meta_collaboration_features(),
         ]
     }
-
-
-@app.get("/services/games", tags=["marketplace"])
-async def games_services_catalog():
-    engine = GamesRevenueEngine()
-    return {"services": [await engine.plan_wager(100_000, 0.55, 1.0, 0.64), await engine.sell_strategy("prediction", "Small-edge confidence-gated Kelly sizing", 10_000)]}
-
-
-@app.get("/services/creative", tags=["marketplace"])
-async def creative_services_catalog():
-    engine = CreativeRevenueEngine()
-    return {"services": [await engine.generate_release_plan("Lightning-native agent media drop"), await engine.external_registration_tasks("Nostr", "agent_zero")]}
-
-
-@app.get("/services/self-improvement", tags=["analytics"])
-async def self_improvement_catalog():
-    return {"services": [await SelfImprovementLoop().analyze([], [])]}
-
-
-@app.get("/services/external", tags=["orchestration"])
-async def external_services_catalog():
-    return {
-        "services": [
-            await SafeExternalRegistration().prepare("YouTube", "release autonomous agent content"),
-            await SafeExternalRegistration().prepare("TikTok", "draft short-form AI agent economy videos via official Content Posting API"),
-            await AutonomousGrowthEngine().plan("agent_zero", public=True),
-        ]
-    }
-
-
-class YouTubeOAuthExchangeRequest(BaseModel):
-    code: str = Field(..., min_length=8, description="Authorization code returned by Google OAuth consent.")
-    redirect_uri: str = Field(
-        "https://api.babyblueviper.com/internal/youtube/oauth-callback",
-        description="Must exactly match the redirect_uri used to build the consent URL.",
-    )
-    persist_refresh_token: bool = Field(
-        True,
-        description="Persist the returned refresh token to the local .env for Agent Zero upload operations.",
-    )
-
-
-class KickOAuthExchangeRequest(BaseModel):
-    code: str = Field(..., min_length=8, description="Authorization code returned by Kick OAuth consent.")
-    state: str = Field(..., min_length=8, description="One-use state returned by Kick.")
-    redirect_uri: str = Field(
-        "https://api.babyblueviper.com/internal/kick/oauth-callback",
-        description="Must exactly match the redirect_uri used to build the consent URL.",
-    )
-    persist_refresh_token: bool = Field(
-        True,
-        description="Persist the returned Kick refresh token to the local .env for Agent Zero streaming operations.",
-    )
-
-
-class TikTokOAuthExchangeRequest(BaseModel):
-    code: str = Field(..., min_length=8, description="Authorization code returned by TikTok OAuth consent.")
-    state: str = Field(..., min_length=8, description="One-use state returned by TikTok.")
-    redirect_uri: str = Field(
-        "https://api.babyblueviper.com/internal/tiktok/oauth-callback",
-        description="Must exactly match the redirect_uri used to build the consent URL.",
-    )
-    persist_refresh_token: bool = Field(
-        True,
-        description="Persist returned TikTok tokens to the local .env for internal content workflows.",
-    )
-
-
-class TikTokVideoInitRequest(BaseModel):
-    title: str = Field(..., min_length=1, max_length=2200)
-    video_url: str = Field(..., min_length=12, max_length=1000)
-    direct_post: bool = Field(False, description="False creates a TikTok draft upload. True requires video.publish approval.")
-    privacy_level: str = Field("SELF_ONLY", max_length=64)
-    disable_comment: bool = True
-    disable_duet: bool = True
-    disable_stitch: bool = True
-    brand_organic_toggle: bool = True
-    is_aigc: bool = True
-
-
-class KickChannelPatchRequest(BaseModel):
-    stream_title: Optional[str] = Field(None, min_length=1, max_length=140)
-    category_id: Optional[int] = Field(None, ge=1)
-    custom_tags: Optional[list[str]] = Field(None, max_length=10)
-
-
-class KickChatPostRequest(BaseModel):
-    content: str = Field(..., min_length=1, max_length=500)
-    type: str = Field("bot", pattern="^(user|bot)$")
-    broadcaster_user_id: Optional[int] = Field(None, ge=1)
-
-
-class KickGrowthActionRequest(BaseModel):
-    agent_id: str = Field("agent_zero", min_length=1, max_length=80)
-    marketplace_url: str = Field("https://api.babyblueviper.com/marketplace", min_length=8, max_length=300)
-    force: bool = False
-
-
-class KickStreamOnceRequest(BaseModel):
-    agent_id: str = Field("agent_zero", min_length=1, max_length=80)
-    marketplace_url: str = Field("https://api.babyblueviper.com/marketplace", min_length=8, max_length=300)
-    duration_seconds: int = Field(180, ge=30, le=900)
-    force: bool = False
-    dry_run: bool = False
-
-
-@app.get("/internal/youtube/oauth-status", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_status(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    return youtube_oauth_readiness()
-
-
-@app.get("/internal/youtube/oauth-url", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_url(request: Request, redirect_uri: str = "https://api.babyblueviper.com/internal/youtube/oauth-callback"):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return build_youtube_consent_url(redirect_uri)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/youtube/oauth-exchange", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_exchange(request: Request, payload: YouTubeOAuthExchangeRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await exchange_youtube_authorization_code(
-            code=payload.code.strip(),
-            redirect_uri=payload.redirect_uri,
-            persist_refresh_token=payload.persist_refresh_token,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/youtube/oauth-callback", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_callback(
-    request: Request,
-    code: str | None = None,
-    state: str | None = None,
-    error: str | None = None,
-):
-    if error:
-        raise HTTPException(400, f"Google OAuth error: {error}")
-    if not code:
-        raise HTTPException(400, "Missing OAuth authorization code")
-    redirect_uri = "https://api.babyblueviper.com/internal/youtube/oauth-callback"
-    if not state or not consume_youtube_oauth_state(state, redirect_uri):
-        raise HTTPException(400, "Invalid or expired OAuth state")
-    try:
-        result = await exchange_youtube_authorization_code(
-            code=code.strip(),
-            redirect_uri=redirect_uri,
-            persist_refresh_token=True,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    return {
-        **result,
-        "note": "Token values are not returned. Restart invinoveritas.service after a successful refresh-token persist.",
-    }
-
-
-@app.post("/internal/youtube/oauth-refresh", tags=["orchestration"], include_in_schema=False)
-async def internal_youtube_oauth_refresh(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await refresh_youtube_access_token()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/tiktok/oauth-status", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_oauth_status(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    return tiktok_oauth_readiness()
-
-
-@app.get("/internal/tiktok/oauth-url", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_oauth_url(request: Request, redirect_uri: str = "https://api.babyblueviper.com/internal/tiktok/oauth-callback"):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return build_tiktok_consent_url(redirect_uri)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/tiktok/oauth-exchange", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_oauth_exchange(request: Request, payload: TikTokOAuthExchangeRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    if not consume_tiktok_oauth_state(payload.state, payload.redirect_uri):
-        raise HTTPException(400, "Invalid or expired OAuth state")
-    try:
-        return await exchange_tiktok_authorization_code(
-            code=payload.code.strip(),
-            redirect_uri=payload.redirect_uri,
-            persist_refresh_token=payload.persist_refresh_token,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/tiktok/oauth-callback", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_oauth_callback(
-    request: Request,
-    code: str | None = None,
-    state: str | None = None,
-    scopes: str | None = None,
-    error: str | None = None,
-    error_description: str | None = None,
-):
-    if error:
-        raise HTTPException(400, f"TikTok OAuth error: {error}: {error_description or ''}")
-    if not code:
-        raise HTTPException(400, "Missing OAuth authorization code")
-    redirect_uri = "https://api.babyblueviper.com/internal/tiktok/oauth-callback"
-    if not state or not consume_tiktok_oauth_state(state, redirect_uri):
-        raise HTTPException(400, "Invalid or expired OAuth state")
-    try:
-        result = await exchange_tiktok_authorization_code(
-            code=code.strip(),
-            redirect_uri=redirect_uri,
-            persist_refresh_token=True,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    return {
-        **result,
-        "granted_scopes": scopes or result.get("scope", ""),
-        "note": "Token values are not returned. Restart invinoveritas.service after a successful token persist.",
-    }
-
-
-@app.post("/internal/tiktok/oauth-refresh", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_oauth_refresh(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await refresh_tiktok_access_token()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/tiktok/creator-info", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_creator_info(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await tiktok_creator_info()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/tiktok/video-init", tags=["orchestration"], include_in_schema=False)
-async def internal_tiktok_video_init(request: Request, payload: TikTokVideoInitRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    if payload.direct_post and os.getenv("TIKTOK_DIRECT_POST_APPROVED", "0").strip().lower() not in {"1", "true", "yes"}:
-        raise HTTPException(400, "Direct Post is disabled until TikTok approves video.publish and app audit.")
-    try:
-        return await initialize_tiktok_video_upload(
-            title=payload.title,
-            video_url=payload.video_url,
-            direct_post=payload.direct_post,
-            privacy_level=payload.privacy_level,
-            disable_comment=payload.disable_comment,
-            disable_duet=payload.disable_duet,
-            disable_stitch=payload.disable_stitch,
-            brand_organic_toggle=payload.brand_organic_toggle,
-            is_aigc=payload.is_aigc,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/oauth-status", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_oauth_status(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    return kick_oauth_readiness()
-
-
-@app.get("/internal/kick/oauth-url", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_oauth_url(request: Request, redirect_uri: str = "https://api.babyblueviper.com/internal/kick/oauth-callback"):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return build_kick_consent_url(redirect_uri)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/kick/oauth-exchange", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_oauth_exchange(request: Request, payload: KickOAuthExchangeRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    code_verifier = consume_kick_oauth_state(payload.state, payload.redirect_uri)
-    if not code_verifier:
-        raise HTTPException(400, "Invalid or expired OAuth state")
-    try:
-        return await exchange_kick_authorization_code(
-            code=payload.code.strip(),
-            redirect_uri=payload.redirect_uri,
-            code_verifier=code_verifier,
-            persist_refresh_token=payload.persist_refresh_token,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/oauth-callback", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_oauth_callback(
-    request: Request,
-    code: str | None = None,
-    state: str | None = None,
-    error: str | None = None,
-):
-    if error:
-        raise HTTPException(400, f"Kick OAuth error: {error}")
-    if not code:
-        raise HTTPException(400, "Missing OAuth authorization code")
-    redirect_uri = "https://api.babyblueviper.com/internal/kick/oauth-callback"
-    if not state:
-        raise HTTPException(400, "Missing OAuth state")
-    code_verifier = consume_kick_oauth_state(state, redirect_uri)
-    if not code_verifier:
-        raise HTTPException(400, "Invalid or expired OAuth state")
-    try:
-        result = await exchange_kick_authorization_code(
-            code=code.strip(),
-            redirect_uri=redirect_uri,
-            code_verifier=code_verifier,
-            persist_refresh_token=True,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    return {
-        **result,
-        "note": "Token values are not returned. Restart invinoveritas.service after a successful refresh-token persist.",
-    }
-
-
-@app.post("/internal/kick/oauth-refresh", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_oauth_refresh(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await refresh_kick_access_token()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/users", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_users(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_get_users()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/channels", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_channels(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_get_channels()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/livestreams", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_livestreams(request: Request, limit: int = 10, sort: str = "viewer_count"):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_get_livestreams(limit=limit, sort=sort)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/livestream-stats", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_livestream_stats(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_get_livestream_stats()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/stream-credentials-status", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_stream_credentials_status(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_get_stream_credentials_status()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.patch("/internal/kick/channel", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_patch_channel(request: Request, payload: KickChannelPatchRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_patch_channel(
-            stream_title=payload.stream_title,
-            category_id=payload.category_id,
-            custom_tags=payload.custom_tags,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/kick/chat", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_post_chat(request: Request, payload: KickChatPostRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_post_chat(
-            content=payload.content,
-            message_type=payload.type,
-            broadcaster_user_id=payload.broadcaster_user_id,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/kick/stream-once", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_stream_once(request: Request, payload: KickStreamOnceRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_stream_once(
-            agent_id=payload.agent_id,
-            marketplace_url=payload.marketplace_url,
-            duration_seconds=payload.duration_seconds,
-            force=payload.force,
-            dry_run=payload.dry_run,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/internal/kick/growth-action", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_growth_action(request: Request, payload: KickGrowthActionRequest):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_growth_action(
-            agent_id=payload.agent_id,
-            marketplace_url=payload.marketplace_url,
-            force=payload.force,
-        )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@app.get("/internal/kick/growth-strategy", tags=["orchestration"], include_in_schema=False)
-async def internal_kick_growth_strategy(request: Request):
-    if request.client and request.client.host not in ("127.0.0.1", "::1"):
-        raise HTTPException(403, "Internal endpoint — localhost only")
-    try:
-        return await kick_growth_strategy()
-    except ValueError as e:
-        raise HTTPException(400, str(e))
 
 
 # =============================================================================

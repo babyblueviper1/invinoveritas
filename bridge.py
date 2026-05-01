@@ -50,6 +50,14 @@ LIGHTNING_REGISTER_SATS = int(os.getenv("LIGHTNING_REGISTER_SATS", "1000"))
 WITHDRAWAL_FLAT_FEE_SATS = int(os.getenv("WITHDRAWAL_FLAT_FEE_SATS", "100"))
 WITHDRAWAL_MIN_AMOUNT_SATS = int(os.getenv("WITHDRAWAL_MIN_AMOUNT_SATS", "5000"))
 
+# Free registration incentive (abuse-protected)
+FREE_SATS_ON_REGISTER = int(os.getenv("FREE_SATS_ON_REGISTER", "250"))
+MAX_REGISTRATIONS_PER_IP_PER_DAY = int(os.getenv("MAX_REGISTRATIONS_PER_IP_PER_DAY", "3"))
+DAILY_GIVEAWAY_CAP_SATS = int(os.getenv("DAILY_GIVEAWAY_CAP_SATS", "30000"))
+
+# Referral bonus: both referrer and referee get this on referee's first top-up
+REFERRAL_BONUS_SATS = int(os.getenv("REFERRAL_BONUS_SATS", "1000"))
+
 # =========================
 # Database Initialization
 # =========================
@@ -115,6 +123,35 @@ def init_db():
     ):
         try:
             c.execute(statement)
+        except sqlite3.OperationalError:
+            pass
+
+    c.execute('''CREATE TABLE IF NOT EXISTS ip_registrations (
+        ip TEXT NOT NULL,
+        day TEXT NOT NULL,
+        count INTEGER DEFAULT 1,
+        PRIMARY KEY (ip, day)
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS daily_giveaway (
+        day TEXT PRIMARY KEY,
+        sats_given INTEGER DEFAULT 0
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS referrals (
+        referee_api_key  TEXT PRIMARY KEY,
+        ref_code         TEXT NOT NULL,
+        referrer_api_key TEXT NOT NULL,
+        bonus_paid_at    INTEGER DEFAULT NULL,
+        created_at       INTEGER NOT NULL
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_referrals_code ON referrals(ref_code)")
+
+    for stmt in (
+        "ALTER TABLE accounts ADD COLUMN referred_by TEXT DEFAULT NULL",
+    ):
+        try:
+            c.execute(stmt)
         except sqlite3.OperationalError:
             pass
 
@@ -291,17 +328,100 @@ def generate_api_key() -> str:
     return f"ivv_{secrets.token_urlsafe(32)}"
 
 
-def create_account(api_key: str, label: Optional[str] = None):
+def _today_utc() -> str:
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def _check_and_record_ip_reg(ip: str) -> bool:
+    """Returns True if allowed. Records the attempt atomically."""
+    day = _today_utc()
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT count FROM ip_registrations WHERE ip = ? AND day = ?", (ip, day))
+        row = c.fetchone()
+        if row and row[0] >= MAX_REGISTRATIONS_PER_IP_PER_DAY:
+            return False
+        if row:
+            c.execute(
+                "UPDATE ip_registrations SET count = count + 1 WHERE ip = ? AND day = ?",
+                (ip, day),
+            )
+        else:
+            c.execute(
+                "INSERT INTO ip_registrations (ip, day, count) VALUES (?, ?, 1)", (ip, day)
+            )
+        return True
+
+
+def _claim_giveaway_sats(amount: int) -> int:
+    """Reserve sats from the daily giveaway cap. Returns actual sats allocated."""
+    day = _today_utc()
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT sats_given FROM daily_giveaway WHERE day = ?", (day,))
+        row = c.fetchone()
+        given = row[0] if row else 0
+        actual = min(amount, max(0, DAILY_GIVEAWAY_CAP_SATS - given))
+        if actual > 0:
+            if row:
+                c.execute(
+                    "UPDATE daily_giveaway SET sats_given = sats_given + ? WHERE day = ?",
+                    (actual, day),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO daily_giveaway (day, sats_given) VALUES (?, ?)", (day, actual)
+                )
+    return actual
+
+
+def _maybe_pay_referral_bonus(conn, referee_api_key: str):
+    """Call inside an open get_db_conn() transaction after a successful top-up.
+    Pays REFERRAL_BONUS_SATS to both parties on the referee's first Lightning top-up.
+    Idempotent: bonus_paid_at guards against double-pay."""
+    c = conn.cursor()
+    c.execute(
+        "SELECT ref_code, referrer_api_key FROM referrals WHERE referee_api_key = ? AND bonus_paid_at IS NULL",
+        (referee_api_key,),
+    )
+    row = c.fetchone()
+    if not row:
+        return
+    ref_code, referrer_api_key = row
+    # Verify referrer still exists
+    c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (referrer_api_key,))
+    if not c.fetchone():
+        return
+    now = int(time.time())
+    c.execute(
+        "UPDATE accounts SET balance_sats = balance_sats + ? WHERE api_key = ?",
+        (REFERRAL_BONUS_SATS, referrer_api_key),
+    )
+    c.execute(
+        "UPDATE accounts SET balance_sats = balance_sats + ? WHERE api_key = ?",
+        (REFERRAL_BONUS_SATS, referee_api_key),
+    )
+    c.execute(
+        "UPDATE referrals SET bonus_paid_at = ? WHERE referee_api_key = ?",
+        (now, referee_api_key),
+    )
+    logger.info(
+        f"🎁 Referral bonus: +{REFERRAL_BONUS_SATS} sats → referrer={referrer_api_key[:12]}… "
+        f"& referee={referee_api_key[:12]}… (code={ref_code})"
+    )
+
+
+def create_account(api_key: str, label: Optional[str] = None, initial_sats: int = 0, free_calls: int = 0):
     """Create account if it doesn't exist, otherwise do nothing (idempotent)."""
     now = int(time.time())
     with get_db_conn() as conn:
         c = conn.cursor()
         try:
             c.execute(
-                """INSERT INTO accounts 
+                """INSERT INTO accounts
                    (api_key, balance_sats, free_calls_remaining, free_tokens_remaining, created_at, last_used, label)
-                   VALUES (?, 0, ?, ?, ?, ?, ?)""",
-                (api_key, FREE_CALLS_ON_REGISTER, FREE_TOKENS_ON_REGISTER, now, now, label or None)
+                   VALUES (?, ?, ?, 0, ?, ?, ?)""",
+                (api_key, initial_sats, free_calls, now, now, label or None)
             )
             logger.info(f"✅ New account created: {api_key[:20]}...")
         except sqlite3.IntegrityError:
@@ -327,6 +447,7 @@ class VerifyPreimageRequest(BaseModel):
 
 class RegisterRequest(BaseModel):
     label: Optional[str] = Field(None, max_length=100)
+    ref_code: Optional[str] = Field(None, max_length=20)
 
 
 class TopupRequest(BaseModel):
@@ -404,19 +525,60 @@ BOOTSTRAP_GUIDE = {
 @app.post("/register", tags=["accounts"])
 @limiter.limit("20/minute")
 async def register(req: RegisterRequest, request: Request):
-    """Free registration. Returns an API key immediately — no payment required.
-    Balance starts at 0 sats with exactly 3 free calls capped at 12,000 estimated tokens."""
+    """Free registration with 250 starter sats. IP-rate-limited and daily-cap protected."""
+    client_ip = request.client.host or "unknown"
+    if not _check_and_record_ip_reg(client_ip):
+        raise HTTPException(
+            429,
+            f"Too many registrations from this IP today (max {MAX_REGISTRATIONS_PER_IP_PER_DAY}/day). Try again tomorrow.",
+        )
+    giveaway_sats = _claim_giveaway_sats(FREE_SATS_ON_REGISTER)
     api_key = generate_api_key()
-    create_account(api_key, label=req.label or "external")
-    logger.info(f"✅ Free registration: {api_key[:15]}…")
+    create_account(api_key, label=req.label or "external", initial_sats=giveaway_sats)
+
+    # Record referral if a valid ref_code was provided
+    ref_bonus_pending = False
+    if req.ref_code:
+        ref_code_upper = req.ref_code.upper().strip()
+        with get_db_conn() as conn:
+            c = conn.cursor()
+            # Derive referrer from code: ref_code = api_key[4:10].upper()
+            c.execute(
+                "SELECT api_key FROM accounts WHERE UPPER(SUBSTR(api_key, 5, 6)) = ?",
+                (ref_code_upper,),
+            )
+            row = c.fetchone()
+            if row and row[0] != api_key:
+                referrer_api_key = row[0]
+                c.execute(
+                    """INSERT OR IGNORE INTO referrals
+                       (referee_api_key, ref_code, referrer_api_key, created_at)
+                       VALUES (?, ?, ?, ?)""",
+                    (api_key, ref_code_upper, referrer_api_key, int(time.time())),
+                )
+                c.execute(
+                    "UPDATE accounts SET referred_by = ? WHERE api_key = ?",
+                    (ref_code_upper, api_key),
+                )
+                ref_bonus_pending = True
+                logger.info(f"🔗 Referral recorded: {api_key[:12]}… referred by {ref_code_upper}")
+
+    logger.info(f"✅ Free registration: {api_key[:15]}… ip={client_ip} starter_sats={giveaway_sats}")
+    my_ref_code = api_key[4:10].upper()
     return {
         "api_key": api_key,
-        "free_calls": FREE_CALLS_ON_REGISTER,
-        "free_tokens": FREE_TOKENS_ON_REGISTER,
-        "balance_sats": 0,
-        "message": "Account created for free. You have exactly 3 free calls, capped at 12,000 estimated tokens total.",
+        "balance_sats": giveaway_sats,
+        "free_calls": 0,
+        "ref_code": my_ref_code,
+        "ref_link": f"https://api.babyblueviper.com/register?ref={my_ref_code}",
+        "referral_bonus_pending": ref_bonus_pending,
+        "message": (
+            f"Account created. You start with {giveaway_sats} sats. "
+            f"Invite agents with your ref link — both of you get {REFERRAL_BONUS_SATS} bonus sats on their first top-up."
+        ),
         "topup_endpoint": "/topup",
         "marketplace": "/offers/list",
+        "spawn_template": "/spawn/template",
         "guide": BOOTSTRAP_GUIDE,
     }
 
@@ -429,14 +591,48 @@ async def register_internal(request: Request):
     if client_ip not in ("127.0.0.1", "::1"):
         raise HTTPException(403, "Internal endpoint — localhost only")
     api_key = generate_api_key()
-    create_account(api_key, label="agent_internal")
+    create_account(api_key, label="agent_internal", free_calls=FREE_CALLS_ON_REGISTER)
     logger.info(f"✅ Internal registration: {api_key[:15]}…")
     return {
         "api_key": api_key,
         "free_calls": FREE_CALLS_ON_REGISTER,
-        "free_tokens": FREE_TOKENS_ON_REGISTER,
+        "balance_sats": 0,
         "method": "internal",
         "guide": BOOTSTRAP_GUIDE,
+    }
+
+
+@app.get("/referral/info", tags=["accounts"])
+async def referral_info(api_key: str):
+    """Return this account's referral code, link, and earnings."""
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT 1 FROM accounts WHERE api_key = ?", (api_key,))
+        if not c.fetchone():
+            raise HTTPException(404, "Unknown api_key")
+        ref_code = api_key[4:10].upper()
+        # Referrals this account brought in
+        c.execute(
+            "SELECT COUNT(*), SUM(CASE WHEN bonus_paid_at IS NOT NULL THEN 1 ELSE 0 END) FROM referrals WHERE ref_code = ?",
+            (ref_code,),
+        )
+        total_row = c.fetchone()
+        total_referrals = total_row[0] or 0
+        paid_bonuses   = total_row[1] or 0
+        pending_bonuses = total_referrals - paid_bonuses
+        # Whether this account was itself referred
+        c.execute("SELECT ref_code, bonus_paid_at FROM referrals WHERE referee_api_key = ?", (api_key,))
+        my_ref_row = c.fetchone()
+    return {
+        "ref_code": ref_code,
+        "ref_link": f"https://api.babyblueviper.com/register?ref={ref_code}",
+        "bonus_per_referral_sats": REFERRAL_BONUS_SATS,
+        "total_referrals": total_referrals,
+        "bonuses_paid": paid_bonuses,
+        "bonuses_pending": pending_bonuses,
+        "total_earned_sats": paid_bonuses * REFERRAL_BONUS_SATS,
+        "referred_by_code": my_ref_row[0] if my_ref_row else None,
+        "my_bonus_paid": bool(my_ref_row and my_ref_row[1]) if my_ref_row else False,
     }
 
 
@@ -572,6 +768,7 @@ async def settle_topup(req: SettleTopupRequest):
                   (amount, int(time.time()), req.api_key))
 
         c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
+        _maybe_pay_referral_bonus(conn, req.api_key)
         mark_hash_used(req.payment_hash)
 
     return {"success": True, "credited_sats": amount, "message": "Top-up completed"}
@@ -606,6 +803,7 @@ async def topup_status(api_key: str, payment_hash: str):
             (amount, int(time.time()), api_key),
         )
         c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
+        _maybe_pay_referral_bonus(conn, api_key)
         mark_hash_used(payment_hash)
         c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (api_key,))
         new_balance = c.fetchone()[0]
