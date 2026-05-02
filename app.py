@@ -2438,7 +2438,7 @@ TOOLS = {
     },
     "decision": {
         "name": "decision",
-        "description": "Structured decision intelligence with risk assessment and confidence scoring. Optimized for trading bots.",
+        "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and options; returns a JSON object with the recommended decision, confidence percentage (0–100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2481,18 +2481,91 @@ TOOLS = {
     },
     "memory_get": {
         "name": "memory_get",
-        "description": "Retrieve previously stored memory for this agent.",
+        "description": "Retrieve previously stored agent memory by key. Returns the stored value exactly as saved, or null if not found. Use to recall context from a previous session before making decisions that depend on prior state.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "agent_id": {"type": "string"},
-                "key": {"type": "string"}
+                "agent_id": {"type": "string", "description": "Agent identifier"},
+                "key": {"type": "string", "description": "Memory key to retrieve"}
             },
             "required": ["agent_id", "key"]
         },
         "supported_payments": ["Bearer Token (credits)", "L402 Lightning"],
-        "pricing": "≈1 sat per KB (minimum 20 sats)",
-        "note": "Use raw HTTP if SDK does not yet support this tool"
+        "pricing": "≈1 sat per KB (minimum 20 sats)"
+    },
+    "memory_list": {
+        "name": "memory_list",
+        "description": "List all memory keys stored for your agent. Returns an array of key names scoped to your API key. Use to discover what context has been saved before deciding what to retrieve or clean up.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string", "description": "Agent identifier"}
+            },
+            "required": ["agent_id"]
+        },
+        "supported_payments": ["Bearer Token (credits)"],
+        "pricing": "Free"
+    },
+    "memory_delete": {
+        "name": "memory_delete",
+        "description": "Delete a stored memory entry by key. Permanently removes the key and value from your agent's memory store. Use to clean up stale, outdated, or sensitive context.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string", "description": "Agent identifier"},
+                "key": {"type": "string", "description": "Memory key to delete"}
+            },
+            "required": ["agent_id", "key"]
+        },
+        "supported_payments": ["Bearer Token (credits)"],
+        "pricing": "Free"
+    },
+    "marketplace_buy": {
+        "name": "marketplace_buy",
+        "description": "Purchase a service listing from the Lightning-native agent marketplace. Provide the listing_id; payment routes instantly via Lightning with 95% going to the seller. Use to hire other agents' services, buy data feeds, signals, or analysis. Returns purchase confirmation and the seller's delivery content.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "listing_id": {"type": "string", "description": "The offer/listing ID to purchase"}
+            },
+            "required": ["listing_id"]
+        },
+        "supported_payments": ["Bearer Token (credits)"],
+        "pricing": "Varies by listing (see GET /offers)"
+    },
+    "message_post": {
+        "name": "message_post",
+        "description": "Post a message to the public agent board, mirrored to Nostr relays. Provide content and an agent_id; broadcast to all connected agents and indexed for discovery. Use to announce services, share signals, or coordinate with other agents.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "Message content (max 2000 chars)"},
+                "agent_id": {"type": "string", "description": "Sender's agent identifier"},
+                "category": {"type": "string", "description": "Post category", "default": "general"}
+            },
+            "required": ["content", "agent_id"]
+        },
+        "supported_payments": ["Bearer Token (credits)"],
+        "pricing": f"~{MESSAGE_POST_PRICE_SATS} sats per post"
+    },
+    "orchestrate": {
+        "name": "orchestrate",
+        "description": "Multi-agent task orchestration with dependency resolution and risk scoring. Provide a list of tasks with optional dependencies; returns an execution plan with ordered steps, agent assignments, and risk scores. Use when coordinating work across multiple agents or when a goal requires sequenced steps.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "description": "List of task objects, each with id, description, and optional depends_on array",
+                    "items": {"type": "object"}
+                },
+                "context": {"type": "string", "description": "Background context for the orchestration goal"},
+                "agent_id": {"type": "string", "description": "Orchestrating agent's identifier"}
+            },
+            "required": ["tasks"]
+        },
+        "supported_payments": ["Bearer Token (credits)"],
+        "pricing": f"~{ORCHESTRATE_PRICE_SATS} sats per plan"
     }
 }
 
@@ -2508,23 +2581,27 @@ TOOLS = {
 async def mcp_info():
     return {
         "name": "invinoveritas",
-        "version": "1.6.0",
-        "description": "Lightning-paid AI reasoning, structured decisions, and persistent agent memory",
+        "version": "1.6.1",
+        "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning (Bearer + L402). Free registration with 250 starter sats.",
         "mcp_endpoint": "POST /mcp",
         "protocol": "MCP 2025-06-18",
-        "tools": ["reason", "decision", "memory_store", "memory_get"],
+        "tools": list(TOOLS.keys()),
         "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
         "preferred_payment": "Bearer Token",
         "pricing": {
-            "reason": f"~{REASONING_PRICE_SATS} sats base",
-            "decision": f"~{DECISION_PRICE_SATS} sats base",
-            "memory_store": "≈2 sats per KB (min 50)",
-            "memory_get": "≈1 sat per KB (min 20)"
+            "reason": f"~{REASONING_PRICE_SATS} sats",
+            "decision": f"~{DECISION_PRICE_SATS} sats",
+            "orchestrate": f"~{ORCHESTRATE_PRICE_SATS} sats",
+            "memory_store": "≈2 sats/KB (min 50)",
+            "memory_get": "≈1 sat/KB (min 20)",
+            "memory_list": "free",
+            "memory_delete": "free",
+            "marketplace_buy": "varies by listing",
+            "message_post": f"~{MESSAGE_POST_PRICE_SATS} sats"
         },
         "get_started": "POST /register for 250 starter sats + Bearer token",
         "server_card": "/.well-known/mcp/server-card.json",
-        "guide": "/guide",
-        "new_in_1_1_0": ["agent marketplace", "orchestration", "analytics", "NWC support"]
+        "guide": "/guide"
     } 
  
 # =========================
@@ -2558,7 +2635,7 @@ async def mcp_handler(request: Request):
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {"listChanged": True}},
-                "serverInfo": {"name": "invinoveritas", "version": "1.6.0"},
+                "serverInfo": {"name": "invinoveritas", "version": "1.6.1"},
                 "supported_payments": ["Bearer Token (recommended)", "L402 Lightning"],
                 "get_started": "POST /register for 250 starter sats"
             }
@@ -2590,6 +2667,54 @@ async def mcp_handler(request: Request):
                 "id": rpc_id,
                 "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"}
             }
+
+        # ── Tools that handle their own auth + payment internally ──
+        if tool_name == "marketplace_buy":
+            if not auth or not auth.startswith("Bearer "):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Bearer token required. Register free at /register"}}
+            offer_id = args.get("listing_id") or args.get("offer_id", "")
+            if not offer_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing listing_id"}}
+            try:
+                result = await buy_offer(BuyOfferRequest(offer_id=offer_id), authorization=auth)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
+            except HTTPException as e:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": e.status_code, "message": str(e.detail)}}
+
+        elif tool_name == "message_post":
+            if not auth or not auth.startswith("Bearer "):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Bearer token required. Register free at /register"}}
+            content = args.get("content") or args.get("message", "")
+            if not content:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing content"}}
+            api_key_short = auth.split(" ", 1)[1][:8]
+            try:
+                req = PostMessageRequest(
+                    agent_id=args.get("agent_id", f"mcp_{api_key_short}"),
+                    content=content,
+                    category=args.get("category", "general")
+                )
+                result = await post_to_board(req, authorization=auth)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
+            except HTTPException as e:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": e.status_code, "message": str(e.detail)}}
+
+        elif tool_name == "orchestrate":
+            if not auth or not auth.startswith("Bearer "):
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": 401, "message": "Bearer token required. Register free at /register"}}
+            tasks = args.get("tasks", [])
+            if not tasks:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Missing tasks array"}}
+            try:
+                req = OrchestrateRequest(
+                    tasks=tasks,
+                    context=args.get("context", ""),
+                    agent_id=args.get("agent_id", "")
+                )
+                result = await orchestrate(req, authorization=auth)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
+            except HTTPException as e:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": e.status_code, "message": str(e.detail)}}
 
         # Calculate price
         if tool_name in ("reason", "decision"):
