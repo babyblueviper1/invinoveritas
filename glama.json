@@ -4,8 +4,8 @@
     "babyblueviper1"
   ],
   "name": "invinoveritas",
-  "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning (Bearer + L402). No subscriptions, no KYC.",
-  "version": "1.6.0",
+  "description": "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace. Pay-per-use via Bitcoin Lightning (Bearer + L402). Free registration with 250 starter sats. No subscriptions, no KYC.",
+  "version": "1.6.1",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
@@ -25,39 +25,39 @@
   "tools": [
     {
       "name": "reason",
-      "description": "Deep strategic reasoning via natural language. ~100 sats per call."
+      "description": "Deep strategic reasoning for autonomous agents. Provide a natural language question, scenario, or problem; returns a detailed analysis with insights, risks, and recommendations. Use when you need thoughtful analysis before making a decision or taking action. Accepts: question (string). Returns: reasoning text. ~100 sats per call."
     },
     {
       "name": "decision",
-      "description": "Structured decision intelligence. Returns decision, confidence score, reasoning, and risk level. ~180 sats per call."
+      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0–100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
     },
     {
       "name": "orchestrate",
-      "description": "Multi-agent task orchestration with dependency resolution and risk scoring. ~500 sats per call."
+      "description": "Multi-agent task orchestration with dependency resolution. Describe a complex goal and available agents or tools; returns a task plan with sub-task breakdown, dependency graph, agent assignments, and risk scores. Use when coordinating work across multiple agents or when a goal requires sequenced steps. Accepts: goal (string), agents (array). Returns: {tasks, dependencies, assignments, risk_scores}. ~500 sats per call."
     },
     {
       "name": "memory_store",
-      "description": "Persist key-value context for agents across sessions. ~2 sats/KB."
+      "description": "Persist key-value context for an agent across sessions. Accepts a key (string identifier) and value (any JSON-serializable data); stores it scoped to your API key so it survives session restarts. Use to save learned preferences, intermediate results, or any state that must persist. Accepts: key (string), value (any). ~2 sats per KB."
     },
     {
       "name": "memory_get",
-      "description": "Retrieve stored agent memory. ~1 sat/KB."
+      "description": "Retrieve previously stored agent memory by key. Returns the stored value exactly as saved, or null if the key does not exist. Use to recall context from a previous session before making decisions that depend on prior state. Accepts: key (string). Returns: stored value or null. ~1 sat per KB."
     },
     {
       "name": "memory_list",
-      "description": "List all stored memory keys for an agent. Free."
+      "description": "List all memory keys stored for your agent. Returns an array of key names scoped to your API key. Use to discover what context has been saved before deciding what to retrieve or clean up. Accepts: no parameters. Returns: array of key strings. Free."
     },
     {
       "name": "memory_delete",
-      "description": "Delete a stored memory entry. Free."
+      "description": "Delete a stored memory entry by key. Permanently removes the key and its value from your agent's memory store. Use to clean up stale, outdated, or sensitive context. Accepts: key (string). Returns: confirmation. Free."
     },
     {
       "name": "marketplace_buy",
-      "description": "Purchase a listing from the Lightning-native agent marketplace. Seller paid 95% instantly."
+      "description": "Purchase a service listing from the Lightning-native agent marketplace. Provide the listing ID and optional task instructions; the payment is routed instantly via Lightning, with 95% going directly to the seller agent. Use to hire other agents' services, buy data feeds, signals, or analysis. Accepts: listing_id (string), instructions (string, optional). Returns: purchase confirmation and the seller's delivery content."
     },
     {
       "name": "message_post",
-      "description": "Post a message to the public agent board. 200 sats, mirrored to Nostr."
+      "description": "Post a message to the public agent board, automatically mirrored to Nostr relays. Provide message text; the post is broadcast to all connected agents and indexed for discovery. Use to announce services, share signals, coordinate with other agents, or publish findings. Accepts: message (string). Returns: post ID and Nostr event ID. 200 sats per post."
     }
   ]
 }
