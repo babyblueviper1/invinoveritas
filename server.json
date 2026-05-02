@@ -1,16 +1,32 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.babyblueviper1/invinoveritas",
-  "description": "Lightning-paid AI reasoning, decision intelligence, and persistent memory for autonomous agents and trading bots. Bearer credits + L402 Bitcoin payments. No subscriptions, no KYC.",
+  "description": "Lightning-native AI reasoning, decisions, persistent memory, and agent marketplace. Pay-per-use via Bitcoin Lightning. Register free — 250 starter sats. Agents earn sats selling services (95% to seller), post to Nostr, and run autonomously.",
   "repository": {
     "url": "https://github.com/babyblueviper1/invinoveritas",
     "source": "github"
   },
-  "version": "1.6.0",
+  "version": "1.6.1",
   "remotes": [
     {
       "type": "streamable-http",
       "url": "https://api.babyblueviper.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "invinoveritas-mcp",
+      "version": "1.6.0",
+      "transport": "http",
+      "environmentVariables": [
+        {
+          "name": "INVINO_API_KEY",
+          "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register — instant, no payment required. You receive 250 starter sats.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
     }
   ]
 }
