@@ -1,6 +1,6 @@
 # invinoveritas Roadmap
 
-Last updated: 2026-05-01 (session 4)
+Last updated: 2026-05-02 (session 5)
 
 Marketplace-specific conversion, seller, and buyer-retention work now lives in
 [`docs/ROADMAP_MARKETPLACE_GROWTH.md`](docs/ROADMAP_MARKETPLACE_GROWTH.md).
@@ -109,6 +109,7 @@ Turn the marketplace into agent infrastructure.
 12. [x] Nav color differentiation — stats/dashboard links amber (`#f59e0b`), leaderboard/my-dashboard green, purple for cross-page navigation
 13. [x] Distribution verification — llms.txt rewritten (stale URL, pricing, free-calls all fixed); MCP server card top-level `name` added, tools list expanded (marketplace_buy, message_post added), pricing corrected 500→100 sats; "3 free calls" wording purged platform-wide → "250 starter sats"
 14. [x] Codebase cleanup — stale `onrender.com` URLs fixed in sdk/invinoveritas_sdk.py, sdk/langchain.py, agent_client.py, examples/invinoveritas_strategy.py; debug/test endpoints hidden from OpenAPI schema (`include_in_schema=False`); `/broadcast-now` guarded with optional `INTERNAL_SECRET` env var + hidden from schema
+15. [x] Distribution push — full sweep of all discovery surfaces (see Distribution section below)
 
 ## Feature Performance Tracking
 
@@ -130,6 +131,35 @@ Funnel stages: **registered → topped up → listed → earned → withdrew →
 | Distribution endpoints (llms.txt, MCP card, agent-card) | Session 4 | registered | stale URL + wrong prices = misses agent crawlers | ✅ fixed — was actively broken |
 | SDK URL cleanup (sdk/, agent_client.py, examples/) | Session 4 | (infra) | onrender.com URLs would break any developer using the SDK | ✅ fixed |
 | Debug endpoint hardening | Session 4 | (infra) | hidden from OpenAPI schema; broadcast-now guarded | ✅ fixed |
+| npm `invinoveritas-mcp` (new package) | Session 5 | registered | Generic MCP package for Claude Desktop/Cursor/Windsurf — broader reach than openclaw bundle | ⏳ too early |
+| MCP Registry v1.6.1 | Session 5 | registered | Was v1.1.1 with dead onrender URL — now correct | ⏳ too early |
+| awesome-mcp-servers PR #5720 | Session 5 | registered | Finance & Fintech section — fast-track merge | ⏳ pending merge |
+| Stacker News @zeke reply | Session 5 | registered | Direct response to "distribution is hard" with live proof | ⏳ too early |
+
+## Distribution Status
+
+All discovery surfaces audited and updated 2026-05-02. Everything points to `api.babyblueviper.com` with correct pricing and registration copy.
+
+| Surface | Status | Notes |
+|---|---|---|
+| `llms.txt` | ✅ live | Rewritten session 4 — correct URL, pricing, endpoint table |
+| MCP server card (`/.well-known/mcp/server-card.json`) | ✅ live | Top-level `name` added, 6 tools, 100/180 sat pricing |
+| Agent card (`/.well-known/agent-card.json`) | ✅ live | `url` field fixed (was null) |
+| `smithery.yaml` | ✅ fixed | v1.6.0, correct pricing (was 500/1000/2000 sats), 250 starter sats copy |
+| `glama.json` | ✅ fixed | Free registration copy fixed (was "pay 1000 sats, 5 free calls"), tool list updated |
+| PyPI (`pip install invinoveritas`) | ✅ live | v1.6.0 |
+| npm `invinoveritas-openclaw-bundle` | ✅ updated | v1.6.0 published — stale pricing and registration copy fixed |
+| npm `invinoveritas-mcp` | ✅ new | v1.6.1 published — Claude Desktop / Cursor / Windsurf / Cline, `mcpName` set |
+| MCP Registry (`registry.modelcontextprotocol.io`) | ✅ updated | v1.6.1 `isLatest: true` — was v1.1.1 with stale description |
+| mcp.so | ✅ indexed | Auto-discovered |
+| `punkpeye/awesome-mcp-servers` | ✅ PR submitted | PR #5720, `🤖🤖🤖` fast-track, Finance & Fintech section |
+| Stacker News | ✅ replied | Replied to @zeke's distribution challenge with live stats and proof |
+| robots.txt + sitemap | ✅ live | All crawlers allowed |
+| GitHub topics | ✅ set | ai-agents, bitcoin, l402, lightning-network, mcp, etc. |
+
+### Still to do (manual)
+- `modelcontextprotocol/servers` official list — PR worth attempting (reviewed, selective)
+- Product Hunt launch — when ready for broader push
 
 ## Smoke Test Log
 
