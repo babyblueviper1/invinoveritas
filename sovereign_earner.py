@@ -331,7 +331,7 @@ CONSECUTIVE_LOSS_DECAY_RESET_MINUTES = 40.0
 AI_SQUEEZE_MIN_CONFIDENCE = 0.32
 AI_SQUEEZE_FLAT_MIN_CONFIDENCE = 0.32
 AI_SQUEEZE_ALIGNMENT_OVERRIDE = 0.55
-SQUEEZE_MEAN_REVERT_STRUCTURE_MIN_CONF = 0.70
+SQUEEZE_MEAN_REVERT_STRUCTURE_MIN_CONF = 0.65
 SQUEEZE_MEAN_REVERT_MIN_ROOM_BPS = 12.0
 SQUEEZE_MICRO_RANGE_MIN_WIDTH_PCT = 0.0012
 SQUEEZE_MICRO_RANGE_MIN_BRACKET_BPS = 12.0
@@ -2655,7 +2655,7 @@ def reconcile_open_position_context(position: PositionState) -> bool:
                 position.intent = "mean_revert"
                 changed = True
             if not position.policy or position.policy == "ai_primary":
-                position.policy = "mean_revert_micro"
+                position.policy = "mean_revert_reclaim"
                 changed = True
             if not position.last_reason or position.last_reason.strip() == "":
                 position.last_reason = "reconciled chop carry-over position"
@@ -4527,9 +4527,11 @@ def compute_exit_quality_bias() -> dict[str, Any]:
     ca_high_stats = result["by_close_alignment"].get("ca_high", {})
     ca_low_stats = result["by_close_alignment"].get("ca_low", {})
 
-    # Per-side DET loosening: longs get up to +10 bps, shorts up to +5 bps
+    # Per-side DET loosening: longs get up to +6 bps, shorts up to +5 bps
     # Floor at 25% shakeout rate — below that we leave the threshold alone
-    det_long_loosening_bps = round(clamp((det_long_rate - 0.25) * 40.0, 0.0, 10.0), 2)
+    # Cap reduced from 10 → 6: 10-bps loosening made long exits require 24bps adverse
+    # in a 5-10bps range market, letting losers bleed too long.
+    det_long_loosening_bps = round(clamp((det_long_rate - 0.25) * 40.0, 0.0, 6.0), 2)
     det_short_loosening_bps = round(clamp((det_short_rate - 0.25) * 20.0, 0.0, 5.0), 2)
 
     # SL loosening (unchanged formula, modest)
@@ -7398,7 +7400,10 @@ def compute_predictive_setup_score(
     _eq_bias = get_entry_quality_bias().get("biases", {})
     level_alignment_now = str(resolved_signal_ctx.get("level_alignment", "mid") or "mid")
     if direction == "long" and level_alignment_now == "resistance":
-        score += float(_eq_bias.get("wrong_side_long_penalty", -0.06) or -0.06)
+        # wrong_side_long has 1% WR (76 trades); enforce a floor so the computed
+        # bias (capped at -0.08 with 0.20 multiplier) can't shrink below -0.08.
+        ws_long_pen = float(_eq_bias.get("wrong_side_long_penalty", -0.12) or -0.12)
+        score += min(ws_long_pen, -0.08)
     elif direction == "short" and level_alignment_now == "support":
         score += float(_eq_bias.get("wrong_side_short_penalty", -0.06) or -0.06)
     if llm_predictive_prob is not None:
@@ -8320,7 +8325,7 @@ def build_exploration_candidates(regime: str, quality: float) -> list[dict[str, 
             "trail_bps": 32,
             "leverage": 2,
             "max_hold_minutes": 34 if regime == "squeeze" else 24,
-            "fit": 0.58 if regime == "chop" else 0.34 if regime == "squeeze" and regime_bias == "neutral" else 0.18,
+            "fit": 0.0,  # disabled: 6W/47T, 13% WR, 0% fee-clear rate
             "reason": "dynamic exploration: micro mean reversion probe",
         },
         {
@@ -8346,7 +8351,7 @@ def build_exploration_candidates(regime: str, quality: float) -> list[dict[str, 
             "trail_bps": 24,
             "leverage": 2,
             "max_hold_minutes": 32 if regime == "squeeze" else 22,
-            "fit": 0.63 if regime == "chop" and abs(imbalance) > 0.08 else 0.28 if regime == "squeeze" and regime_bias == "neutral" else 0.15,
+            "fit": 0.0,  # disabled: 1W/13T, 8% WR, -136 avg — no edge detected
             "reason": "dynamic exploration: fade one-sided orderbook pressure in chop",
         },
         {
@@ -8372,7 +8377,7 @@ def build_exploration_candidates(regime: str, quality: float) -> list[dict[str, 
             "trail_bps": 45,
             "leverage": 3,
             "max_hold_minutes": 75 if regime in {"squeeze", "trend"} else 36,
-            "fit": 0.66 if regime == "squeeze" and regime_bias in {"bullish", "bearish"} else 0.64 if regime == "trend" else 0.26,
+            "fit": 0.0,  # disabled: 0W/7T — no edge detected after full sample
             "reason": "dynamic exploration: small momentum continuation test",
         },
         {
@@ -15544,6 +15549,15 @@ async def handle_flat_cycle(client, position: PositionState, usable: float):
             maybe_record_shadow_exploration(adaptive, usable, squeeze_structure_block)
             return
         log(f"⚡ SQUEEZE STRUCTURE BYPASS: {squeeze_structure_block} | {bypass_squeeze_reason}")
+
+    # Hard block: never go long at resistance — 86 trades, 1.2% WR, -13.1 avg.
+    # Score penalty alone (-0.08) is insufficient; bypass and EV lift can overcome it.
+    _live_alignment = str(signal_ctx.get("level_alignment", "mid") or "mid")
+    if chosen_signal.direction == "long" and _live_alignment == "resistance":
+        block_msg = f"wrong_side_long hard block | long at resistance | 1.2% WR from 86 trades"
+        log(f"🚫 ENTRY CONFIRM BLOCK: {block_msg}")
+        maybe_record_shadow_exploration(adaptive, usable, block_msg)
+        return
 
     allowed, gate_reason = risk_gate(chosen_signal, usable)
     if not allowed:

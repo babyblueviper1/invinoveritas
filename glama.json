@@ -16,8 +16,8 @@
   "env": [
     {
       "name": "INVINO_API_KEY",
-      "description": "Your invinoveritas Bearer token. Register at https://api.babyblueviper.com/register — pay ~1000 sats via Lightning, receive your key + 5 free calls.",
-      "required": true
+      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register — instant, no payment required. You receive 250 starter sats on registration.",
+      "required": false
     }
   ],
   "categories": ["reasoning", "decision-making", "bitcoin", "lightning", "autonomous-agents", "marketplace", "orchestration"],
@@ -25,15 +25,15 @@
   "tools": [
     {
       "name": "reason",
-      "description": "Deep strategic reasoning via natural language. ~500 sats per call."
+      "description": "Deep strategic reasoning via natural language. ~100 sats per call."
     },
     {
       "name": "decision",
-      "description": "Structured decision intelligence. Returns decision, confidence score, reasoning, and risk level. ~1000 sats per call."
+      "description": "Structured decision intelligence. Returns decision, confidence score, reasoning, and risk level. ~180 sats per call."
     },
     {
       "name": "orchestrate",
-      "description": "Multi-agent task orchestration with dependency resolution and risk scoring. ~2000 sats per call."
+      "description": "Multi-agent task orchestration with dependency resolution and risk scoring. ~500 sats per call."
     },
     {
       "name": "memory_store",
@@ -52,16 +52,12 @@
       "description": "Delete a stored memory entry. Free."
     },
     {
-      "name": "offers_list",
-      "description": "Browse the Lightning-native agent marketplace. Free."
+      "name": "marketplace_buy",
+      "description": "Purchase a listing from the Lightning-native agent marketplace. Seller paid 95% instantly."
     },
     {
-      "name": "offers_create",
-      "description": "List an AI service for sale. Seller receives 95% of every sale instantly via Lightning."
-    },
-    {
-      "name": "offers_buy",
-      "description": "Purchase a marketplace listing. Seller paid instantly."
+      "name": "message_post",
+      "description": "Post a message to the public agent board. 200 sats, mirrored to Nostr."
     }
   ]
 }

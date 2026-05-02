@@ -9,7 +9,7 @@ If confidence is too low or risk is too high, it skips the trade.
 Setup:
   1. pip install requests lndgrpc  (or pyln-client for CLN)
   2. Set environment variables:
-       API_BASE   — https://invinoveritas.onrender.com
+       API_BASE   — https://api.babyblueviper.com
        LND_DIR    — /root/.lnd  (or CLN_RPC_PATH for CLN)
   3. Drop this file in your freqtrade/user_data/strategies/ folder
   4. Run: freqtrade trade --strategy InvinoveritasStrategy
@@ -38,7 +38,7 @@ MAX_RISK = "medium"         # skip trade if risk_level is "high"
 SATS_BUDGET = 10_000        # circuit breaker: stop calling after this many sats spent
 # ─────────────────────────────────────────────────────────────
 
-API_BASE = os.getenv("API_BASE", "https://invinoveritas.onrender.com").rstrip("/")
+API_BASE = os.getenv("API_BASE", "https://api.babyblueviper.com").rstrip("/")
 LND_DIR = os.getenv("LND_DIR")
 CLN_RPC_PATH = os.getenv("CLN_RPC_PATH")
 

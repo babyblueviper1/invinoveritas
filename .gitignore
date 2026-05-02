@@ -105,3 +105,4 @@ lightning-bridge/
 # Internal strategy / prompt / notes files
 partner_notes.txt
 opus_strategic_review_prompt.txt
+accounts.db

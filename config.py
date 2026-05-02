@@ -52,7 +52,7 @@ RATE_LIMIT_SECONDS = int(os.getenv("RATE_LIMIT_SECONDS", 5))
 # Platform takes a cut of every marketplace sale (paid to platform Lightning address)
 PLATFORM_CUT_PERCENT = float(os.getenv("PLATFORM_CUT_PERCENT", "5.0"))  # 5% default
 SELLER_PERCENT = 100.0 - PLATFORM_CUT_PERCENT                             # 95% to seller
-MARKETPLACE_MIN_PRICE_SATS = int(os.getenv("MARKETPLACE_MIN_PRICE_SATS", "1000"))
+MARKETPLACE_MIN_PRICE_SATS = int(os.getenv("MARKETPLACE_MIN_PRICE_SATS", "100"))
 MARKETPLACE_MAX_PRICE_SATS = int(os.getenv("MARKETPLACE_MAX_PRICE_SATS", "10000000"))
 # Platform Lightning address for receiving the 10% cut
 PLATFORM_LN_ADDRESS = os.getenv("PLATFORM_LN_ADDRESS", "")

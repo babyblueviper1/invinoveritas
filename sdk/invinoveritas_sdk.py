@@ -22,7 +22,7 @@ except ImportError:
     _HTTPX_AVAILABLE = False
 
 
-BASE_URL = "https://invinoveritas.onrender.com"
+BASE_URL = "https://api.babyblueviper.com"
 
 
 # ---------------------------------------------------------------------------

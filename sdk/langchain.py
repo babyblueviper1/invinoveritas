@@ -56,7 +56,7 @@ import httpx
 
 logger = logging.getLogger("invinoveritas.langchain")
 
-INVINOVERITAS_BASE_URL = "https://invinoveritas.onrender.com"
+INVINOVERITAS_BASE_URL = "https://api.babyblueviper.com"
 
 PayInvoiceFn = Callable[[str], Coroutine[Any, Any, str]]
 

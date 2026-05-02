@@ -57,6 +57,8 @@ DAILY_GIVEAWAY_CAP_SATS = int(os.getenv("DAILY_GIVEAWAY_CAP_SATS", "30000"))
 
 # Referral bonus: both referrer and referee get this on referee's first top-up
 REFERRAL_BONUS_SATS = int(os.getenv("REFERRAL_BONUS_SATS", "1000"))
+# Minimum top-up required for referral bonus to fire — prevents 1-sat farming
+REFERRAL_MIN_TOPUP_SATS = int(os.getenv("REFERRAL_MIN_TOPUP_SATS", "1000"))
 
 # =========================
 # Database Initialization
@@ -375,10 +377,13 @@ def _claim_giveaway_sats(amount: int) -> int:
     return actual
 
 
-def _maybe_pay_referral_bonus(conn, referee_api_key: str):
+def _maybe_pay_referral_bonus(conn, referee_api_key: str, topup_amount: int = 0):
     """Call inside an open get_db_conn() transaction after a successful top-up.
     Pays REFERRAL_BONUS_SATS to both parties on the referee's first Lightning top-up.
+    Requires topup_amount >= REFERRAL_MIN_TOPUP_SATS to prevent 1-sat farming.
     Idempotent: bonus_paid_at guards against double-pay."""
+    if topup_amount < REFERRAL_MIN_TOPUP_SATS:
+        return
     c = conn.cursor()
     c.execute(
         "SELECT ref_code, referrer_api_key FROM referrals WHERE referee_api_key = ? AND bonus_paid_at IS NULL",
@@ -526,7 +531,11 @@ BOOTSTRAP_GUIDE = {
 @limiter.limit("20/minute")
 async def register(req: RegisterRequest, request: Request):
     """Free registration with 250 starter sats. IP-rate-limited and daily-cap protected."""
-    client_ip = request.client.host or "unknown"
+    conn_host = request.client.host if request.client else "unknown"
+    if conn_host in ("127.0.0.1", "::1"):
+        client_ip = request.headers.get("X-Real-IP", conn_host)
+    else:
+        client_ip = conn_host
     if not _check_and_record_ip_reg(client_ip):
         raise HTTPException(
             429,
@@ -768,7 +777,7 @@ async def settle_topup(req: SettleTopupRequest):
                   (amount, int(time.time()), req.api_key))
 
         c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
-        _maybe_pay_referral_bonus(conn, req.api_key)
+        _maybe_pay_referral_bonus(conn, req.api_key, topup_amount=amount)
         mark_hash_used(req.payment_hash)
 
     return {"success": True, "credited_sats": amount, "message": "Top-up completed"}
@@ -803,7 +812,7 @@ async def topup_status(api_key: str, payment_hash: str):
             (amount, int(time.time()), api_key),
         )
         c.execute("DELETE FROM pending_topups WHERE payment_hash = ?", (ph_hex,))
-        _maybe_pay_referral_bonus(conn, api_key)
+        _maybe_pay_referral_bonus(conn, api_key, topup_amount=amount)
         mark_hash_used(payment_hash)
         c.execute("SELECT balance_sats FROM accounts WHERE api_key = ?", (api_key,))
         new_balance = c.fetchone()[0]
