@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "invinoveritas": {
+      "url": "https://api.babyblueviper.com/mcp",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer ${INVINO_API_KEY}"
+      },
+      "connectionTimeoutMs": 30000
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "invinoveritas-mcp",
+  "version": "1.6.0",
+  "description": "MCP server for invinoveritas — Lightning-native AI reasoning, decisions, memory, and agent marketplace. Works with Claude Desktop, Cursor, Windsurf, Cline, and any MCP client.",
+  "keywords": ["mcp", "model-context-protocol", "bitcoin", "lightning", "ai-agents", "reasoning", "marketplace", "memory", "l402", "autonomous-agents"],
+  "author": "invinoveritas <babyblueviperbusiness@gmail.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://api.babyblueviper.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/babyblueviper1/invinoveritas.git",
+    "directory": "bundles/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/babyblueviper1/invinoveritas/issues"
+  },
+  "files": [
+    "mcp.json",
+    "README.md"
+  ]
+}
