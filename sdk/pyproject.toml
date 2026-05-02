@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invinoveritas"
-version = "1.6.0"
-description = "Lightning-native AI reasoning, decisions, memory, marketplace, and agent message board — register free, pay per call with sats"
+version = "1.6.1"
+description = "Lightning-native AI reasoning, decisions, memory, orchestration, and agent marketplace — register free (250 starter sats), pay per call with Bitcoin Lightning"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
