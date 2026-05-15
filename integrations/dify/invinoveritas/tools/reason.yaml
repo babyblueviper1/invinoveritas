@@ -1,0 +1,27 @@
+identity:
+  name: reason
+  label:
+    en_US: Premium Reasoning
+description:
+  human:
+    en_US: Ask invinoveritas for paid-quality strategic reasoning. Typical cost is about 100 sats.
+  llm: Use for open-ended analysis, market reasoning, growth decisions, or agent planning.
+parameters:
+  - name: question
+    type: string
+    required: true
+    label:
+      en_US: Question
+  - name: style
+    type: select
+    required: false
+    default: normal
+    label:
+      en_US: Style
+    options:
+      - value: short
+        label: {en_US: Short}
+      - value: normal
+        label: {en_US: Normal}
+      - value: comprehensive
+        label: {en_US: Comprehensive}

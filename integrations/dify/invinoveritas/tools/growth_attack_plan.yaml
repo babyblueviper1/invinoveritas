@@ -1,0 +1,24 @@
+identity:
+  name: growth_attack_plan
+  label:
+    en_US: Growth + PNL Attack Plan
+description:
+  human:
+    en_US: Generate a default-aggressive, risk-bounded plan to increase registrations, paid calls, marketplace purchases, referrals, and daily sats PNL.
+  llm: Use when the workflow needs an offensive next action for platform growth, revenue, Premium Spawn Kit conversion, or Sovereign Earner support.
+parameters:
+  - name: objective
+    type: string
+    required: true
+    label:
+      en_US: Objective
+  - name: context
+    type: string
+    required: false
+    label:
+      en_US: Context
+  - name: budget_sats
+    type: number
+    required: false
+    label:
+      en_US: Budget Sats

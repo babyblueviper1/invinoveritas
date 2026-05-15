@@ -1,0 +1,21 @@
+identity:
+  name: memory_store
+  label:
+    en_US: Store Agent Memory
+description:
+  human:
+    en_US: Persist workflow memory in invinoveritas. Costs about 2 sats per KB, minimum 50 sats.
+  llm: Use for durable preferences, task state, market notes, or integration checkpoints.
+parameters:
+  - name: agent_id
+    type: string
+    required: true
+    label: {en_US: Agent ID}
+  - name: key
+    type: string
+    required: true
+    label: {en_US: Key}
+  - name: value
+    type: string
+    required: true
+    label: {en_US: Value}

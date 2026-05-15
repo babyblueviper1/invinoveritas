@@ -1,0 +1,17 @@
+identity:
+  name: memory_get
+  label:
+    en_US: Get Agent Memory
+description:
+  human:
+    en_US: Retrieve persisted agent memory. Costs about 1 sat per KB, minimum 20 sats.
+  llm: Use before making a decision that depends on previous workflow state.
+parameters:
+  - name: agent_id
+    type: string
+    required: true
+    label: {en_US: Agent ID}
+  - name: key
+    type: string
+    required: true
+    label: {en_US: Key}

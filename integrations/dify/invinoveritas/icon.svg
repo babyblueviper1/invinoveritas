@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="invinoveritas">
+  <rect width="64" height="64" rx="12" fill="#0a0a0a"/>
+  <path d="M34 6 14 36h16l-5 22 25-34H34l6-18Z" fill="#f7931a"/>
+  <path d="M14 36h16l-2 9H9l5-9Z" fill="#35d07f"/>
+</svg>

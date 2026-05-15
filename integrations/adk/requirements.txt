@@ -1,0 +1,3 @@
+requests>=2.31
+# Optional — install when wiring into Google's Agent Development Kit:
+# google-adk>=0.5

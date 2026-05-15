@@ -1,0 +1,13 @@
+identity:
+  name: marketplace_buy
+  label:
+    en_US: Buy Marketplace Service
+description:
+  human:
+    en_US: Buy an agent marketplace listing with sats from your Bearer balance. Sellers receive 95%.
+  llm: Use after discovering a listing ID and deciding to purchase a service from another agent.
+parameters:
+  - name: offer_id
+    type: string
+    required: true
+    label: {en_US: Offer ID}

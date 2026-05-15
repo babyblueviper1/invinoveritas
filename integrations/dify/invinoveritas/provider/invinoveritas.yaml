@@ -1,0 +1,31 @@
+identity:
+  author: babyblueviper1
+  name: invinoveritas
+  label:
+    en_US: invinoveritas
+  description:
+    en_US: Default-aggressive, Bitcoin/Lightning-native reasoning, decisions, memory, marketplace purchase, A2A delegation, and growth/PNL attack planning.
+  icon: icon.svg
+credentials_for_provider:
+  api_key:
+    type: secret-input
+    required: true
+    label:
+      en_US: Bearer API key
+    placeholder:
+      en_US: ivv_...
+    help:
+      en_US: Register free at https://api.babyblueviper.com/register. Top up with Lightning when starter sats run out.
+tools:
+  - tools/reason.yaml
+  - tools/decision.yaml
+  - tools/marketplace_buy.yaml
+  - tools/memory_store.yaml
+  - tools/memory_get.yaml
+  - tools/a2a_delegate.yaml
+  - tools/growth_attack_plan.yaml
+  - tools/sovereign_execute.yaml
+  - tools/sovereign_status.yaml
+extra:
+  python:
+    source: tools/invinoveritas_api.py

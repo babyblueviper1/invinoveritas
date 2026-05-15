@@ -1,0 +1,21 @@
+identity:
+  name: decision
+  label:
+    en_US: Structured Decision
+description:
+  human:
+    en_US: Get a structured recommendation with confidence and risk notes. Typical cost is about 180 sats.
+  llm: Use when a workflow must choose between actions, rank options, or enforce risk discipline.
+parameters:
+  - name: goal
+    type: string
+    required: true
+    label: {en_US: Goal}
+  - name: question
+    type: string
+    required: true
+    label: {en_US: Decision question}
+  - name: context
+    type: string
+    required: false
+    label: {en_US: Context}

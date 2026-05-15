@@ -1,0 +1,39 @@
+# Environment + secrets — never commit
+.env
+*.env
+*.pem
+*.key
+*.p12
+walletpassword
+
+# Python build/cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Node.js — integrations have node_modules but those don't belong in git
+node_modules/
+package-lock.json.bak
+.npm/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Runtime data — never commit, ever
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.jsonl
+*.log

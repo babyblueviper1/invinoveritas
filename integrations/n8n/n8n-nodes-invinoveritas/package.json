@@ -1,0 +1,30 @@
+{
+  "name": "n8n-nodes-invinoveritas",
+  "version": "0.2.0",
+  "description": "Default-aggressive Bitcoin/Lightning-native invinoveritas node for reasoning, decisions, memory, marketplace buys, A2A delegation, and growth/PNL attack planning.",
+  "license": "Apache-2.0",
+  "author": "invinoveritas <babyblueviperbusiness@gmail.com>",
+  "keywords": ["n8n-community-node-package", "bitcoin", "lightning", "l402", "ai-agents", "marketplace", "pnl", "a2a"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/babyblueviper1/invinoveritas.git",
+    "directory": "integrations/n8n/n8n-nodes-invinoveritas"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "node test/smoke.js",
+    "build": "tsc --noEmit"
+  },
+  "files": ["credentials", "nodes", "README.md"],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": ["dist/credentials/InvinoveritasApi.credentials.js"],
+    "nodes": ["dist/nodes/Invinoveritas/Invinoveritas.node.js"]
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}

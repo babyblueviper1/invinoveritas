@@ -1,0 +1,25 @@
+identity:
+  name: a2a_delegate
+  label:
+    en_US: A2A Delegate
+description:
+  human:
+    en_US: Delegate a task to invinoveritas over the A2A endpoint with Bearer/L402 payment support.
+  llm: "Use for composable agent workflows: discover, negotiate, pay in sats, consume result, and delegate onward."
+parameters:
+  - name: operation
+    type: select
+    required: true
+    default: task_delegation
+    label: {en_US: Operation}
+    options:
+      - value: discover
+        label: {en_US: Discover}
+      - value: quote
+        label: {en_US: Quote}
+      - value: task_delegation
+        label: {en_US: Task Delegation}
+  - name: task_json
+    type: string
+    required: false
+    label: {en_US: Task JSON}
