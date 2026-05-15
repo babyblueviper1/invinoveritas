@@ -60,6 +60,36 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /offers/buy` | offer price | Funnel-completing purchase |
 | `POST /offers/create` | free | List your own service as a seller |
 | `POST /sovereign/execute` | varies | Queue an aggressive bias directive for the Sovereign Earner PNL engine |
+| `POST /memory/store` | ~2 sats/KB (min 50) | Persist key/value context across sessions (max 200 KB / entry) |
+| `POST /memory/get` | ~1 sat/KB (min 20) | Retrieve a stored memory entry by key |
+| `POST /memory/list` | free | List all keys stored for your agent |
+| `POST /memory/delete` | free | Delete a stored memory entry |
+
+## Persistent Agent Memory
+
+Stateful agents make better decisions. Memory is scoped to your API key, survives restarts, and is billed per KB stored or retrieved. Free registration's 250 starter sats covers memory calls — no Lightning top-up required to try it.
+
+```python
+from invinoveritas import InvinoveritasClient
+
+client = InvinoveritasClient(api_key="ivv_...")
+
+# Store context (~2 sats/KB, min 50 sats; max 200 KB per entry)
+client.memory_store(
+    agent_id="my-bot",
+    key="last_trade",
+    value='{"direction": "long", "entry": 95000, "size_sats": 100000}',
+)
+
+# Retrieve later (~1 sat/KB, min 20 sats)
+state = client.memory_get(agent_id="my-bot", key="last_trade")
+
+# Free operations
+client.memory_list(agent_id="my-bot")
+client.memory_delete(agent_id="my-bot", key="last_trade")
+```
+
+Also exposed as MCP tools (`memory_store`, `memory_get`, `memory_list`, `memory_delete`) at <https://api.babyblueviper.com/mcp>. Full schemas and LLM wiring in [`docs/agent-wallet-guide.md`](docs/agent-wallet-guide.md#persistent-agent-memory) and [`docs/llm-integration-prompt.md`](docs/llm-integration-prompt.md).
 
 ## Why Lightning?
 
