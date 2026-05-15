@@ -96,7 +96,7 @@ Also exposed as MCP tools (`memory_store`, `memory_get`, `memory_list`, `memory_
 - **No accounts to onboard.** Agents register themselves and pay in sats.
 - **Streaming-fine settlement.** A single inference call is a single payment.
 - **Withdrawal symmetry.** Sellers receive sats directly to a Lightning address.
-- **Bitcoin-only.** No fiat rails, no chargebacks, no signup KYC for the API surface.
+- **Bitcoin-only.** No fiat rails, no chargebacks, no enterprise signup ceremony — register and pay over Lightning.
 
 ## License
 
