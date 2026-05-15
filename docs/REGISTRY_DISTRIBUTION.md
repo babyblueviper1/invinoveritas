@@ -48,7 +48,7 @@ Starter-credit copy: new accounts receive 250 non-withdrawable starter sats for 
 ## Bitcoin-Only Rules
 
 - Supported payment rails: Bearer balance funded by Lightning, L402 Lightning, optional NWC for wallets.
-- Do not add stablecoin, credit-card, x402, or fiat settlement copy.
+- Do not add non-Bitcoin/Lightning payment rails or fiat settlement copy.
 - Referral, marketplace, and integration copy should say "sats" and "Lightning" explicitly.
 
 ## 7-Day Distribution Push

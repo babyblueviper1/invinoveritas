@@ -24,4 +24,4 @@ meta:
     entrypoint: main
   minimum_dify_version: 0.15.0
 created_at: 2026-05-05T00:00:00Z
-privacy: 100% Bitcoin/Lightning-native. No stablecoins, no x402, no KYC.
+privacy: 100% Bitcoin/Lightning-native. Self-onboarding via Bearer auth or L402; no enterprise sign-up flow.

@@ -88,7 +88,7 @@ The handler automatically handles Lightning payments (L402 or credit system) and
 - Ensure your wallet always has sufficient sats
 - NWC is fastest for onboarding new agents
 - All payments are atomic and fully verifiable
-- No KYC or accounts required (though credit accounts are optional)
+- Self-onboarding via Bearer auth or L402 — no enterprise sign-up flow (credit accounts are optional)
 - Keep your LND macaroon and TLS cert secure
 
 ---

@@ -77,7 +77,7 @@ provider = NWCProvider(uri=os.environ["NWC_CONNECTION_URI"])
 client = InvinoClient(provider=provider)
 
 # Your agent now pays autonomously on every call
-result = client.reason("Should I rebalance my BTC/stablecoin ratio now?")
+result = client.reason("Should I rebalance my BTC allocation now?")
 print(result.answer)
 ```
 
@@ -147,7 +147,7 @@ client = InvinoClient(bearer_token=os.environ["INVINO_API_KEY"])
 result = client.decide(
     goal="Maximize BTC returns with controlled drawdown",
     question="Should I increase BTC exposure given RSI=38 and uptrend confirmation?",
-    context="Portfolio: 55% BTC, 35% stablecoins. Entry target: 94,500.",
+    context="Portfolio: 55% BTC, 45% cash. Entry target: 94,500.",
     policy={"risk_limit": "medium"},
 )
 
