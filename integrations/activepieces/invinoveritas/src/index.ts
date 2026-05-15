@@ -93,6 +93,33 @@ const memoryGet = createAction({
   },
 });
 
+const memoryList = createAction({
+  name: 'memory_list',
+  displayName: 'List Agent Memory Keys',
+  description: 'List all memory keys stored for this agent. Free.',
+  auth,
+  props: {
+    agent_id: Property.ShortText({ displayName: 'Agent ID', required: true }),
+  },
+  async run(ctx) {
+    return invinoRequest(apiKey(ctx.auth), '/memory/list', ctx.propsValue);
+  },
+});
+
+const memoryDelete = createAction({
+  name: 'memory_delete',
+  displayName: 'Delete Agent Memory',
+  description: 'Permanently delete a stored memory entry by key. Free.',
+  auth,
+  props: {
+    agent_id: Property.ShortText({ displayName: 'Agent ID', required: true }),
+    key: Property.ShortText({ displayName: 'Key', required: true }),
+  },
+  async run(ctx) {
+    return invinoRequest(apiKey(ctx.auth), '/memory/delete', ctx.propsValue);
+  },
+});
+
 const a2aDelegate = createAction({
   name: 'a2a_delegate',
   displayName: 'A2A Delegate',
@@ -133,7 +160,7 @@ const growthAttackPlan = createAction({
   },
   async run(ctx) {
     const prompt = [
-      '',
+      'Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.',
       'Produce concrete next actions that drive registrations, funded accounts, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, seller withdrawals, or Sovereign Earner support.',
       `Objective: ${ctx.propsValue.objective}`,
       `Context: ${ctx.propsValue.context ?? ''}`,
@@ -186,6 +213,6 @@ export const invinoveritas = createPiece({
   minimumSupportedRelease: '0.28.0',
   logoUrl: 'https://api.babyblueviper.com/favicon.ico',
   authors: ['babyblueviper1'],
-  actions: [reason, decision, marketplaceBuy, memoryStore, memoryGet, a2aDelegate, growthAttackPlan, sovereignExecute],
+  actions: [reason, decision, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
   triggers: [],
 });

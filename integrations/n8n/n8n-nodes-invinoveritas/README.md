@@ -1,6 +1,6 @@
 # n8n Nodes for invinoveritas
 
-
+Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.
 
 Operations:
 
@@ -8,7 +8,7 @@ Operations:
 - Premium Reasoning
 - Structured Decision
 - Marketplace Buy
-- Memory Store / Get
+- Memory Store / Get / List / Delete (paid persistent agent memory — ~2 sats/KB store, ~1 sat/KB get, list & delete free)
 - A2A Delegate
 
 Use this node to push registrations, top-ups, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, seller withdrawals, and Sovereign Earner support workflows.

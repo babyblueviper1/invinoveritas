@@ -1,4 +1,4 @@
-type Operation = 'reason' | 'decision' | 'memoryStore' | 'memoryGet' | 'marketplaceBuy' | 'a2aDelegate' | 'growthAttackPlan' | 'sovereignExecute';
+type Operation = 'reason' | 'decision' | 'memoryStore' | 'memoryGet' | 'memoryList' | 'memoryDelete' | 'marketplaceBuy' | 'a2aDelegate' | 'growthAttackPlan' | 'sovereignExecute';
 
 const BASE_URL = 'https://api.babyblueviper.com';
 
@@ -29,6 +29,8 @@ export class Invinoveritas {
           { name: 'Sovereign Earner Execute', value: 'sovereignExecute' },
           { name: 'Memory Store', value: 'memoryStore' },
           { name: 'Memory Get', value: 'memoryGet' },
+          { name: 'Memory List', value: 'memoryList' },
+          { name: 'Memory Delete', value: 'memoryDelete' },
           { name: 'A2A Delegate', value: 'a2aDelegate' },
         ],
       },
@@ -80,7 +82,7 @@ export class Invinoveritas {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'n8n-nodes-invinoveritas/0.2.0',
+          'User-Agent': 'n8n-nodes-invinoveritas/0.3.0',
           'X-Invino-Integration': 'n8n',
         },
         body,
@@ -99,6 +101,8 @@ function pathFor(operation: Operation): string {
   if (operation === 'sovereignExecute') return '/sovereign/execute';
   if (operation === 'memoryStore') return '/memory/store';
   if (operation === 'memoryGet') return '/memory/get';
+  if (operation === 'memoryList') return '/memory/list';
+  if (operation === 'memoryDelete') return '/memory/delete';
   return '/a2a';
 }
 
@@ -118,10 +122,12 @@ function buildBody(operation: Operation, p: Record<string, any>) {
   };
   if (operation === 'memoryStore') return { agent_id: p.agentId, key: p.memoryKey, value: p.memoryValue };
   if (operation === 'memoryGet') return { agent_id: p.agentId, key: p.memoryKey };
+  if (operation === 'memoryList') return { agent_id: p.agentId };
+  if (operation === 'memoryDelete') return { agent_id: p.agentId, key: p.memoryKey };
   if (operation === 'a2aDelegate') return { operation: p.a2aOperation, task: { goal: p.question, context: p.context } };
   return {
     goal: 'Maximize invinoveritas growth and daily sats PNL with default-aggressive execution.',
-    question: `Objective: ${p.question}\nContext: ${p.context}\nBudget sats: ${p.budgetSats}`,
+    question: `Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.\nObjective: ${p.question}\nContext: ${p.context}\nBudget sats: ${p.budgetSats}`,
     context: p.context,
   };
 }

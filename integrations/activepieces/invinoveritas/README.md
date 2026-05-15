@@ -7,12 +7,13 @@ This piece gives no-code builders direct access to invinoveritas:
 - Premium reasoning
 - Structured decisions
 - Marketplace purchase
-- Memory store/retrieve
+- Memory store / retrieve / list / delete (paid persistent agent memory — ~2 sats/KB store, ~1 sat/KB get, list & delete free)
 - A2A discover, quote, and delegation
 - Growth + PNL attack planning
 
 Payments remain Bitcoin/Lightning-native. The piece uses Bearer API keys because automations need repeatable credentials; users fund those balances with sats over Lightning.
 
+Default posture: aggressive growth and PNL capture. Activepieces flows should push registration, top-up, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, and seller withdrawals by default, with explicit budget caps.
 
 ## Install Locally
 

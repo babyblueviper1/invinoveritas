@@ -1,7 +1,7 @@
 {
   "name": "invinoveritas-activepieces-piece",
-  "version": "0.1.0",
-  "description": "Bitcoin/Lightning-native invinoveritas actions for reasoning, decisions, memory, marketplace purchase, and A2A delegation.",
+  "version": "0.2.0",
+  "description": "Bitcoin/Lightning-native invinoveritas actions for reasoning, decisions, paid persistent memory (store/get/list/delete), marketplace purchase, Sovereign Earner directives, and A2A delegation.",
   "main": "src/index.ts",
   "license": "Apache-2.0",
   "keywords": ["activepieces", "bitcoin", "lightning", "l402", "mcp", "a2a", "ai-agents", "marketplace"],
