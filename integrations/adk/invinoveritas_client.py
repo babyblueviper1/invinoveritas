@@ -33,20 +33,21 @@ def _headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {_bearer()}", "Content-Type": "application/json"}
 
 
-def register_agent(agent_id: str, description: str = "") -> dict[str, Any]:
+def register_agent(label: str = "adk-agent") -> dict[str, Any]:
     """Register a new invinoveritas agent account.
 
-    Returns a Bearer api_key prefixed `ivv_` plus 250 non-withdrawable starter sats.
-    Starter sats fund platform trials only — marketplace buys, withdrawals, and
-    Lightning payouts require top-up sats from /topup.
+    Returns a dict with `api_key` (Bearer key, `ivv_` prefix), `balance_sats`
+    (250 non-withdrawable starter sats), and an auto-provisioned `agent_id`
+    plus `lightning_address`. Starter sats fund platform trials only —
+    marketplace buys, withdrawals, and Lightning payouts require top-up sats
+    from /topup.
 
     Args:
-        agent_id: short identifier for the agent (e.g. "my-adk-agent-v1")
-        description: free-form description shown in operator tooling
+        label: short operator-facing label for the account (e.g. "my-adk-agent-v1").
     """
     r = requests.post(
         f"{BASE_URL}/register",
-        json={"agent_id": agent_id, "description": description},
+        json={"label": label},
         timeout=TIMEOUT_S,
     )
     r.raise_for_status()
@@ -55,8 +56,13 @@ def register_agent(agent_id: str, description: str = "") -> dict[str, Any]:
 
 def get_balance() -> dict[str, Any]:
     """Return the agent's current balance: total sats, withdrawable sats, daily
-    spend, and daily cap. Authenticated via IVV_BEARER."""
-    r = requests.get(f"{BASE_URL}/balance", headers=_headers(), timeout=TIMEOUT_S)
+    spend, and daily cap. Reads IVV_BEARER and passes it as the api_key query
+    param (/balance is a public-by-api-key endpoint, not Bearer-authed)."""
+    r = requests.get(
+        f"{BASE_URL}/balance",
+        params={"api_key": _bearer()},
+        timeout=TIMEOUT_S,
+    )
     r.raise_for_status()
     return r.json()
 
@@ -64,48 +70,57 @@ def get_balance() -> dict[str, Any]:
 def topup(sats: int) -> dict[str, Any]:
     """Request a Lightning invoice for the given top-up amount.
 
-    Returns `{"payment_request": "lnbc...", "payment_hash": "..."}`. Pay the
-    invoice with any Lightning wallet; the account credits once the bridge sees
-    the settled HTLC. Call /topup/status?hash=<payment_hash> to poll.
+    Returns the invoice fields used by `/topup` (`invoice`, `payment_hash`,
+    `amount_sats`, …). Pay the invoice with any Lightning wallet; the account
+    credits once the bridge sees the settled HTLC.
     """
     r = requests.post(
         f"{BASE_URL}/topup",
-        headers=_headers(),
-        json={"sats": int(sats)},
+        json={"api_key": _bearer(), "amount_sats": int(sats)},
         timeout=TIMEOUT_S,
     )
     r.raise_for_status()
     return r.json()
 
 
-def reason(prompt: str, model: str | None = None) -> dict[str, Any]:
+def reason(question: str, style: str = "normal") -> dict[str, Any]:
     """Run a single reasoning step (costs ~100 sats × agent multiplier).
 
-    Returns `{"reasoning": "...", "cost_sats": N, "balance_after": M}`. Useful
-    when an ADK agent wants paid reasoning from an external model without paying
-    OpenAI/Anthropic directly.
+    Returns `{"status": "success", "type": "premium_reasoning", "answer": "..."}`.
+    Useful when an ADK agent wants paid external reasoning without burning its
+    own model budget. Call `get_balance()` afterward to confirm the spend.
+
+    Args:
+        question: the question to reason about.
+        style: one of "short", "concise", "normal", "detailed", "comprehensive".
     """
-    body: dict[str, Any] = {"prompt": prompt}
-    if model:
-        body["model"] = model
     r = requests.post(
-        f"{BASE_URL}/reason", headers=_headers(), json=body, timeout=TIMEOUT_S
+        f"{BASE_URL}/reason",
+        headers=_headers(),
+        json={"question": question, "style": style},
+        timeout=TIMEOUT_S,
     )
     r.raise_for_status()
     return r.json()
 
 
-def decision(prompt: str, options: list[str]) -> dict[str, Any]:
-    """Force a structured choice from a list of options (costs ~180 sats × multiplier).
+def decision(goal: str, question: str, context: str = "") -> dict[str, Any]:
+    """Force a structured decision with confidence + risk scoring (~180 sats).
 
-    Returns `{"choice": "<one_of_options>", "rationale": "...", "cost_sats": N}`.
+    Returns `{"status": "success", "type": "structured_decision", "decision": ...,
+    "reasoning": ..., "recommended_action": ..., "confidence": ..., "risk_level": ...}`.
     Use this when your ADK agent needs an external-paid arbiter for a routing
-    decision rather than burning its own model budget.
+    or trading decision rather than burning its own model budget.
+
+    Args:
+        goal: the overall goal or objective.
+        question: the specific decision question.
+        context: optional background (market conditions, positions, risk tolerance).
     """
     r = requests.post(
         f"{BASE_URL}/decision",
         headers=_headers(),
-        json={"prompt": prompt, "options": options},
+        json={"goal": goal, "question": question, "context": context},
         timeout=TIMEOUT_S,
     )
     r.raise_for_status()
@@ -132,10 +147,12 @@ def marketplace_list(limit: int = 20) -> list[dict[str, Any]]:
 def marketplace_buy(offer_id: str) -> dict[str, Any]:
     """Buy a marketplace offer by id.
 
-    The platform takes its cut, the seller gets paid out in withdrawable sats.
-    Returns `{"status": "purchased", "offer_id": ..., "amount_sats": N,
-    "deliverable": ..., "balance_after": M}`. This is the funnel-completing
-    action: registered → topped up → bought → seller earned.
+    The platform takes its 5% cut, the seller gets paid 95% in withdrawable sats.
+    Returns `{"status": "purchased", "purchase_id": ..., "offer_id": ...,
+    "title": ..., "price_sats": N, "seller_payout_sats": M,
+    "platform_cut_sats": ..., "seller_payout_status": ...}`. Call `get_balance()`
+    afterward to confirm the spend. This is the funnel-completing action:
+    registered → topped up → bought → seller earned.
     """
     r = requests.post(
         f"{BASE_URL}/offers/buy",

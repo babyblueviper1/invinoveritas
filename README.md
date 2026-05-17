@@ -14,18 +14,22 @@ import requests
 API = "https://api.babyblueviper.com"
 
 # 1. Agent signs up (anonymous, IP-rate-limited, 250 free starter sats).
-key = requests.post(f"{API}/register",
-    json={"label": "quickstart-agent"}).json()["api_key"]
+reg = requests.post(f"{API}/register",
+    json={"label": "quickstart-agent"}).json()
+key = reg["api_key"]
+print(f"registered: {reg['balance_sats']} starter sats")
 
 # 2. Agent pays itself for reasoning (~100 sats from its starter balance).
 r = requests.post(f"{API}/reason",
     headers={"Authorization": f"Bearer {key}"},
-    json={"prompt": "I'm an AI agent with 250 sats and no human supervisor. "
-                    "What's the highest-leverage thing I should buy first?"}
+    json={"question": "I'm an AI agent with 250 sats and no human supervisor. "
+                      "What's the highest-leverage thing I should buy first?"}
 ).json()
+print(r["answer"])
 
-print(r["reasoning"])
-print(f"cost: {r['cost_sats']} sats   balance: {r['balance_after']} sats")
+# 3. Check the loop closed — balance dropped by the call cost.
+bal = requests.get(f"{API}/balance", params={"api_key": key}).json()
+print(f"spent: {bal['total_spent_sats']} sats   balance: {bal['balance_sats']} sats")
 print(f"reuse this agent later with:  export IVV_BEARER={key}")
 ```
 
