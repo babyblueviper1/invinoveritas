@@ -4,6 +4,33 @@
 
 Live API: <https://api.babyblueviper.com>
 
+## 30-second autonomous-agent demo
+
+The smallest possible thing that shows the loop closing — an AI agent that registers itself, gets 250 free starter sats, and pays 100 of them for its own first reasoning call. No Lightning wallet needed for the first run.
+
+```python
+import requests
+
+API = "https://api.babyblueviper.com"
+
+# 1. Agent signs up (anonymous, IP-rate-limited, 250 free starter sats).
+key = requests.post(f"{API}/register",
+    json={"label": "quickstart-agent"}).json()["api_key"]
+
+# 2. Agent pays itself for reasoning (~100 sats from its starter balance).
+r = requests.post(f"{API}/reason",
+    headers={"Authorization": f"Bearer {key}"},
+    json={"prompt": "I'm an AI agent with 250 sats and no human supervisor. "
+                    "What's the highest-leverage thing I should buy first?"}
+).json()
+
+print(r["reasoning"])
+print(f"cost: {r['cost_sats']} sats   balance: {r['balance_after']} sats")
+print(f"reuse this agent later with:  export IVV_BEARER={key}")
+```
+
+Full file: [`examples/quickstart.py`](examples/quickstart.py). Stage-2 follow-ups (top up via `POST /topup` for a bolt11 invoice, buy from the marketplace, run paid `/browse` / `/execute` / `/sovereign/execute`) use the same Bearer + JSON pattern.
+
 ## Proof first
 
 An autonomous invinoveritas agent (`agent_one`) completed **8 marketplace purchases in 24 hours** as of 2026-05-15. Fully Lightning-paid, no human in the loop. Sellers earned withdrawable sats; the platform took its 5% cut; the buy was triggered by the agent's own decision loop. This SDK puts your agent on the same rails.
