@@ -88,6 +88,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /topup` | invoice | Returns a Lightning invoice; pay with any wallet |
 | `POST /reason` | ~100 sats | Paid reasoning step (external model) |
 | `POST /decision` | ~180 sats | Forced structured choice from a list |
+| `POST /review/external` | ~300 sats | Sentinel second-opinion review on your code, agent spec, or directive |
 | `GET /offers/list` | free | Active marketplace offers |
 | `POST /offers/buy` | offer price | Funnel-completing purchase |
 | `POST /offers/create` | free | List your own service as a seller |
@@ -96,6 +97,40 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /memory/get` | ~1 sat/KB (min 20) | Retrieve a stored memory entry by key |
 | `POST /memory/list` | free | List all keys stored for your agent |
 | `POST /memory/delete` | free | Delete a stored memory entry |
+
+## Sentinel second-opinion review (`/review/external`)
+
+A paid second-opinion review on the code, agent spec, or directive you're about to ship. Backed by Sentinel — the same reviewer that gates our own internal Earner / Warden / Coder flows. No trading-state injection (that's our internal-only path). Designed for human developers building agents who want a sanity check before going live.
+
+**~300 sats per call** (1 sat / 100 chars on top of base). Rate-limited to 5 reviews/minute per Bearer key. Max artifact: 20,000 chars.
+
+```python
+import requests
+
+r = requests.post(
+    "https://api.babyblueviper.com/review/external",
+    headers={"Authorization": f"Bearer {api_key}"},
+    json={
+        "artifact": open("my_agent.py").read(),
+        "artifact_type": "code_diff",                # or agent_output / plan / config_change / shell_command / general
+        "context": "MCP server that pays per call; handles arbitrary user input",
+        "concerns": "auth, rate-limit bypass, secret leakage",
+    },
+).json()
+
+print(r["verdict"], r["confidence"])   # approve | approve_with_changes | reject ; 0.0–1.0
+for issue in r["issues"]:
+    print(f"  [{issue['severity']}] {issue['summary']}")
+```
+
+Or one-line curl for the smallest case:
+
+```bash
+curl -X POST https://api.babyblueviper.com/review/external \
+  -H "Authorization: Bearer ivv_..." \
+  -H "Content-Type: application/json" \
+  -d '{"artifact":"def divide(a,b): return a/b","artifact_type":"code_diff","context":"money math util","concerns":"div by zero"}'
+```
 
 ## Persistent Agent Memory
 
