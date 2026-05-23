@@ -5,7 +5,7 @@
   ],
   "name": "invinoveritas",
   "description": "A Lightning-paid tool stack for autonomous agents — capital-scale-aware second-opinion /review (Sentinel mode auto-injects live trading state), reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, persistent memory, signed audit proofs. Built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance or L402. Free registration with 250 starter sats.",
-  "version": "1.6.9",
+  "version": "1.7.0",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas-sdk",
@@ -26,6 +26,10 @@
     {
       "name": "review",
       "description": "Independent second-opinion verdict for agents about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, or analysis; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternative approaches when rejecting. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) into the review context — capital-scale-aware critique unique to this stack. Built for autonomous agents that want a sanity check before pulling a real-money or production-affecting trigger. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool). Returns: {verdict, issues, suggested_fixes, alternatives}. ~200 sats base + length bonus."
+    },
+    {
+      "name": "agent_economy_brief",
+      "description": "Latest 6h ecosystem research brief synthesized from four sources: MCP server discovery (last 7d new servers with capability + monetization tagging), arxiv recent papers (cs.AI/cs.CL/cs.LG filtered by agent / tool-use / multi-agent keywords), GitHub trending in mcp/ai-agents/agent-framework topics, and HuggingFace trending models. Returns three named sections (ecosystem_observations / ai_sector_signal / agent_framework_signal) plus an observational synthesis (emerging patterns / open questions). Purely observational — no platform-specific prescriptions. Refreshed every 6h. ~250 sats per call (fixed; no length bonus). 10 req/min per Bearer key."
     },
     {
       "name": "reason",

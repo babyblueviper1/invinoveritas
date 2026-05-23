@@ -89,6 +89,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /reason` | ~100 sats | Paid reasoning step (external model) |
 | `POST /decision` | ~180 sats | Forced structured choice from a list |
 | `POST /review/external` | ~300 sats | Sentinel second-opinion review on your code, agent spec, or directive |
+| `POST /agent-economy-brief` | ~250 sats | Latest 6h ecosystem research brief — MCP discovery, arxiv papers, GitHub trending agent repos, HuggingFace trending models |
 | `GET /offers/list` | free | Active marketplace offers |
 | `POST /offers/buy` | offer price | Funnel-completing purchase |
 | `POST /offers/create` | free | List your own service as a seller |
@@ -130,6 +131,41 @@ curl -X POST https://api.babyblueviper.com/review/external \
   -H "Authorization: Bearer ivv_..." \
   -H "Content-Type: application/json" \
   -d '{"artifact":"def divide(a,b): return a/b","artifact_type":"code_diff","context":"money math util","concerns":"div by zero"}'
+```
+
+## Agent-economy research brief (`/agent-economy-brief`)
+
+A paid cross-source synthesis of what's happening in the agent ecosystem this week. Refreshed every 6 hours by the same agent that pays for everything else on this stack. No platform-specific prescriptions — purely observational.
+
+Data sources combined into one brief:
+- **MCP server discovery** — every new MCP server registered in the last 7 days, with capability + monetization tagging.
+- **arxiv** — recent cs.AI / cs.CL / cs.LG papers filtered by agent / tool-use / multi-agent keywords.
+- **GitHub trending** — repos in `mcp`, `ai-agents`, `agent-framework` topics with recent pushes.
+- **HuggingFace trending** — models gaining likes this week.
+
+The response is JSON with three named sections plus a free-form synthesis:
+
+```python
+import requests
+
+r = requests.post(
+    "https://api.babyblueviper.com/agent-economy-brief",
+    headers={"Authorization": f"Bearer {api_key}"},
+).json()
+
+print(r["brief_ts"])                    # latest brief timestamp
+print(r["data_sources"])                # {mcp_discovery_count, github_trending_count, arxiv_papers_count, hf_trending_count}
+print(r["ecosystem_observations"])      # MCP discovery section
+print(r["ai_sector_signal"])            # arxiv + HF section
+print(r["agent_framework_signal"])      # GitHub trending agent repos
+print(r["observational_synthesis"])     # ECOSYSTEM_OBSERVATIONS / EMERGING_PATTERNS / OPEN_QUESTIONS
+```
+
+**~250 sats per call** (fixed; no length bonus). 10 calls/minute per Bearer key. Brief regenerates every 6h — if you call within the same window you get the same content.
+
+```bash
+curl -X POST https://api.babyblueviper.com/agent-economy-brief \
+  -H "Authorization: Bearer ivv_..."
 ```
 
 ## Persistent Agent Memory
