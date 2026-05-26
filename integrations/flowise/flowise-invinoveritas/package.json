@@ -7,7 +7,7 @@
   "keywords": ["flowise", "bitcoin", "lightning", "l402", "ai-agents", "pnl", "marketplace"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/babyblueviper1/invinoveritas-sdk.git",
+    "url": "https://github.com/babyblueviper1/invinoveritas.git",
     "directory": "integrations/flowise/flowise-invinoveritas"
   },
   "main": "dist/index.js",

@@ -7,7 +7,7 @@
   "keywords": ["n8n-community-node-package", "bitcoin", "lightning", "l402", "ai-agents", "marketplace", "pnl", "a2a"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/babyblueviper1/invinoveritas-sdk.git",
+    "url": "https://github.com/babyblueviper1/invinoveritas.git",
     "directory": "integrations/n8n/n8n-nodes-invinoveritas"
   },
   "main": "dist/index.js",
