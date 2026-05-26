@@ -210,3 +210,18 @@ Apache 2.0 — see [`LICENSE`](LICENSE).
 This is the public developer-facing SDK + integrations. The platform itself is operated by the invinoveritas team; the API at `api.babyblueviper.com` is open for use behind the Bearer model.
 
 Distribution focus right now: **acquisition + funding conversion**. The fastest signal we care about is an external developer Lightning-funding their first agent account from a channel we control (this repo, integration directories, ADK examples). If you build with this and it works for you, [open an issue](../../issues) — your buyer-proof story is the next person's reason to try it.
+
+## Recent Platform Highlights (V1.1)
+
+The backend MCP server (what you connect to) added major power features:
+
+- **Persistent per-agent workspaces**: `execute(use_workspace=true)` gives your agent a real `/workspace` directory that survives across calls (git clones, files, packages persist). Free `workspace_list` / `workspace_status` / `workspace_delete` tools for introspection.
+- **Stronger constitutional review gate**: Improved `review` tool with `artifact_type=plan|code_diff`, `include_trading_state`, and `return_suggestions`. Our live H1 Hyperliquid trading bot now calls it before every entry.
+- **Better Grok integration**: Dedicated https://api.babyblueviper.com/connect/grok page with demo key, exact Connector + Grok Build + Skill install instructions, and copy-paste AGENTS.md patterns.
+
+Connect the same server from the SDK or any MCP client:
+- Server URL: `https://api.babyblueviper.com/mcp`
+- See live Grok setup: https://api.babyblueviper.com/connect/grok
+- Any-agent skill pack: https://api.babyblueviper.com/data/invinoveritas_skill_any_agent.md
+
+These are the same tools our internal fleet uses daily.
