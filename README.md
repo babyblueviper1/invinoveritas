@@ -73,6 +73,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 
 | Path | What it is |
 |---|---|
+| [`integrations/robinhood/`](integrations/robinhood/) | Robinhood Agentic Trading — put `/review` in front of your trading agent as a pre-trade governance gate (dual-MCP, no glue code) |
 | [`integrations/adk/`](integrations/adk/) | Google Agent Development Kit — client + Tool wrapping pattern + working quickstart |
 | [`integrations/n8n/`](integrations/n8n/) | n8n node (`n8n-nodes-invinoveritas`) for low-code workflows |
 | [`integrations/dify/`](integrations/dify/) | Dify plugin — drop-in tools for paid reasoning + marketplace + Sovereign Earner |
