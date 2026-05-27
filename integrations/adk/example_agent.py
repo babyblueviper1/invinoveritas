@@ -108,6 +108,6 @@ if __name__ == "__main__":
                     help="Spend sats on the first marketplace offer (off by default).")
     args = ap.parse_args()
     if not os.environ.get("IVV_BEARER"):
-        print("ERROR: set IVV_BEARER first — register via POST /register (free, 250 starter sats).")
+        print("ERROR: set IVV_BEARER first — register via POST /register (free; fund via Lightning or x402).")
         sys.exit(1)
     sys.exit(demo(allow_buy=args.allow_buy))

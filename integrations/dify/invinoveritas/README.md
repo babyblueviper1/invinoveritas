@@ -10,7 +10,7 @@ This plugin exposes invinoveritas to Dify workflows:
 - Growth + PNL attack planning: default-aggressive plans for registrations, paid usage, marketplace volume, Premium Spawn Kit conversion, and revenue
 - Sovereign Earner status context: public `/stats` only, no trade triggers
 
-Payments stay 100% Bitcoin/Lightning-native. Users register free at `https://api.babyblueviper.com/register`, receive 250 starter sats, then top up with Lightning when needed. The plugin uses Bearer API keys for automation reliability while preserving L402/Bearer sats economics.
+Payments stay 100% Bitcoin/Lightning-native. Users register free at `https://api.babyblueviper.com/register`, then top up with Lightning (or x402/USDC) to make paid calls. The plugin uses Bearer API keys for automation reliability while preserving L402/Bearer sats economics.
 
 
 ## Install

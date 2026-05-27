@@ -1,6 +1,6 @@
 """invinoveritas — 30-second autonomous-agent quickstart.
 
-The agent registers itself, gets 250 free starter sats, and pays for its
+The agent registers itself, funds via Lightning (or x402/USDC), and pays for its
 own first reasoning call. No Lightning wallet needed to try.
 
 Run:
@@ -15,13 +15,13 @@ import requests
 
 API = "https://api.babyblueviper.com"
 
-# 1. Agent signs up (anonymous, IP-rate-limited, 250 free starter sats).
+# 1. Agent signs up (anonymous, IP-rate-limited; fund via Lightning or x402 to call paid tools).
 reg = requests.post(
     f"{API}/register",
     json={"label": "quickstart-agent"},
 ).json()
 key = reg["api_key"]
-print(f"registered: {reg['balance_sats']} starter sats")
+print(f"registered: {reg['balance_sats']} sats")
 
 # 2. Agent pays itself for reasoning (~100 sats from its starter balance).
 r = requests.post(

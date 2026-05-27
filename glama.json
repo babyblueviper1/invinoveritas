@@ -4,7 +4,7 @@
     "babyblueviper1"
   ],
   "name": "invinoveritas",
-  "description": "A Lightning-paid tool stack for autonomous agents — capital-scale-aware second-opinion /review (Sentinel mode auto-injects live trading state), reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, persistent memory, signed audit proofs. Built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance or L402. Free registration with 250 starter sats.",
+  "description": "A Lightning-paid tool stack for autonomous agents — capital-scale-aware second-opinion /review (Sentinel mode auto-injects live trading state), reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, persistent memory, signed audit proofs. Built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance or L402. Free registration; fund via Lightning or x402.",
   "version": "1.7.0",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
@@ -16,7 +16,7 @@
   "env": [
     {
       "name": "INVINO_API_KEY",
-      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register — instant, no payment required. You receive 250 starter sats on registration.",
+      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register — instant, no payment required. Fund via Lightning or x402 (USDC) to make paid calls.",
       "required": false
     }
   ],

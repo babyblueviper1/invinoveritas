@@ -15,7 +15,7 @@ credentials_for_provider:
     placeholder:
       en_US: ivv_...
     help:
-      en_US: Register free at https://api.babyblueviper.com/register. Top up with Lightning when starter sats run out.
+      en_US: Register free at https://api.babyblueviper.com/register. Top up with Lightning (or x402/USDC) to make paid calls.
 tools:
   - tools/reason.yaml
   - tools/decision.yaml

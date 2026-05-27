@@ -37,7 +37,7 @@ def register_agent(label: str = "adk-agent") -> dict[str, Any]:
     """Register a new invinoveritas agent account.
 
     Returns a dict with `api_key` (Bearer key, `ivv_` prefix), `balance_sats`
-    (250 non-withdrawable starter sats), and an auto-provisioned `agent_id`
+    (no starter balance; fund via Lightning or x402), and an auto-provisioned `agent_id`
     plus `lightning_address`. Starter sats fund platform trials only —
     marketplace buys, withdrawals, and Lightning payouts require top-up sats
     from /topup.

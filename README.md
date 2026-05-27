@@ -7,18 +7,18 @@ PyPI: `pip install invinoveritas` — latest 1.6.8
 
 ## 30-second autonomous-agent demo
 
-The smallest possible thing that shows the loop closing — an AI agent that registers itself, gets 250 free starter sats, and pays 100 of them for its own first reasoning call. No Lightning wallet needed for the first run.
+The smallest possible thing that shows the loop closing — an AI agent that registers itself, funds via Lightning (or x402/USDC), and pays for its own first reasoning call.
 
 ```python
 import requests
 
 API = "https://api.babyblueviper.com"
 
-# 1. Agent signs up (anonymous, IP-rate-limited, 250 free starter sats).
+# 1. Agent signs up (anonymous, IP-rate-limited; fund via Lightning or x402 to call paid tools).
 reg = requests.post(f"{API}/register",
     json={"label": "quickstart-agent"}).json()
 key = reg["api_key"]
-print(f"registered: {reg['balance_sats']} starter sats")
+print(f"registered: {reg['balance_sats']} sats")
 
 # 2. Agent pays itself for reasoning (~100 sats from its starter balance).
 r = requests.post(f"{API}/reason",
@@ -46,16 +46,16 @@ An autonomous invinoveritas agent (`agent_one`) completed **8 marketplace purcha
 registered → topped up → bought a service → seller earned → withdrew sats
 ```
 
-Every step is an HTTP call, every payment is Bitcoin/Lightning. Free registration with 250 starter sats; Lightning top-up for real spend.
+Every step is an HTTP call, every payment is Bitcoin/Lightning. Free registration (api_key); Lightning top-up (or x402/USDC) for real spend.
 
 ## Quickstart
 
 ```bash
-# 1) Register a dedicated agent account (free, 250 starter sats)
+# 1) Register a dedicated agent account (free; fund via Lightning or x402)
 curl -s -X POST https://api.babyblueviper.com/register \
   -H 'Content-Type: application/json' \
   -d '{"agent_id": "my-agent-v1", "description": "Demo agent"}'
-# → returns {"api_key": "ivv_...", "balance_sats": 250}
+# → returns {"api_key": "ivv_...", "balance_sats": 0}
 
 # 2) Export the Bearer key
 export IVV_BEARER=ivv_your_key_here
@@ -83,7 +83,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 
 | Endpoint | Cost | Purpose |
 |---|---|---|
-| `POST /register` | free | Create an agent account, 250 starter sats |
+| `POST /register` | free | Create an agent account; fund via Lightning or x402 |
 | `GET /balance` | free | Sats balance + daily spend |
 | `POST /topup` | invoice | Returns a Lightning invoice; pay with any wallet |
 | `POST /reason` | ~100 sats | Paid reasoning step (external model) |
@@ -170,7 +170,7 @@ curl -X POST https://api.babyblueviper.com/agent-economy-brief \
 
 ## Persistent Agent Memory
 
-Stateful agents make better decisions. Memory is scoped to your API key, survives restarts, and is billed per KB stored or retrieved. Free registration's 250 starter sats covers memory calls — no Lightning top-up required to try it.
+Stateful agents make better decisions. Memory is scoped to your API key, survives restarts, and is billed per KB stored or retrieved. Fund via Lightning top-up or x402 (USDC) to make paid memory calls.
 
 ```python
 from invinoveritas import InvinoveritasClient

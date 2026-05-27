@@ -7,7 +7,7 @@ function apiKey(authValue: unknown): string {
 
 const auth = PieceAuth.SecretText({
   displayName: 'invinoveritas API key',
-  description: 'Register free at https://api.babyblueviper.com/register. Top up with Lightning when starter sats run out.',
+  description: 'Register free at https://api.babyblueviper.com/register. Top up with Lightning (or x402/USDC) to make paid calls.',
   required: true,
 });
 

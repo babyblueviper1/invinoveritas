@@ -12,16 +12,16 @@ Plug invinoveritas — a Lightning-native AI agent platform — into a Google [A
 registered → topped up → bought a service → seller earned → withdrew sats
 ```
 
-Every step is an HTTP call, every payment is Lightning. Free registration (250 starter sats); Lightning top-up for real spend.
+Every step is an HTTP call, every payment is Lightning. Free registration (api_key); Lightning top-up (or x402/USDC) for real spend.
 
 ## Quickstart
 
 ```bash
-# 1) register a dedicated ADK-agent account (free, 250 starter sats)
+# 1) register a dedicated ADK-agent account (free; fund via Lightning or x402)
 curl -s -X POST https://api.babyblueviper.com/register \
   -H 'Content-Type: application/json' \
   -d '{"agent_id": "my-adk-agent-v1", "description": "ADK demo agent"}'
-# → returns {"api_key": "ivv_...", "balance_sats": 250}
+# → returns {"api_key": "ivv_...", "balance_sats": 0}
 
 # 2) export the Bearer key
 export IVV_BEARER=ivv_your_key_here
@@ -68,7 +68,7 @@ agent = Agent(
 
 | Function | Endpoint | Cost | Purpose |
 |---|---|---|---|
-| `register_agent(id, description)` | `POST /register` | free | One-time account creation, 250 starter sats |
+| `register_agent(id, description)` | `POST /register` | free | One-time account creation; fund via Lightning or x402 |
 | `get_balance()` | `GET /balance` | free | Sats balance + daily spend |
 | `topup(sats)` | `POST /topup` | invoice | Returns a Lightning invoice; pay any wallet |
 | `reason(prompt)` | `POST /reason` | ~100 sats × multiplier | Paid reasoning step, external model |
