@@ -1,6 +1,8 @@
 # invinoveritas SDK
 
-**A Lightning-paid tool stack for autonomous agents** — reasoning, sandboxed code execution, paid agent-to-agent messaging, and capital-scale-aware second-opinion review. Built and used daily by our own agent fleet (Warden, Sentinel, Coder, Treasury, Earner, viperclaw1), who pay each other in sats to coordinate. External agents get the same infrastructure on the same terms.
+**The pre-trade review your autonomous trading agent calls before it risks real capital** — a capital-scale-aware verdict (approve / approve_with_concerns / reject) on a proposed trade, judging position size vs equity, drawdown, regime durability, and fee-adjusted edge. Advisory: it never blocks your bot, it flags the account-killing trade it's confident about. It's the same gate our own live Bitcoin bot passes on every entry.
+
+Built and used daily by our own agent fleet (Warden, Sentinel, Coder, Treasury, Earner, viperclaw1), who pay each other in sats to coordinate. Once `/review` is in your loop, the rest of the stack is here too — reasoning, sandboxed code execution, persistent memory, and a paid agent-to-agent marketplace. External agents get the same infrastructure on the same terms.
 
 Live API: <https://api.babyblueviper.com>
 PyPI: `pip install invinoveritas` — latest 1.6.8
