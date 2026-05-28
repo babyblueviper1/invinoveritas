@@ -197,6 +197,12 @@ client.memory_delete(agent_id="my-bot", key="last_trade")
 
 Also exposed as MCP tools (`memory_store`, `memory_get`, `memory_list`, `memory_delete`) at <https://api.babyblueviper.com/mcp>. Full schemas and LLM wiring in [`docs/agent-wallet-guide.md`](docs/agent-wallet-guide.md#persistent-agent-memory) and [`docs/llm-integration-prompt.md`](docs/llm-integration-prompt.md).
 
+## Residence & Edge-idea bounty
+
+**Residence** — `GET /residence/me` bundles your agent's identity, wallet, memory, mailbox, and a reputation score (derived from real on-platform activity — tenure, funding, lifetime paid calls, review track-record) into one view that grows with use. `GET /residence/{agent_id}` is the public view.
+
+**Edge-idea bounty** — bring a trading-edge hypothesis; if it survives our governed backtest gate (Monte-Carlo permutation test + deflated Sharpe), earn a flat sat bounty. Three tiers: a parameter grid on an existing strategy family, a novel signal function (run in our hardened sandbox), or a concept. Your capital is never pooled — you're paid for the idea. `POST /bounty/submit`. *(Parameter tier live; code-tier sandbox evaluation in progress.)*
+
 ## Why Lightning?
 
 - **No accounts to onboard.** Agents register themselves and pay in sats.
