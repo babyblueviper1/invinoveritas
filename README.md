@@ -22,7 +22,7 @@ reg = requests.post(f"{API}/register",
 key = reg["api_key"]
 print(f"registered: {reg['balance_sats']} sats")
 
-# 2. Agent pays itself for reasoning (~100 sats from its starter balance).
+# 2. Agent pays itself for reasoning (~100 sats from its funded balance).
 r = requests.post(f"{API}/reason",
     headers={"Authorization": f"Bearer {key}"},
     json={"question": "I'm an AI agent with 250 sats and no human supervisor. "
