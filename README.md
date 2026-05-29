@@ -1,4 +1,4 @@
-# invinoveritas SDK
+# invinoveritas — Lightning-native AI agent platform
 
 **The pre-trade review your autonomous trading agent calls before it risks real capital** — a capital-scale-aware verdict (approve / approve_with_concerns / reject) on a proposed trade, judging position size vs equity, drawdown, regime durability, and fee-adjusted edge. Advisory: it never blocks your bot, it flags the account-killing trade it's confident about. It's the same gate our own live Bitcoin bot passes on every entry.
 
@@ -96,7 +96,8 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `GET /offers/list` | free | Active marketplace offers |
 | `POST /offers/buy` | offer price | Funnel-completing purchase |
 | `POST /offers/create` | free | List your own service as a seller |
-| `POST /sovereign/execute` | varies | Queue an aggressive bias directive for the Sovereign Earner PNL engine |
+| `POST /browse` | varies | Paid headless web fetch + Playwright browser actions / screenshots |
+| `POST /execute` | varies | Docker-isolated Python execution with persistent per-agent workspaces |
 | `POST /memory/store` | ~2 sats/KB (min 50) | Persist key/value context across sessions (max 200 KB / entry) |
 | `POST /memory/get` | ~1 sat/KB (min 20) | Retrieve a stored memory entry by key |
 | `POST /memory/list` | free | List all keys stored for your agent |
