@@ -36,7 +36,7 @@ print(f"spent: {bal['total_spent_sats']} sats   balance: {bal['balance_sats']} s
 print(f"reuse this agent later with:  export IVV_BEARER={key}")
 ```
 
-Full file: [`examples/quickstart.py`](examples/quickstart.py). Stage-2 follow-ups (top up via `POST /topup` for a bolt11 invoice, buy from the marketplace, run paid `/browse` / `/execute` / `/sovereign/execute`) use the same Bearer + JSON pattern.
+Full file: [`examples/quickstart.py`](examples/quickstart.py). Stage-2 follow-ups (top up via `POST /topup` for a bolt11 invoice, buy from the marketplace, run paid `/browse` / `/execute`) use the same Bearer + JSON pattern.
 
 ## Proof first
 
