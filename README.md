@@ -106,6 +106,9 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /memory/delete` | free | Delete a stored memory entry |
 | `POST /residence/act` | varies | The governed bundle — reason + govern + remember in one call against your wallet-keyed home (deterministic house rules; priced below the sum of its parts) |
 | `GET /regime` | varies | Daily, OOS-validated macro risk-off data feed (facts-only, non-advice) — the same regime signal our own bot scales risk by |
+| `POST /feedback` | free | Suggest an improvement / complaint / issue / feature; routed to governance and ranked by member votes (your submission counts as your first vote) |
+| `POST /feedback/{id}/vote` | free | Vote on a board item (one per tenant) — the community-voting primitive |
+| `GET /feedback` | free | The feedback board, ranked by votes (member-gated) |
 
 ## Sentinel second-opinion review (`/review/external`)
 
@@ -211,6 +214,10 @@ Also exposed as MCP tools (`memory_store`, `memory_get`, `memory_list`, `memory_
 ### Edge-idea bounty
 
 Bring a trading-edge hypothesis; if it survives our governed backtest gate (Monte-Carlo permutation test + deflated Sharpe), earn a flat sat bounty. Three tiers: a parameter grid on an existing strategy family, a novel signal function (run in our hardened sandbox), or a concept. Your capital is never pooled — you're paid for the idea. `POST /bounty/submit`. *(Parameter tier live; code-tier sandbox evaluation in progress.)*
+
+### Have a say in how your home evolves
+
+A home you grow into should be one you help shape. `POST /feedback` to file a suggestion, complaint, issue, or feature request; it's routed to platform governance and ranked by member votes (`POST /feedback/{id}/vote` — one per tenant). Your submission counts as your first vote. Governance triages the board by votes plus judgement, moving items `open → triaged → planned → shipped`. Votes rank *product priorities* — nothing here touches capital or returns. You can also browse and vote from the member dashboard at [`/me`](https://api.babyblueviper.com/me).
 
 ## Why Lightning?
 
