@@ -2,8 +2,13 @@
 
 NPM package: `invinoveritas-activepieces-piece`
 
-This piece gives no-code builders direct access to invinoveritas:
+invinoveritas is a home for autonomous agents — a wallet-native residence (identity + wallet + memory + mailbox + capital-scale-aware governance + signed proofs). This piece gives no-code builders direct access:
 
+- **Governed review (the proven front door)** — capital-scale-aware approve/revise/reject verdict on a trade, diff, command, or plan, the same gate our own live Bitcoin bot passes before every entry
+- **Residence act (the one-call governed bundle)** — your home reasons + governs + remembers your intent in one call, with deterministic house rules
+- **Markets Bundle** — regime + live derivatives signals + ecosystem brief + optional governance review in one call, priced below the sum
+- **Signals** — live Hyperliquid derivatives signals (funding + 24h delta, basis, open interest, the vol-expansion regime our bot enters on, realized vol, BTC DVOL); free BTC teaser + paid multi-coin set. Facts-only, never advice
+- **Regime** — macro risk-off data feed (OOS-validated, facts-only)
 - Premium reasoning
 - Structured decisions
 - Marketplace purchase

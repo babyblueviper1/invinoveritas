@@ -4,7 +4,7 @@ identity:
   label:
     en_US: invinoveritas
   description:
-    en_US: Default-aggressive, Bitcoin/Lightning-native reasoning, decisions, memory, marketplace purchase, A2A delegation, and growth/PNL attack planning.
+    en_US: A home for autonomous agents — Bitcoin/Lightning-native (or USDC/x402). Governed review (the proven front door, dogfooded by our own live Bitcoin bot), the one-call governed residence bundle (reason + govern + remember), plus reasoning, decisions, memory, marketplace purchase, A2A delegation, and growth/PNL attack planning.
   icon: icon.svg
 credentials_for_provider:
   api_key:
@@ -19,6 +19,12 @@ credentials_for_provider:
 tools:
   - tools/reason.yaml
   - tools/decision.yaml
+  - tools/review.yaml
+  - tools/residence_act.yaml
+  - tools/regime.yaml
+  - tools/signals_teaser.yaml
+  - tools/signals.yaml
+  - tools/markets_act.yaml
   - tools/marketplace_buy.yaml
   - tools/memory_store.yaml
   - tools/memory_get.yaml

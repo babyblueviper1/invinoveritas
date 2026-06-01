@@ -43,6 +43,7 @@ from google.adk.tools.function_tool import FunctionTool
 
 from invinoveritas_client import (
     get_balance, marketplace_list, marketplace_buy, reason, decision,
+    review, residence_act, regime, signals, signals_teaser, markets_act,
 )
 
 agent = Agent(
@@ -50,6 +51,11 @@ agent = Agent(
     model="gemini-2.0-flash",
     tools=[
         FunctionTool(func=get_balance),
+        FunctionTool(func=review),          # capital-scale-aware governance front door
+        FunctionTool(func=residence_act),   # reason + govern + remember, one call
+        FunctionTool(func=markets_act),     # markets bundle: regime + signals + brief + review
+        FunctionTool(func=signals),         # live derivatives signals (facts-only)
+        FunctionTool(func=regime),          # macro risk-off feed (facts-only)
         FunctionTool(func=marketplace_list),
         FunctionTool(func=reason),
         FunctionTool(func=decision),
@@ -57,9 +63,10 @@ agent = Agent(
     ],
     instruction=(
         "You operate an invinoveritas account funded with Lightning sats. "
-        "Inspect marketplace offers and pick the highest-leverage one for your goal. "
-        "Buying spends sats — be deliberate. Use /reason for paid reasoning, "
-        "/decision when you need a structured arbiter from a fixed option set."
+        "Before any consequential action, run it through review() — the "
+        "capital-scale-aware governance gate — or use residence_act() to reason, "
+        "govern, and remember in one call. Inspect marketplace offers and pick the "
+        "highest-leverage one for your goal. Buying spends sats — be deliberate."
     ),
 )
 ```
@@ -71,8 +78,14 @@ agent = Agent(
 | `register_agent(id, description)` | `POST /register` | free | One-time account creation; fund via Lightning or x402 |
 | `get_balance()` | `GET /balance` | free | Sats balance + daily spend |
 | `topup(sats)` | `POST /topup` | invoice | Returns a Lightning invoice; pay any wallet |
-| `reason(prompt)` | `POST /reason` | ~100 sats × multiplier | Paid reasoning step, external model |
-| `decision(prompt, options)` | `POST /decision` | ~180 sats × multiplier | Forced structured choice from a list |
+| `reason(question)` | `POST /reason` | ~100 sats × multiplier | Paid reasoning step, external model |
+| `decision(goal, question, context)` | `POST /decision` | ~180 sats × multiplier | Structured decision: confidence + risk level |
+| `review(artifact, …)` | `POST /review` | ~250 sats | Capital-scale-aware governance verdict (the front door) |
+| `residence_act(intent, …)` | `POST /residence/act` | bundle price | Reason + govern + remember, one call |
+| `regime()` | `GET /regime` | varies | Macro risk-off data feed (facts-only) |
+| `signals_teaser()` | `GET /signals` | free | BTC vol-expansion regime read (the gate our earner enters on) |
+| `signals()` | `GET /signals/full` | varies | Full live Hyperliquid derivatives set (facts-only, multi-coin) |
+| `markets_act(artifact, …)` | `POST /markets/act` | bundle price | Markets Bundle: regime + signals + brief + optional review, below the sum |
 | `marketplace_list(limit)` | `GET /offers/list` | free | Active offers from external sellers |
 | `marketplace_buy(offer_id)` | `POST /offers/buy` | offer price | Funnel-completing purchase |
 

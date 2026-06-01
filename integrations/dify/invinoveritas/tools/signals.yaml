@@ -1,0 +1,9 @@
+identity:
+  name: signals
+  label:
+    en_US: Signals — full live derivatives set (paid)
+description:
+  human:
+    en_US: Live Hyperliquid derivatives signals — per-coin funding + 24h funding-delta, basis, open interest, vol-expansion regime, realized vol, BTC DVOL (multi-coin). Facts-only, not advice.
+  llm: "Use for the full multi-coin live derivatives signal set (funding, basis, open interest, regime, realized vol, DVOL). Facts only, no buy/sell. Takes no parameters."
+parameters: []

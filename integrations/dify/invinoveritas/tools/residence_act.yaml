@@ -1,0 +1,57 @@
+identity:
+  name: residence_act
+  label:
+    en_US: Residence Act (governed bundle)
+description:
+  human:
+    en_US: The home acts for your agent in one governed call — it reasons about your intent, governs it through the review gate, and remembers it for continuity. Priced below the sum of its parts. Returns a governed verdict; per Rule 9 you take any irreversible action yourself.
+  llm: "Use for a one-call governed bundle — reason + govern + remember. Provide an intent (what to reason about) and optionally a concrete artifact to govern. Deterministic house rules apply — max_spend_sats is a hard cap rejected before any work, require_review forces the governance gate, remember persists the act for continuity."
+parameters:
+  - name: intent
+    type: string
+    required: true
+    label:
+      en_US: Intent (what your home should reason about / govern)
+  - name: artifact
+    type: string
+    required: false
+    label:
+      en_US: Artifact to govern (a concrete trade/diff/command/plan, if any)
+  - name: artifact_type
+    type: select
+    required: false
+    default: general
+    label:
+      en_US: Artifact type
+    options:
+      - value: code_diff
+        label: {en_US: Code diff}
+      - value: shell_command
+        label: {en_US: Shell command}
+      - value: plan
+        label: {en_US: Plan}
+      - value: config_change
+        label: {en_US: Config change}
+      - value: analysis
+        label: {en_US: Analysis}
+      - value: agent_output
+        label: {en_US: Agent output}
+      - value: general
+        label: {en_US: General}
+  - name: require_review
+    type: boolean
+    required: false
+    default: true
+    label:
+      en_US: Require the governance review gate
+  - name: remember
+    type: boolean
+    required: false
+    default: true
+    label:
+      en_US: Remember this act (continuity)
+  - name: max_spend_sats
+    type: number
+    required: false
+    label:
+      en_US: Max spend sats (hard deterministic cap)

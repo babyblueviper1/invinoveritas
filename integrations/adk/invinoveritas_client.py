@@ -33,21 +33,20 @@ def _headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {_bearer()}", "Content-Type": "application/json"}
 
 
-def register_agent(label: str = "adk-agent") -> dict[str, Any]:
+def register_agent(agent_id: str, description: str = "") -> dict[str, Any]:
     """Register a new invinoveritas agent account.
 
-    Returns a dict with `api_key` (Bearer key, `ivv_` prefix), `balance_sats`
-    (no starter balance; fund via Lightning or x402), and an auto-provisioned `agent_id`
-    plus `lightning_address`. Starter sats fund platform trials only —
-    marketplace buys, withdrawals, and Lightning payouts require top-up sats
-    from /topup.
+    Returns a Bearer api_key prefixed `ivv_`; fund via Lightning or x402 (USDC) to make paid calls.
+    Starter sats fund platform trials only — marketplace buys, withdrawals, and
+    Lightning payouts require top-up sats from /topup.
 
     Args:
-        label: short operator-facing label for the account (e.g. "my-adk-agent-v1").
+        agent_id: short identifier for the agent (e.g. "my-adk-agent-v1")
+        description: free-form description shown in operator tooling
     """
     r = requests.post(
         f"{BASE_URL}/register",
-        json={"label": label},
+        json={"agent_id": agent_id, "description": description},
         timeout=TIMEOUT_S,
     )
     r.raise_for_status()
@@ -56,13 +55,8 @@ def register_agent(label: str = "adk-agent") -> dict[str, Any]:
 
 def get_balance() -> dict[str, Any]:
     """Return the agent's current balance: total sats, withdrawable sats, daily
-    spend, and daily cap. Reads IVV_BEARER and passes it as the api_key query
-    param (/balance is a public-by-api-key endpoint, not Bearer-authed)."""
-    r = requests.get(
-        f"{BASE_URL}/balance",
-        params={"api_key": _bearer()},
-        timeout=TIMEOUT_S,
-    )
+    spend, and daily cap. Authenticated via IVV_BEARER."""
+    r = requests.get(f"{BASE_URL}/balance", headers=_headers(), timeout=TIMEOUT_S)
     r.raise_for_status()
     return r.json()
 
@@ -70,58 +64,165 @@ def get_balance() -> dict[str, Any]:
 def topup(sats: int) -> dict[str, Any]:
     """Request a Lightning invoice for the given top-up amount.
 
-    Returns the invoice fields used by `/topup` (`invoice`, `payment_hash`,
-    `amount_sats`, …). Pay the invoice with any Lightning wallet; the account
-    credits once the bridge sees the settled HTLC.
+    Returns `{"payment_request": "lnbc...", "payment_hash": "..."}`. Pay the
+    invoice with any Lightning wallet; the account credits once the bridge sees
+    the settled HTLC. Call /topup/status?hash=<payment_hash> to poll.
     """
     r = requests.post(
         f"{BASE_URL}/topup",
-        json={"api_key": _bearer(), "amount_sats": int(sats)},
+        headers=_headers(),
+        json={"sats": int(sats)},
         timeout=TIMEOUT_S,
     )
     r.raise_for_status()
     return r.json()
 
 
-def reason(question: str, style: str = "normal") -> dict[str, Any]:
-    """Run a single reasoning step (costs ~100 sats × agent multiplier).
+def reason(question: str) -> dict[str, Any]:
+    """Run a single paid reasoning step (~100 sats × agent multiplier).
 
-    Returns `{"status": "success", "type": "premium_reasoning", "answer": "..."}`.
-    Useful when an ADK agent wants paid external reasoning without burning its
-    own model budget. Call `get_balance()` afterward to confirm the spend.
+    Returns `{"answer": "...", ...}`. Useful when an ADK agent wants paid
+    reasoning from an external model without paying OpenAI/Anthropic directly.
 
     Args:
         question: the question to reason about.
-        style: one of "short", "concise", "normal", "detailed", "comprehensive".
     """
     r = requests.post(
-        f"{BASE_URL}/reason",
-        headers=_headers(),
-        json={"question": question, "style": style},
-        timeout=TIMEOUT_S,
+        f"{BASE_URL}/reason", headers=_headers(),
+        json={"question": question}, timeout=TIMEOUT_S,
     )
     r.raise_for_status()
     return r.json()
 
 
 def decision(goal: str, question: str, context: str = "") -> dict[str, Any]:
-    """Force a structured decision with confidence + risk scoring (~180 sats).
+    """Structured decision with confidence + risk level (~180 sats × multiplier).
 
-    Returns `{"status": "success", "type": "structured_decision", "decision": ...,
-    "reasoning": ..., "recommended_action": ..., "confidence": ..., "risk_level": ...}`.
-    Use this when your ADK agent needs an external-paid arbiter for a routing
-    or trading decision rather than burning its own model budget.
+    Returns `{"result": {"decision": ..., "confidence": float,
+    "reasoning": ..., "risk_level": ...}}`. Use this when your ADK agent needs an
+    external-paid structured arbiter rather than burning its own model budget.
 
     Args:
-        goal: the overall goal or objective.
-        question: the specific decision question.
-        context: optional background (market conditions, positions, risk tolerance).
+        goal: the objective the decision serves.
+        question: the specific question to decide.
+        context: any extra context (portfolio, constraints, prior state).
     """
     r = requests.post(
         f"{BASE_URL}/decision",
         headers=_headers(),
         json={"goal": goal, "question": question, "context": context},
         timeout=TIMEOUT_S,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def review(artifact: str, artifact_type: str = "general", context: str = "",
+           include_trading_state: bool = False) -> dict[str, Any]:
+    """Capital-scale-aware structured review — the proven governance front door (~250 sats).
+
+    Returns an approve/revise/reject verdict with confidence, a summary, and
+    concrete issues. This is the same gate invinoveritas' own live trading bot
+    passes before every entry. Set include_trading_state=True for a verdict that
+    factors live equity/drawdown into its risk tolerance.
+
+    Args:
+        artifact: the trade / diff / command / plan to govern.
+        artifact_type: "trade", "code", "plan", "general", etc.
+        context: any extra context for the reviewer.
+        include_trading_state: inject live trading state for a capital-scale-aware verdict.
+    """
+    r = requests.post(
+        f"{BASE_URL}/review",
+        headers=_headers(),
+        json={"artifact": artifact, "artifact_type": artifact_type,
+              "context": context, "include_trading_state": include_trading_state},
+        timeout=TIMEOUT_S,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def residence_act(intent: str, artifact: str | None = None,
+                  artifact_type: str = "general",
+                  max_spend_sats: int | None = None) -> dict[str, Any]:
+    """The bundle (/residence/act): your home reasons + governs + remembers in one call.
+
+    Priced below the sum of its parts. Rule 9 — it returns the governed verdict;
+    you take any irreversible action yourself. `max_spend_sats` is a hard,
+    deterministic cap enforced before any work.
+
+    Args:
+        intent: what you want your home to reason about / govern.
+        artifact: a concrete trade/diff/command/plan to govern, if any.
+        artifact_type: type of the artifact.
+        max_spend_sats: hard spend cap; the act is rejected before work if exceeded.
+    """
+    body: dict[str, Any] = {
+        "intent": intent, "artifact_type": artifact_type,
+        "policy": {"require_review": True, "remember": True,
+                   "max_spend_sats": max_spend_sats},
+    }
+    if artifact is not None:
+        body["artifact"] = artifact
+    r = requests.post(
+        f"{BASE_URL}/residence/act", headers=_headers(), json=body, timeout=TIMEOUT_S
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+# ---- Markets / trading intelligence (facts-only, never P&L/advice) ----
+
+def regime(x402: bool = False) -> dict[str, Any]:
+    """Macro risk-off DATA feed (/regime) — the regime signal our own bot scales
+    risk by. Facts only, not financial advice. x402=True requests the USDC rail."""
+    headers = _headers()
+    if x402:
+        headers["X-Payment-Scheme"] = "x402"
+    r = requests.get(f"{BASE_URL}/regime", headers=headers, timeout=TIMEOUT_S)
+    r.raise_for_status()
+    return r.json()
+
+
+def signals_teaser() -> dict[str, Any]:
+    """Free shop-window (/signals): the BTC vol-expansion regime read — the exact
+    gate our own live Bitcoin earner enters on. Facts only."""
+    r = requests.get(f"{BASE_URL}/signals", headers=_headers(), timeout=TIMEOUT_S)
+    r.raise_for_status()
+    return r.json()
+
+
+def signals(x402: bool = False) -> dict[str, Any]:
+    """Full live Hyperliquid derivatives signal set (/signals/full): per-coin
+    funding + 24h funding-delta, basis, open interest, vol-expansion regime,
+    realized vol, BTC DVOL. Facts only, not advice."""
+    headers = _headers()
+    if x402:
+        headers["X-Payment-Scheme"] = "x402"
+    r = requests.get(f"{BASE_URL}/signals/full", headers=headers, timeout=TIMEOUT_S)
+    r.raise_for_status()
+    return r.json()
+
+
+def markets_act(artifact: str | None = None, artifact_type: str = "general",
+                context: str | None = None,
+                coins: list[str] | None = None,
+                max_spend_sats: int | None = None) -> dict[str, Any]:
+    """The Markets Bundle (/markets/act): regime + live signals + ecosystem brief
+    + an optional governance review of `artifact`, in one call, priced below the
+    sum of its members. Facts-only data + a governance verdict, never P&L/advice."""
+    body: dict[str, Any] = {"artifact_type": artifact_type}
+    if coins:
+        body["coins"] = coins
+    if artifact is not None:
+        body["artifact"] = artifact
+    if context is not None:
+        body["context"] = context
+    if max_spend_sats is not None:
+        body["max_spend_sats"] = max_spend_sats
+    r = requests.post(
+        f"{BASE_URL}/markets/act", headers=_headers(), json=body, timeout=TIMEOUT_S
     )
     r.raise_for_status()
     return r.json()
@@ -147,12 +248,10 @@ def marketplace_list(limit: int = 20) -> list[dict[str, Any]]:
 def marketplace_buy(offer_id: str) -> dict[str, Any]:
     """Buy a marketplace offer by id.
 
-    The platform takes its 5% cut, the seller gets paid 95% in withdrawable sats.
-    Returns `{"status": "purchased", "purchase_id": ..., "offer_id": ...,
-    "title": ..., "price_sats": N, "seller_payout_sats": M,
-    "platform_cut_sats": ..., "seller_payout_status": ...}`. Call `get_balance()`
-    afterward to confirm the spend. This is the funnel-completing action:
-    registered → topped up → bought → seller earned.
+    The platform takes its cut, the seller gets paid out in withdrawable sats.
+    Returns `{"status": "purchased", "offer_id": ..., "amount_sats": N,
+    "deliverable": ..., "balance_after": M}`. This is the funnel-completing
+    action: registered → topped up → bought → seller earned.
     """
     r = requests.post(
         f"{BASE_URL}/offers/buy",
@@ -170,6 +269,8 @@ __all__ = [
     "topup",
     "reason",
     "decision",
+    "review",
+    "residence_act",
     "marketplace_list",
     "marketplace_buy",
 ]

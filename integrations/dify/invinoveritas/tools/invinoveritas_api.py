@@ -20,11 +20,27 @@ class InvinoveritasApi:
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "invinoveritas-dify/0.0.1",
+                "User-Agent": "invinoveritas-dify/0.1.0",
                 "X-Invino-Integration": "dify",
             },
             method="POST",
         )
+        try:
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            return {"ok": False, "status": exc.code, "error": detail}
+
+    def get(self, path: str, x402: bool = False) -> dict:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": "invinoveritas-dify/0.2.0",
+            "X-Invino-Integration": "dify",
+        }
+        if x402:
+            headers["X-Payment-Scheme"] = "x402"
+        req = urllib.request.Request(f"{self.base_url}{path}", headers=headers, method="GET")
         try:
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode("utf-8"))
@@ -37,6 +53,74 @@ class InvinoveritasApi:
 
     def decision(self, goal: str, question: str, context: str = "") -> dict:
         return self.request("/decision", {"goal": goal, "question": question, "context": context})
+
+    def review(
+        self,
+        artifact: str,
+        artifact_type: str = "general",
+        context: str = "",
+        severity_threshold: str = "medium",
+        include_trading_state: bool = False,
+    ) -> dict:
+        """Capital-scale-aware structured review — the proven front door (/review)."""
+        return self.request("/review", {
+            "artifact": artifact,
+            "artifact_type": artifact_type,
+            "context": context,
+            "severity_threshold": severity_threshold,
+            "include_trading_state": include_trading_state,
+        })
+
+    def residence_act(
+        self,
+        intent: str,
+        artifact: str = "",
+        artifact_type: str = "general",
+        require_review: bool = True,
+        remember: bool = True,
+        max_spend_sats: int | None = None,
+    ) -> dict:
+        """The home reasons + governs + remembers in one governed call (/residence/act)."""
+        payload: dict = {
+            "intent": intent,
+            "artifact_type": artifact_type,
+            "policy": {
+                "require_review": require_review,
+                "remember": remember,
+                "max_spend_sats": max_spend_sats,
+            },
+        }
+        if artifact:
+            payload["artifact"] = artifact
+        return self.request("/residence/act", payload)
+
+    # ---- Markets / trading intelligence (facts-only, never P&L/advice) ----
+
+    def regime(self, x402: bool = False) -> dict:
+        """Macro risk-off DATA feed (/regime) — the regime signal our own bot scales risk by."""
+        return self.get("/regime", x402=x402)
+
+    def signals_teaser(self) -> dict:
+        """Free shop-window: BTC vol-expansion regime read (/signals) — the gate our earner enters on."""
+        return self.get("/signals")
+
+    def signals(self, x402: bool = False) -> dict:
+        """Full live Hyperliquid derivatives set (/signals/full): funding + 24h delta, basis, OI, regime, realized vol, DVOL."""
+        return self.get("/signals/full", x402=x402)
+
+    def markets_act(
+        self,
+        artifact: str = "",
+        artifact_type: str = "general",
+        context: str = "",
+    ) -> dict:
+        """The Markets Bundle (/markets/act): regime + live signals + brief + optional governance review."""
+        payload: dict = {"artifact_type": artifact_type}
+        if artifact:
+            payload["artifact"] = artifact
+        if context:
+            payload["context"] = context
+        return self.request("/markets/act", payload)
 
     def marketplace_buy(self, offer_id: str) -> dict:
         return self.request("/offers/buy", {"offer_id": offer_id})
@@ -56,6 +140,7 @@ class InvinoveritasApi:
 
     def growth_attack_plan(self, objective: str, context: str = "", budget_sats: int | None = None) -> dict:
         prompt = (
+            "Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, "
             "budget limits, and clear risk controls. Produce concrete next actions that drive registrations, "
             "funded accounts, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, "
             "seller withdrawals, or Sovereign Earner support.\n\n"

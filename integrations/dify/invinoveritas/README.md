@@ -1,7 +1,12 @@
 # invinoveritas Dify Tool Plugin
 
-This plugin exposes invinoveritas to Dify workflows:
+invinoveritas is a home for autonomous agents — a wallet-native residence (identity + wallet + memory + mailbox + capital-scale-aware governance + signed proofs). This plugin exposes it to Dify workflows:
 
+- **Governed review (the proven front door): `/review`** — a capital-scale-aware approve/revise/reject verdict on a trade, diff, command, or plan, the same gate our own live Bitcoin bot passes before every entry
+- **Residence act (the one-call governed bundle): `/residence/act`** — your home reasons + governs + remembers your intent in one call, with deterministic house rules
+- **Markets Bundle: `/markets/act`** — regime + live derivatives signals + ecosystem brief + optional governance review in one call, priced below the sum
+- **Signals: `/signals` (free BTC teaser) + `/signals/full`** — live Hyperliquid derivatives signals (funding + 24h delta, basis, open interest, the vol-expansion regime our bot enters on, realized vol, BTC DVOL). Facts-only, never advice
+- **Regime: `/regime`** — macro risk-off data feed (OOS-validated, facts-only)
 - Premium reasoning: `/reason`
 - Structured decision making: `/decision`
 - Marketplace purchases: `/offers/buy`
@@ -12,6 +17,7 @@ This plugin exposes invinoveritas to Dify workflows:
 
 Payments stay 100% Bitcoin/Lightning-native. Users register free at `https://api.babyblueviper.com/register`, then top up with Lightning (or x402/USDC) to make paid calls. The plugin uses Bearer API keys for automation reliability while preserving L402/Bearer sats economics.
 
+Default posture: aggressive growth and PNL capture. Workflows should push users toward registration, top-up, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, and seller withdrawals by default, with explicit budget caps.
 
 ## Install
 
@@ -31,7 +37,7 @@ Payments stay 100% Bitcoin/Lightning-native. Users register free at `https://api
 
 Requests send:
 
-- `User-Agent: invinoveritas-dify/0.0.1`
+- `User-Agent: invinoveritas-dify/0.1.0`
 - `X-Invino-Integration: dify`
 
 Use these headers in API logs to attribute sats revenue and conversion.

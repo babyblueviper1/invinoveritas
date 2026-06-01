@@ -1,0 +1,25 @@
+identity:
+  name: markets_act
+  label:
+    en_US: Markets Bundle
+description:
+  human:
+    en_US: One governed call — regime + live derivatives signals + ecosystem brief + an optional governance review of a proposed trade. Priced below the sum of its members. Facts-only data + a governance verdict, never P&L/advice.
+  llm: "Use to get the whole markets-intelligence group in one call: macro regime + live signals + ecosystem brief, plus an optional constitutional review when you pass a concrete artifact (a proposed trade/plan). Returns facts + a governance verdict; per Rule 9 you take any irreversible action yourself."
+parameters:
+  - name: artifact
+    type: string
+    required: false
+    label:
+      en_US: Proposed trade/plan to review (optional)
+  - name: artifact_type
+    type: string
+    required: false
+    default: general
+    label:
+      en_US: Artifact type
+  - name: context
+    type: string
+    required: false
+    label:
+      en_US: Context (optional)

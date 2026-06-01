@@ -81,21 +81,18 @@ def demo(allow_buy: bool = False) -> int:
         '{"offer_id": "...", "reason": "..."}.'
         f"\n\nOffers:\n{json.dumps([{k: o.get(k) for k in ('offer_id', 'title', 'description', 'price_sats')} for o in offers[:5]], indent=2)}"
     )
-    pick_result = reason(pick_prompt)
+    decision_result = reason(pick_prompt)
     print("\nADK-agent pick (via /reason, paid sats):")
-    print(f"  {pick_result.get('answer', '')[:300]}")
-    bal_after_reason = get_balance()
-    print(f"  spent so far: {bal_after_reason.get('total_spent_sats', '?')} sats  "
-          f"balance: {bal_after_reason.get('balance_sats', '?')} sats")
+    print(f"  {decision_result.get('reasoning', '')[:300]}")
+    print(f"  cost: {decision_result.get('cost_sats', '?')} sats  "
+          f"balance_after: {decision_result.get('balance_after', '?')} sats")
 
     if allow_buy and offers:
         chosen = offers[0]["offer_id"]
         print(f"\n--allow-buy passed — buying offer {chosen[:10]}…")
         bought = marketplace_buy(chosen)
-        print(f"  status: {bought.get('status')}  paid: {bought.get('price_sats')} sats  "
-              f"seller payout: {bought.get('seller_payout_sats')} sats")
-        bal_after_buy = get_balance()
-        print(f"  balance: {bal_after_buy.get('balance_sats', '?')} sats")
+        print(f"  status: {bought.get('status')}  spent: {bought.get('amount_sats')} sats  "
+              f"balance_after: {bought.get('balance_after')} sats")
         print("  this is the funnel-completing step: registered → topped up → bought.")
     else:
         print("\n(skipped buying — pass --allow-buy to spend sats)")

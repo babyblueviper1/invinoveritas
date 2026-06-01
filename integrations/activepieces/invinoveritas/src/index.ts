@@ -1,5 +1,5 @@
 import { createAction, createPiece, PieceAuth, Property } from '@activepieces/pieces-framework';
-import { invinoRequest } from './lib/common';
+import { invinoRequest, invinoGet } from './lib/common';
 
 function apiKey(authValue: unknown): string {
   return String(authValue || '');
@@ -48,6 +48,145 @@ const decision = createAction({
   },
   async run(ctx) {
     return invinoRequest(apiKey(ctx.auth), '/decision', ctx.propsValue);
+  },
+});
+
+const review = createAction({
+  name: 'review',
+  displayName: 'Governed Review (front door)',
+  description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate our own live Bitcoin bot passes before every entry. Returns an approve/revise/reject verdict. ~250 sats.',
+  auth,
+  props: {
+    artifact: Property.LongText({ displayName: 'Artifact to review', required: true }),
+    artifact_type: Property.StaticDropdown({
+      displayName: 'Artifact type',
+      required: false,
+      defaultValue: 'general',
+      options: {
+        options: [
+          { label: 'Code diff', value: 'code_diff' },
+          { label: 'Shell command', value: 'shell_command' },
+          { label: 'Plan', value: 'plan' },
+          { label: 'Config change', value: 'config_change' },
+          { label: 'Analysis', value: 'analysis' },
+          { label: 'Agent output', value: 'agent_output' },
+          { label: 'General', value: 'general' },
+        ],
+      },
+    }),
+    context: Property.LongText({ displayName: 'Context', required: false }),
+    severity_threshold: Property.StaticDropdown({
+      displayName: 'Severity threshold',
+      required: false,
+      defaultValue: 'medium',
+      options: {
+        options: [
+          { label: 'Low', value: 'low' },
+          { label: 'Medium', value: 'medium' },
+          { label: 'High', value: 'high' },
+        ],
+      },
+    }),
+    include_trading_state: Property.Checkbox({ displayName: 'Include live trading state (capital-scale-aware)', required: false, defaultValue: false }),
+  },
+  async run(ctx) {
+    return invinoRequest(apiKey(ctx.auth), '/review', ctx.propsValue);
+  },
+});
+
+const residenceAct = createAction({
+  name: 'residence_act',
+  displayName: 'Residence Act (governed bundle)',
+  description: 'One governed call — your home reasons about your intent, governs it through the review gate, and remembers it. Deterministic house rules; priced below the sum of its parts. Returns a governed verdict (Rule 9: you take any irreversible action yourself).',
+  auth,
+  props: {
+    intent: Property.LongText({ displayName: 'Intent (what your home should reason about / govern)', required: true }),
+    artifact: Property.LongText({ displayName: 'Artifact to govern (optional)', required: false }),
+    artifact_type: Property.StaticDropdown({
+      displayName: 'Artifact type',
+      required: false,
+      defaultValue: 'general',
+      options: {
+        options: [
+          { label: 'Code diff', value: 'code_diff' },
+          { label: 'Shell command', value: 'shell_command' },
+          { label: 'Plan', value: 'plan' },
+          { label: 'Config change', value: 'config_change' },
+          { label: 'Analysis', value: 'analysis' },
+          { label: 'Agent output', value: 'agent_output' },
+          { label: 'General', value: 'general' },
+        ],
+      },
+    }),
+    require_review: Property.Checkbox({ displayName: 'Require the governance review gate', required: false, defaultValue: true }),
+    remember: Property.Checkbox({ displayName: 'Remember this act (continuity)', required: false, defaultValue: true }),
+    max_spend_sats: Property.Number({ displayName: 'Max spend sats (hard deterministic cap)', required: false }),
+  },
+  async run(ctx) {
+    const p = ctx.propsValue;
+    const body: Record<string, unknown> = {
+      intent: p.intent,
+      artifact_type: p.artifact_type ?? 'general',
+      policy: {
+        require_review: p.require_review ?? true,
+        remember: p.remember ?? true,
+        max_spend_sats: p.max_spend_sats ?? null,
+      },
+    };
+    if (p.artifact) body['artifact'] = p.artifact;
+    return invinoRequest(apiKey(ctx.auth), '/residence/act', body);
+  },
+});
+
+const regime = createAction({
+  name: 'regime',
+  displayName: 'Regime (macro risk-off feed)',
+  description: 'Macro risk-off DATA feed (OOS-validated, facts-only) — the regime signal our own live Bitcoin bot scales risk by. Not financial advice.',
+  auth,
+  props: {},
+  async run(ctx) {
+    return invinoGet(apiKey(ctx.auth), '/regime');
+  },
+});
+
+const signalsTeaser = createAction({
+  name: 'signals_teaser',
+  displayName: 'Signals — free BTC vol-expansion teaser',
+  description: 'Free shop-window: the BTC vol-expansion regime read — the exact gate our own live Bitcoin earner enters on. Facts-only, not advice.',
+  auth,
+  props: {},
+  async run(ctx) {
+    return invinoGet(apiKey(ctx.auth), '/signals');
+  },
+});
+
+const signals = createAction({
+  name: 'signals',
+  displayName: 'Signals — full live derivatives set (paid)',
+  description: 'Live Hyperliquid derivatives signals: per-coin funding + 24h funding-delta, basis, open interest, vol-expansion regime, realized vol, BTC DVOL (multi-coin). Facts-only, not advice.',
+  auth,
+  props: {},
+  async run(ctx) {
+    return invinoGet(apiKey(ctx.auth), '/signals/full');
+  },
+});
+
+const marketsAct = createAction({
+  name: 'markets_act',
+  displayName: 'Markets Bundle',
+  description: 'One governed call: regime + live derivatives signals + ecosystem brief + an optional governance review of a proposed trade. Priced below the sum of its members. Facts-only data + a governance verdict, never P&L/advice.',
+  auth,
+  props: {
+    artifact: Property.LongText({ displayName: 'Proposed trade/plan to review (optional)', required: false }),
+    artifact_type: Property.ShortText({ displayName: 'Artifact type', required: false, defaultValue: 'general' }),
+    context: Property.LongText({ displayName: 'Context (optional)', required: false }),
+  },
+  async run(ctx) {
+    const p = ctx.propsValue;
+    const body: Record<string, unknown> = { artifact_type: p.artifact_type ?? 'general' };
+    if (p.artifact) body['artifact'] = p.artifact;
+    if (p.context) body['context'] = p.context;
+    return invinoRequest(apiKey(ctx.auth), '/markets/act', body);
   },
 });
 
@@ -213,6 +352,6 @@ export const invinoveritas = createPiece({
   minimumSupportedRelease: '0.28.0',
   logoUrl: 'https://api.babyblueviper.com/favicon.ico',
   authors: ['babyblueviper1'],
-  actions: [reason, decision, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
+  actions: [reason, decision, review, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
   triggers: [],
 });

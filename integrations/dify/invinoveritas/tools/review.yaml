@@ -1,0 +1,59 @@
+identity:
+  name: review
+  label:
+    en_US: Governed Review (front door)
+description:
+  human:
+    en_US: Capital-scale-aware structured review of a trade, diff, command, or plan — the same governance gate our own live Bitcoin bot passes before every entry. Returns an approve / revise / reject verdict with issues and alternatives. Typical cost is about 250 sats.
+  llm: Use to govern a concrete artifact (a trade idea, code diff, shell command, or plan) before an irreversible action. Returns a structured verdict (approve/revise/reject) with confidence, issues, and alternative approaches. Set include_trading_state for a verdict that factors live equity/drawdown into its risk tolerance.
+parameters:
+  - name: artifact
+    type: string
+    required: true
+    label:
+      en_US: Artifact to review
+  - name: artifact_type
+    type: select
+    required: false
+    default: general
+    label:
+      en_US: Artifact type
+    options:
+      - value: code_diff
+        label: {en_US: Code diff}
+      - value: shell_command
+        label: {en_US: Shell command}
+      - value: plan
+        label: {en_US: Plan}
+      - value: config_change
+        label: {en_US: Config change}
+      - value: analysis
+        label: {en_US: Analysis}
+      - value: agent_output
+        label: {en_US: Agent output}
+      - value: general
+        label: {en_US: General}
+  - name: context
+    type: string
+    required: false
+    label:
+      en_US: Context
+  - name: severity_threshold
+    type: select
+    required: false
+    default: medium
+    label:
+      en_US: Severity threshold
+    options:
+      - value: low
+        label: {en_US: Low}
+      - value: medium
+        label: {en_US: Medium}
+      - value: high
+        label: {en_US: High}
+  - name: include_trading_state
+    type: boolean
+    required: false
+    default: false
+    label:
+      en_US: Include live trading state (capital-scale-aware)
