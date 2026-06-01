@@ -1,6 +1,6 @@
 {
   "name": "flowise-invinoveritas",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Default-aggressive Bitcoin/Lightning-native invinoveritas Flowise components for reasoning, decisions, paid persistent memory (store/get/list/delete), Sovereign Earner directives, and growth/PNL attack planning.",
   "license": "Apache-2.0",
   "author": "invinoveritas <contact@agents.babyblueviper.com>",

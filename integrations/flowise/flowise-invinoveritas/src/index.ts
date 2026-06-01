@@ -11,11 +11,25 @@ async function post(config: InvinoConfig, path: string, body: unknown) {
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
-      'User-Agent': 'flowise-invinoveritas/0.3.0',
+      'User-Agent': 'flowise-invinoveritas/0.4.0',
       'X-Invino-Integration': config.integration || 'flowise',
     },
     body: JSON.stringify(body),
   });
+  if (!response.ok) {
+    throw new Error(`invinoveritas ${path} failed: ${response.status} ${await response.text()}`);
+  }
+  return response.json();
+}
+
+async function get(config: InvinoConfig, path: string, x402 = false) {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${config.apiKey}`,
+    'User-Agent': 'flowise-invinoveritas/0.5.0',
+    'X-Invino-Integration': config.integration || 'flowise',
+  };
+  if (x402) headers['X-Payment-Scheme'] = 'x402';
+  const response = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers });
   if (!response.ok) {
     throw new Error(`invinoveritas ${path} failed: ${response.status} ${await response.text()}`);
   }
@@ -28,6 +42,78 @@ export async function invinoReason(config: InvinoConfig, question: string, style
 
 export async function invinoDecision(config: InvinoConfig, goal: string, question: string, context = '') {
   return post(config, '/decision', { goal, question, context });
+}
+
+export async function invinoReview(
+  config: InvinoConfig,
+  artifact: string,
+  artifactType = 'general',
+  context = '',
+  severityThreshold: 'low' | 'medium' | 'high' = 'medium',
+  includeTradingState = false,
+) {
+  return post(config, '/review', {
+    artifact,
+    artifact_type: artifactType,
+    context,
+    severity_threshold: severityThreshold,
+    include_trading_state: includeTradingState,
+  });
+}
+
+export async function invinoResidenceAct(
+  config: InvinoConfig,
+  intent: string,
+  artifact = '',
+  artifactType = 'general',
+  requireReview = true,
+  remember = true,
+  maxSpendSats?: number,
+) {
+  const body: Record<string, unknown> = {
+    intent,
+    artifact_type: artifactType,
+    policy: {
+      require_review: requireReview,
+      remember,
+      max_spend_sats: maxSpendSats ?? null,
+    },
+  };
+  if (artifact) body.artifact = artifact;
+  return post(config, '/residence/act', body);
+}
+
+// ---- Markets / trading intelligence (facts-only, never P&L/advice) ----
+
+export async function invinoRegime(config: InvinoConfig, x402 = false) {
+  return get(config, '/regime', x402);
+}
+
+export async function invinoSignalsTeaser(config: InvinoConfig) {
+  // Free shop-window: BTC vol-expansion regime read (the gate our live earner enters on).
+  return get(config, '/signals');
+}
+
+export async function invinoSignals(config: InvinoConfig, x402 = false) {
+  // Paid full multi-coin live Hyperliquid derivatives set.
+  return get(config, '/signals/full', x402);
+}
+
+export async function invinoMarketsAct(
+  config: InvinoConfig,
+  artifact = '',
+  artifactType = 'general',
+  context = '',
+  coins?: string[],
+  maxSpendSats?: number,
+) {
+  // The Markets Bundle: regime + live signals + brief + optional governance review.
+  const body: Record<string, unknown> = { artifact_type: artifactType };
+  if (coins && coins.length) body.coins = coins;
+  if (artifact) body.artifact = artifact;
+  if (context) body.context = context;
+  if (maxSpendSats !== undefined) body.max_spend_sats = maxSpendSats;
+  return post(config, '/markets/act', body);
 }
 
 export async function invinoGrowthAttackPlan(config: InvinoConfig, objective: string, context = '', budgetSats?: number) {
@@ -93,6 +179,31 @@ export const nodes = [
     label: 'invinoveritas Decision',
     name: 'invinoveritasDecision',
     description: 'Structured decisions with confidence and risk notes.',
+  },
+  {
+    label: 'invinoveritas Review (front door)',
+    name: 'invinoveritasReview',
+    description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate our live Bitcoin bot passes before every entry. ~250 sats.',
+  },
+  {
+    label: 'invinoveritas Residence Act (governed bundle)',
+    name: 'invinoveritasResidenceAct',
+    description: 'One governed call — your home reasons + governs + remembers your intent. Deterministic house rules; priced below the sum of its parts.',
+  },
+  {
+    label: 'invinoveritas Regime (risk-off feed)',
+    name: 'invinoveritasRegime',
+    description: 'Macro risk-off DATA feed (OOS-validated, facts-only) — the regime signal our own bot scales risk by.',
+  },
+  {
+    label: 'invinoveritas Signals (live derivatives)',
+    name: 'invinoveritasSignals',
+    description: 'Live Hyperliquid derivatives signals — funding + 24h delta, basis, open interest, the vol-expansion regime our bot enters on, realized vol, BTC DVOL. Free BTC teaser + paid multi-coin set. Facts-only, never advice.',
+  },
+  {
+    label: 'invinoveritas Markets Bundle',
+    name: 'invinoveritasMarketsAct',
+    description: 'One governed call: regime + live signals + ecosystem brief + optional governance review of a proposed trade. Priced below the sum of its members.',
   },
   {
     label: 'invinoveritas Growth + PNL Attack Plan',

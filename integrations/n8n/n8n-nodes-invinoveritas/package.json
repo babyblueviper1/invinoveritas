@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-invinoveritas",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Default-aggressive Bitcoin/Lightning-native invinoveritas node for reasoning, decisions, paid persistent memory (store/get/list/delete), marketplace buys, A2A delegation, and growth/PNL attack planning.",
   "license": "Apache-2.0",
   "author": "invinoveritas <contact@agents.babyblueviper.com>",

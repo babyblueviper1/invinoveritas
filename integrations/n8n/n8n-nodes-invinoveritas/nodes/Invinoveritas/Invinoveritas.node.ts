@@ -1,4 +1,6 @@
-type Operation = 'reason' | 'decision' | 'memoryStore' | 'memoryGet' | 'memoryList' | 'memoryDelete' | 'marketplaceBuy' | 'a2aDelegate' | 'growthAttackPlan' | 'sovereignExecute';
+type Operation = 'reason' | 'decision' | 'memoryStore' | 'memoryGet' | 'memoryList' | 'memoryDelete' | 'marketplaceBuy' | 'a2aDelegate' | 'growthAttackPlan' | 'sovereignExecute' | 'review' | 'residenceAct' | 'regime' | 'signalsTeaser' | 'signals' | 'marketsAct';
+
+const GET_OPS: Operation[] = ['regime', 'signalsTeaser', 'signals'];
 
 const BASE_URL = 'https://api.babyblueviper.com';
 
@@ -32,9 +34,17 @@ export class Invinoveritas {
           { name: 'Memory List', value: 'memoryList' },
           { name: 'Memory Delete', value: 'memoryDelete' },
           { name: 'A2A Delegate', value: 'a2aDelegate' },
+          { name: 'Review (capital-scale-aware governed verdict — front door)', value: 'review' },
+          { name: 'Residence Act (one-call governed bundle)', value: 'residenceAct' },
+          { name: 'Regime (macro risk-off feed)', value: 'regime' },
+          { name: 'Signals — free BTC vol-expansion teaser', value: 'signalsTeaser' },
+          { name: 'Signals — full live derivatives set (paid)', value: 'signals' },
+          { name: 'Markets Bundle (regime + signals + brief + optional review)', value: 'marketsAct' },
         ],
       },
-      { displayName: 'Question / Objective', name: 'question', type: 'string', default: '', required: true },
+      { displayName: 'Question / Objective / Intent', name: 'question', type: 'string', default: '' },
+      { displayName: 'Artifact (trade/diff/command/plan to review or govern)', name: 'artifact', type: 'string', default: '' },
+      { displayName: 'Artifact Type', name: 'artifactType', type: 'string', default: 'general' },
       { displayName: 'Context', name: 'context', type: 'string', default: '' },
       { displayName: 'Offer ID', name: 'offerId', type: 'string', default: '' },
       { displayName: 'Agent ID', name: 'agentId', type: 'string', default: '' },
@@ -63,6 +73,8 @@ export class Invinoveritas {
       const operation = this.getNodeParameter('operation', i) as Operation;
       const body = buildBody(operation, {
         question: this.getNodeParameter('question', i, '') as string,
+        artifact: this.getNodeParameter('artifact', i, '') as string,
+        artifactType: this.getNodeParameter('artifactType', i, 'general') as string,
         context: this.getNodeParameter('context', i, '') as string,
         offerId: this.getNodeParameter('offerId', i, '') as string,
         agentId: this.getNodeParameter('agentId', i, '') as string,
@@ -76,16 +88,17 @@ export class Invinoveritas {
         stopLossPct: this.getNodeParameter('stopLossPct', i, 0.35) as number,
         takeProfitPct: this.getNodeParameter('takeProfitPct', i, 0.7) as number,
       });
+      const isGet = GET_OPS.includes(operation);
       const response = await this.helpers.httpRequest({
-        method: 'POST',
+        method: isGet ? 'GET' : 'POST',
         url: `${BASE_URL}${pathFor(operation)}`,
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'n8n-nodes-invinoveritas/0.3.0',
+          'User-Agent': 'n8n-nodes-invinoveritas/0.4.0',
           'X-Invino-Integration': 'n8n',
         },
-        body,
+        ...(isGet ? {} : { body }),
         json: true,
       });
       results.push({ json: response });
@@ -103,6 +116,12 @@ function pathFor(operation: Operation): string {
   if (operation === 'memoryGet') return '/memory/get';
   if (operation === 'memoryList') return '/memory/list';
   if (operation === 'memoryDelete') return '/memory/delete';
+  if (operation === 'review') return '/review';
+  if (operation === 'residenceAct') return '/residence/act';
+  if (operation === 'regime') return '/regime';
+  if (operation === 'signalsTeaser') return '/signals';
+  if (operation === 'signals') return '/signals/full';
+  if (operation === 'marketsAct') return '/markets/act';
   return '/a2a';
 }
 
@@ -125,6 +144,28 @@ function buildBody(operation: Operation, p: Record<string, any>) {
   if (operation === 'memoryList') return { agent_id: p.agentId };
   if (operation === 'memoryDelete') return { agent_id: p.agentId, key: p.memoryKey };
   if (operation === 'a2aDelegate') return { operation: p.a2aOperation, task: { goal: p.question, context: p.context } };
+  if (operation === 'review') return {
+    artifact: p.artifact || p.question,
+    artifact_type: p.artifactType || 'general',
+    context: p.context,
+    severity_threshold: 'medium',
+    include_trading_state: false,
+  };
+  if (operation === 'residenceAct') {
+    const body: Record<string, any> = {
+      intent: p.question,
+      artifact_type: p.artifactType || 'general',
+      policy: { require_review: true, remember: true, max_spend_sats: null },
+    };
+    if (p.artifact) body.artifact = p.artifact;
+    return body;
+  }
+  if (operation === 'marketsAct') {
+    const body: Record<string, any> = { artifact_type: p.artifactType || 'general' };
+    if (p.artifact) body.artifact = p.artifact;
+    if (p.context) body.context = p.context;
+    return body;
+  }
   return {
     goal: 'Maximize invinoveritas growth and daily sats PNL with default-aggressive execution.',
     question: `Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.\nObjective: ${p.question}\nContext: ${p.context}\nBudget sats: ${p.budgetSats}`,
