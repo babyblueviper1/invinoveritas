@@ -106,6 +106,10 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /memory/delete` | free | Delete a stored memory entry |
 | `POST /residence/act` | varies | The governed bundle — reason + govern + remember in one call against your wallet-keyed home (deterministic house rules; priced below the sum of its parts) |
 | `GET /regime` | varies | Daily, OOS-validated macro risk-off data feed (facts-only, non-advice) — the same regime signal our own bot scales risk by |
+| `GET /signals` | free teaser | BTC vol-expansion regime read — the exact gate our own live Bitcoin earner enters on (facts-only, non-advice) |
+| `GET /signals/full` | varies | Full live Hyperliquid derivatives set: funding + 24h funding-delta, basis, open interest, vol-expansion regime, realized vol, BTC DVOL — multi-coin |
+| `POST /markets/act` | varies | The **Markets Bundle** — regime + live signals + ecosystem brief + an optional governance review of a proposed trade, one call, priced below the sum |
+| `GET /governance-record` | free | Public governance & capital-scale record (judgment, selectivity, cost boundary — no returns); the free shop-window for the markets group |
 | `POST /feedback` | free | Suggest an improvement / complaint / issue / feature; routed to governance and ranked by member votes (your submission counts as your first vote) |
 | `POST /feedback/{id}/vote` | free | Vote on a board item (one per tenant) — the community-voting primitive |
 | `GET /feedback` | free | The feedback board, ranked by votes (member-gated) |
@@ -211,6 +215,17 @@ Also exposed as MCP tools (`memory_store`, `memory_get`, `memory_list`, `memory_
 
 **`POST /residence/act`** is the home working as one thing: a single governed call that reasons, applies your deterministic house rules (the governance layer), and remembers the result to your wallet-keyed memory — continuity is what makes it a home rather than a stateless API. Priced below the sum of calling those pieces separately.
 
+## Markets / Trading Intelligence
+
+Facts-only market data, dogfooded by our own live Bitcoin earner — judgment, regime, and live derivatives signals. **Never P&L, never buy/sell advice**; every payload carries a disclaimer.
+
+- **`/regime`** — macro risk-off data feed (OOS-validated); the regime signal our own bot scales risk by.
+- **`/signals`** — live Hyperliquid derivatives signals: per-coin funding + 24h funding-delta, basis, open interest, the **vol-expansion regime our bot gates every entry on** (`std(close[-20:])/std(close[-100:])`, expansion ≥ 1.3), realized vol, BTC DVOL. *Free BTC-regime teaser at `GET /signals`*; paid multi-coin full set at `/signals/full`.
+- **`/governance-record`** — public governance & capital-scale record (selectivity, drawdown containment, validated cost boundary — **not returns**); the free shop-window.
+- **`/markets/act`** — the **Markets Bundle**: regime + live signals + ecosystem brief + an optional constitutional `/review` of a proposed trade, in one governed call, priced **below the sum of its members**.
+
+Three ways to buy: **à la carte** (per endpoint) · **Markets Bundle** (`/markets/act`) · or the **full home** (`/residence/act`) — each a strict superset of the last.
+
 ### Edge-idea bounty
 
 Bring a trading-edge hypothesis; if it survives our governed backtest gate (Monte-Carlo permutation test + deflated Sharpe), earn a flat sat bounty. Three tiers: a parameter grid on an existing strategy family, a novel signal function (run in our hardened sandbox), or a concept. Your capital is never pooled — you're paid for the idea. `POST /bounty/submit`. *(Parameter tier live; code-tier sandbox evaluation in progress.)*
@@ -243,6 +258,7 @@ The backend MCP server (what you connect to) added major power features:
 - **Persistent per-agent workspaces**: `execute(use_workspace=true)` gives your agent a real `/workspace` directory that survives across calls (git clones, files, packages persist). Free `workspace_list` / `workspace_status` / `workspace_delete` tools for introspection.
 - **Stronger constitutional review gate**: Improved `review` tool with `artifact_type=plan|code_diff`, `include_trading_state`, and `return_suggestions`. Our live H1 Hyperliquid trading bot now calls it before every entry.
 - **Better Grok integration**: Dedicated https://api.babyblueviper.com/connect/grok page with demo key, exact Connector + Grok Build + Skill install instructions, and copy-paste AGENTS.md patterns.
+- **Markets / Trading Intelligence group + Markets Bundle**: live Hyperliquid derivatives signals (`/signals` — free regime teaser + paid multi-coin set), the macro `/regime` feed, and `/markets/act` (regime + signals + brief + optional governance review in one call, below the sum). Facts-only; dogfooded by our own live earner. First-class in the `invinoveritas` Python SDK (1.7.0).
 
 Connect the same server from the SDK or any MCP client:
 - Server URL: `https://api.babyblueviper.com/mcp`
