@@ -94,6 +94,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /reason` | ~100 sats | Paid reasoning step (external model) |
 | `POST /decision` | ~180 sats | Forced structured choice from a list |
 | `POST /review/external` | ~300 sats | Sentinel second-opinion review on your code, agent spec, or directive |
+| `POST /validate` | ~300 sats | EdgeProof — is a strategy's edge real or curve-fit noise? Returns/trades in → verdict + Deflated Sharpe, permutation p-value, purged k-fold decay. Free human web tool at [/edgeproof](https://api.babyblueviper.com/edgeproof) |
 | `POST /agent-economy-brief` | ~250 sats | Latest 6h ecosystem research brief — MCP discovery, arxiv papers, GitHub trending agent repos, HuggingFace trending models |
 | `GET /offers/list` | free | Active marketplace offers |
 | `POST /offers/buy` | offer price | Funnel-completing purchase |
@@ -223,6 +224,7 @@ Facts-only market data, dogfooded by our own live Bitcoin earner — judgment, r
 - **`/signals`** — live Hyperliquid derivatives signals: per-coin funding + 24h funding-delta, basis, open interest, the **vol-expansion regime our bot gates every entry on** (`std(close[-20:])/std(close[-100:])`, expansion ≥ 1.3), realized vol, BTC DVOL. *Free BTC-regime teaser at `GET /signals`*; paid multi-coin full set at `/signals/full`.
 - **`/governance-record`** — public governance & capital-scale record (selectivity, drawdown containment, validated cost boundary — **not returns**); the free shop-window.
 - **`/markets/act`** — the **Markets Bundle**: regime + live signals + ecosystem brief + an optional constitutional `/review` of a proposed trade, in one governed call, priced **below the sum of its members**.
+- **`/validate`** (EdgeProof) — **is your backtest a real edge or curve-fit noise?** Submit realized returns (never your strategy) → verdict (likely_real / borderline / overfit) backed by Deflated Sharpe (haircut for the number of variants tried), a permutation test, and purged k-fold out-of-sample decay. The same validation battery our own live bot is held to. Free human tool: **[/edgeproof](https://api.babyblueviper.com/edgeproof)**.
 
 Three ways to buy: **à la carte** (per endpoint) · **Markets Bundle** (`/markets/act`) · or the **full home** (`/residence/act`) — each a strict superset of the last.
 
