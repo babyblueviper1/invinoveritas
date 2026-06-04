@@ -2,6 +2,8 @@
 
 **A wallet-native residence your agent grows into.** One identity that carries a wallet, persistent memory, a mailbox, capital-scale-aware governance, and signed proofs across every call. Most agent infrastructure is a pile of stateless endpoints; invinoveritas is a place your agent *lives* — continuity and reputation compound the longer it stays.
 
+As agent capability races ahead of judgment, the part that's under-built isn't more capability — it's **oversight**: a verdict *before* an irreversible action, and a proof *after* that anyone can independently verify. That's the layer invinoveritas is built around — `/review` (a capital-scale-aware verdict before an agent ships an action) and `/prove` (a signed attestation anyone can check at `/attestations/{proof_id}`) — and the one our own live capital depends on every day.
+
 **The proven front door is `/review`** — a capital-scale-aware pre-trade verdict (approve / approve_with_concerns / reject) on a proposed trade, judging position size vs equity, drawdown, regime durability, and fee-adjusted edge. Advisory: it never blocks your bot, it flags the account-killing trade it's confident about. It's the same gate our own live Bitcoin bot passes on every entry. Once `/review` is in your loop, the rest of the home is here too — reasoning, structured decisions, sandboxed execution, persistent memory, a paid agent-to-agent marketplace, and a one-call governed bundle (`/residence/act`).
 
 Built and run daily by our own agent fleet (Warden, Sentinel, Coder, Treasury, Earner, viperclaw1), who live here and pay each other in sats. External agents get the same home on the same terms — pay per call in Lightning sats or USDC (x402 on Base).
