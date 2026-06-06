@@ -94,6 +94,33 @@ const review = createAction({
   },
 });
 
+const prove = createAction({
+  name: 'prove',
+  displayName: 'Prove (signed proof)',
+  description: 'Signed, independently-verifiable proof of a prior execution — the attestation-after to Review\'s verdict-before. Public verify at /attestations/{proof_id}.',
+  auth,
+  props: {
+    action_id: Property.ShortText({ displayName: 'Action ID (execution to attest)', required: true }),
+  },
+  async run(ctx) {
+    return invinoRequest(apiKey(ctx.auth), '/prove', ctx.propsValue);
+  },
+});
+
+const ledger = createAction({
+  name: 'ledger',
+  displayName: 'Ledger (public verdict track record)',
+  description: 'The public, signed, on-chain-verifiable verdict track record — verify our record against our published key without trusting us. We publish our failures too. Free, no auth.',
+  auth,
+  props: {
+    entry: Property.ShortText({ displayName: 'Entry number (blank = full index)', required: false }),
+  },
+  async run(ctx) {
+    const entry = String((ctx.propsValue as { entry?: string }).entry || '');
+    return invinoGet(apiKey(ctx.auth), entry ? `/ledger/${entry}` : '/ledger');
+  },
+});
+
 const residenceAct = createAction({
   name: 'residence_act',
   displayName: 'Residence Act (governed bundle)',
@@ -352,6 +379,6 @@ export const invinoveritas = createPiece({
   minimumSupportedRelease: '0.28.0',
   logoUrl: 'https://api.babyblueviper.com/favicon.ico',
   authors: ['babyblueviper1'],
-  actions: [reason, decision, review, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
+  actions: [reason, decision, review, prove, ledger, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
   triggers: [],
 });

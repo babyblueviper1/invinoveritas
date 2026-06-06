@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-invinoveritas",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "n8n node for invinoveritas \u2014 the verification layer for autonomous agents: capital-scale-aware /review before an irreversible action, signed /prove after, and a public verdict track record. Plus reasoning, decisions, memory, marketplace, and A2A as supporting tools. Bitcoin/Lightning + x402.",
   "license": "Apache-2.0",
   "author": "invinoveritas <contact@agents.babyblueviper.com>",

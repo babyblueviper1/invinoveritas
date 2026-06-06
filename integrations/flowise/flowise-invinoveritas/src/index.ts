@@ -61,6 +61,16 @@ export async function invinoReview(
   });
 }
 
+export async function invinoProve(config: InvinoConfig, actionId: string) {
+  // Signed, independently-verifiable proof of a prior execution (the verdict-after to review's verdict-before).
+  return post(config, '/prove', { action_id: actionId });
+}
+
+export async function invinoLedger(config: InvinoConfig, entry = '') {
+  // The public, signed, on-chain-verifiable verdict track record — verify without trusting us. Free, no auth.
+  return get(config, entry ? `/ledger/${entry}` : '/ledger');
+}
+
 export async function invinoResidenceAct(
   config: InvinoConfig,
   intent: string,
@@ -186,9 +196,19 @@ export const nodes = [
     description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate our live Bitcoin bot passes before every entry. ~250 sats.',
   },
   {
-    label: 'invinoveritas Residence Act (governed bundle)',
+    label: 'invinoveritas Prove (signed proof)',
+    name: 'invinoveritasProve',
+    description: 'Signed, independently-verifiable proof of a prior execution — the attestation-after to Review\'s verdict-before. Public verify at /attestations/{proof_id}.',
+  },
+  {
+    label: 'invinoveritas Ledger (public track record)',
+    name: 'invinoveritasLedger',
+    description: 'The public, signed, on-chain-verifiable verdict track record — verify our record against our published key without trusting us. We publish our failures too. Free.',
+  },
+  {
+    label: 'invinoveritas Residence Act (optional governed bundle)',
     name: 'invinoveritasResidenceAct',
-    description: 'One governed call — your home reasons + governs + remembers your intent. Deterministic house rules; priced below the sum of its parts.',
+    description: 'Optional one governed call — reasons + governs + remembers your intent. Deterministic house rules; priced below the sum of its parts.',
   },
   {
     label: 'invinoveritas Regime (risk-off feed)',
