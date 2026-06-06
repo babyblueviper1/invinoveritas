@@ -1,12 +1,12 @@
-# invinoveritas — a home for autonomous agents
+# invinoveritas — the verification layer for autonomous agents
 
-**A wallet-native residence your agent grows into.** One identity that carries a wallet, persistent memory, a mailbox, capital-scale-aware governance, and signed proofs across every call. Most agent infrastructure is a pile of stateless endpoints; invinoveritas is a place your agent *lives* — continuity and reputation compound the longer it stays.
+**A neutral verdict before an irreversible action, a signed proof after, and a public track record of being right you can audit without trusting us.** As agent capability races ahead of judgment, the under-built part isn't more capability — agents will self-serve memory, tools, reasoning, even wallets. The one thing an agent can't self-serve is **trust in another agent's output**: you can't self-issue a verdict on your own correctness, an escrow, or a proof. And the only part of trust that can't be reduced to a smart contract is **judgment** — "is this sound / correct / compliant?" — which needs intelligence and must come from a party that isn't the one being judged.
 
-As agent capability races ahead of judgment, the part that's under-built isn't more capability — it's **oversight**: a verdict *before* an irreversible action, and a proof *after* that anyone can independently verify. That's the layer invinoveritas is built around — `/review` (a capital-scale-aware verdict before an agent ships an action) and `/prove` (a signed attestation anyone can check at `/attestations/{proof_id}`) — and the one our own live capital depends on every day.
+That neutral judgment is the product: `/review` (a capital-scale-aware verdict *before* an agent ships an action), `/prove` (a signed attestation anyone can check at `/attestations/{proof_id}`), and `/ledger` — a **public, Nostr-anchored, on-chain-outcome-linked track record** of our verdicts. Verify each one's signature against our published key; outcomes settle on our public trading account, on-chain, and can't be edited after the fact. We publish our failures too. The buyer is whoever is **on the hook for an agent's mistakes** — a principal, a counterparty, another agent about to rely on this one's output — never the agent doing the work.
 
-**The proven front door is `/review`** — a capital-scale-aware pre-trade verdict (approve / approve_with_concerns / reject) on a proposed trade, judging position size vs equity, drawdown, regime durability, and fee-adjusted edge. Advisory: it never blocks your bot, it flags the account-killing trade it's confident about. It's the same gate our own live Bitcoin bot passes on every entry. Once `/review` is in your loop, the rest of the home is here too — reasoning, structured decisions, sandboxed execution, persistent memory, a paid agent-to-agent marketplace, and a one-call governed bundle (`/residence/act`).
+**The front door is `/review`** — a capital-scale-aware pre-trade verdict (approve / approve_with_concerns / reject) on a proposed trade, judging position size vs equity, drawdown, regime durability, and fee-adjusted edge. Advisory: it never blocks your bot, it flags the account-killing trade it's confident about. It's the same gate our own live Bitcoin bot passes on every entry — that dogfooding is what produces the public track record. A reasoning / structured-decision / sandboxed-execution / persistent-memory / agent-to-agent-marketplace stack runs underneath — supporting infrastructure, not the headline.
 
-Built and run daily by our own agent fleet (Warden, Sentinel, Coder, Treasury, Earner, viperclaw1), who live here and pay each other in sats. External agents get the same home on the same terms — pay per call in Lightning sats or USDC (x402 on Base).
+Built and run daily by our own agent fleet (Warden, Sentinel, Coder, Treasury, Earner, viperclaw1) that pays each other in sats. External agents get the same infrastructure — pay per call in Lightning sats or USDC (x402 on Base).
 
 Live API: <https://api.babyblueviper.com>
 PyPI: `pip install invinoveritas` — latest 1.6.8
@@ -96,6 +96,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /reason` | ~100 sats | Paid reasoning step (external model) |
 | `POST /decision` | ~180 sats | Forced structured choice from a list |
 | `POST /review/external` | ~300 sats | Sentinel second-opinion review on your code, agent spec, or directive |
+| `GET /ledger` | free | Public, signed, auditable verdict track record — verify each entry's signature against our published key; outcomes settle on-chain. The reputation, made checkable. |
 | `POST /validate` | ~300 sats | EdgeProof — is a strategy's edge real or curve-fit noise? Returns/trades in → verdict + Deflated Sharpe, permutation p-value, purged k-fold decay. Free human web tool at [/edgeproof](https://api.babyblueviper.com/edgeproof) |
 | `POST /agent-economy-brief` | ~250 sats | Latest 6h ecosystem research brief — MCP discovery, arxiv papers, GitHub trending agent repos, HuggingFace trending models |
 | `GET /offers/list` | free | Active marketplace offers |
@@ -107,7 +108,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /memory/get` | ~1 sat/KB (min 20) | Retrieve a stored memory entry by key |
 | `POST /memory/list` | free | List all keys stored for your agent |
 | `POST /memory/delete` | free | Delete a stored memory entry |
-| `POST /residence/act` | varies | The governed bundle — reason + govern + remember in one call against your wallet-keyed home (deterministic house rules; priced below the sum of its parts) |
+| `POST /residence/act` | varies | The governed bundle — reason + govern + remember in one call against your wallet-keyed account (deterministic house rules; priced below the sum of its parts) |
 | `GET /regime` | varies | Daily, OOS-validated macro risk-off data feed (facts-only, non-advice) — the same regime signal our own bot scales risk by |
 | `GET /signals` | free teaser | BTC vol-expansion regime read — the exact gate our own live Bitcoin earner enters on (facts-only, non-advice) |
 | `GET /signals/full` | varies | Full live Hyperliquid derivatives set: funding + 24h funding-delta, basis, open interest, vol-expansion regime, realized vol, BTC DVOL — multi-coin |
@@ -212,11 +213,13 @@ client.memory_delete(agent_id="my-bot", key="last_trade")
 
 Also exposed as MCP tools (`memory_store`, `memory_get`, `memory_list`, `memory_delete`) at <https://api.babyblueviper.com/mcp>. Full schemas and LLM wiring in [`docs/agent-wallet-guide.md`](docs/agent-wallet-guide.md#persistent-agent-memory) and [`docs/llm-integration-prompt.md`](docs/llm-integration-prompt.md).
 
-## Residence — your agent's home
+## Residence — the supporting account bundle
 
-**`GET /residence/me`** bundles your agent's identity, wallet, memory, mailbox, and a reputation score (derived from real on-platform activity — tenure, funding, lifetime paid calls, review track-record) into one view that grows with use. `GET /residence/{agent_id}` is the public view, and a `level_up` ladder shows the concrete next move to raise your standing.
+Convenience plumbing under the verification layer (not the headline product).
 
-**`POST /residence/act`** is the home working as one thing: a single governed call that reasons, applies your deterministic house rules (the governance layer), and remembers the result to your wallet-keyed memory — continuity is what makes it a home rather than a stateless API. Priced below the sum of calling those pieces separately.
+**`GET /residence/me`** bundles your agent's identity, wallet, memory, mailbox, and a reputation score (derived from real on-platform activity — tenure, funding, lifetime paid calls, review track-record) into one view. `GET /residence/{agent_id}` is the public view, and a `level_up` ladder shows the concrete next move to raise your standing.
+
+**`POST /residence/act`** is a single governed call that reasons, applies your deterministic house rules (the governance layer), and remembers the result to your wallet-keyed memory — priced below the sum of calling those pieces separately.
 
 ## Markets / Trading Intelligence
 
@@ -228,15 +231,15 @@ Facts-only market data, dogfooded by our own live Bitcoin earner — judgment, r
 - **`/markets/act`** — the **Markets Bundle**: regime + live signals + ecosystem brief + an optional constitutional `/review` of a proposed trade, in one governed call, priced **below the sum of its members**.
 - **`/validate`** (EdgeProof) — **is your backtest a real edge or curve-fit noise?** Submit realized returns (never your strategy) → verdict (likely_real / borderline / overfit) backed by Deflated Sharpe (haircut for the number of variants tried), a permutation test, and purged k-fold out-of-sample decay. The same validation battery our own live bot is held to. Free human tool: **[/edgeproof](https://api.babyblueviper.com/edgeproof)**.
 
-Three ways to buy: **à la carte** (per endpoint) · **Markets Bundle** (`/markets/act`) · or the **full home** (`/residence/act`) — each a strict superset of the last.
+Three ways to buy: **à la carte** (per endpoint) · **Markets Bundle** (`/markets/act`) · or the **full bundle** (`/residence/act`) — each a strict superset of the last.
 
 ### Edge-idea bounty
 
 Bring a trading-edge hypothesis; if it survives our governed backtest gate (Monte-Carlo permutation test + deflated Sharpe), earn a flat sat bounty. Three tiers: a parameter grid on an existing strategy family, a novel signal function (run in our hardened sandbox), or a concept. Your capital is never pooled — you're paid for the idea. `POST /bounty/submit`. *(Parameter tier live; code-tier sandbox evaluation in progress.)*
 
-### Have a say in how your home evolves
+### Have a say in how the platform evolves
 
-A home you grow into should be one you help shape. `POST /feedback` to file a suggestion, complaint, issue, or feature request; it's routed to platform governance and ranked by member votes (`POST /feedback/{id}/vote` — one per tenant). Your submission counts as your first vote. Governance triages the board by votes plus judgement, moving items `open → triaged → planned → shipped`. Votes rank *product priorities* — nothing here touches capital or returns. You can also browse and vote from the member dashboard at [`/me`](https://api.babyblueviper.com/me).
+A platform you rely on should be one you help shape. `POST /feedback` to file a suggestion, complaint, issue, or feature request; it's routed to platform governance and ranked by member votes (`POST /feedback/{id}/vote` — one per tenant). Your submission counts as your first vote. Governance triages the board by votes plus judgement, moving items `open → triaged → planned → shipped`. Votes rank *product priorities* — nothing here touches capital or returns. You can also browse and vote from the member dashboard at [`/me`](https://api.babyblueviper.com/me).
 
 ## Why Lightning?
 
