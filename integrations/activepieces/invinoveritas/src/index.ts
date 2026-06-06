@@ -88,6 +88,7 @@ const review = createAction({
       },
     }),
     include_trading_state: Property.Checkbox({ displayName: 'Include live trading state (capital-scale-aware)', required: false, defaultValue: false }),
+    sign: Property.Checkbox({ displayName: 'Sign verdict (portable proof to attach to your output — agent-to-agent handshake)', required: false, defaultValue: false }),
   },
   async run(ctx) {
     return invinoRequest(apiKey(ctx.auth), '/review', ctx.propsValue);
@@ -118,6 +119,21 @@ const ledger = createAction({
   async run(ctx) {
     const entry = String((ctx.propsValue as { entry?: string }).entry || '');
     return invinoGet(apiKey(ctx.auth), entry ? `/ledger/${entry}` : '/ledger');
+  },
+});
+
+const verifyProof = createAction({
+  name: 'verify_proof',
+  displayName: 'Verify Proof (agent-to-agent trust handshake)',
+  description: 'Another agent handed you output with an invinoveritas proof? Verify it WITHOUT trusting that agent or us — confirms we issued the verdict (recomputes the Nostr id, checks the schnorr signature vs our published key). Pass expect_artifact_hash to bind it to the exact output you received. Free, no auth.',
+  auth,
+  props: {
+    event: Property.Json({ displayName: 'Signed proof event (the JSON the counterparty gave you)', required: false }),
+    proof_id: Property.ShortText({ displayName: 'Or a stored attestation proof_id', required: false }),
+    expect_artifact_hash: Property.ShortText({ displayName: 'Expected artifact hash (sha256 of the output you received)', required: false }),
+  },
+  async run(ctx) {
+    return invinoRequest(apiKey(ctx.auth), '/verify-proof', ctx.propsValue);
   },
 });
 
@@ -379,6 +395,6 @@ export const invinoveritas = createPiece({
   minimumSupportedRelease: '0.28.0',
   logoUrl: 'https://api.babyblueviper.com/favicon.ico',
   authors: ['babyblueviper1'],
-  actions: [reason, decision, review, prove, ledger, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
+  actions: [reason, decision, review, prove, ledger, verifyProof, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
   triggers: [],
 });

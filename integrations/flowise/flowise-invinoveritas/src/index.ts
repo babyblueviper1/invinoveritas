@@ -51,6 +51,7 @@ export async function invinoReview(
   context = '',
   severityThreshold: 'low' | 'medium' | 'high' = 'medium',
   includeTradingState = false,
+  sign = false,
 ) {
   return post(config, '/review', {
     artifact,
@@ -58,12 +59,27 @@ export async function invinoReview(
     context,
     severity_threshold: severityThreshold,
     include_trading_state: includeTradingState,
+    sign,
   });
 }
 
 export async function invinoProve(config: InvinoConfig, actionId: string) {
   // Signed, independently-verifiable proof of a prior execution (the verdict-after to review's verdict-before).
   return post(config, '/prove', { action_id: actionId });
+}
+
+export async function invinoVerifyProof(
+  config: InvinoConfig,
+  event?: Record<string, any>,
+  proofId = '',
+  expectArtifactHash = '',
+) {
+  // Agent-to-agent trust handshake (FREE, no auth): verify a counterparty's proof WITHOUT trusting them or us.
+  const body: Record<string, any> = {};
+  if (event) body.event = event;
+  if (proofId) body.proof_id = proofId;
+  if (expectArtifactHash) body.expect_artifact_hash = expectArtifactHash;
+  return post(config, '/verify-proof', body);
 }
 
 export async function invinoLedger(config: InvinoConfig, entry = '') {
@@ -204,6 +220,11 @@ export const nodes = [
     label: 'invinoveritas Ledger (public track record)',
     name: 'invinoveritasLedger',
     description: 'The public, signed, on-chain-verifiable verdict track record — verify our record against our published key without trusting us. We publish our failures too. Free.',
+  },
+  {
+    label: 'invinoveritas Verify Proof (trust handshake)',
+    name: 'invinoveritasVerifyProof',
+    description: 'Another agent handed you output with an invinoveritas proof? Verify it WITHOUT trusting that agent or us — confirms we issued the verdict (schnorr sig vs our published key). Pass expect_artifact_hash to bind it to the exact output. Free, no auth.',
   },
   {
     label: 'invinoveritas Residence Act (optional governed bundle)',

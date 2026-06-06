@@ -1,4 +1,4 @@
-type Operation = 'reason' | 'decision' | 'memoryStore' | 'memoryGet' | 'memoryList' | 'memoryDelete' | 'marketplaceBuy' | 'a2aDelegate' | 'growthAttackPlan' | 'sovereignExecute' | 'review' | 'prove' | 'ledger' | 'residenceAct' | 'regime' | 'signalsTeaser' | 'signals' | 'marketsAct';
+type Operation = 'reason' | 'decision' | 'memoryStore' | 'memoryGet' | 'memoryList' | 'memoryDelete' | 'marketplaceBuy' | 'a2aDelegate' | 'growthAttackPlan' | 'sovereignExecute' | 'review' | 'prove' | 'ledger' | 'verifyProof' | 'residenceAct' | 'regime' | 'signalsTeaser' | 'signals' | 'marketsAct';
 
 const GET_OPS: Operation[] = ['regime', 'signalsTeaser', 'signals', 'ledger'];
 
@@ -37,6 +37,7 @@ export class Invinoveritas {
           { name: 'Review (capital-scale-aware governed verdict — front door)', value: 'review' },
           { name: 'Prove (signed, independently-verifiable proof of a prior execution)', value: 'prove' },
           { name: 'Ledger (public signed verdict track record — verify without trusting us; free)', value: 'ledger' },
+          { name: 'Verify Proof (check a counterparty\'s proof — agent-to-agent trust handshake; free)', value: 'verifyProof' },
           { name: 'Residence Act (optional one-call governed bundle)', value: 'residenceAct' },
           { name: 'Regime (macro risk-off feed)', value: 'regime' },
           { name: 'Signals — free BTC vol-expansion teaser', value: 'signalsTeaser' },
@@ -50,6 +51,7 @@ export class Invinoveritas {
       { displayName: 'Context', name: 'context', type: 'string', default: '' },
       { displayName: 'Action ID (for Prove — execution to attest)', name: 'actionId', type: 'string', default: '' },
       { displayName: 'Ledger Entry (for Ledger — entry number, blank = full index)', name: 'ledgerEntry', type: 'string', default: '' },
+      { displayName: 'Proof Event JSON (for Verify Proof — the signed event a counterparty gave you)', name: 'proofEvent', type: 'string', typeOptions: { rows: 4 }, default: '' },
       { displayName: 'Offer ID', name: 'offerId', type: 'string', default: '' },
       { displayName: 'Agent ID', name: 'agentId', type: 'string', default: '' },
       { displayName: 'Memory Key', name: 'memoryKey', type: 'string', default: '' },
@@ -82,6 +84,7 @@ export class Invinoveritas {
         context: this.getNodeParameter('context', i, '') as string,
         actionId: this.getNodeParameter('actionId', i, '') as string,
         ledgerEntry: this.getNodeParameter('ledgerEntry', i, '') as string,
+        proofEvent: this.getNodeParameter('proofEvent', i, '') as string,
         offerId: this.getNodeParameter('offerId', i, '') as string,
         agentId: this.getNodeParameter('agentId', i, '') as string,
         memoryKey: this.getNodeParameter('memoryKey', i, '') as string,
@@ -127,6 +130,7 @@ function pathFor(operation: Operation): string {
   if (operation === 'review') return '/review';
   if (operation === 'prove') return '/prove';
   if (operation === 'ledger') return '/ledger';
+  if (operation === 'verifyProof') return '/verify-proof';
   if (operation === 'residenceAct') return '/residence/act';
   if (operation === 'regime') return '/regime';
   if (operation === 'signalsTeaser') return '/signals';
@@ -160,8 +164,14 @@ function buildBody(operation: Operation, p: Record<string, any>) {
     context: p.context,
     severity_threshold: 'medium',
     include_trading_state: false,
+    sign: true,   // n8n flows passing review output downstream want the portable proof attached
   };
   if (operation === 'prove') return { action_id: p.actionId };
+  if (operation === 'verifyProof') {
+    let ev: any = undefined;
+    try { ev = p.proofEvent ? JSON.parse(p.proofEvent) : undefined; } catch (e) { ev = undefined; }
+    return { event: ev };
+  }
   if (operation === 'residenceAct') {
     const body: Record<string, any> = {
       intent: p.question,

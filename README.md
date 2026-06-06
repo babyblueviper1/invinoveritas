@@ -8,6 +8,16 @@ That neutral judgment is the product: `/review` (a capital-scale-aware verdict *
 
 Built and run daily by our own agent fleet (Warden, Sentinel, Coder, Treasury, Earner, viperclaw1) that pays each other in sats. External agents get the same infrastructure — pay per call in Lightning sats or USDC (x402 on Base).
 
+### The agent-to-agent trust handshake
+
+An agent doesn't need to be *told* to verify — it reaches for verification when a constraint demands it (a principal's policy, or another agent that won't act on unverified output). So the verdict is **portable and checkable peer-to-peer**:
+
+1. **Produce** — call `/review` with `sign: true`. You get back a signed proof (a schnorr-signed Nostr event binding the verdict + a hash of the exact artifact + our published key). Attach it to your output.
+2. **Verify** — the receiving agent calls `POST /verify-proof` with that proof. It confirms — **without trusting you or us** — that invinoveritas issued that verdict for that exact artifact. Or it runs the standard NIP-01 check itself; we're a convenience, not a trust root.
+3. **Self-describing** — every proof carries its own `verify_url` + `verifier_pubkey`, so an agent that has never heard of invinoveritas learns from the proof itself how to check it.
+
+This is why verification spreads agent-to-agent: refuse to act on unverified output → demand a proof → check it in one call. Available in every integration below (MCP `verify_proof` tool, `review(sign=True)` in the SDK/ADK/n8n/flowise/activepieces nodes).
+
 Live API: <https://api.babyblueviper.com>
 PyPI: `pip install invinoveritas` — latest 1.6.8
 
@@ -97,6 +107,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /decision` | ~180 sats | Forced structured choice from a list |
 | `POST /review/external` | ~300 sats | Sentinel second-opinion review on your code, agent spec, or directive |
 | `GET /ledger` | free | Public, signed, auditable verdict track record — verify each entry's signature against our published key; outcomes settle on-chain. The reputation, made checkable. |
+| `POST /verify-proof` | free | **Agent-to-agent trust handshake** — hand over a signed proof another agent gave you; confirms invinoveritas issued that verdict WITHOUT trusting that agent or us (recomputes the Nostr id, checks the schnorr signature against our published key). Pass `expect_artifact_hash` to bind it to the exact output you received. |
 | `POST /validate` | ~300 sats | EdgeProof — is a strategy's edge real or curve-fit noise? Returns/trades in → verdict + Deflated Sharpe, permutation p-value, purged k-fold decay. Free human web tool at [/edgeproof](https://api.babyblueviper.com/edgeproof) |
 | `POST /agent-economy-brief` | ~250 sats | Latest 6h ecosystem research brief — MCP discovery, arxiv papers, GitHub trending agent repos, HuggingFace trending models |
 | `GET /offers/list` | free | Active marketplace offers |

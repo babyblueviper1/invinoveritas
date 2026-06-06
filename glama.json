@@ -4,7 +4,7 @@
     "babyblueviper1"
   ],
   "name": "invinoveritas",
-  "description": "A Lightning-paid tool stack for autonomous agents — capital-scale-aware second-opinion /review (Sentinel mode auto-injects live trading state), reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, persistent memory, signed audit proofs. Built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance or L402. Free registration; fund via Lightning or x402.",
+  "description": "A Lightning-paid tool stack for autonomous agents \u2014 capital-scale-aware second-opinion /review (Sentinel mode auto-injects live trading state), reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, persistent memory, signed audit proofs. Built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance or L402. Free registration; fund via Lightning or x402.",
   "version": "1.7.0",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
@@ -16,20 +16,55 @@
   "env": [
     {
       "name": "INVINO_API_KEY",
-      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register — instant, no payment required. Fund via Lightning or x402 (USDC) to make paid calls.",
+      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register \u2014 instant, no payment required. Fund via Lightning or x402 (USDC) to make paid calls.",
       "required": false
     }
   ],
-  "categories": ["reasoning", "decision-making", "bitcoin", "lightning", "autonomous-agents", "marketplace", "orchestration"],
-  "keywords": ["l402", "lightning", "bitcoin", "ai-agents", "reasoning", "decision-intelligence", "review", "second-opinion", "sentinel-mode", "mcp", "a2a", "pay-per-use", "browser-as-a-service", "code-execution", "signed-proofs", "marketplace", "seller-payouts", "proof-of-flow", "sovereign-earner", "trading", "nwc", "memory"],
+  "categories": [
+    "reasoning",
+    "decision-making",
+    "bitcoin",
+    "lightning",
+    "autonomous-agents",
+    "marketplace",
+    "orchestration"
+  ],
+  "keywords": [
+    "l402",
+    "lightning",
+    "bitcoin",
+    "ai-agents",
+    "reasoning",
+    "decision-intelligence",
+    "review",
+    "second-opinion",
+    "sentinel-mode",
+    "mcp",
+    "a2a",
+    "pay-per-use",
+    "browser-as-a-service",
+    "code-execution",
+    "signed-proofs",
+    "marketplace",
+    "seller-payouts",
+    "proof-of-flow",
+    "sovereign-earner",
+    "trading",
+    "nwc",
+    "memory"
+  ],
   "tools": [
     {
       "name": "review",
-      "description": "Independent second-opinion verdict for agents about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, or analysis; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternative approaches when rejecting. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) into the review context — capital-scale-aware critique unique to this stack. Built for autonomous agents that want a sanity check before pulling a real-money or production-affecting trigger. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool). Returns: {verdict, issues, suggested_fixes, alternatives}. ~200 sats base + length bonus."
+      "description": "Independent second-opinion verdict for agents about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, or analysis; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternative approaches when rejecting. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) into the review context \u2014 capital-scale-aware critique unique to this stack. Built for autonomous agents that want a sanity check before pulling a real-money or production-affecting trigger. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool). Returns: {verdict, issues, suggested_fixes, alternatives}. ~200 sats base + length bonus."
+    },
+    {
+      "name": "verify_proof",
+      "description": "Agent-to-agent trust handshake (FREE, no auth). When another agent hands you output and claims it was verified by invinoveritas, pass the signed proof `event` it gave you; this confirms \u2014 WITHOUT trusting that agent OR us \u2014 that invinoveritas issued that verdict, by recomputing the Nostr event id, verifying the schnorr signature, and confirming the pubkey is our published key. Pass expect_artifact_hash (sha256 of the output you received) to bind the proof to that exact artifact. Returns {valid, checks{id_integrity,signature_valid,issued_by_invinoveritas}, proof_payload, age_seconds}. Refuse to act if valid is false. You can run the same NIP-01 check yourself. Accepts: event (object), proof_id (string, optional), expect_artifact_hash (string, optional)."
     },
     {
       "name": "agent_economy_brief",
-      "description": "Latest 6h ecosystem research brief synthesized from four sources: MCP server discovery (last 7d new servers with capability + monetization tagging), arxiv recent papers (cs.AI/cs.CL/cs.LG filtered by agent / tool-use / multi-agent keywords), GitHub trending in mcp/ai-agents/agent-framework topics, and HuggingFace trending models. Returns three named sections (ecosystem_observations / ai_sector_signal / agent_framework_signal) plus an observational synthesis (emerging patterns / open questions). Purely observational — no platform-specific prescriptions. Refreshed every 6h. ~250 sats per call (fixed; no length bonus). 10 req/min per Bearer key."
+      "description": "Latest 6h ecosystem research brief synthesized from four sources: MCP server discovery (last 7d new servers with capability + monetization tagging), arxiv recent papers (cs.AI/cs.CL/cs.LG filtered by agent / tool-use / multi-agent keywords), GitHub trending in mcp/ai-agents/agent-framework topics, and HuggingFace trending models. Returns three named sections (ecosystem_observations / ai_sector_signal / agent_framework_signal) plus an observational synthesis (emerging patterns / open questions). Purely observational \u2014 no platform-specific prescriptions. Refreshed every 6h. ~250 sats per call (fixed; no length bonus). 10 req/min per Bearer key."
     },
     {
       "name": "reason",
@@ -37,7 +72,7 @@
     },
     {
       "name": "decision",
-      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0–100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
+      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0\u2013100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
     },
     {
       "name": "orchestrate",

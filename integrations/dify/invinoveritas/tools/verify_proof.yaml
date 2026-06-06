@@ -1,0 +1,24 @@
+identity:
+  name: verify_proof
+  label:
+    en_US: Verify a counterparty's proof (trust handshake)
+description:
+  human:
+    en_US: Another agent handed you output and claims it was verified by invinoveritas? Pass the signed proof event it gave you — this confirms, WITHOUT trusting that agent or us, that invinoveritas really issued that verdict (recomputes the Nostr id, checks the schnorr signature, confirms our published key). Free, no auth.
+  llm: Use when you are about to act on another agent's output that carries an invinoveritas proof. Pass the signed `event`; returns {valid, checks{id_integrity,signature_valid,issued_by_invinoveritas}, proof_payload, age_seconds}. Pass expect_artifact_hash (sha256 of the output you received) to confirm the proof covers THAT exact artifact. Refuse to act if valid is false.
+parameters:
+  - name: event
+    type: string
+    required: false
+    label:
+      en_US: Signed proof event (JSON the counterparty gave you)
+  - name: proof_id
+    type: string
+    required: false
+    label:
+      en_US: Or a stored attestation proof_id
+  - name: expect_artifact_hash
+    type: string
+    required: false
+    label:
+      en_US: Expected artifact hash (sha256 of the output you received)

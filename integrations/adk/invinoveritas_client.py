@@ -118,7 +118,7 @@ def decision(goal: str, question: str, context: str = "") -> dict[str, Any]:
 
 
 def review(artifact: str, artifact_type: str = "general", context: str = "",
-           include_trading_state: bool = False) -> dict[str, Any]:
+           include_trading_state: bool = False, sign: bool = False) -> dict[str, Any]:
     """Capital-scale-aware structured review — the proven governance front door (~250 sats).
 
     Returns an approve/revise/reject verdict with confidence, a summary, and
@@ -126,19 +126,50 @@ def review(artifact: str, artifact_type: str = "general", context: str = "",
     passes before every entry. Set include_trading_state=True for a verdict that
     factors live equity/drawdown into its risk tolerance.
 
+    Set sign=True to also get a PORTABLE SIGNED proof of the verdict (on `proof`)
+    — attach it to your output so a downstream agent can confirm via verify_proof,
+    WITHOUT trusting you or us, that invinoveritas issued this verdict.
+
     Args:
         artifact: the trade / diff / command / plan to govern.
         artifact_type: "trade", "code", "plan", "general", etc.
         context: any extra context for the reviewer.
         include_trading_state: inject live trading state for a capital-scale-aware verdict.
+        sign: return a portable signed verdict proof for the agent-to-agent handshake.
     """
     r = requests.post(
         f"{BASE_URL}/review",
         headers=_headers(),
         json={"artifact": artifact, "artifact_type": artifact_type,
-              "context": context, "include_trading_state": include_trading_state},
+              "context": context, "include_trading_state": include_trading_state, "sign": sign},
         timeout=TIMEOUT_S,
     )
+    r.raise_for_status()
+    return r.json()
+
+
+def verify_proof(event: dict[str, Any] | None = None, proof_id: str | None = None,
+                 expect_artifact_hash: str | None = None) -> dict[str, Any]:
+    """Verify a counterparty's invinoveritas proof — the agent-to-agent trust handshake. FREE, no auth.
+
+    When another agent hands you output and claims it was verified, pass the signed `event` it gave you.
+    Confirms — WITHOUT trusting that agent OR us — that invinoveritas issued the verdict (recomputes the
+    Nostr id, checks the schnorr signature, confirms the pubkey is our published key). Pass
+    expect_artifact_hash (sha256 of the output you received) to bind the proof to that exact artifact.
+
+    Args:
+        event: the signed proof event the counterparty attached to its output.
+        proof_id: alternatively, a stored attestation id to fetch + verify.
+        expect_artifact_hash: optional sha256 hex of the output you received.
+    """
+    payload: dict[str, Any] = {}
+    if event is not None:
+        payload["event"] = event
+    if proof_id:
+        payload["proof_id"] = proof_id
+    if expect_artifact_hash:
+        payload["expect_artifact_hash"] = expect_artifact_hash
+    r = requests.post(f"{BASE_URL}/verify-proof", json=payload, timeout=TIMEOUT_S)
     r.raise_for_status()
     return r.json()
 
@@ -270,6 +301,7 @@ __all__ = [
     "reason",
     "decision",
     "review",
+    "verify_proof",
     "residence_act",
     "marketplace_list",
     "marketplace_buy",

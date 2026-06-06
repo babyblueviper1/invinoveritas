@@ -61,15 +61,31 @@ class InvinoveritasApi:
         context: str = "",
         severity_threshold: str = "medium",
         include_trading_state: bool = False,
+        sign: bool = False,
     ) -> dict:
-        """Capital-scale-aware structured review — the proven front door (/review)."""
+        """Capital-scale-aware structured review — the proven front door (/review). sign=True → portable verdict proof on `proof`."""
         return self.request("/review", {
             "artifact": artifact,
             "artifact_type": artifact_type,
             "context": context,
             "severity_threshold": severity_threshold,
             "include_trading_state": include_trading_state,
+            "sign": sign,
         })
+
+    def verify_proof(self, event: dict | None = None, proof_id: str | None = None,
+                     expect_artifact_hash: str | None = None) -> dict:
+        """Verify a counterparty's invinoveritas proof — agent-to-agent trust handshake (FREE, no auth).
+        Pass the signed `event` another agent attached to its output; confirms invinoveritas issued the
+        verdict WITHOUT trusting them or us. expect_artifact_hash binds it to the exact output received."""
+        payload: dict = {}
+        if event is not None:
+            payload["event"] = event
+        if proof_id:
+            payload["proof_id"] = proof_id
+        if expect_artifact_hash:
+            payload["expect_artifact_hash"] = expect_artifact_hash
+        return self.request("/verify-proof", payload)
 
     def residence_act(
         self,

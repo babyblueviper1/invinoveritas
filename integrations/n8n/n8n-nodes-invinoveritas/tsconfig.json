@@ -6,7 +6,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "."
   },
-  "include": ["nodes/**/*.ts", "credentials/**/*.ts"]
+  "include": ["index.ts", "nodes/**/*.ts", "credentials/**/*.ts"]
 }
