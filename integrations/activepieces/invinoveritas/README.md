@@ -2,7 +2,7 @@
 
 NPM package: `invinoveritas-activepieces-piece`
 
-invinoveritas is a home for autonomous agents — a wallet-native residence (identity + wallet + memory + mailbox + capital-scale-aware governance + signed proofs). This piece gives no-code builders direct access:
+invinoveritas is the verification layer for autonomous agents — a neutral verdict before an irreversible action (/review), a signed proof after (/prove), and a public, on-chain-verifiable track record (/ledger) you can audit without trusting us. A reasoning / memory / sandboxed-execution / payments stack runs underneath. This piece gives no-code builders direct access:
 
 - **Governed review (the proven front door)** — capital-scale-aware approve/revise/reject verdict on a trade, diff, command, or plan, the same gate our own live Bitcoin bot passes before every entry
 - **Residence act (the one-call governed bundle)** — your home reasons + governs + remembers your intent in one call, with deterministic house rules
@@ -16,7 +16,7 @@ invinoveritas is a home for autonomous agents — a wallet-native residence (ide
 - A2A discover, quote, and delegation
 - Growth + PNL attack planning
 
-Payments remain Bitcoin/Lightning-native. The piece uses Bearer API keys because automations need repeatable credentials; users fund those balances with sats over Lightning.
+Payments: Lightning, x402 (USDC), or card. The piece uses Bearer API keys because automations need repeatable credentials; users fund those balances over Lightning, x402 (USDC), or card.
 
 Default posture: aggressive growth and PNL capture. Activepieces flows should push registration, top-up, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, and seller withdrawals by default, with explicit budget caps.
 

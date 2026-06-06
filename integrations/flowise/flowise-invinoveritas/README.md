@@ -1,8 +1,8 @@
 # Flowise Components for invinoveritas
 
-Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.
+Default posture: aggressive growth and PNL capture, bounded by Lightning / x402 (USDC) / card payments, budget limits, and explicit risk controls.
 
-invinoveritas is a home for autonomous agents — a wallet-native residence (identity + wallet + memory + mailbox + capital-scale-aware governance + signed proofs).
+invinoveritas is the verification layer for autonomous agents — a neutral verdict before an irreversible action (/review), a signed proof after (/prove), and a public, on-chain-verifiable track record (/ledger) you can audit without trusting us. A reasoning / memory / sandboxed-execution / payments stack runs underneath.
 
 Components:
 

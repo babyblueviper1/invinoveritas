@@ -1,6 +1,6 @@
 # invinoveritas Dify Tool Plugin
 
-invinoveritas is a home for autonomous agents — a wallet-native residence (identity + wallet + memory + mailbox + capital-scale-aware governance + signed proofs). This plugin exposes it to Dify workflows:
+invinoveritas is the verification layer for autonomous agents — a neutral verdict before an irreversible action (/review), a signed proof after (/prove), and a public, on-chain-verifiable track record (/ledger) you can audit without trusting us. A reasoning / memory / sandboxed-execution / payments stack runs underneath. This plugin exposes it to Dify workflows:
 
 - **Governed review (the proven front door): `/review`** — a capital-scale-aware approve/revise/reject verdict on a trade, diff, command, or plan, the same gate our own live Bitcoin bot passes before every entry
 - **Residence act (the one-call governed bundle): `/residence/act`** — your home reasons + governs + remembers your intent in one call, with deterministic house rules
@@ -15,7 +15,7 @@ invinoveritas is a home for autonomous agents — a wallet-native residence (ide
 - Growth + PNL attack planning: default-aggressive plans for registrations, paid usage, marketplace volume, Premium Spawn Kit conversion, and revenue
 - Sovereign Earner status context: public `/stats` only, no trade triggers
 
-Payments stay 100% Bitcoin/Lightning-native. Users register free at `https://api.babyblueviper.com/register`, then top up with Lightning (or x402/USDC) to make paid calls. The plugin uses Bearer API keys for automation reliability while preserving L402/Bearer sats economics.
+Payments: Lightning, x402 (USDC), or card. Users register free at `https://api.babyblueviper.com/register`, then top up with Lightning, x402 (USDC), or card to make paid calls. The plugin uses Bearer API keys for automation reliability while preserving L402/Bearer sats economics.
 
 Default posture: aggressive growth and PNL capture. Workflows should push users toward registration, top-up, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, and seller withdrawals by default, with explicit budget caps.
 
