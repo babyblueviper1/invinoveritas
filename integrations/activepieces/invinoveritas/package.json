@@ -1,10 +1,19 @@
 {
   "name": "invinoveritas-activepieces-piece",
-  "version": "0.4.0",
-  "description": "Bitcoin/Lightning-native invinoveritas actions for reasoning, decisions, paid persistent memory (store/get/list/delete), marketplace purchase, Sovereign Earner directives, and A2A delegation.",
+  "version": "0.4.2",
+  "description": "Activepieces actions for invinoveritas \u2014 the verification layer for autonomous agents: capital-scale-aware /review before an irreversible action, signed /prove after, and a public verdict track record. Plus reasoning, decisions, memory, and marketplace as supporting tools. Bitcoin/Lightning + x402.",
   "main": "src/index.ts",
   "license": "Apache-2.0",
-  "keywords": ["activepieces", "bitcoin", "lightning", "l402", "mcp", "a2a", "ai-agents", "marketplace"],
+  "keywords": [
+    "activepieces",
+    "bitcoin",
+    "lightning",
+    "l402",
+    "mcp",
+    "a2a",
+    "ai-agents",
+    "marketplace"
+  ],
   "scripts": {
     "build": "tsc --noEmit",
     "test": "node test/smoke.js"

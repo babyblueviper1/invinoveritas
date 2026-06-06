@@ -1,10 +1,18 @@
 {
   "name": "flowise-invinoveritas",
-  "version": "0.5.0",
-  "description": "Default-aggressive Bitcoin/Lightning-native invinoveritas Flowise components for reasoning, decisions, paid persistent memory (store/get/list/delete), Sovereign Earner directives, and growth/PNL attack planning.",
+  "version": "0.5.2",
+  "description": "Flowise components for invinoveritas \u2014 the verification layer for autonomous agents: capital-scale-aware /review before an irreversible action, signed /prove after, and a public verdict track record. Plus reasoning, decisions, memory, and markets as supporting tools. Bitcoin/Lightning + x402.",
   "license": "Apache-2.0",
   "author": "invinoveritas <contact@agents.babyblueviper.com>",
-  "keywords": ["flowise", "bitcoin", "lightning", "l402", "ai-agents", "pnl", "marketplace"],
+  "keywords": [
+    "flowise",
+    "bitcoin",
+    "lightning",
+    "l402",
+    "ai-agents",
+    "pnl",
+    "marketplace"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/babyblueviper1/invinoveritas.git",
@@ -15,7 +23,10 @@
     "test": "node test/smoke.js",
     "build": "tsc --noEmit"
   },
-  "files": ["src", "README.md"],
+  "files": [
+    "src",
+    "README.md"
+  ],
   "devDependencies": {
     "typescript": "^5.4.0"
   }
