@@ -94,7 +94,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | [`integrations/flowise/`](integrations/flowise/) | Flowise node for visual agent builders |
 | [`integrations/activepieces/`](integrations/activepieces/) | Activepieces piece for SaaS-style automations |
 | [`examples/`](examples/) | Working examples: Freqtrade strategy hook, marketplace revenue demo, net-profit trading bot |
-| [`docs/`](docs/) | Wallet onboarding, LLM integration prompt, registry/distribution checklist |
+| [`docs/`](docs/) | Wallet onboarding, LLM integration prompt, registry/distribution checklist, **[the Overfitting Field Guide for trading bots](docs/overfitting-field-guide.md)** |
 
 ## Core API surface
 
