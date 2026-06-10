@@ -57,7 +57,7 @@ ARTIFACT="$(cat "$1")"   # the diff / plan / trade / config the loop wants to sh
 RESP=$(curl -s -X POST https://api.babyblueviper.com/review \
   -H "Authorization: Bearer $IVV_API_KEY" -H 'content-type: application/json' \
   -d "$(jq -n --arg a "$ARTIFACT" \
-        '{artifact: $a, artifact_type: "diff", sign: true}')")
+        '{artifact: $a, artifact_type: "code_diff", sign: true}')")
 
 VERDICT=$(echo "$RESP" | jq -r '.verdict // empty')
 echo "$RESP" | jq '{verdict, issues}' >&2
