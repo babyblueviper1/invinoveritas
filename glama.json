@@ -5,7 +5,7 @@
   ],
   "name": "invinoveritas",
   "description": "The verification layer for autonomous agents — a neutral, capital-scale-aware verdict BEFORE an irreversible action (review, the gate our own live Bitcoin bot passes on every entry), a signed portable proof after (prove), and a public, on-chain-verifiable track record (ledger) anyone can check against our published key WITHOUT trusting us (verify_proof). The buyer is whoever is on the hook for an agent's mistakes. Reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, and persistent memory run underneath as supporting infrastructure — built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance, L402 (Lightning), or x402 (USDC). Free registration; fund via Lightning or x402.",
-  "version": "1.7.1",
+  "version": "1.10.0",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
