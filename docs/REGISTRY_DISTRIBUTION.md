@@ -20,8 +20,8 @@ Strategic goal: maximize discovery, paid usage, marketplace volume, and daily sa
 
 | Registry / Directory | Local asset | Status | Next action |
 |---|---|---|---|
-| Official MCP Registry | `server.json` | Ready | Submit/update with v1.6.2 metadata plus paid Sovereign Earner copy after commit. |
-| Smithery | `smithery.yaml` | Ready | Submit/update; version aligned to v1.6.2 and includes Sovereign directives. |
+| Official MCP Registry | `server.json` | Ready | Submit/update with v1.10.0 metadata plus paid Sovereign Earner copy after commit. |
+| Smithery | `smithery.yaml` | Ready | Submit/update; version aligned to v1.10.0 and includes Sovereign directives. |
 | Glama | `glama.json` | Ready | Trigger re-index after commit; includes `sovereign_earner_execute`. |
 | Agensi / agent directories | Agent Card + `server.json` | Ready metadata | Submit listing using proof-of-flow copy. |
 | Claude Desktop / Cursor / Windsurf | `bundles/mcp/mcp.json` | Published | `invinoveritas-mcp@1.6.2` live on npm; keep copy-paste install path in README. |
