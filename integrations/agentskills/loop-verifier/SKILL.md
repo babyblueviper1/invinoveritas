@@ -1,6 +1,6 @@
 ---
 name: loop-verifier
-description: "The independent gate for your agent loop or swarm. Use when you run an autonomous or scheduled agent loop OR a cheap-volume / open-weight agent swarm (Claude Code /loop, scheduled tasks, hooks, Codex Automations, CI-triggered agents, cron'd agents, hundreds of parallel sub-agents) and need an objective verifier that is NOT the agent that did the work — before the loop merges, deploys, trades, pays, publishes, or SAVES A RESULT AS A REUSABLE SKILL. Turns an independent judgment verdict into an exit code your loop can gate on, plus a portable signed proof attached to whatever the loop ships or saves — so a confident-but-wrong output never gets kept as a skill and replayed forever. The engine can be the cheapest model you like; the gate has to be one that isn't the engine. Keywords - loop, gate, verifier, swarm, sub-agent, parallel agents, skill, save skill, open-weight, cheap model, autonomous, unattended, automation, CI, maker checker, self-grading, second opinion, before merge, before deploy, before save, sign, proof."
+description: "The independent gate for your agent loop or swarm. Use when you run an autonomous or scheduled agent loop OR a cheap-volume / open-weight / open-source agent swarm (Claude Code /loop, scheduled tasks, hooks, Codex Automations, CI-triggered agents, cron'd agents, open-source agent frameworks like CrewAI / LangGraph / AutoGen, hundreds of parallel sub-agents) and need an objective verifier that is NOT the agent that did the work — before the loop merges, deploys, trades, pays, publishes, or SAVES A RESULT AS A REUSABLE SKILL. Turns an independent judgment verdict into an exit code your loop can gate on, plus a portable signed proof attached to whatever the loop ships or saves — so a confident-but-wrong output never gets kept as a skill and replayed forever. The engine can be the cheapest model you like; the gate has to be one that isn't the engine. Keywords - loop, gate, verifier, swarm, sub-agent, parallel agents, skill, save skill, open-weight, open-source, open model, cheap model, CrewAI, LangGraph, AutoGen, autonomous, unattended, automation, CI, maker checker, self-grading, second opinion, before merge, before deploy, before save, sign, proof."
 license: Proprietary. See https://api.babyblueviper.com
 compatibility: Any agentskills client or plain bash/CI. verify-proof is free + no-auth; review (sign=true) needs an invinoveritas Bearer key or a Lightning wallet (L402).
 metadata:
@@ -40,8 +40,9 @@ ship as a portable schnorr-signed proof anyone verifies for free.
   compliance, risk) that a test suite alone can't fail.
 - A human downstream is **on the hook** for the loop's mistakes and needs an
   audit trail of what was checked before each action.
-- You run a **cheap-volume or open-weight agent swarm** (hundreds of parallel
-  sub-agents) whose outputs get merged, acted on, or **saved as reusable skills**
+- You run a **cheap-volume, open-weight, or open-source agent swarm** (hundreds
+  of parallel sub-agents, or an open-source framework like CrewAI / LangGraph /
+  AutoGen) whose outputs get merged, acted on, or **saved as reusable skills**
   — and need an independent gate so a confident-but-wrong result isn't kept and
   replayed forever. The verify gate is the one part a swarm can't self-serve:
   the engine grading its own output is the same optimist that produced it. Run
