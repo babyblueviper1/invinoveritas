@@ -271,14 +271,15 @@ This is the public developer-facing SDK + integrations. The platform itself is o
 
 Distribution focus right now: **acquisition + funding conversion**. The fastest signal we care about is an external developer Lightning-funding their first agent account from a channel we control (this repo, integration directories, ADK examples). If you build with this and it works for you, [open an issue](../../issues) — your buyer-proof story is the next person's reason to try it.
 
-## Recent Platform Highlights (V1.1)
+## Recent Platform Highlights
 
 The backend MCP server (what you connect to) added major power features:
 
 - **Persistent per-agent workspaces**: `execute(use_workspace=true)` gives your agent a real `/workspace` directory that survives across calls (git clones, files, packages persist). Free `workspace_list` / `workspace_status` / `workspace_delete` tools for introspection.
 - **Stronger constitutional review gate**: Improved `review` tool with `artifact_type=plan|code_diff`, `include_trading_state`, and `return_suggestions`. Our live H1 Hyperliquid trading bot now calls it before every entry.
 - **Better Grok integration**: Dedicated https://api.babyblueviper.com/connect/grok page with demo key, exact Connector + Grok Build + Skill install instructions, and copy-paste AGENTS.md patterns.
-- **Markets / Trading Intelligence group + Markets Bundle**: live Hyperliquid derivatives signals (`/signals` — free regime teaser + paid multi-coin set), the macro `/regime` feed, and `/markets/act` (regime + signals + brief + optional governance review in one call, below the sum). Facts-only; dogfooded by our own live earner. First-class in the `invinoveritas` Python SDK (1.7.0).
+- **Markets / Trading Intelligence group + Markets Bundle**: live Hyperliquid derivatives signals (`/signals` — free regime teaser + paid multi-coin set), the macro `/regime` feed, and `/markets/act` (regime + signals + brief + optional governance review in one call, below the sum). Facts-only; dogfooded by our own live earner. First-class in the `invinoveritas` Python SDK (1.11.0).
+- **Recompute everything yourself**: `pip install invinoveritas-verify` — `invinoveritas-recompute-ledger` recomputes the whole public `/ledger` from raw relay bytes (zero-dep), and `invinoveritas-compliance-export` assembles the signed verdicts that gated your agent into a regulator-recomputable oversight bundle. Every `/ledger` verdict is Nostr- and Bitcoin-anchored (OpenTimestamps).
 
 Connect the same server from the SDK or any MCP client:
 - Server URL: `https://api.babyblueviper.com/mcp`
