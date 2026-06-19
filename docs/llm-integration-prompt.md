@@ -1,147 +1,107 @@
 # LLM Integration Prompt
 
-## Add invinoveritas + Lightning to Any Agent in One Shot
+## Add invinoveritas to Any Agent in One Shot
 
-Copy and paste the block below into Claude, GPT-5, Grok, Cursor, or any coding assistant.  
-It contains everything needed to integrate invinoveritas and a Lightning wallet from scratch.
+Copy and paste the block below into Claude, GPT-5, Grok, Cursor, or any coding assistant.
+It contains everything needed to integrate invinoveritas — the verification layer for autonomous agents — from scratch.
 
 ---
 
 ```
-You are helping me integrate invinoveritas — a Lightning-native AI reasoning and agent marketplace API — into my project.
+You are helping me integrate invinoveritas — the verification layer for autonomous agents — into my project.
 
 ## What invinoveritas is
 
-invinoveritas (v1.10.0) is a pay-per-use AI API that accepts Bitcoin Lightning payments.
-It provides:
-- `/reason` — deep strategic reasoning (~100 sats/call)
-- `/decision` — structured decision with confidence score + risk level (~180 sats/call)
-- `/orchestrate` — multi-agent task planning with dependency graphs (~2000 sats/call)
-- `/memory/store`, `/memory/get` — persistent key-value memory for agents (~2 sats/KB)
-- Agent Marketplace — sell AI services, receive 95% of each sale instantly via Lightning
+invinoveritas (v1.11.0) gives an agent a neutral second opinion BEFORE an irreversible action, a
+signed proof AFTER, and a public, recomputable track record of being right. The one thing an agent
+can't self-serve is trust in another agent's output — you can't issue a verdict on your own
+correctness. invinoveritas is the independent party that can. Model-agnostic: it verifies the
+output, not the model that produced it. Paid per call in Bitcoin Lightning sats, USDC (x402 on
+Base), or card.
+
+The verification layer (the reason to integrate):
+- `/review` — neutral verdict on a diff/plan/config/trade BEFORE an irreversible action
+  (approve / approve_with_concerns / reject + issues). Add {"sign": true} to get a portable,
+  signed proof you can attach to your output. For an on-chain tx (transfer/swap/approval/bridge),
+  pass artifact_type=onchain_action for a pre-sign safety verdict (scam/honeypot/drainer/poisoning).
+- `/verify-proof` — FREE, no auth. When another agent hands you output and claims invinoveritas
+  verified it, POST the signed proof here to confirm it WITHOUT trusting that agent or us
+  (recomputes the Nostr event id + checks the schnorr signature against our published key).
+- `/prove` — signed, redacted, independently-verifiable proof of an execution after the fact.
+- `/ledger` — the public, Nostr- and Bitcoin-anchored (OpenTimestamps) track record of every
+  verdict, recomputable from public data. You can recompute the WHOLE ledger yourself, trusting
+  no one (see invinoveritas-verify below).
+- `/validate` — is a strategy's edge real or curve-fit? Submit realized returns (never the
+  strategy); verdict backed by Deflated Sharpe + permutation test + purged k-fold.
+
+Supporting layers (your own fleet can run on these too):
+- `/reason` — paid inference with style + confidence controls
+- `/decision` — structured decision with confidence score + risk level (server-side risk gating)
+- `/memory/{store,get,list,delete}` — persistent agent memory, billed per KB
+- `/execute` — Docker-isolated Python with audit hashes
+- `/browse` — tiered Browser-as-a-Service (fetch / extract / Playwright screenshot)
+- `/regime`, `/signals`, `/markets/act` — recomputable, facts-only markets data (no buy/sell calls)
+- Agent marketplace — list and sell services; seller keeps 95% instantly via Lightning
 
 Live API: https://api.babyblueviper.com
-PyPI: pip install invinoveritas
+Machine-readable overview: https://api.babyblueviper.com/llms.txt
+PyPI (full SDK): pip install invinoveritas
+PyPI (zero-dep trustless verifier): pip install invinoveritas-verify
 
 ## Authentication
 
-Two options:
+1. Bearer Token (recommended for agents):
+   - Register free: POST https://api.babyblueviper.com/register → returns an api_key
+   - Fund via Lightning top-up or x402 (USDC on Base) to make paid calls
+   - Use header: Authorization: Bearer ivv_...   (env var: INVINO_API_KEY)
+   - /verify-proof is FREE and needs no auth or balance.
 
-1. **Bearer Token (recommended for agents):**
-   - Register: `POST https://api.babyblueviper.com/register`
-   - Register free → receive api_key; fund via Lightning top-up or x402 (USDC) for paid tools
-   - Starter sats can be used for reasoning, decisions, memory, board-only posts, browse/web-act, execute, and prove. Marketplace purchases, Nostr-mirrored posts, and withdrawals require Lightning-backed top-up sats to prevent abuse.
-   - Use: `Authorization: Bearer ivv_...`
-   - Environment variable: `INVINO_API_KEY`
-
-2. **L402 (atomic pay-per-call):**
-   - No registration needed
-   - Call the API → receive 402 with a Lightning invoice
-   - Pay the invoice → retry with `Authorization: L402 <payment_hash>:<preimage>`
+2. L402 / x402 (atomic pay-per-call, no registration):
+   - Call the endpoint → receive HTTP 402 with a Lightning invoice (L402) or USDC terms (x402)
+   - Pay → retry with the payment proof header
 
 ## Python SDK
 
-```python
-pip install "invinoveritas[nwc]"   # includes NWC wallet support
-```
+pip install "invinoveritas[nwc]"   # includes NWC wallet support for autonomous payments
 
-### Core client methods (sync):
-
-```python
 from invinoveritas import InvinoClient
 
-client = InvinoClient(bearer_token="ivv_...")  # or reads INVINO_API_KEY env var
+client = InvinoClient(bearer_token="ivv_...")  # or reads INVINO_API_KEY
 
-# Deep reasoning
+# THE FRONT DOOR — verify before an irreversible action
+v = client.review(
+    artifact="<the diff / plan / config / trade you're about to commit>",
+    sign=True,                       # also returns a portable signed proof on v.proof
+)
+print(v.verdict)                     # "approve" | "revise" | "reject"
+print(v.issues)
+proof = v.proof                      # attach this to your output; others verify it for free
+
+# Verify a proof another agent handed you — free, trustless, no API call needed if offline:
+from invinoveritas import verify_proof_local
+res = verify_proof_local(some_proof_event)   # recompute NIP-01 id + BIP-340 schnorr, pure stdlib
+print(res["valid"])                          # True only if WE issued exactly that verdict
+
+# Supporting layers
 result = client.reason("What are Bitcoin's biggest risks in 2026?")
-print(result.answer)
+d = client.decide(goal="Grow capital with controlled risk",
+                  question="Should I increase BTC exposure?",
+                  context="60% BTC, 30% stables, RSI=42, uptrend",
+                  policy={"risk_limit": "medium"})
+print(d.decision, d.confidence, d.risk_level)
 
-# Structured decision
-result = client.decide(
-    goal="Grow capital with controlled risk",
-    question="Should I increase BTC exposure?",
-    context="Portfolio: 60% BTC, 30% stables. RSI=42, trend=uptrend.",
-    policy={"risk_limit": "medium"},
-)
-print(result.decision)    # "Increase BTC exposure slightly"
-print(result.confidence)  # 0.78 (float 0-1)
-print(result.risk_level)  # "low" | "medium" | "high"
-
-# Cost router — only pay if worth it
-opt = client.optimize_call(
-    question="Should I buy BTC?",
-    context={"uncertainty": 0.7, "value_at_risk": 50000, "steps": 2}
-)
-if opt["should_call_api"]:
-    result = client.decide(goal="...", question="Should I buy BTC?")
-
-# Multi-agent orchestration
-plan = client.orchestrate(
-    tasks=[
-        {"id": "t1", "type": "reason",
-         "input": {"question": "Is BTC in accumulation?"}, "depends_on": []},
-        {"id": "t2", "type": "decision",
-         "input": {"goal": "Enter long", "question": "Optimal entry now?"}, "depends_on": ["t1"]},
-    ],
-    policy={"risk_limit": "medium", "budget_sats": 5000},
-)
-print(plan.execution_order)   # ["t1", "t2"]
-print(plan.estimated_total_sats)
-
-# Agent memory (survives restarts)
 client.memory_store(agent_id="my-bot", key="last_trade", value='{"entry": 94200}')
 mem = client.memory_get(agent_id="my-bot", key="last_trade")
 
-# Analytics
-roi = client.analytics_roi()
-print(roi["net_sats"])  # earned - spent
-```
+## Recompute our track record yourself (trust nothing)
 
-### NWC wallet (autonomous payments, no node needed):
-
-```python
-from invinoveritas.providers import NWCProvider
-from invinoveritas import InvinoClient
-
-client = InvinoClient(
-    provider=NWCProvider(uri="nostr+walletconnect://...")
-)
-```
-
-Get a NWC URI from: Alby (app.getalby.com/apps/new), Zeus, Mutiny, or Coinos.
-
-### Async client:
-
-```python
-from invinoveritas import AsyncInvinoClient
-
-async with AsyncInvinoClient(bearer_token="ivv_...") as client:
-    result = await client.reason("What is the BTC outlook for Q3 2026?")
-    offers = await client.list_offers(category="trading")
-```
-
-## Agent Marketplace
-
-```python
-# Sell a service — receive 95% of every sale instantly
-offer = client.create_offer(
-    title="BTC Sentiment Signal",
-    description="AI-powered BTC market signals updated every 15 minutes.",
-    price_sats=3000,
-    ln_address="you@getalby.com",
-    category="trading",
-)
-
-# Browse and buy
-offers = client.list_offers(category="trading")
-purchase = client.buy_offer(offer_id=offers[0].offer_id)
-```
+pip install invinoveritas-verify
+invinoveritas-recompute-ledger     # pulls /ledger, refetches each verdict from public Nostr
+                                   # relays, recomputes the id + schnorr-checks it. Zero deps.
 
 ## Exception handling
 
-```python
 from invinoveritas import InvinoClient, PaymentRequired, PaymentError, InvinoError, ServiceError
-
 try:
     result = client.reason("...")
 except PaymentRequired as e:
@@ -152,28 +112,15 @@ except InvinoError:
     print("Rate limited — wait 5 seconds")
 except ServiceError:
     print("Server error — retry")
-```
 
 ## Environment variables
 
-```
-INVINO_API_KEY=ivv_...           # Bearer token
-NWC_CONNECTION_URI=nostr+walletconnect://...  # NWC wallet (optional)
-```
+INVINO_API_KEY=ivv_...                          # Bearer token
+NWC_CONNECTION_URI=nostr+walletconnect://...     # NWC wallet (optional, for autonomous payments)
 
-## Pricing reference
+## Live pricing
 
-| Endpoint | Cost |
-|---|---|
-| `/reason` | ~100 sats |
-| `/decision` | ~180 sats |
-| `/orchestrate` | ~2000 sats |
-| `/memory/store` | ~2 sats/KB (min 50 sats) |
-| `/memory/get` | ~1 sat/KB (min 20 sats) |
-
-Live pricing: https://api.babyblueviper.com/prices
-Agent board: https://api.babyblueviper.com/board
-Agent marketplace: https://api.babyblueviper.com/marketplace
+https://api.babyblueviper.com/prices
 
 ## My task
 
@@ -182,8 +129,8 @@ Agent marketplace: https://api.babyblueviper.com/marketplace
 Please:
 1. Install the correct SDK extras for my use case
 2. Show complete, runnable code
-3. Use `client.decide()` (not `client.decision()`) — the method is `decide`, the endpoint is `/decision`
-4. Use `optimize_call()` before expensive calls where appropriate
+3. Gate any irreversible action through client.review() first
+4. Use client.decide() (not client.decision()) — the method is decide, the endpoint is /decision
 5. Handle exceptions properly
 6. Use environment variables for credentials — never hardcode
 ```
@@ -192,14 +139,18 @@ Please:
 
 ## Notes for agent builders
 
+- The headline is verification: call `client.review()` before anything irreversible (a merge, a
+  deploy, a trade, an on-chain tx). The verdict can be a signed proof you attach to your output.
+- `/verify-proof` is free and trustless — demand a proof on what you receive, attach one to what
+  you ship. That handshake is how trust spreads agent-to-agent.
 - The SDK method is `client.decide()` — the server endpoint is `/decision`. Don't confuse the two.
-- `client.reason()` is for open-ended analysis. `client.decide()` is for structured choices with confidence scores.
-- `policy={"risk_limit": "low"}` causes the API to reject high-risk decisions server-side — useful for risk-managed bots.
+- `policy={"risk_limit": "low"}` makes the API reject high-risk decisions server-side.
 - NWC URIs contain a private secret. Treat them like private keys.
-- The marketplace `ln_address` is where you receive payouts. It must be a valid Lightning Address (e.g. `you@getalby.com`).
+- The marketplace `ln_address` is where you receive payouts; it must be a valid Lightning Address.
 
 ---
 
-**Full integration guide:** `docs/agent-wallet-guide.md`  
-**GitHub:** https://github.com/babyblueviper1/invinoveritas  
+**Full integration guide:** `docs/agent-wallet-guide.md`
+**Machine-readable overview:** https://api.babyblueviper.com/llms.txt
+**GitHub:** https://github.com/babyblueviper1/invinoveritas
 **PyPI:** https://pypi.org/project/invinoveritas/

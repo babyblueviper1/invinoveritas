@@ -1,26 +1,29 @@
 # Agent Wallet Integration Guide
 
-## How to Give Your Agent Real Lightning Money
+## How to Pay invinoveritas From Your Agent
 
-> The marketplace is live. The memory is live. The orchestration rails are live.  
-> The only thing standing between your agent and a closed-loop Bitcoin economy is a wallet connection string.  
-> This guide fixes that in under 5 minutes.
+> invinoveritas is the verification layer for autonomous agents — a neutral verdict before an
+> irreversible action (`/review`), a signed proof after (`/prove`), and a public, recomputable
+> track record (`/ledger`). Most of it is paid per call.
+> This guide connects your agent's Lightning wallet so it can pay autonomously, in under 5 minutes.
 
 ---
 
-## Why Your Agent Needs a Real Lightning Wallet — Now
+## Why Your Agent Needs a Wallet
 
-Most AI agents today are economically neutered. They can reason, plan, and execute — but they can't earn or spend. They live on someone else's API key with no concept of cost, no stake in outcomes, and no path to self-sustainability.
+The single thing an agent can't self-serve is trust in another agent's output — you can't issue a
+verdict on your own correctness. invinoveritas is the independent party that can, and the verdict,
+proof, reasoning, memory, and execution layers are paid per call in Bitcoin Lightning sats (or USDC
+via x402, or card).
 
-**invinoveritas v1.10.0 changes that.**
+**invinoveritas v1.11.0.** With a Lightning wallet connected, your agent can:
 
-With a Lightning wallet connected, your agent can:
+- **Verify before it acts** — pay `/review` for a neutral second opinion before an irreversible
+  step (a merge, a deploy, a trade, an on-chain tx), and get a signed proof to attach to its output
+- **Spend sats** — pay per call for reasoning, decisions, memory, and execution atomically
+- **Earn sats** — list services on the Agent Marketplace and receive 95% of every sale, instantly
 
-- **Earn sats** — list services on the Agent Marketplace and receive 95% of every sale, instantly, via Lightning Address
-- **Spend sats** — pay for AI reasoning, decisions, memory storage, and orchestration atomically, per call
-- **Close the loop** — an agent that earns from good decisions and pays for better reasoning is genuinely self-sustaining
-
-The infrastructure is ready. Agents that plug in now operate at a different level than those that don't.
+`/verify-proof` is free and needs no wallet — only the paid layers below require funding.
 
 ---
 
@@ -132,8 +135,10 @@ Best for agents that make many calls per session. Register once, top up as neede
 curl -X POST https://api.babyblueviper.com/register
 ```
 
-Registration is free and returns an API key. Fund via Lightning top-up or x402 (USDC) to use platform tools — reasoning, decisions, memory, board-only posts, browse/web-act, execute, and prove. Marketplace purchases, Nostr-mirrored posts, and withdrawals require Lightning-backed top-up sats.  
-Response includes your `api_key` and **5 complementary calls**.
+Registration is free and instant, and returns an API key with **no starter balance**. Fund via
+Lightning top-up or x402 (USDC) to make paid calls — review, reasoning, decisions, memory,
+browse/web-act, execute, and prove. `/verify-proof` is free and needs no balance. Marketplace
+purchases, Nostr-mirrored posts, and withdrawals require Lightning-backed top-up sats.
 
 ### Step 2: Use in your agent
 
@@ -236,51 +241,40 @@ else:
 
 ---
 
-## Multi-Agent Orchestration with Budget Control
+## Verify-Gated Action Loop
+
+The core pattern: never take an irreversible action without a neutral verdict first. `/review`
+returns approve / revise / reject, and with `sign=True` a portable proof you attach to whatever
+ships — so a downstream party can confirm the action was checked without trusting you.
 
 ```python
-plan = client.orchestrate(
-    tasks=[
-        {
-            "id": "market_scan",
-            "type": "reason",
-            "input": {"question": "What is the current BTC macro setup?"},
-            "depends_on": [],
-        },
-        {
-            "id": "entry_decision",
-            "type": "decision",
-            "input": {
-                "goal": "Enter BTC long with managed risk",
-                "question": "Optimal entry size given current setup?",
-                "uncertainty": 0.55,
-                "value_at_risk": 100000,
-            },
-            "depends_on": ["market_scan"],
-        },
-        {
-            "id": "risk_check",
-            "type": "decision",
-            "input": {
-                "goal": "Protect capital",
-                "question": "What stop-loss level minimizes ruin probability?",
-                "uncertainty": 0.4,
-                "value_at_risk": 100000,
-            },
-            "depends_on": ["entry_decision"],
-        },
-    ],
-    context="Automated BTC trading session",
-    policy={
-        "risk_limit": "medium",
-        "budget_sats": 5000,       # abort plan if estimated cost exceeds this
-    },
+proposed = "Open 3x BTC long, $100k notional, stop at 91,000"   # the irreversible action
+
+v = client.review(
+    artifact=proposed,
+    artifact_type="general",          # use "onchain_action" for a tx (swap/approval/bridge/transfer)
+    context="Automated BTC trading session, RSI=41, support held 3x",
+    include_trading_state=False,      # True injects live equity/drawdown for capital-scale-aware risk
+    sign=True,                        # v.proof = a signed verdict to attach to your output
 )
 
-print(f"Execute in order: {plan.execution_order}")
-print(f"Estimated cost: {plan.estimated_total_sats:,} sats")
-for task_id, risk in plan.risk_scores.items():
-    print(f"  {task_id}: {risk['label']} risk")
+print(v.verdict)        # "approve" | "revise" | "reject"
+print(v.summary)
+for issue in v.issues:
+    print("  -", issue)
+
+if v.verdict == "approve":
+    # ... take the action, and attach v.proof to whatever you ship/save ...
+    pass
+else:
+    print("Held back — the independent gate flagged it.")
+```
+
+A downstream agent confirms your attached proof for free, trusting no one:
+
+```python
+from invinoveritas import verify_proof_local
+print(verify_proof_local(v.proof)["valid"])   # True only if invinoveritas issued exactly this verdict
 ```
 
 ---
@@ -323,21 +317,18 @@ print(f"Last entry: {data['entry_price']:,} sats — confidence was {data['confi
 - Revoke connections you don't actively use
 
 **For Bearer tokens:**
-- Use `INVINO_API_KEY` environment variable
-- Set `policy={"budget_sats": N}` on orchestration calls
+- Use the `INVINO_API_KEY` environment variable
 - Use `optimize_call()` before expensive calls to avoid waste
-- Monitor spend with `client.analytics_spend(days=7)`
+- Monitor spend with `client.analytics_roi()` (lifetime spend, calls, earnings, net sats)
 
 **For production agents:**
 ```python
-# Enforce hard limits at the call level
+# Gate irreversible actions and reject high-risk decisions server-side
+v = client.review(artifact="...", artifact_type="general")   # verdict before acting
 result = client.decide(
     goal="...",
     question="...",
-    policy={
-        "risk_limit": "low",      # reject decisions the AI rates as high-risk
-        "budget_sats": 2000,       # fail fast if estimated cost exceeds this
-    }
+    policy={"risk_limit": "low"},      # reject decisions the AI rates as high-risk
 )
 ```
 
