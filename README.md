@@ -283,6 +283,7 @@ The backend MCP server (what you connect to) added major power features:
 
 Connect the same server from the SDK or any MCP client:
 - Server URL: `https://api.babyblueviper.com/mcp`
+- **Copy-paste install (Claude Code / Cursor / VS Code / Cline / Windsurf / Claude Desktop) + the pre-action gate block: https://api.babyblueviper.com/install**
 - See live Grok setup: https://api.babyblueviper.com/connect/grok
 - Any-agent skill pack: https://api.babyblueviper.com/data/invinoveritas_skill_any_agent.md
 
