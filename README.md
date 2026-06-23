@@ -89,7 +89,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 
 | Path | What it is |
 |---|---|
-| [`integrations/robinhood/`](integrations/robinhood/) | Robinhood Agentic Trading — put `/review` in front of your trading agent as a pre-trade governance gate (dual-MCP, no glue code) |
+| [`integrations/robinhood/`](integrations/robinhood/) | Robinhood Agentic Trading — an automated pre-trade `/review` your trading agent calls before it places an order — advisory, the agent decides, no human in the loop (dual-MCP, no glue code) |
 | [`integrations/adk/`](integrations/adk/) | Google Agent Development Kit — client + Tool wrapping pattern + working quickstart |
 | [`integrations/n8n/`](integrations/n8n/) | n8n node (`n8n-nodes-invinoveritas`) for low-code workflows |
 | [`integrations/dify/`](integrations/dify/) | Dify plugin — drop-in tools for paid reasoning + marketplace + Sovereign Earner |
@@ -288,3 +288,4 @@ Connect the same server from the SDK or any MCP client:
 - Any-agent skill pack: https://api.babyblueviper.com/data/invinoveritas_skill_any_agent.md
 
 These are the same tools our internal fleet uses daily.
+
