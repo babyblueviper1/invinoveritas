@@ -218,7 +218,7 @@ def regime(x402: bool = False) -> dict[str, Any]:
 
 def signals_teaser() -> dict[str, Any]:
     """Free shop-window (/signals): the BTC vol-expansion regime read — the exact
-    gate our own live Bitcoin earner enters on. Facts only."""
+    gate our own live trading earner enters on. Facts only."""
     r = requests.get(f"{BASE_URL}/signals", headers=_headers(), timeout=TIMEOUT_S)
     r.raise_for_status()
     return r.json()
