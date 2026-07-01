@@ -110,6 +110,7 @@ Full endpoint reference: <https://api.babyblueviper.com/docs>.
 | `POST /review/external` | ~300 sats | Sentinel second-opinion review on your code, agent spec, or directive |
 | `GET /ledger` | free | Public, signed, auditable verdict track record — verify each entry's signature against our published key; outcomes settle on-chain. The reputation, made checkable. |
 | `POST /verify-proof` | free | **Agent-to-agent trust handshake** — hand over a signed proof another agent gave you; confirms invinoveritas issued that verdict WITHOUT trusting that agent or us (recomputes the Nostr id, checks the schnorr signature against our published key). Pass `expect_artifact_hash` to bind it to the exact output you received. |
+| `POST /witness` | 100 sats | Anchor a **third party's** exact claim bytes, unmodified and unjudged — pure notarization (receipt + timestamp + integrity), distinct from `/review` (our verdict on your artifact). Source is self-declared and marked as such in the signed proof; verify via free `/verify-proof` or offline NIP-01. Built for cross-verifier composition. |
 | `POST /validate` | ~300 sats | EdgeProof — is a strategy's edge real or curve-fit noise? Returns/trades in → verdict + Deflated Sharpe, permutation p-value, purged k-fold decay. Free human web tool at [/edgeproof](https://api.babyblueviper.com/edgeproof) |
 | `POST /agent-economy-brief` | ~250 sats | Latest 6h ecosystem research brief — MCP discovery, arxiv papers, GitHub trending agent repos, HuggingFace trending models |
 | `GET /offers/list` | free | Active marketplace offers |
