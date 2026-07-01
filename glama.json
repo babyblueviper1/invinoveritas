@@ -4,7 +4,7 @@
     "babyblueviper1"
   ],
   "name": "invinoveritas",
-  "description": "The verification layer for autonomous agents \u2014 a neutral, capital-scale-aware verdict BEFORE an irreversible action (review, the gate our own live trading bot passes on every entry), a signed portable proof after (prove), and a public, on-chain-verifiable track record (ledger) anyone can check against our published key WITHOUT trusting us (verify_proof). The part only we have: the verdict is provably committed BEFORE the outcome it's graded against \u2014 recomputable from public data, no TEE, no trusted scorer. Verify-then-pay proves the work happened; we prove the judgment came first. We also run the open conformance registry where agent verifiers are graded against the same recomputable bar, ours included, with no green by assertion; competitors conform and certify against our suite across more than one anchoring mechanism. Model-agnostic by construction (we verify the output, not the model that produced it). In Gartner's terms an independent guardian agent: a neutral check that leaves a recomputable public proof, not the deployer's own runtime enforcement. Recomputable judgment, not TEE-attested compute (that proves the model ran, not that the call was sound). And as deployer liability hardens (autonomous operation is no defense, the reasonable-oversight standard), the signed verdict plus recomputable trail is exactly the oversight evidence a liable deployer must produce. Reputation you recompute from settled outcomes (wins and losses), not a mutable score a scorer controls \u2014 the ERC-8004 Reputation/Validation feed, composing above 8004 identity. The buyer is whoever is on the hook for an agent's mistakes. Reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, and persistent memory run underneath as supporting infrastructure \u2014 built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance, L402 (Lightning), or x402 (USDC). Free registration; fund via Lightning or x402.",
+  "description": "The verification layer for autonomous agents — a neutral, capital-scale-aware verdict BEFORE an irreversible action (review, the gate our own live trading bot passes on every entry), a signed portable proof after (prove), and a public, on-chain-verifiable track record (ledger) anyone can check against our published key WITHOUT trusting us (verify_proof). The part only we have: the verdict is provably committed BEFORE the outcome it's graded against — recomputable from public data, no TEE, no trusted scorer. Verify-then-pay proves the work happened; we prove the judgment came first. We also run the open conformance registry where agent verifiers are graded against the same recomputable bar, ours included, with no green by assertion; competitors conform and certify against our suite across more than one anchoring mechanism. Model-agnostic by construction (we verify the output, not the model that produced it). In Gartner's terms an independent guardian agent: a neutral check that leaves a recomputable public proof, not the deployer's own runtime enforcement. Recomputable judgment, not TEE-attested compute (that proves the model ran, not that the call was sound). And as deployer liability hardens (autonomous operation is no defense, the reasonable-oversight standard), the signed verdict plus recomputable trail is exactly the oversight evidence a liable deployer must produce. Reputation you recompute from settled outcomes (wins and losses), not a mutable score a scorer controls — the ERC-8004 Reputation/Validation feed, composing above 8004 identity. The buyer is whoever is on the hook for an agent's mistakes. Reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, and persistent memory run underneath as supporting infrastructure — built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance, L402 (Lightning), or x402 (USDC). Free registration; fund via Lightning or x402.",
   "version": "1.11.1",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
@@ -16,7 +16,7 @@
   "env": [
     {
       "name": "INVINO_API_KEY",
-      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register \u2014 instant, no payment required. Fund via Lightning or x402 (USDC) to make paid calls. review/prove are paid; verify_proof and ledger are free, no auth.",
+      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register — instant, no payment required. Fund via Lightning or x402 (USDC) to make paid calls. review/prove are paid; verify_proof and ledger are free, no auth.",
       "required": false
     }
   ],
@@ -64,24 +64,29 @@
     "code-execution",
     "signed-proofs",
     "memory",
-    "nwc"
+    "nwc",
+    "notarization"
   ],
   "tools": [
     {
       "name": "review",
-      "description": "THE FRONT DOOR \u2014 an independent, capital-scale-aware second-opinion verdict for an agent about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, trade, or analysis; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternatives when rejecting. Pass `sign: true` to also get a PORTABLE signed proof of the verdict you can attach to your output \u2014 anyone downstream confirms it with verify_proof without trusting you or us. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) \u2014 capital-scale-aware critique unique to this stack and dogfooded by our own live trading bot. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool), sign (bool). Returns: {verdict, issues, suggested_fixes, alternatives, proof_event?}. ~200 sats base + length bonus."
+      "description": "THE FRONT DOOR — an independent, capital-scale-aware second-opinion verdict for an agent about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, trade, or analysis; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternatives when rejecting. Pass `sign: true` to also get a PORTABLE signed proof of the verdict you can attach to your output — anyone downstream confirms it with verify_proof without trusting you or us. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) — capital-scale-aware critique unique to this stack and dogfooded by our own live trading bot. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool), sign (bool). Returns: {verdict, issues, suggested_fixes, alternatives, proof_event?}. ~200 sats base + length bonus."
     },
     {
       "name": "prove",
       "description": "The attestation-AFTER to review's verdict-before: a signed, independently-verifiable proof of a prior execution. Returns hashes and a signed Nostr event so any party can confirm what happened without trusting the executor. ~100 sats per proof."
     },
     {
+      "name": "witness",
+      "description": "Anchor a THIRD PARTY's exact claim bytes, unmodified and unjudged — pure notarization (receipt + timestamp + integrity), distinct from review (our verdict on your artifact) and prove (proof of our own audited actions). The signed proof carries the body verbatim + its hash and marks the source as self-declared, so a reader knows exactly what is vouched for (when/what) and what is not (authorship, soundness). Built for cross-verifier composition: two independent verifiers produce a joint artifact where each claim stays separately attributable. Accepts: source (string), body (string, max 16000 chars). Returns: signed proof event verifiable via free verify_proof or offline NIP-01. 100 sats per claim."
+    },
+    {
       "name": "verify_proof",
-      "description": "THE AGENT-TO-AGENT TRUST HANDSHAKE \u2014 hand over a signed verdict/proof another agent gave you; confirms invinoveritas actually issued it WITHOUT trusting that agent or us (schnorr signature vs our published key, recomputed Nostr id). This is how 'verify before you act on another agent's output' propagates peer-to-peer: demand a proof on what you receive, attach one to what you ship. Accepts: event (signed proof object). Returns: {valid, checks, pubkey}. Free, no auth."
+      "description": "THE AGENT-TO-AGENT TRUST HANDSHAKE — hand over a signed verdict/proof another agent gave you; confirms invinoveritas actually issued it WITHOUT trusting that agent or us (schnorr signature vs our published key, recomputed Nostr id). This is how 'verify before you act on another agent's output' propagates peer-to-peer: demand a proof on what you receive, attach one to what you ship. Accepts: event (signed proof object). Returns: {valid, checks, pubkey}. Free, no auth."
     },
     {
       "name": "ledger",
-      "description": "The public, signed, on-chain-outcome-linked verdict track record \u2014 every verdict committed BEFORE its outcome is known, then settled and linked, so the record is auditable calibration, not a curated win-rate. Verify each entry against our published key without trusting us. Wins AND losses published. Accepts: optional entry id. Returns: verdict entries with commitments and outcomes. Free."
+      "description": "The public, signed, on-chain-outcome-linked verdict track record — every verdict committed BEFORE its outcome is known, then settled and linked, so the record is auditable calibration, not a curated win-rate. Verify each entry against our published key without trusting us. Wins AND losses published. Accepts: optional entry id. Returns: verdict entries with commitments and outcomes. Free."
     },
     {
       "name": "reason",
@@ -89,7 +94,7 @@
     },
     {
       "name": "decision",
-      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0\u2013100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
+      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0–100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
     },
     {
       "name": "memory_store",
