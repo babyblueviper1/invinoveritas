@@ -1,0 +1,30 @@
+name: Publish n8n-nodes-invinoveritas
+
+# Manual dispatch only — this package is versioned/published deliberately, not on every push.
+# npm provenance requires the publish to happen via GitHub Actions OIDC (not a local machine),
+# which is n8n's Creator Portal verification requirement (community-node-verification-guidelines).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write  # required for npm provenance attestation
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/n8n/n8n-nodes-invinoveritas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
