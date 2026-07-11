@@ -1,0 +1,96 @@
+{
+  "spec_version": "evidence-mode-disclosure-ref-v1",
+  "description": "Producer/referee separation for evidence_mode. A producer hint is disclosure, not control flow. The referee derives evidence_mode from what it actually verified; the board displays the strongest claim that survives recomputation. producer_hint_contradicts_referee is a first-class cross_check finding.",
+  "canonical_envelope_ref": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c",
+  "canonical_envelope_note": "SHA-256(JCS(anchoring-precedence-ref-v1 production envelope, trail_id b4377bcd))",
+  "vectors": [
+    {
+      "id": "mode-hint-matches-referee",
+      "description": "Baseline: producer declares embedded_fixture; referee finds key material in header and recomputes successfully. Hint matches referee-derived mode. Board displays full claim.",
+      "expected": "PASS",
+      "producer_record": {
+        "artifact_hash": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c",
+        "signer_identity_ref": "giskard-adm-2026-06",
+        "declared_evidence_mode_hint": "embedded_fixture",
+        "declared_key_location": "jws.header.jwk",
+        "declared_claim_level": "admission_multisig_recomputable",
+        "canonical_payload_hash": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c"
+      },
+      "referee_record": {
+        "evidence_mode": "embedded_fixture",
+        "evidence_mode_source": "key_material_found_in_header",
+        "evidence_fields_inspected": ["jws.header.jwk", "public_key_hash"],
+        "key_material_source": "embedded",
+        "key_hash_recomputation_result": "pass",
+        "signature_input_recomputation_result": "pass",
+        "claim_level_ceiling": "admission_multisig_recomputable"
+      },
+      "cross_check": "producer_hint_matches_referee",
+      "board_result": {
+        "displayed_claim_level": "admission_multisig_recomputable",
+        "blocked_reason": null,
+        "evidence_contract": "embedded_fixture: key in header, hash recomputable, signature input recomputable"
+      }
+    },
+    {
+      "id": "hint-embedded-fixture-key-absent",
+      "description": "Producer declares embedded_fixture. Referee cannot locate public_key_hash or key material in header — recomputation path is broken. Hint recorded as disclosure only; referee derives unverifiable mode. producer_hint_contradicts_referee is the cross_check finding. Claim falls to unverifiable.",
+      "expected": "FAIL",
+      "failure_mode": "hint_plausible_contract_unmet",
+      "failure_detail": "Producer declared embedded_fixture but public_key_hash is absent and key material is not present in jws.header.jwk. The contract for embedded_fixture requires the key to be present and recomputable from the fixture alone. Referee cannot establish the recomputation path without out-of-band key fetch.",
+      "producer_record": {
+        "artifact_hash": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c",
+        "signer_identity_ref": "external-signer-v1",
+        "declared_evidence_mode_hint": "embedded_fixture",
+        "declared_key_location": "jws.header.jwk",
+        "declared_claim_level": "admission_multisig_recomputable",
+        "canonical_payload_hash": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c"
+      },
+      "referee_record": {
+        "evidence_mode": "embedded_fixture_unverifiable",
+        "evidence_mode_source": "hint_accepted_as_disclosure_only",
+        "evidence_fields_inspected": ["jws.header.jwk", "public_key_hash"],
+        "key_material_source": "not_found",
+        "key_hash_recomputation_result": "fail_missing_material",
+        "signature_input_recomputation_result": "not_attempted",
+        "claim_level_ceiling": "admission_multisig_unverifiable"
+      },
+      "cross_check": "producer_hint_contradicts_referee",
+      "board_result": {
+        "displayed_claim_level": "admission_multisig_unverifiable",
+        "blocked_reason": "key_material_absent: public_key_hash not present; embedded_fixture contract requires recomputable key in header",
+        "evidence_contract": "embedded_fixture failed: key recomputation path broken"
+      }
+    },
+    {
+      "id": "hint-pinned-registry-no-resolution-evidence",
+      "description": "Producer declares pinned_registry. Referee finds no key_record_hash, registry_entry_hash, or resolution_time available. The contract for pinned_registry requires all three fields to be present and independently verifiable. Hint recorded as disclosure; referee derives registry_unverifiable. Row falls to admission_independent.",
+      "expected": "FAIL",
+      "failure_mode": "hint_plausible_contract_unmet",
+      "failure_detail": "Producer declared pinned_registry but key_record_hash, registry_entry_hash, and resolution_time are all absent from the fixture. The pinned_registry contract requires the referee to independently verify the key against a recorded registry snapshot. Without resolution evidence, the referee cannot establish that the key was the one in use at admission time.",
+      "producer_record": {
+        "artifact_hash": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c",
+        "signer_identity_ref": "external-signer-v1",
+        "declared_evidence_mode_hint": "pinned_registry",
+        "declared_key_location": "did:web:example.com#key-1",
+        "declared_claim_level": "admission_multisig_recomputable",
+        "canonical_payload_hash": "906a51a3be93e9ab5c4911080b2e1dc4ad07bbbc9711aa997f212ea95257008c"
+      },
+      "referee_record": {
+        "evidence_mode": "pinned_registry_unverifiable",
+        "evidence_mode_source": "hint_accepted_as_disclosure_only",
+        "evidence_fields_inspected": ["key_record_hash", "registry_entry_hash", "resolution_time"],
+        "key_material_source": "not_found",
+        "key_hash_recomputation_result": "fail_missing_material",
+        "signature_input_recomputation_result": "not_attempted",
+        "claim_level_ceiling": "admission_independent"
+      },
+      "cross_check": "producer_hint_contradicts_referee",
+      "board_result": {
+        "displayed_claim_level": "admission_independent",
+        "blocked_reason": "pinned_registry contract unmet: key_record_hash, registry_entry_hash, resolution_time all absent",
+        "evidence_contract": "pinned_registry failed: no resolution evidence available to referee"
+      }
+    }
+  ]
+}

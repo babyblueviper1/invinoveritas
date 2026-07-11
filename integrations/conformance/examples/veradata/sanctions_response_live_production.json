@@ -1,0 +1,28 @@
+{
+  "_source": "VeraData /sanctions LIVE production response (real entity, name undisclosed for privacy), provided by teodorofodocrispin-cmyk in x402-foundation/x402#2749 (2026-07-01T17:22:02Z)",
+  "_distinction_from_sanctions_response_clean.json": "That fixture is a synthetic conformance-test entity where we have query_hash_input from scratch, so query_hash itself is independently recomputable. This one is a real production call over an undisclosed real entity — query_hash is taken as given (their input, correctly not disclosed), and only the event_hash/chain_hash chain from that point forward is independently verified. Both properties matter and are complementary: full-construction recompute (the other fixture) and real-production-chain-integrity (this one).",
+  "response": {
+    "lists_checked": ["OFAC_SDN", "EU_CONSOLIDATED", "UK_HM_TREASURY", "UN_CONSOLIDATED"],
+    "risk_score": 0,
+    "risk_category": "CLEAN",
+    "checked_at": "2026-07-01T17:21:25.534300+00:00",
+    "aat": {
+      "agent_id": "conformance-live-v5",
+      "query_hash":  "sha256:8c25aa7bfbcff35a4016d48658831a02cf68f47ec9a4ee36c9bda6c49f339bfa",
+      "event_hash":  "sha256:566cb522ed003e8f7ec107fa50b378c3c8ae16e3e2abbb5fef3e005de8a1f77a",
+      "prev_hash":   "sha256:774837910397e43de89e253c1fbbcea89c334086bef0525ce4bd148e50ecb613",
+      "chain_hash":  "sha256:909e0c4c44d479c412c3371303f605a8714fdb02c7299958e870f7fac2bdc66e",
+      "policy_ref":  "veradata-v2.0.0-EU-AI-ACT-ART12-ART13-DIFC-REG10-CBUAE2026-SARLAFT2024-FATF-R16",
+      "chain_stored": true
+    }
+  },
+  "recompute_construction": {
+    "note": "query_hash is TAKEN AS GIVEN here (the real screened entity's name is not disclosed, correctly). What's independently verified: event_hash = SHA256('sha256:' + query_hash + '|0.0000|' + checked_at + '|' + policy_ref), and chain_hash = SHA256('sha256:' + genesis + '|sha256:' + event_hash) where genesis = SHA256('veradata-aat-genesis-v1'). Both independently recomputed and confirmed matching by babyblueviper1, same day.",
+    "verified_via_review": "Also run through the real invinoveritas /review endpoint (artifact_type=sanctions_screening): verdict=approve, confidence=0.95, decision_ref=sha256:0a13c127fb21b96325ccec1bddcae4300f5dc7cf388150b506a398054229afbe. Deterministic overclaim-boundary check found one real, minor gap: lists_checked present (honest scope) but no explicit matches field — VeraData confirmed fixing this (adding matches: [] to all CLEAN responses)."
+  },
+  "expected": {
+    "event_hash_recomputes": true,
+    "chain_hash_recomputes": true,
+    "overclaim_boundary_note": "Missing matches field at time of this fixture — a real, live example of the exact boundary the overclaim check exists to catch, not a hypothetical."
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "fixture": "external_attestation_matches_intent_ref",
+  "spec": "AG2 Beta governance middleware \u2014 pre-release join check",
+  "expected": {
+    "release_record.outcome": "released",
+    "reason_code": "attestation_bound_and_verified"
+  },
+  "description": "A real, independently schnorr-signed external attestation binds the SAME artifact_hash as the proposed action's intent_ref. Signature valid AND binding correct, so the join holds and release may proceed (subject to the gate decision). The positive of the triple.",
+  "test": "external_attestation.artifact_hash == proposed_action.intent_ref AND sig valid  =>  release_record.outcome == 'released'",
+  "proposed_action": {
+    "agent_id": "agent:demo-trader",
+    "operation": "erc20_transfer",
+    "canonical_input": {
+      "raw": {
+        "action": "erc20_transfer",
+        "chainId": "8453",
+        "to": "0x000000000000000000000000000000000000dEaD",
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        "spender": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+      },
+      "canonicalization": "json-sorted-keys-utf8-nows",
+      "canonical_bytes_utf8": "{\"action\":\"erc20_transfer\",\"amount\":\"115792089237316195423570985008687907853269984665640564039457584007913129639935\",\"chainId\":\"8453\",\"spender\":\"0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984\",\"to\":\"0x000000000000000000000000000000000000dEaD\",\"token\":\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"}"
+    },
+    "intent_ref": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+    "_recompute": "sha256(utf8(canonical_input.canonical_bytes_utf8)) == intent_ref",
+    "proposed_at": 1782599900,
+    "middleware_instance_id": "ag2-beta-mw-1"
+  },
+  "gate_decision": {
+    "decision": "allow",
+    "intent_ref": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+    "policy_stage": "external_attestation",
+    "issued_at": 1782599905
+  },
+  "external_attestation": {
+    "artifact_type": "onchain_action",
+    "artifact_hash": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+    "verdict": "reject",
+    "evaluator_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "signature_valid": true,
+    "_recompute": "id=sha256([0,pubkey,created_at,kind,tags,content]); schnorr-verify sig vs pubkey; artifact_hash==intent_ref",
+    "signed_event": {
+      "id": "32f4f67461b41a151f3e7379e069856372e35ce71242b64b47e35d5c1634cd6a",
+      "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+      "created_at": 1782598909,
+      "kind": 30078,
+      "tags": [
+        [
+          "d",
+          "invinoveritas-proof-faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3-1782598909-1d5773ce"
+        ],
+        [
+          "t",
+          "invinoveritas"
+        ],
+        [
+          "t",
+          "proof"
+        ],
+        [
+          "schema",
+          "invinoveritas.verdict_proof.v1"
+        ]
+      ],
+      "content": "{\"artifact_hash\":\"faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3\",\"artifact_type\":\"onchain_action\",\"confidence\":0.95,\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"platform\":\"invinoveritas\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"summary_hash\":\"f2da0ca789225431388a94573da023098fc956b5634426276f886ca040f04585\",\"verdict\":\"reject\",\"verified_at\":1782598909,\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \\u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \\u00b7  pip install invinoveritas-verify  \\u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+      "sig": "6e3f45fb37eb8522502f5d2548d47cfabeb0b07e77df45af5400fe55786d2ee65592cd69fc46879b2edbadd6abb08f7b2cea76e57ea686204db9b585eeaf9756"
+    },
+    "proof_ref": "https://api.babyblueviper.com/verify-proof"
+  },
+  "release_record": {
+    "outcome": "released",
+    "joined_intent_ref": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+    "reason_code": "attestation_bound_and_verified"
+  }
+}

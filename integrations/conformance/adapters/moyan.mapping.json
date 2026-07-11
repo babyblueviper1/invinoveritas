@@ -1,0 +1,30 @@
+{
+  "name": "moyan-pmi",
+  "_doc": "PMI / moyan trust-assessment governance endpoint (Liuyanfeng1234, autogen#7353). Every response carries a signed governance block. Scheme ed25519-jcs: envelope_hash = SHA-256(JCS(response excluding the governance block)); the Ed25519 signature is over the envelope_hash HEX STRING (the adapter auto-detects raw-bytes vs hex-string). verifier_pubkey is the governance signing key, independent of the agent's own key.",
+  "fetch": {
+    "method": "POST",
+    "url": "https://sixu-ai.net.cn/api/trust/assess",
+    "headers": {
+      "Content-Type": "application/json",
+      "User-Agent": "preaction-governance-conformance/referee"
+    },
+    "body": {
+      "agent_id": "conformance-check",
+      "action": "erc20_transfer",
+      "scope": "conformance run __NONCE__"
+    },
+    "governance_path": ["governance"]
+  },
+  "sig_scheme": "ed25519-jcs",
+  "envelope_excludes": ["governance"],
+  "fields": {
+    "envelope_hash": "envelope_hash",
+    "pubkey": "verifier_pubkey",
+    "signature": "signature",
+    "sig_scheme": "sig_scheme",
+    "anchor_endpoint": "anchor_endpoint"
+  },
+  "trust_policy": {
+    "independent_verifier_pubkeys": ["3d54caa286b47f68f267b6a162954689a597e310b42cc26633b26a74d811c0a9"]
+  }
+}

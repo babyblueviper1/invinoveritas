@@ -1,0 +1,32 @@
+{
+  "name": "safeagent",
+  "_doc": "Runs the conformance invariants against SafeAgent's live /claim governance block. Their pubkey is published at /governance/pubkey (sig_scheme bip340-schnorr).",
+  "fetch": {
+    "method": "POST",
+    "url": "https://safeagent-production.up.railway.app/claim/test",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "agent_id": "conformance-check",
+      "action_type": "erc20_transfer",
+      "scope": "transfer 1000 USDC to 0xdEaD (conformance run __NONCE__)"
+    },
+    "governance_path": [
+      "governance"
+    ]
+  },
+  "fields": {
+    "envelope_hash": "envelope_hash",
+    "canonical_bytes": "canonical_bytes_utf8",
+    "pubkey": "verifier_pubkey",
+    "signature": "signature",
+    "sig_scheme": "sig_scheme",
+    "anchor_endpoint": "anchor_endpoint"
+  },
+  "trust_policy": {
+    "independent_verifier_pubkeys": [
+      "7cf5961af1d8876df86565d70a2bd8aefb30ec41e2b8243a16a14cff0f6de9ad"
+    ]
+  }
+}

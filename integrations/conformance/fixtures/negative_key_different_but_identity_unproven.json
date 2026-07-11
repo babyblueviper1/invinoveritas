@@ -1,0 +1,74 @@
+{
+  "fixture": "key_different_but_identity_unproven",
+  "expected_overall": "fail",
+  "expected_failure_reason": "key_different_but_identity_unproven",
+  "description": "Signature verifies and the signer differs from the actor, but the key does not resolve to an identity the trust policy declares independent. A second self-issued key passes signature verification yet proves no independence.",
+  "canonical_envelope": {
+    "raw_input": {
+      "action": "erc20_transfer",
+      "chainId": "8453",
+      "to": "0x000000000000000000000000000000000000dEaD",
+      "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "spender": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+    },
+    "canonicalization": "json-sorted-keys-utf8-nows",
+    "canonical_bytes_utf8": "{\"action\":\"erc20_transfer\",\"amount\":\"115792089237316195423570985008687907853269984665640564039457584007913129639935\",\"chainId\":\"8453\",\"spender\":\"0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984\",\"to\":\"0x000000000000000000000000000000000000dEaD\",\"token\":\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"}",
+    "expected_envelope_hash": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3"
+  },
+  "trust_policy": {
+    "independent_verifier_pubkeys": [
+      "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
+    ],
+    "policy": "An admission verdict counts as independent iff its signing pubkey is in independent_verifier_pubkeys AND is not the actor/executor pubkey in the chain."
+  },
+  "chain": {
+    "pre_action": {
+      "action_ref": "act-faa282ce02c8b775",
+      "actor_pubkey": "59ae1763f5bb7bfe78525dc1c98de50ba439b782e6824d89d8af313b14c31230",
+      "envelope_hash": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+      "created_at": 1782599900
+    },
+    "terminal": {
+      "action_ref": "act-faa282ce02c8b775",
+      "executed_envelope_hash": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+      "result": "executed",
+      "terminal_outcome_time": 1782600600
+    }
+  },
+  "admission": {
+    "verdict_event": {
+      "id": "2f1ec45ca9763446b62caf749017f6f457f1d8995ebea38a74f0dbfaf140bb3e",
+      "pubkey": "d6c40bedf148d716f51d14621d7a797ed25704e750cdb2f75560001f8a7c471f",
+      "created_at": 1782600000,
+      "kind": 30078,
+      "tags": [
+        [
+          "t",
+          "invinoveritas"
+        ],
+        [
+          "t",
+          "proof"
+        ]
+      ],
+      "content": "{\"artifact_hash\":\"faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3\",\"artifact_type\":\"onchain_action\",\"confidence\":0.95,\"schema\":\"invinoveritas.verdict_proof.v1\",\"verdict\":\"reject\",\"verified_at\":1782600000,\"verifier_pubkey\":\"d6c40bedf148d716f51d14621d7a797ed25704e750cdb2f75560001f8a7c471f\"}",
+      "sig": "4b36fb34c6fc60e3e64e6279b416c42b47284bbbbdf8227f71d776db200fdd83d4d1533d8988c1db534d1e917eb5f382a3a67e238b87c76d7ea2211345e65e84"
+    },
+    "bound_envelope_hash": "faa282ce02c8b7759a66ada63abd4b6c9ae38035f21f288cc898dd6e5067d5b3",
+    "signer_identity_evidence": {
+      "pubkey": "d6c40bedf148d716f51d14621d7a797ed25704e750cdb2f75560001f8a7c471f",
+      "publication_pointer": "https://api.babyblueviper.com/ledger (verifier_pubkey is self-described in the proof)"
+    }
+  },
+  "anchor": {
+    "commitment_digest": "2f1ec45ca9763446b62caf749017f6f457f1d8995ebea38a74f0dbfaf140bb3e",
+    "accepted_anchor_point": {
+      "source": "opentimestamps-bitcoin",
+      "block_time": 1782600300,
+      "note": "DECLARED trust input. A deployment verifier resolves this from the anchor proof via `ots verify`; see live_confirmed_anchor.json for a real Bitcoin-confirmed instance."
+    },
+    "anchor_proof_ots_b64": null,
+    "terminal_outcome_time": 1782600600
+  }
+}

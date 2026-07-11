@@ -1,0 +1,16 @@
+{
+  "name": "invinoveritas",
+  "_doc": "Checks an invinoveritas /review verdict proof (NIP-01 Nostr event scheme). Sample response committed for offline demonstration; replace response_file with a live fetch of /review {sign:true}.",
+  "response_file": "adapters/_sample_invinoveritas_response.json",
+  "governance_path": ["governance"],
+  "fields": {
+    "envelope_hash": "envelope_hash",
+    "pubkey": "verifier_pubkey",
+    "sig_scheme": "sig_scheme",
+    "event": "event",
+    "anchor_endpoint": "anchor_endpoint"
+  },
+  "trust_policy": {
+    "independent_verifier_pubkeys": ["6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"]
+  }
+}

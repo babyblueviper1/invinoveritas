@@ -1,0 +1,28 @@
+{
+  "name": "agentoracle",
+  "_doc": "AgentOracle /v1/compose multi-issuer composed verification envelope (TKCollective/agentoracle-receipt-spec, autogen#7353). The response returns a JWS general serialization with TWO signatures (AgentTrust + AgentOracle) over byte-identical RFC 8785 JCS canonical bytes; admission is by construction across multiple independent issuers, not one. The governance block reports AO's signature as the primary admission signer; co_signers discloses the second issuer (AT). canonical_bytes_utf8 is the exact JCS-canonicalized payload — SHA-256 of those bytes recomputes to envelope_hash, no re-canonicalization needed. Scheme ed25519-jcs (over raw 32-byte envelope hash). ANCHORING (S210): /v1/compose now submits a Mycelium NEXUS trail synchronously and polls Arbitrum confirmation inline, populating governance.anchor with {method:on-chain, tier:on-chain, reference (trail_id), tx_hash, anchor_block_time, outcome_ts, precedence:true (strict block_time*1000 < outcome_ts_ms), recompute_cmd}. The anchor uses absent-not-null grammar: it populates only for fully-signed calls (valid screen_ref with issuer/verdict/screen), so a bare referee probe returns governance.anchor=null and the row reads anchoring_existence/precedence PENDING (anchor_absent_this_call), NOT certified — honest, since the referee cannot mint a valid screen_ref. The board flips to existence-pass/precedence-pass via on-chain (Arbitrum) the moment a referee-reachable call returns the anchor sibling. The first anchored envelope (trail b4377bcd-7342-4f7d-bdb3-daf41201bd47) was independently recomputed by the referee on 2026-06-28: verify_chain returns valid:true and precedence holds by a 599s margin — the first non-Bitcoin precedence anchor on the board.",
+  "fetch": {
+    "method": "GET",
+    "url": "https://agentoracle.co/v1/conformance/sample",
+    "headers": {
+      "User-Agent": "preaction-governance-conformance/referee"
+    },
+    "governance_path": ["governance"]
+  },
+  "_fetch_note": "Row recompute source = AgentOracle's byte-stable conformance sample (TKCollective, autogen#7353). A bare POST /v1/compose can't mint a valid screen_ref so its anchor is absent-not-null; this fixed envelope carries a populated on-chain (Arbitrum/Mycelium) anchor whose block_time was committed before outcome_ts at envelope-creation time, so it recomputes deterministically and doesn't drift. Referee independently confirmed 2026-06-28: canonical sha256==envelope_hash, Ed25519 admission valid under 171b4df8 (independent), Mycelium verify_chain valid:true, precedence=true.",
+  "sig_scheme": "ed25519-jcs",
+  "fields": {
+    "envelope_hash": "envelope_hash",
+    "canonical_bytes": "canonical_bytes_utf8",
+    "pubkey": "verifier_pubkey",
+    "signature": "signature",
+    "sig_scheme": "sig_scheme",
+    "anchor_endpoint": "anchor"
+  },
+  "trust_policy": {
+    "independent_verifier_pubkeys": [
+      "171b4df82481832913a7706017146b024c4d5112309e649f453c1fbd7066052a",
+      "98e73aa9d4c701092ccd3f3f450be9ce6293727b41087d5ff9dc83c2e2a91312"
+    ]
+  }
+}

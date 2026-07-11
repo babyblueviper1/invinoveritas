@@ -1,0 +1,38 @@
+{
+  "_source": "VeraData /sanctions conformance fixture, provided by teodorofodocrispin-cmyk in x402-foundation/x402#2749 (2026-07-01T15:51:49Z)",
+  "response": {
+    "name": "[CONFORMANCE_TEST_ENTITY]",
+    "country": "CO",
+    "type": "company",
+    "risk_score": 0.0,
+    "risk_category": "CLEAN",
+    "lists_checked": ["OFAC_SDN", "SARLAFT_CO", "CNBV_MX", "COAF_BR", "UAF_CL"],
+    "matches": [],
+    "audit_hash": "sha256:e603426084a26c40979442638d95f206a7a7bc93f2f418eaaa278c0e4ac438a7",
+    "aat": {
+      "agent_id": "conformance-fixture-v1",
+      "query_hash": "sha256:d5d1a81f6f6822ddeac1895830951cb76dc47ff0d3db4bb5bf1bad065dbf3e5b",
+      "event_hash": "sha256:b3a9b8f173454ac2e5c5116df7ea4b9f4b7d3fe39244156dc352965774895231",
+      "prev_hash":  "sha256:774837910397e43de89e253c1fbbcea89c334086bef0525ce4bd148e50ecb613",
+      "chain_hash": "sha256:095bc2a894545ae0e05b6f0d1d14cb23ce91049596c0d4696c7e74b57288d5e8",
+      "policy_ref": "veradata-v2.0.0-EU-AI-ACT-ART12-ART13-DIFC-REG10-CBUAE2026-SARLAFT2024-FATF-R16",
+      "chain_stored": true
+    },
+    "checked_at": "2026-07-01T15:30:00.000000+00:00"
+  },
+  "recompute_construction": {
+    "genesis_input": "veradata-aat-genesis-v1",
+    "query_hash_input": "test_entity_conformance|CO|CNBV_MX,COAF_BR,OFAC_SDN,SARLAFT_CO,UAF_CL",
+    "query_hash_note": "name normalized (lowercased, brackets stripped) + country + lists sorted alphabetically, pipe-delimited",
+    "event_hash_input_template": "{query_hash_with_sha256_prefix}|{risk_score:.4f}|{checked_at}|{policy_ref}",
+    "chain_hash_input_template": "{prev_hash_with_sha256_prefix}|{event_hash_with_sha256_prefix}",
+    "prefix_convention": "IMPORTANT (found by independent recompute, not stated explicitly in the source comment): every hash reference used as an input to a SUBSEQUENT hash includes its own literal 'sha256:' prefix. Bare hex inputs (no prefix) produce a DIFFERENT hash and fail to match the claimed event_hash/chain_hash. This is the load-bearing detail a naive recompute would silently get wrong."
+  },
+  "expected": {
+    "genesis_recomputes": true,
+    "query_hash_recomputes": true,
+    "event_hash_recomputes": true,
+    "chain_hash_recomputes": true,
+    "risk_category_overclaim_check": "risk_score=0.0/CLEAN must be read as 'not found in these lists at checked_at' — never as a global clean-entity claim. matches=[] over lists_checked is the honest scope of what this fixture attests to."
+  }
+}
