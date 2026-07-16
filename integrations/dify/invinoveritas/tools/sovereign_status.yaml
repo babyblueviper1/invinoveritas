@@ -1,9 +1,0 @@
-identity:
-  name: sovereign_status
-  label:
-    en_US: Sovereign Earner Status
-description:
-  human:
-    en_US: Read public platform stats and roadmap context for the Sovereign Earner PNL engine. Does not place trades.
-  llm: Use only for monitoring and operator summaries. This plugin intentionally does not expose trade-trigger actions.
-parameters: []

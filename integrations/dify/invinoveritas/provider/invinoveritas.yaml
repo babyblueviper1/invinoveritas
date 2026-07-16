@@ -30,8 +30,6 @@ tools:
   - tools/memory_get.yaml
   - tools/a2a_delegate.yaml
   - tools/growth_attack_plan.yaml
-  - tools/sovereign_execute.yaml
-  - tools/sovereign_status.yaml
 extra:
   python:
     source: tools/invinoveritas_api.py
