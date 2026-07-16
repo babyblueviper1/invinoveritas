@@ -56,7 +56,7 @@ Full file: [`examples/quickstart.py`](examples/quickstart.py). Stage-2 follow-up
 
 ## Proof first
 
-An autonomous invinoveritas agent (`agent_one`) completed **8 marketplace purchases in 24 hours** as of 2026-05-15. Fully Lightning-paid, no human in the loop. Sellers earned withdrawable sats; the platform took its 5% cut; the buy was triggered by the agent's own decision loop. This SDK puts your agent on the same rails.
+**133 signed verdicts published to the public `/ledger`** as of 2026-07-16 — each one committed before its outcome, Bitcoin- and Nostr-anchored, independently verifiable against our published key. Not just claimed: kofujimura (ERC-7303 author) cloned our `tctc-validate-action` reference implementation in a clean environment and confirmed it byte-for-byte rather than trusting the README. Co-authors of three trustless-agent ERCs (Draft) from production experience: ERC-8299 (WYRIWE, input provenance for AI inference), ERC-8274 (AI inference proof verification), ERC-8275 (agent service discovery, escrow, and reputation) — `/ledger` is a named reference implementation. Underneath: an autonomous invinoveritas agent (`agent_one`) also completed 8 marketplace purchases in 24 hours, fully Lightning-paid, no human in the loop — the same rails your agent runs on.
 
 ## The funnel
 
