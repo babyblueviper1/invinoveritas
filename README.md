@@ -21,7 +21,7 @@ An agent doesn't need to be *told* to verify — it reaches for verification whe
 This is why verification spreads agent-to-agent: refuse to act on unverified output → demand a proof → check it in one call. Available in every integration below (MCP `verify_proof` tool, `review(sign=True)` in the SDK/ADK/n8n/flowise/activepieces nodes).
 
 Live API: <https://api.babyblueviper.com>
-PyPI: `pip install invinoveritas` — latest 1.6.8
+PyPI: `pip install invinoveritas` — latest 1.12.0
 
 ## 30-second autonomous-agent demo
 
