@@ -101,8 +101,8 @@ echo "$RESP" | jq '.proof' > ivv_proof.json   # portable signed proof — attach
 - **Codex Automations / CI:** add it as a pipeline step before merge/deploy.
 - Trading/agent actions: send the proposed action as the artifact
   (`artifact_type: "trade"` / `"plan"`); add `"include_trading_state": true`
-  for a capital-scale-aware verdict (the same gate our own live Bitcoin bot
-  passes on every entry).
+  for a capital-scale-aware verdict (the same gate we run our own
+  important decisions through).
 
 ### 2. Attach the proof to what the loop ships
 

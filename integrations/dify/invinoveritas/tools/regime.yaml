@@ -4,6 +4,6 @@ identity:
     en_US: Regime (macro risk-off feed)
 description:
   human:
-    en_US: Macro risk-off DATA feed (OOS-validated, facts-only) — the regime signal our own live Bitcoin bot scales risk by. Not financial advice.
+    en_US: Macro risk-off DATA feed (OOS-validated, facts-only) — the methodology behind our own risk-sizing research. Not financial advice.
   llm: "Use to read the current macro risk-off regime (a validated risk-on/risk-off state + exposure scalar). Facts only, no buy/sell. Takes no parameters."
 parameters: []

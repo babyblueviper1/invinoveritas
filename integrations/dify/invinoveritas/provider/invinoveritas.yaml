@@ -4,7 +4,7 @@ identity:
   label:
     en_US: invinoveritas
   description:
-    en_US: The verification layer for autonomous agents — Bitcoin/Lightning-native (or USDC/x402). Governed /review before an irreversible action (the front door, dogfooded by our own live Bitcoin bot), a signed /prove after, and a public on-chain-verifiable track record (/ledger) you can audit without trusting us. Reasoning, decisions, memory, marketplace, and A2A delegation run underneath.
+    en_US: The verification layer for autonomous agents — Bitcoin/Lightning-native (or USDC/x402). Governed /review before an irreversible action (the front door, dogfooded on our own important decisions), a signed /prove after, and a public on-chain-verifiable track record (/ledger) you can audit without trusting us. The verdict is committed before the outcome it's graded against (recomputable, no TEE, no trusted scorer). Reasoning, decisions, memory, marketplace, and A2A delegation run underneath.
   icon: icon.svg
 credentials_for_provider:
   api_key:
@@ -20,6 +20,7 @@ tools:
   - tools/reason.yaml
   - tools/decision.yaml
   - tools/review.yaml
+  - tools/verify_proof.yaml
   - tools/residence_act.yaml
   - tools/regime.yaml
   - tools/signals_teaser.yaml
@@ -29,7 +30,6 @@ tools:
   - tools/memory_store.yaml
   - tools/memory_get.yaml
   - tools/a2a_delegate.yaml
-  - tools/growth_attack_plan.yaml
 extra:
   python:
     source: tools/invinoveritas_api.py

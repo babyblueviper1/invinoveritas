@@ -63,5 +63,5 @@ on *this* artifact.
 > Run the cheapest / most-orchestrated engine you like. Keep a gate that **isn't** the engine,
 > and ship the proof of what it checked.
 
-Same gate our own live Bitcoin trading bot runs on itself (`include_trading_state=true` for a
+Same gate we run our own important decisions through (`include_trading_state=true` for a
 capital-scale-aware verdict). Track record is public and recomputable: `https://api.babyblueviper.com/ledger`.

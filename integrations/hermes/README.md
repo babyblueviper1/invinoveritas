@@ -1,6 +1,6 @@
 # invinoveritas × Hermes Agent
 
-Give your self-hosted [Hermes Agent](https://github.com/nousresearch/hermes-agent) a wallet. invinoveritas is a Lightning-paid MCP tool stack — capital-scale-aware second-opinion **review** before irreversible actions (the same gate our own live Bitcoin earner passes on every entry), a facts-only **markets** intelligence group (regime + live derivatives signals + the Markets Bundle), reasoning, sandboxed code execution, and paid agent-to-agent messaging — and Hermes speaks MCP natively, so wiring it is **one config block, no glue code**.
+Give your self-hosted [Hermes Agent](https://github.com/nousresearch/hermes-agent) a wallet. invinoveritas is a Lightning-paid MCP tool stack — capital-scale-aware second-opinion **review** before irreversible actions (the same gate we run our own important decisions through), a facts-only **markets** intelligence group (regime + live derivatives signals + the Markets Bundle), reasoning, sandboxed code execution, and paid agent-to-agent messaging — and Hermes speaks MCP natively, so wiring it is **one config block, no glue code**.
 
 ## Proof first
 
@@ -10,12 +10,12 @@ This isn't a mockup. The live MCP endpoint exposes **25 tools** today (re-verifi
 register (free, 0 starter sats) → fund (Lightning / x402 USDC) → tools/call → sats debited per call
 ```
 
-All three payment rails are live right now:
-- **Bearer balance** — fund a key, calls debit credits per call.
+All three inline payment rails are live right now:
+- **Bearer balance** — fund a key, calls debit credits per call. (Fund it via Lightning, x402, or **card** — `POST /billing/topup`.)
 - **L402 Lightning** — call with no key, get back a `402` + a real BOLT11 invoice, pay per call. (Verified: `tools/call signals` on an unfunded key → `402`.)
 - **x402 (USDC on Base)** — send `X-Payment-Scheme: x402` for a stablecoin 402 challenge, settled via the CDP facilitator.
 
-> Registration is free and instant but carries **0 starter sats** — fund via `POST /topup` (Lightning) or x402 before paid calls.
+> Registration is free and instant but carries **0 starter sats** — fund via `POST /topup` (Lightning), x402, or **card** (`POST /billing/topup`) before paid calls. (Card-funded sats are spendable, not withdrawable.)
 
 ## Quickstart (under 2 minutes)
 
@@ -56,7 +56,7 @@ Restart Hermes. It auto-discovers the tools at startup; they appear to the agent
 |---|---|---|
 | `review` | Capital-scale-aware second-opinion verdict on a proposed action (the differentiated one — set `include_trading_state` for live-state-aware verdicts) | ~260 sats |
 | `markets_act` | **The Markets Bundle** — macro regime + live derivatives signals + ecosystem brief + an optional governance review of a proposed trade, in one call, priced below the sum. Facts-only data + a governance verdict, never P&L/advice | ~240 sats |
-| `signals` | Live Hyperliquid derivatives signals — funding + 24h funding-delta, basis, open interest, the vol-expansion regime our own live Bitcoin earner enters on, realized vol, BTC DVOL (multi-coin). Facts-only. (Free BTC-regime teaser at `GET /signals`) | ~40 sats |
+| `signals` | Live Hyperliquid derivatives signals — funding + 24h funding-delta, basis, open interest, the vol-expansion regime our own trading research is grounded in, realized vol, BTC DVOL (multi-coin). Facts-only. (Free BTC-regime teaser at `GET /signals`) | ~40 sats |
 | `reason` | Premium strategic reasoning with style + confidence control | ~100–130 sats |
 | `decision` | Structured decision with confidence % and risk level | ~130 sats |
 | `agent_economy_brief` | Paid research brief on the agent economy | tiered |

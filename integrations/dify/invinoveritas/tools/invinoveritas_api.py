@@ -113,7 +113,7 @@ class InvinoveritasApi:
     # ---- Markets / trading intelligence (facts-only, never P&L/advice) ----
 
     def regime(self, x402: bool = False) -> dict:
-        """Macro risk-off DATA feed (/regime) — the regime signal our own bot scales risk by."""
+        """Macro risk-off DATA feed (/regime) — the methodology behind our own risk-sizing research."""
         return self.get("/regime", x402=x402)
 
     def signals_teaser(self) -> dict:
@@ -153,42 +153,3 @@ class InvinoveritasApi:
         except json.JSONDecodeError:
             task = {"description": task_json}
         return self.request("/a2a", {"operation": operation, "task": task})
-
-    def growth_attack_plan(self, objective: str, context: str = "", budget_sats: int | None = None) -> dict:
-        prompt = (
-            "Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, "
-            "budget limits, and clear risk controls. Produce concrete next actions that drive registrations, "
-            "funded accounts, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, "
-            "seller withdrawals, or Sovereign Earner support.\n\n"
-            f"Objective: {objective}\nContext: {context}\nBudget sats: {budget_sats or 'not specified'}"
-        )
-        return self.decision(
-            goal="Maximize invinoveritas growth and daily sats PNL with default-aggressive execution.",
-            question=prompt,
-            context=context,
-        )
-
-    def sovereign_status(self) -> dict:
-        stats = urllib.request.urlopen(f"{self.base_url}/stats", timeout=20).read()
-        return json.loads(stats.decode("utf-8"))
-
-    def sovereign_execute(
-        self,
-        fee_sats: int = 1000,
-        direction: str = "auto",
-        leverage: int = 3,
-        duration_hours: float = 2.0,
-        stop_loss_pct: float = 0.35,
-        take_profit_pct: float = 0.70,
-        thesis: str = "",
-    ) -> dict:
-        return self.request("/sovereign/execute", {
-            "fee_sats": fee_sats,
-            "direction": direction,
-            "leverage": leverage,
-            "duration_hours": duration_hours,
-            "stop_loss_pct": stop_loss_pct,
-            "take_profit_pct": take_profit_pct,
-            "thesis": thesis,
-            "agent_id": "dify",
-        })

@@ -54,7 +54,7 @@ const decision = createAction({
 const review = createAction({
   name: 'review',
   displayName: 'Governed Review (front door)',
-  description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate our own live Bitcoin bot passes before every entry. Returns an approve/revise/reject verdict. ~250 sats.',
+  description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate we run our own important decisions through. Returns an approve/revise/reject verdict. ~250 sats.',
   auth,
   props: {
     artifact: Property.LongText({ displayName: 'Artifact to review', required: true }),
@@ -184,7 +184,7 @@ const residenceAct = createAction({
 const regime = createAction({
   name: 'regime',
   displayName: 'Regime (macro risk-off feed)',
-  description: 'Macro risk-off DATA feed (OOS-validated, facts-only) — the regime signal our own live Bitcoin bot scales risk by. Not financial advice.',
+  description: 'Macro risk-off DATA feed (OOS-validated, facts-only) — the methodology behind our own risk-sizing research. Not financial advice.',
   auth,
   props: {},
   async run(ctx) {
@@ -195,7 +195,7 @@ const regime = createAction({
 const signalsTeaser = createAction({
   name: 'signals_teaser',
   displayName: 'Signals — free BTC vol-expansion teaser',
-  description: 'Free shop-window: the BTC vol-expansion regime read — the exact gate our own live Bitcoin earner enters on. Facts-only, not advice.',
+  description: 'Free shop-window: the BTC vol-expansion regime read — the same read our own trading research is grounded in. Facts-only, not advice.',
   auth,
   props: {},
   async run(ctx) {
@@ -330,71 +330,12 @@ const a2aDelegate = createAction({
   },
 });
 
-const growthAttackPlan = createAction({
-  name: 'growth_attack_plan',
-  displayName: 'Growth + PNL Attack Plan',
-  description: 'Generate a default-aggressive, risk-bounded plan for registrations, paid usage, marketplace volume, Premium Spawn Kit conversion, and daily sats PNL.',
-  auth,
-  props: {
-    objective: Property.LongText({ displayName: 'Objective', required: true }),
-    context: Property.LongText({ displayName: 'Context', required: false }),
-    budget_sats: Property.Number({ displayName: 'Budget Sats', required: false }),
-  },
-  async run(ctx) {
-    const prompt = [
-      'Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.',
-      'Produce concrete next actions that drive registrations, funded accounts, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, seller withdrawals, or Sovereign Earner support.',
-      `Objective: ${ctx.propsValue.objective}`,
-      `Context: ${ctx.propsValue.context ?? ''}`,
-      `Budget sats: ${ctx.propsValue.budget_sats ?? 'not specified'}`,
-    ].join('\n');
-    return invinoRequest(apiKey(ctx.auth), '/decision', {
-      goal: 'Maximize invinoveritas growth and daily sats PNL with default-aggressive execution.',
-      question: prompt,
-      context: ctx.propsValue.context ?? '',
-    });
-  },
-});
-
-const sovereignExecute = createAction({
-  name: 'sovereign_execute',
-  displayName: 'Sovereign Earner Execute',
-  description: 'Pay sats upfront to queue an aggressive, risk-bounded Sovereign Earner directive. Platform keeps 40%; 60% becomes strategy budget.',
-  auth,
-  props: {
-    fee_sats: Property.Number({ displayName: 'Fee Sats', required: true, defaultValue: 1000 }),
-    direction: Property.StaticDropdown({
-      displayName: 'Direction',
-      required: false,
-      defaultValue: 'auto',
-      options: {
-        options: [
-          { label: 'Auto', value: 'auto' },
-          { label: 'Long', value: 'long' },
-          { label: 'Short', value: 'short' },
-        ],
-      },
-    }),
-    leverage: Property.Number({ displayName: 'Leverage', required: false, defaultValue: 3 }),
-    duration_hours: Property.Number({ displayName: 'Duration Hours', required: false, defaultValue: 2 }),
-    stop_loss_pct: Property.Number({ displayName: 'Stop Loss %', required: false, defaultValue: 0.35 }),
-    take_profit_pct: Property.Number({ displayName: 'Take Profit %', required: false, defaultValue: 0.7 }),
-    thesis: Property.LongText({ displayName: 'Thesis', required: false }),
-  },
-  async run(ctx) {
-    return invinoRequest(apiKey(ctx.auth), '/sovereign/execute', {
-      ...ctx.propsValue,
-      agent_id: 'activepieces',
-    });
-  },
-});
-
 export const invinoveritas = createPiece({
   displayName: 'invinoveritas',
   auth,
   minimumSupportedRelease: '0.28.0',
   logoUrl: 'https://api.babyblueviper.com/favicon.ico',
   authors: ['babyblueviper1'],
-  actions: [reason, decision, review, prove, ledger, verifyProof, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate, growthAttackPlan, sovereignExecute],
+  actions: [reason, decision, review, prove, ledger, verifyProof, residenceAct, regime, signalsTeaser, signals, marketsAct, marketplaceBuy, memoryStore, memoryGet, memoryList, memoryDelete, a2aDelegate],
   triggers: [],
 });

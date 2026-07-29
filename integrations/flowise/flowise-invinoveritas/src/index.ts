@@ -142,21 +142,6 @@ export async function invinoMarketsAct(
   return post(config, '/markets/act', body);
 }
 
-export async function invinoGrowthAttackPlan(config: InvinoConfig, objective: string, context = '', budgetSats?: number) {
-  return invinoDecision(
-    config,
-    'Maximize invinoveritas growth and daily sats PNL with default-aggressive execution.',
-    [
-      'Default posture: aggressive growth and PNL capture, bounded by Bitcoin/Lightning-only payments, budget limits, and explicit risk controls.',
-      'Produce concrete next actions that drive registrations, funded accounts, paid reasoning, marketplace purchases, Premium Spawn Kit conversion, referrals, seller withdrawals, or Sovereign Earner support.',
-      `Objective: ${objective}`,
-      `Context: ${context}`,
-      `Budget sats: ${budgetSats ?? 'not specified'}`,
-    ].join('\n'),
-    context,
-  );
-}
-
 export async function invinoMemoryStore(config: InvinoConfig, agentId: string, key: string, value: string) {
   return post(config, '/memory/store', { agent_id: agentId, key, value });
 }
@@ -173,28 +158,6 @@ export async function invinoMemoryDelete(config: InvinoConfig, agentId: string, 
   return post(config, '/memory/delete', { agent_id: agentId, key });
 }
 
-export async function invinoSovereignExecute(
-  config: InvinoConfig,
-  thesis: string,
-  feeSats = 1000,
-  direction: 'auto' | 'long' | 'short' = 'auto',
-  leverage = 3,
-  durationHours = 2,
-  stopLossPct = 0.35,
-  takeProfitPct = 0.7,
-) {
-  return post(config, '/sovereign/execute', {
-    fee_sats: feeSats,
-    direction,
-    leverage,
-    duration_hours: durationHours,
-    stop_loss_pct: stopLossPct,
-    take_profit_pct: takeProfitPct,
-    thesis,
-    agent_id: 'flowise',
-  });
-}
-
 export const nodes = [
   {
     label: 'invinoveritas Reason',
@@ -209,7 +172,7 @@ export const nodes = [
   {
     label: 'invinoveritas Review (front door)',
     name: 'invinoveritasReview',
-    description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate our live Bitcoin bot passes before every entry. ~250 sats.',
+    description: 'Capital-scale-aware governed review of a trade, diff, command, or plan — the same gate we run our own important decisions through. ~250 sats.',
   },
   {
     label: 'invinoveritas Prove (signed proof)',
@@ -245,16 +208,6 @@ export const nodes = [
     label: 'invinoveritas Markets Bundle',
     name: 'invinoveritasMarketsAct',
     description: 'One governed call: regime + live signals + ecosystem brief + optional governance review of a proposed trade. Priced below the sum of its members.',
-  },
-  {
-    label: 'invinoveritas Growth + PNL Attack Plan',
-    name: 'invinoveritasGrowthAttackPlan',
-    description: 'Default-aggressive growth and revenue planning for agent workflows.',
-  },
-  {
-    label: 'invinoveritas Sovereign Earner Execute',
-    name: 'invinoveritasSovereignExecute',
-    description: 'Pay sats to queue an aggressive, risk-bounded Sovereign Earner directive.',
   },
   {
     label: 'invinoveritas Memory Store',

@@ -122,8 +122,8 @@ def review(artifact: str, artifact_type: str = "general", context: str = "",
     """Capital-scale-aware structured review — the proven governance front door (~250 sats).
 
     Returns an approve/revise/reject verdict with confidence, a summary, and
-    concrete issues. This is the same gate invinoveritas' own live trading bot
-    passes before every entry. Set include_trading_state=True for a verdict that
+    concrete issues. This is the same gate we run our own important decisions
+    through. Set include_trading_state=True for a verdict that
     factors live equity/drawdown into its risk tolerance.
 
     Set sign=True to also get a PORTABLE SIGNED proof of the verdict (on `proof`)
@@ -206,8 +206,8 @@ def residence_act(intent: str, artifact: str | None = None,
 # ---- Markets / trading intelligence (facts-only, never P&L/advice) ----
 
 def regime(x402: bool = False) -> dict[str, Any]:
-    """Macro risk-off DATA feed (/regime) — the regime signal our own bot scales
-    risk by. Facts only, not financial advice. x402=True requests the USDC rail."""
+    """Macro risk-off DATA feed (/regime) — the methodology behind our own risk-sizing
+    research. Facts only, not financial advice. x402=True requests the USDC rail."""
     headers = _headers()
     if x402:
         headers["X-Payment-Scheme"] = "x402"
@@ -217,8 +217,8 @@ def regime(x402: bool = False) -> dict[str, Any]:
 
 
 def signals_teaser() -> dict[str, Any]:
-    """Free shop-window (/signals): the BTC vol-expansion regime read — the exact
-    gate our own live trading earner enters on. Facts only."""
+    """Free shop-window (/signals): the BTC vol-expansion regime read — the same
+    read our own trading research is grounded in. Facts only."""
     r = requests.get(f"{BASE_URL}/signals", headers=_headers(), timeout=TIMEOUT_S)
     r.raise_for_status()
     return r.json()
