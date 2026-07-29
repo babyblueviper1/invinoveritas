@@ -1,4 +1,4 @@
-# invinoveritas v1.12.0
+# invinoveritas v1.12.1
 
 The pre-trade review your autonomous trading agent calls before it risks real capital — the same gate we run our own important decisions through.
 
