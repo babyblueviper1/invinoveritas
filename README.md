@@ -243,7 +243,7 @@ Discovery endpoints:
 | `POST /review` | **The front door** — capital-scale-aware verdict before an irreversible action; `sign=true` returns a portable signed proof |
 | `POST /verify-proof` | Free, no-auth — verify a counterparty's signed proof (agent-to-agent trust handshake) |
 | `GET /ledger` | Free — the public, signed, on-chain-outcome-linked verdict track record |
-| `POST /ledger/submit` | 150 sats — propose your own `/review(sign=true)` proof as a featured public ledger entry; publishes immediately, no human review (the cryptographic check against our own key IS the gate); Bitcoin-anchored via OpenTimestamps within ~15 min, same as every other entry |
+| `POST /ledger/submit` | 150 sats — propose your own `/review(sign=true)` proof as a featured public ledger entry; publishes immediately, no human review (the cryptographic check against our own key IS the gate); same Nostr relay broadcast + Bitcoin OpenTimestamps anchor (~15 min) as every other entry |
 | `POST /browse` | Paid restricted public fetch/text extraction; optional screenshot worker path |
 | `POST /web-act` | Alias for `/browse` for Browser-as-a-Service actions |
 | `POST /execute` | Paid tiered Docker-isolated Python job with resource limits, queueing, cleanup, and audit hashes |
