@@ -91,10 +91,9 @@ class GovernedWorkbench(Workbench):
             THIS IS HOW YOU ACTUALLY GET THE PROOF: setting sign=True alone does nothing
             observable, since the proof isn't stuffed into the tool result text (that would
             spam every successful tool call's output back into the LLM's context for no
-            reason) -- persist/log/forward it yourself here. Also the natural seam if you
-            ever want to promote a subset of your own governed calls into invinoveritas's
-            public /ledger record later (no self-serve publish endpoint exists today; that's
-            a curated, not automatic, record -- see README).
+            reason) -- persist/log/forward it yourself here. Also the natural seam to call
+            submit_proof_to_ledger() (module-level function below) for a subset of your
+            governed calls worth featuring on invinoveritas's public /ledger -- see README.
         timeout_s: HTTP timeout for the /review call. On timeout, fails open (see class
             docstring) -- this is a ceiling on added latency per tool call, not a hang risk.
     """
@@ -240,4 +239,30 @@ class GovernedWorkbench(Workbench):
         return ToolResult(name=name, result=[TextResultContent(content=text)], is_error=True)
 
 
-__all__ = ["GovernedWorkbench"]
+async def submit_proof_to_ledger(
+    event: dict[str, Any], api_key: str, note: str = "", base_url: str = DEFAULT_BASE_URL,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+) -> dict[str, Any]:
+    """Propose a signed /review proof (from verdict_dict["proof"]["event"], e.g. inside your
+    own on_verdict callback) as a candidate for invinoveritas's featured public /ledger.
+
+    NOT instant publish -- queues for a real human review first (curation: is this worth
+    featuring, not authenticity: the proof is already cryptographically real). Free,
+    Bearer-authenticated, 5 submissions/day rate limit per account. Returns the raw
+    POST /ledger/submit response, e.g. {"status": "queued", "submission_id": N,
+    "check_status_url": "..."} -- or {"status": "already_submitted", ...} if you've already
+    submitted this exact proof. Raises on a real error (bad auth, malformed event, rate
+    limit) -- unlike GovernedWorkbench's own gate, this is a deliberate one-off action you
+    called, not something that should silently swallow failures.
+    """
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        resp = await client.post(
+            f"{base_url.rstrip('/')}/ledger/submit",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"event": event, "note": note},
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+__all__ = ["GovernedWorkbench", "submit_proof_to_ledger"]

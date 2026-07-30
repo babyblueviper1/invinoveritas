@@ -81,14 +81,33 @@ agent = AssistantAgent("worker", model_client=my_model_client, workbench=guarded
   the gate's own decision — it's wrapped separately so your own logging bug can't
   accidentally turn a real `reject` into an allowed call.
 
-  On the public `/ledger` specifically: there's no self-serve publish endpoint today —
-  it's a curated record, not auto-populated by every `/review` call anywhere (matches how
-  invinoveritas's own external-partner entries get promoted: independently re-verified,
-  then manually added). `on_verdict` is the natural seam if you want to build your own
-  promotion workflow for a subset of your governed calls later; this integration doesn't
-  do that automatically, and probably shouldn't by default — publishing every tool call
-  from every AutoGen deployment would dilute a record whose whole value is being curated
-  and worth trusting, not high-volume.
+  **On the public `/ledger` — updated 2026-07-30, a real submit endpoint now exists.**
+  `POST /ledger/submit` (free, Bearer-authenticated, 5/day rate limit) lets you propose your
+  own governed verdict as a candidate for the featured public record — but it still queues
+  for a real human look before going live (curation, not authenticity: the proof is already
+  cryptographically real the moment `sign=True` returns it; what stays curated is *whether
+  it's worth featuring*, same as every invinoveritas external-partner entry to date). Not
+  wired into `GovernedWorkbench` automatically, and deliberately not on by default —
+  publishing every tool call from every AutoGen deployment would dilute a record whose whole
+  value is being curated, not high-volume. Use `submit_proof_to_ledger()` from your own
+  `on_verdict` callback for the calls you actually want considered:
+
+  ```python
+  from governed_workbench import GovernedWorkbench, submit_proof_to_ledger
+
+  async def on_verdict(name, verdict):
+      if verdict.get("verdict") != "approve":
+          return  # only the strong, notable ones
+      result = await submit_proof_to_ledger(
+          verdict["proof"]["event"], api_key=API_KEY,
+          note=f"AutoGen tool call: {name}",
+      )
+      print(result)  # {"status": "queued", "submission_id": N, "check_status_url": ...}
+
+  guarded = GovernedWorkbench(inner, api_key=API_KEY, sign=True, on_verdict=on_verdict)
+  ```
+
+  Check a submission's status any time, free, no auth: `GET /ledger/submissions/{id}`.
 
 **Honest limitation:** `AssistantAgent`'s streaming tool-call path only activates for a
 workbench that is `isinstance(wb, StaticStreamWorkbench)` specifically. Since
