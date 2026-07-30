@@ -214,6 +214,16 @@ def build(verdict_response: dict) -> dict:
     prev_state_root = bytes(32)  # first transition in this example space
     locator_commitment = bytes(32)  # optional field, unused here
 
+    # everest-an, t/29098/15 (2026-07-30): spaceId is deliberately chain-free (one identity
+    # across chains, per t/29098/14), which means it is NOT sufficient on its own to locate
+    # which chain's history a transition belongs to -- a verifier switch is exactly the case
+    # where that reference needs to resolve unambiguously. Carried alongside, not folded into
+    # any hash (it is not part of ERC-8350's own transitionId formula -- a pure locating
+    # annotation). Reuses everest-an's own real, live Sepolia ERC-8350 registry deployment
+    # (same one cited in examples/erc-8337-attestation-refs's sepolia-fixture-v1.json) rather
+    # than a synthetic placeholder, so the locating tuple points at something real.
+    REGISTRY = "0xDdf21937ba80b5fF973610877A0955b320C91241"
+
     delta = {
         "spaceId": space_id,
         "sequence": 1,
@@ -245,8 +255,16 @@ def build(verdict_response: dict) -> dict:
         "erc8274_side": {
             "event": "AgentVerifierUpdated(bytes32 transitionId)",
             "transitionId": hx(tid),
+            "registry": REGISTRY,
         },
         "erc8350_side": {
+            "registry": REGISTRY,
+            "registry_note": (
+                "Locating annotation ONLY -- not part of the transitionId/provenanceCommitment "
+                "hash inputs (spaceId is deliberately chain-free per ERC-8350's own design, "
+                "t/29098/14-15; the (registry, spaceId, transitionId) triple is what actually "
+                "resolves an unambiguous history, spaceId alone does not)."
+            ),
             "experienceDelta": {k: (hx(v) if isinstance(v, bytes) else v) for k, v in delta.items()},
             "transitionId": hx(tid),
             "nextStateRoot": hx(next_root),
@@ -302,6 +320,10 @@ def verify_erc8350_math(output: dict) -> dict:
         ),
         "erc8274_side_agrees_with_erc8350_transitionId": (
             output["erc8274_side"]["transitionId"] == output["erc8350_side"]["transitionId"]
+        ),
+        "registry_present_and_agrees": (
+            bool(output["erc8274_side"].get("registry"))
+            and output["erc8274_side"]["registry"] == output["erc8350_side"].get("registry")
         ),
     }
     return checks

@@ -52,3 +52,18 @@ venv/bin/python3 compose_and_verify.py --verify
 
 `output.json` in this directory is a real, live artifact from an actual run — not a
 mock. Re-run `--verify` on it any time; the numbers should always reproduce.
+
+## The registry field (added 2026-07-30, everest-an, t/29098/15)
+
+`spaceId` is deliberately chain-free (t/29098/14): one identity across chains, so the
+same `spaceId` can carry genuinely different histories on different chains. That makes
+`(spaceId, transitionId)` insufficient to locate a specific history — a verifier switch
+is exactly the case where the reference needs to resolve unambiguously. `registry` is
+carried alongside both sides' output for this reason: `(registry, spaceId, transitionId)`
+is the actual locating tuple. It's a pure annotation, not a hash input — dropping or
+changing it does not affect `transitionId`/`provenanceCommitment` at all, which is why
+`verify_erc8350_math()` checks it separately (`registry_present_and_agrees`) rather than
+folding it into the cryptographic checks. Reuses everest-an's own real, live Sepolia
+ERC-8350 registry deployment (`0xDdf21937ba80b5fF973610877A0955b320C91241`, the same one
+in `examples/erc-8337-attestation-refs/sepolia-fixture-v1.json`) rather than a synthetic
+placeholder.

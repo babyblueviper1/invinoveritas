@@ -8,9 +8,12 @@
   },
   "erc8274_side": {
     "event": "AgentVerifierUpdated(bytes32 transitionId)",
-    "transitionId": "0x98ada47be728c1189972862b3d82785aab3b6fe8a58fed43e3c1efe48907286c"
+    "transitionId": "0x98ada47be728c1189972862b3d82785aab3b6fe8a58fed43e3c1efe48907286c",
+    "registry": "0xDdf21937ba80b5fF973610877A0955b320C91241"
   },
   "erc8350_side": {
+    "registry": "0xDdf21937ba80b5fF973610877A0955b320C91241",
+    "registry_note": "Locating annotation ONLY -- not part of the transitionId/provenanceCommitment hash inputs (spaceId is deliberately chain-free per ERC-8350's own design, t/29098/14-15; the (registry, spaceId, transitionId) triple is what actually resolves an unambiguous history, spaceId alone does not).",
     "experienceDelta": {
       "spaceId": "0x67521790bc6d997bab8b5cc75b81b1636b87b5cdee0e7207bf5905f7e0a0b89a",
       "sequence": 1,
