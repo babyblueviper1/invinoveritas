@@ -5,7 +5,7 @@
   ],
   "name": "invinoveritas",
   "description": "The verification layer for autonomous agents \u2014 a neutral, capital-scale-aware verdict BEFORE an irreversible action (review, the same gate we run our own important decisions through), a signed portable proof after (prove), and a public, on-chain-verifiable track record (ledger) anyone can check against our published key WITHOUT trusting us (verify_proof). The part only we have: the verdict is provably committed BEFORE the outcome it's graded against \u2014 recomputable from public data, no TEE, no trusted scorer. Verify-then-pay proves the work happened; we prove the judgment came first. We also run the open conformance registry where agent verifiers are graded against the same recomputable bar, ours included, with no green by assertion; competitors conform and certify against our suite across more than one anchoring mechanism. Model-agnostic by construction (we verify the output, not the model that produced it). In Gartner's terms an independent guardian agent: a neutral check that leaves a recomputable public proof, not the deployer's own runtime enforcement. Recomputable judgment, not TEE-attested compute (that proves the model ran, not that the call was sound). And as deployer liability hardens (autonomous operation is no defense, the reasonable-oversight standard), the signed verdict plus recomputable trail is exactly the oversight evidence a liable deployer must produce. Reputation you recompute from settled outcomes (wins and losses), not a mutable score a scorer controls \u2014 the ERC-8004 Reputation/Validation feed, composing above 8004 identity. The buyer is whoever is on the hook for an agent's mistakes. Reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, and persistent memory run underneath as supporting infrastructure \u2014 built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance, L402 (Lightning), or x402 (USDC). Free registration; fund via Lightning or x402.",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
@@ -90,6 +90,10 @@
     {
       "name": "ledger_submit",
       "description": "Propose your OWN review(sign=true) proof as a featured entry on the public ledger. Publishes IMMEDIATELY \u2014 no human review step, the cryptographic check against our published key IS the gate (nothing forged can land here). Lands under type self_submitted_verdict, honestly distinct from a hand-curated partner entry, same full verifiability either way, including the same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min). Accepts: event (the signed proof.event object from a prior review call), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, bitcoin_anchor}. 150 sats, Bearer-authenticated."
+    },
+    {
+      "name": "conformance_certify",
+      "description": "Publish a CURRENTLY-certified /conformance verifier's live grade as a permanent, invinoveritas-SIGNED public ledger entry \u2014 same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min) as every other entry. The grading itself stays FREE and neutral (GET /conformance.json) \u2014 this does not buy a better result, it publishes whatever the live registry already measured, verbatim, honestly labeled 'certified AS OF this measurement' not 'currently certified'. Only callable when the named verifier currently shows certified:true. Re-calling on an unchanged snapshot returns the existing entry instead of re-charging. Accepts: name (verifier name, required), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, certified_as_of, bitcoin_anchor}. 250 sats, Bearer-authenticated."
     },
     {
       "name": "reason",

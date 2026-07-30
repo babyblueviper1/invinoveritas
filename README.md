@@ -244,6 +244,8 @@ Discovery endpoints:
 | `POST /verify-proof` | Free, no-auth — verify a counterparty's signed proof (agent-to-agent trust handshake) |
 | `GET /ledger` | Free — the public, signed, on-chain-outcome-linked verdict track record |
 | `POST /ledger/submit` | 150 sats — propose your own `/review(sign=true)` proof as a featured public ledger entry; publishes immediately, no human review (the cryptographic check against our own key IS the gate); same Nostr relay broadcast + Bitcoin OpenTimestamps anchor (~15 min) as every other entry |
+| `GET /conformance` | Free — the neutral, continuously-checked pre-action governance registry ("SSL Labs of agent governance") |
+| `POST /conformance/{name}/certify-to-ledger` | 250 sats — publish a CURRENTLY-certified verifier's live `/conformance` grade as a permanent, invinoveritas-signed public ledger entry; the grading itself stays free, this sells durability/portability of the record |
 | `POST /browse` | Paid restricted public fetch/text extraction; optional screenshot worker path |
 | `POST /web-act` | Alias for `/browse` for Browser-as-a-Service actions |
 | `POST /execute` | Paid tiered Docker-isolated Python job with resource limits, queueing, cleanup, and audit hashes |
