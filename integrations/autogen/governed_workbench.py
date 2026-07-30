@@ -246,14 +246,18 @@ async def submit_proof_to_ledger(
     """Propose a signed /review proof (from verdict_dict["proof"]["event"], e.g. inside your
     own on_verdict callback) as a candidate for invinoveritas's featured public /ledger.
 
-    NOT instant publish -- queues for a real human review first (curation: is this worth
-    featuring, not authenticity: the proof is already cryptographically real). Free,
-    Bearer-authenticated, 5 submissions/day rate limit per account. Returns the raw
-    POST /ledger/submit response, e.g. {"status": "queued", "submission_id": N,
-    "check_status_url": "..."} -- or {"status": "already_submitted", ...} if you've already
-    submitted this exact proof. Raises on a real error (bad auth, malformed event, rate
-    limit) -- unlike GovernedWorkbench's own gate, this is a deliberate one-off action you
-    called, not something that should silently swallow failures.
+    PUBLISHES IMMEDIATELY -- no human review queue. The gate is entirely objective: the proof
+    must be cryptographically real (checked against invinoveritas's own published key) and
+    the call is paid (150 sats base, the real anti-spam mechanism here, not a human or a bare
+    rate limit -- a per-account rate-limit backstop still applies too). The resulting entry
+    gets the SAME Nostr relay broadcast + Bitcoin proof-of-work anchor (OpenTimestamps, via a
+    generic ~15min timer, no type filtering) as every other /ledger entry -- not instant, the
+    response tells you when/where to check. Bearer-authenticated. Returns the raw
+    POST /ledger/submit response, e.g. {"status": "published", "entry": N, "ledger_url": "...",
+    "bitcoin_anchor": "not yet -- check .../ots in ~15 min"} -- or {"status": "already_submitted",
+    ...} if you've already submitted this exact proof. Raises on a real error (bad auth,
+    malformed event, unpaid, rate limit) -- unlike GovernedWorkbench's own gate, this is a
+    deliberate one-off action you called, not something that should silently swallow failures.
     """
     async with httpx.AsyncClient(timeout=timeout_s) as client:
         resp = await client.post(

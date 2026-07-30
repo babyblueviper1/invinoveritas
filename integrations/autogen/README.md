@@ -81,16 +81,22 @@ agent = AssistantAgent("worker", model_client=my_model_client, workbench=guarded
   the gate's own decision — it's wrapped separately so your own logging bug can't
   accidentally turn a real `reject` into an allowed call.
 
-  **On the public `/ledger` — updated 2026-07-30, a real submit endpoint now exists.**
-  `POST /ledger/submit` (free, Bearer-authenticated, 5/day rate limit) lets you propose your
-  own governed verdict as a candidate for the featured public record — but it still queues
-  for a real human look before going live (curation, not authenticity: the proof is already
-  cryptographically real the moment `sign=True` returns it; what stays curated is *whether
-  it's worth featuring*, same as every invinoveritas external-partner entry to date). Not
-  wired into `GovernedWorkbench` automatically, and deliberately not on by default —
-  publishing every tool call from every AutoGen deployment would dilute a record whose whole
-  value is being curated, not high-volume. Use `submit_proof_to_ledger()` from your own
-  `on_verdict` callback for the calls you actually want considered:
+  **On the public `/ledger` — `POST /ledger/submit`, 150 sats, publishes IMMEDIATELY.** Propose
+  your own governed verdict as a candidate for the featured public record. No human review
+  queue and no waiting: the gate is entirely objective and automated — the proof must be
+  cryptographically real (checked against invinoveritas's own published key, so nothing
+  forged or fake can ever land here), the account must be real, and payment (the real
+  anti-spam mechanism, not a human or a bare rate limit — a rate-limit backstop still applies
+  too). Lands under its own honestly-labeled type, `self_submitted_verdict`, distinct from a
+  hand-curated `external_partner_review` entry — same full verifiability either way, including
+  the same **Nostr broadcast + Bitcoin proof-of-work anchor** every other entry gets: the
+  signed event is relayed to the public Nostr mesh at submit time, and a generic timer
+  (`ots-stamp.timer`, no type filtering, ~15 min cadence) anchors its event_id to a Bitcoin
+  block via OpenTimestamps — `committed_at` becomes a clock no chain operator or our own key
+  can move or back-date. Not wired into `GovernedWorkbench` automatically, and deliberately
+  not on by default — publishing every tool call from every AutoGen deployment isn't the
+  point, picking the calls actually worth featuring is. Use `submit_proof_to_ledger()` from
+  your own `on_verdict` callback for those:
 
   ```python
   from governed_workbench import GovernedWorkbench, submit_proof_to_ledger
@@ -102,7 +108,8 @@ agent = AssistantAgent("worker", model_client=my_model_client, workbench=guarded
           verdict["proof"]["event"], api_key=API_KEY,
           note=f"AutoGen tool call: {name}",
       )
-      print(result)  # {"status": "queued", "submission_id": N, "check_status_url": ...}
+      print(result)  # {"status": "published", "entry": N, "ledger_url": ...,
+                      #  "bitcoin_anchor": "not yet -- check .../ots in ~15 min", ...}
 
   guarded = GovernedWorkbench(inner, api_key=API_KEY, sign=True, on_verdict=on_verdict)
   ```

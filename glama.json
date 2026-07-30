@@ -89,7 +89,7 @@
     },
     {
       "name": "ledger_submit",
-      "description": "Propose your OWN review(sign=true) proof as a featured entry on the public ledger. Publishes IMMEDIATELY \u2014 no human review step, the cryptographic check against our published key IS the gate (nothing forged can land here). Lands under type self_submitted_verdict, honestly distinct from a hand-curated partner entry, same full verifiability either way. Accepts: event (the signed proof.event object from a prior review call), note (string, optional). Returns: {status, entry, ledger_url}. 150 sats, Bearer-authenticated."
+      "description": "Propose your OWN review(sign=true) proof as a featured entry on the public ledger. Publishes IMMEDIATELY \u2014 no human review step, the cryptographic check against our published key IS the gate (nothing forged can land here). Lands under type self_submitted_verdict, honestly distinct from a hand-curated partner entry, same full verifiability either way, including the same Bitcoin proof-of-work anchor via OpenTimestamps within ~15 min. Accepts: event (the signed proof.event object from a prior review call), note (string, optional). Returns: {status, entry, ledger_url, bitcoin_anchor}. 150 sats, Bearer-authenticated."
     },
     {
       "name": "reason",
