@@ -70,10 +70,25 @@ agent = AssistantAgent("worker", model_client=my_model_client, workbench=guarded
   `approve_with_concerns` always delegate through to the real tool.
 - **`should_review` callback** to skip specific tool names (e.g. read-only ones) without
   spending a call on them.
-- **Optional `sign=True`** attaches a portable, independently-verifiable signed proof to
-  every verdict (verify at `POST /verify-proof`, free, no auth) — so a downstream
-  consumer of the agent's output can confirm the gate actually ran, without trusting the
-  agent or invinoveritas.
+- **Optional `sign=True` + `on_verdict` callback.** `sign=True` alone attaches a portable,
+  independently-verifiable signed proof to every verdict — but that proof isn't stuffed
+  into the tool result text (that would spam every successful call's output back into the
+  LLM's own context for no reason). Pass `on_verdict=your_callback` (sync or async, either
+  works) to actually receive it: called after every real verdict with
+  `(tool_name, verdict_dict)`, where `verdict_dict["proof"]` is the signed event when
+  `sign=True`. Verify any proof independently, no trust required:
+  `POST /verify-proof` (free, no auth). A broken `on_verdict` callback can never corrupt
+  the gate's own decision — it's wrapped separately so your own logging bug can't
+  accidentally turn a real `reject` into an allowed call.
+
+  On the public `/ledger` specifically: there's no self-serve publish endpoint today —
+  it's a curated record, not auto-populated by every `/review` call anywhere (matches how
+  invinoveritas's own external-partner entries get promoted: independently re-verified,
+  then manually added). `on_verdict` is the natural seam if you want to build your own
+  promotion workflow for a subset of your governed calls later; this integration doesn't
+  do that automatically, and probably shouldn't by default — publishing every tool call
+  from every AutoGen deployment would dilute a record whose whole value is being curated
+  and worth trusting, not high-volume.
 
 **Honest limitation:** `AssistantAgent`'s streaming tool-call path only activates for a
 workbench that is `isinstance(wb, StaticStreamWorkbench)` specifically. Since

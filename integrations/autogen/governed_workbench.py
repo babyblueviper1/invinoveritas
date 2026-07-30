@@ -52,6 +52,7 @@ elsewhere in the invinoveritas integration family:
 """
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -83,6 +84,17 @@ class GovernedWorkbench(Workbench):
         should_review: optional callable(tool_name) -> bool to skip review for specific
             tools (e.g. read-only/safe ones) -- default reviews every call.
         sign: attach a portable signed proof to every verdict (see class docstring).
+        on_verdict: optional callback(tool_name, verdict_dict) -- sync or async, either
+            works -- invoked after EVERY real /review call (approve, approve_with_concerns,
+            or reject; never on a fail-open skip, since there's no verdict to hand over).
+            verdict_dict is the raw /review response, including `proof` when sign=True.
+            THIS IS HOW YOU ACTUALLY GET THE PROOF: setting sign=True alone does nothing
+            observable, since the proof isn't stuffed into the tool result text (that would
+            spam every successful tool call's output back into the LLM's context for no
+            reason) -- persist/log/forward it yourself here. Also the natural seam if you
+            ever want to promote a subset of your own governed calls into invinoveritas's
+            public /ledger record later (no self-serve publish endpoint exists today; that's
+            a curated, not automatic, record -- see README).
         timeout_s: HTTP timeout for the /review call. On timeout, fails open (see class
             docstring) -- this is a ceiling on added latency per tool call, not a hang risk.
     """
@@ -98,6 +110,7 @@ class GovernedWorkbench(Workbench):
         artifact_type: str = "general",
         should_review: Optional[Callable[[str], bool]] = None,
         sign: bool = False,
+        on_verdict: Optional[Callable[[str, dict[str, Any]], Any]] = None,
         timeout_s: float = DEFAULT_TIMEOUT_S,
     ) -> None:
         if mode not in ("gate", "advisory"):
@@ -109,6 +122,7 @@ class GovernedWorkbench(Workbench):
         self._artifact_type = artifact_type
         self._should_review = should_review
         self._sign = sign
+        self._on_verdict = on_verdict
         self._timeout_s = timeout_s
 
     # ---- lifecycle: pure delegation to inner ----
@@ -193,6 +207,16 @@ class GovernedWorkbench(Workbench):
                 logger.warning("GovernedWorkbench: malformed /review response for %r, failing open: %r", name, data)
                 return None
             logger.info("GovernedWorkbench: %r -> %s (confidence=%s)", name, data.get("verdict"), data.get("confidence"))
+            if self._on_verdict is not None:
+                # Deliberately its OWN try/except, not the outer one -- a broken user
+                # callback must never make a real, already-obtained verdict look like a
+                # /review-side failure (the outer except would wrongly fail-open a reject).
+                try:
+                    maybe_awaitable = self._on_verdict(name, data)
+                    if inspect.isawaitable(maybe_awaitable):
+                        await maybe_awaitable
+                except Exception as cb_err:  # noqa: BLE001
+                    logger.warning("GovernedWorkbench: on_verdict callback raised for %r (%s), verdict still honored", name, cb_err)
             return data
         except Exception as e:  # noqa: BLE001 -- fail-open on ANY error, by design
             logger.warning("GovernedWorkbench: /review call failed for %r (%s), failing open (review_unavailable)", name, e)

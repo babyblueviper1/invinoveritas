@@ -142,6 +142,66 @@ async def test_should_review_callback_can_skip_specific_tools(_patch_httpx):
 
 
 @pytest.mark.asyncio
+async def test_on_verdict_sync_callback_receives_full_verdict_incl_proof(_patch_httpx):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "status": "success", "type": "structured_review", "verdict": "approve",
+            "confidence": 0.9, "summary": "ok", "issues": [],
+            "proof": {"event": {"id": "deadbeef"}, "verify_url": "https://x/verify-proof"},
+        })
+    _patch_httpx(httpx.MockTransport(handler))
+    received = {}
+
+    def on_verdict(name: str, verdict: dict) -> None:
+        received["name"] = name
+        received["verdict"] = verdict
+
+    gw = GovernedWorkbench(_workbench(), api_key="test-key", sign=True, on_verdict=on_verdict)
+    result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert result.is_error is False
+    assert received["name"] == "add"
+    assert received["verdict"]["proof"]["event"]["id"] == "deadbeef", "the proof must actually reach the callback"
+
+
+@pytest.mark.asyncio
+async def test_on_verdict_async_callback_is_awaited(_patch_httpx):
+    _patch_httpx(_mock_client("approve"))
+    called = {"count": 0}
+
+    async def on_verdict(name: str, verdict: dict) -> None:
+        import asyncio
+        await asyncio.sleep(0)
+        called["count"] += 1
+
+    gw = GovernedWorkbench(_workbench(), api_key="test-key", on_verdict=on_verdict)
+    await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert called["count"] == 1, "an async on_verdict callback must actually be awaited"
+
+
+@pytest.mark.asyncio
+async def test_broken_on_verdict_callback_does_not_corrupt_a_real_reject(_patch_httpx):
+    """A user's own on_verdict raising must never turn a real reject verdict into an
+    accidental approve -- that would be the callback silently defeating the gate."""
+    _patch_httpx(_mock_client("reject"))
+
+    def broken_callback(name: str, verdict: dict) -> None:
+        raise RuntimeError("user's own logging code is broken")
+
+    gw = GovernedWorkbench(_workbench(), api_key="test-key", mode="gate", on_verdict=broken_callback)
+    result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert result.is_error is True, "the reject verdict must still block even though the callback raised"
+    assert "5" not in result.to_text()
+
+
+@pytest.mark.asyncio
+async def test_on_verdict_not_called_on_fail_open(_patch_httpx):
+    called = {"count": 0}
+    gw = GovernedWorkbench(_workbench(), api_key="", on_verdict=lambda n, v: called.__setitem__("count", called["count"] + 1))
+    await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert called["count"] == 0, "no verdict exists on a fail-open skip, so on_verdict must not fire"
+
+
+@pytest.mark.asyncio
 async def test_list_tools_delegates_to_inner():
     inner = _workbench()
     gw = GovernedWorkbench(inner, api_key="test-key")

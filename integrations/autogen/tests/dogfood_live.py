@@ -84,6 +84,30 @@ async def main() -> None:
     assert "30" in result3.to_text()
     print("PASS: missing key failed open, tool ran ungated as designed.")
 
+    # --- Scenario 4: sign=True + on_verdict -- confirm the proof actually reaches you ---
+    captured = {}
+
+    def on_verdict(name: str, verdict: dict) -> None:
+        captured["name"] = name
+        captured["proof"] = verdict.get("proof")
+
+    gw_signed = GovernedWorkbench(inner, api_key=api_key, mode="gate", sign=True, on_verdict=on_verdict)
+    result4 = await gw_signed.call_tool("add", {"a": 7, "b": 8}, CancellationToken(), call_id="test-4")
+    print("\n=== Scenario 4: sign=True + on_verdict (proof delivery) ===")
+    assert result4.is_error is False
+    assert captured.get("proof") is not None, "sign=True must actually deliver a proof to on_verdict"
+    event = captured["proof"]["event"]
+    print("proof event id:", event["id"])
+    verify_resp = await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: __import__("httpx").post(
+            "https://api.babyblueviper.com/verify-proof", json={"event": event}, timeout=15
+        ).json(),
+    )
+    print("independent /verify-proof result:", verify_resp.get("valid"), verify_resp.get("checks"))
+    assert verify_resp.get("valid") is True, "the proof on_verdict received must independently verify"
+    print("PASS: sign=True delivered a real proof via on_verdict, independently verified via /verify-proof.")
+
     print("\nAll scenarios ran against the LIVE https://api.babyblueviper.com/review endpoint.")
 
 
