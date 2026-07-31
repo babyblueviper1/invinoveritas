@@ -260,10 +260,17 @@ def build(verdict_response: dict) -> dict:
         "erc8350_side": {
             "registry": REGISTRY,
             "registry_note": (
-                "Locating annotation ONLY -- not part of the transitionId/provenanceCommitment "
-                "hash inputs (spaceId is deliberately chain-free per ERC-8350's own design, "
-                "t/29098/14-15; the (registry, spaceId, transitionId) triple is what actually "
-                "resolves an unambiguous history, spaceId alone does not)."
+                "Not an input to transitionId/provenanceCommitment, but required for "
+                "verification (everest-an, t/29098/17): the ERC-8350 EIP-712 domain sets "
+                "verifyingContract = registry, so the signed digest "
+                "keccak256(0x1901 || domainSeparator || structHash) cannot be reconstructed "
+                "without it -- the same transitionId under two different registries requires "
+                "two different signatures. (registry, spaceId, transitionId) is the minimum "
+                "tuple that both locates a history and permits checking the signature over it "
+                "(spaceId is deliberately chain-free per ERC-8350's own design, t/29098/14-15 -- "
+                "the domain already binds chainId + verifyingContract, so replay is closed at "
+                "the signature layer, which is why the identifier layer can afford to stay "
+                "chain-free)."
             ),
             "experienceDelta": {k: (hx(v) if isinstance(v, bytes) else v) for k, v in delta.items()},
             "transitionId": hx(tid),

@@ -8,33 +8,33 @@
   },
   "erc8274_side": {
     "event": "AgentVerifierUpdated(bytes32 transitionId)",
-    "transitionId": "0x98ada47be728c1189972862b3d82785aab3b6fe8a58fed43e3c1efe48907286c",
+    "transitionId": "0xbae0e25d0c74f89234a48f8bd06455d7a379811807de1b9c91d99275d5c22d58",
     "registry": "0xDdf21937ba80b5fF973610877A0955b320C91241"
   },
   "erc8350_side": {
     "registry": "0xDdf21937ba80b5fF973610877A0955b320C91241",
-    "registry_note": "Locating annotation ONLY -- not part of the transitionId/provenanceCommitment hash inputs (spaceId is deliberately chain-free per ERC-8350's own design, t/29098/14-15; the (registry, spaceId, transitionId) triple is what actually resolves an unambiguous history, spaceId alone does not).",
+    "registry_note": "Not an input to transitionId/provenanceCommitment, but required for verification (everest-an, t/29098/17): the ERC-8350 EIP-712 domain sets verifyingContract = registry, so the signed digest keccak256(0x1901 || domainSeparator || structHash) cannot be reconstructed without it -- the same transitionId under two different registries requires two different signatures. (registry, spaceId, transitionId) is the minimum tuple that both locates a history and permits checking the signature over it (spaceId is deliberately chain-free per ERC-8350's own design, t/29098/14-15 -- the domain already binds chainId + verifyingContract, so replay is closed at the signature layer, which is why the identifier layer can afford to stay chain-free).",
     "experienceDelta": {
       "spaceId": "0x67521790bc6d997bab8b5cc75b81b1636b87b5cdee0e7207bf5905f7e0a0b89a",
       "sequence": 1,
       "prevStateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "deltaCommitment": "0x15522736a6f340fba9273e6e3685ab29fd883910a2028a7869f2ba161f3d667f",
-      "provenanceCommitment": "0xbc47eaa1f6db8bf8d4f8f86b2eb0f90c73e3a712ccd172d87a7a0f9a7c65ad84",
+      "provenanceCommitment": "0x94046466b2d3e09d372ecd529bda5b4894250e2362f0e366f6a3812e7d51cd75",
       "profileId": "0xa30cebdc874ff897d1d39b57f3caca39404639e3613b921a12576746a9401025",
       "locatorCommitment": "0x0000000000000000000000000000000000000000000000000000000000000000"
     },
-    "transitionId": "0x98ada47be728c1189972862b3d82785aab3b6fe8a58fed43e3c1efe48907286c",
-    "nextStateRoot": "0xde427d82b74d450647abf7130d7c87f0accb4aa23caf0a7adf6d9b41368d8633",
+    "transitionId": "0xbae0e25d0c74f89234a48f8bd06455d7a379811807de1b9c91d99275d5c22d58",
+    "nextStateRoot": "0x4b5da6105b7491a2aed3c353bef06390d01bc7e1b69a8e97654343bc07a71a3a",
     "provenanceSalt": "0xa4efa5b87f3bf336a09fb4cf96b0e581754a29988a67e76711b6c6eb9ee807f0",
     "deltaSalt": "0x22e6e4ae8c97f5bc0c67c513e6511bb711888b38756aec7fbc95319254fe6e34",
-    "provenanceBytes_sha256": "48d166dbad59f45d90416911af6cdf0ba93c163e28718a040af2558f4c34a18c"
+    "provenanceBytes_sha256": "662edc27c2f587cddc5aedac604392778957f6c8f5c3b8fc1b0a9e8a6af3f00c"
   },
   "the_why": {
     "mechanism": "invinoveritas /review(sign=true)",
     "verdict": "approve_with_concerns",
     "confidence": 0.75,
     "decision_ref": "sha256:9585a127bbe7bcb06113b1282c470a972f3aa0eff79f6acd99640b19e06c3595",
-    "nip01_event_id": "aa26efc7148304754d7e6f38d8ea2deed2b312c5aa57fe62ad420ae97dd4fa49",
+    "nip01_event_id": "810807398c8b93604bcf31e5fd72ef06d6260e5edd1a6b1cdec5866fc27050e4",
     "verify_proof_url": "https://api.babyblueviper.com/verify-proof",
     "provenanceBytes_is": "jcs(proof) -- the full signed verdict proof object, canonicalized"
   },
@@ -46,8 +46,8 @@
       "artifact_type": "general",
       "verdict": "approve_with_concerns",
       "confidence": 0.75,
-      "summary_hash": "0d83d5e7402f685125987ddefcbcb580af07b3273fda159a082d08c57c01e97c",
-      "verified_at": 1785430019,
+      "summary_hash": "fcaf22b4d88f7d74402271e3db39f2442cde46c6a67a22428a7ca2c00ac0b63c",
+      "verified_at": 1785463889,
       "policy_version": "invinoveritas.review.v5",
       "source_class": "agent_reported",
       "decision_ref_preimage_fields": [
@@ -73,16 +73,16 @@
       "decision_ref": "sha256:9585a127bbe7bcb06113b1282c470a972f3aa0eff79f6acd99640b19e06c3595"
     },
     "signature_type": "nostr_event",
-    "content_sha256": "6acad1bca61292c31c456f66860546f874b43daa966c3f1f977ffb78cbfd55e0",
+    "content_sha256": "658aa29af5ea0d90ef2177b0cdf3963129711a731f69afba7e3a0ecc1c36c2d4",
     "event": {
-      "id": "aa26efc7148304754d7e6f38d8ea2deed2b312c5aa57fe62ad420ae97dd4fa49",
+      "id": "810807398c8b93604bcf31e5fd72ef06d6260e5edd1a6b1cdec5866fc27050e4",
       "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
-      "created_at": 1785430019,
+      "created_at": 1785463889,
       "kind": 30078,
       "tags": [
         [
           "d",
-          "invinoveritas-proof-a1a05e1b5efec7759b6fe5e9ab4ebf5a3b8005da9207906373539af09c8bd521-1785430019-792c2896"
+          "invinoveritas-proof-a1a05e1b5efec7759b6fe5e9ab4ebf5a3b8005da9207906373539af09c8bd521-1785463889-b9c8407c"
         ],
         [
           "t",
@@ -97,8 +97,8 @@
           "invinoveritas.verdict_proof.v1"
         ]
       ],
-      "content": "{\"artifact_hash\":\"a1a05e1b5efec7759b6fe5e9ab4ebf5a3b8005da9207906373539af09c8bd521\",\"artifact_type\":\"general\",\"confidence\":0.75,\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"decision_ref\":\"sha256:9585a127bbe7bcb06113b1282c470a972f3aa0eff79f6acd99640b19e06c3595\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_version\":\"invinoveritas.review.v5\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"0d83d5e7402f685125987ddefcbcb580af07b3273fda159a082d08c57c01e97c\",\"verdict\":\"approve_with_concerns\",\"verified_at\":1785430019,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
-      "sig": "d07c196c61277755197e851887ee44bc2cf1d11ba6b9d4c84c9c5c6aad7f1416f53ddf13dc1cb819379e544f5a59358697b758570a5c23c842eab1413ac99031"
+      "content": "{\"artifact_hash\":\"a1a05e1b5efec7759b6fe5e9ab4ebf5a3b8005da9207906373539af09c8bd521\",\"artifact_type\":\"general\",\"confidence\":0.75,\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"decision_ref\":\"sha256:9585a127bbe7bcb06113b1282c470a972f3aa0eff79f6acd99640b19e06c3595\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_version\":\"invinoveritas.review.v5\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"fcaf22b4d88f7d74402271e3db39f2442cde46c6a67a22428a7ca2c00ac0b63c\",\"verdict\":\"approve_with_concerns\",\"verified_at\":1785463889,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+      "sig": "c2cbb8401793daf46243ddd46fb8d9d5ddbea12673a3fbdd7e3c7e92d9b642341a53b16a6d3a08792f9857bcc6148961e18cac5403aefe230ba77ac76a33e390"
     },
     "verify": "POST /verify-proof with the `event` object (or run NIP-01 verification yourself)."
   }
