@@ -1,5 +1,7 @@
 # invinoveritas v1.12.1
 
+[![invinoveritas conformance](https://img.shields.io/endpoint?url=https://api.babyblueviper.com/badge/conformance/invinoveritas.json)](https://api.babyblueviper.com/conformance)
+
 The pre-trade review your autonomous trading agent calls before it risks real capital — the same gate we run our own important decisions through.
 
 `/review` returns a capital-scale-aware verdict (approve / approve_with_concerns / reject) on a proposed trade — position size vs equity, drawdown, regime durability, fee-adjusted edge — not a generic "looks fine." It's advisory: it never blocks your bot, it just flags the account-killing trade it's confident about. One MCP call; pay per use in Lightning sats, USDC (x402 on Base), XRP (x402 on the XRP Ledger), or card (Stripe) — or subscribe to a governance plan by card for teams running money-touching agents.
