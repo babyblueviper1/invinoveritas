@@ -189,6 +189,7 @@ Registry/distribution assets:
 - n8n npm package: `n8n-nodes-invinoveritas@0.6.0`
 - Flowise npm package: `flowise-invinoveritas@0.7.0`
 - ADK integration: short-term guide + example shipped at [`integrations/adk/`](integrations/adk/) (client, ADK Tool wrapping pattern, working quickstart that registers → checks balance → picks a marketplace offer via paid `/reason`). Medium-term: official `invinoveritas` ADK Tool/Skill package for one-line install + spend caps + L402 fallback.
+- Vercel AI SDK `toolApproval` reference: [`integrations/vercel-ai-sdk/`](integrations/vercel-ai-sdk/) — a `toolApproval` function composing an independent `/review` verdict as a complement to `@ai-sdk/policy-opa`'s deterministic Rego policy (OPA for hard rules, `/review` for the judgment-call cases OPA can't resolve). Live-verified against the real API, not mocked.
 
 Attribution: external listings should link to source-tagged registration URLs such as `https://api.babyblueviper.com/register?src=mcp_registry` or send `X-Invino-Integration` on `/register` and `/topup`. `/stats.acquisition` reports 7-day registrations, settled top-ups, and funded sats by source.
 

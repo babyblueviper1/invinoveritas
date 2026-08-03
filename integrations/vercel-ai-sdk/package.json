@@ -1,0 +1,13 @@
+{
+  "name": "invinoveritas-vercel-ai-sdk-example",
+  "private": true,
+  "type": "module",
+  "description": "Reference toolApproval adapter wiring the Vercel AI SDK to an independent invinoveritas /review verdict. Independent example, not affiliated with or endorsed by Vercel.",
+  "dependencies": {
+    "invinoveritas-governance-gate-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
