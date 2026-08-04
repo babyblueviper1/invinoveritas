@@ -1,0 +1,31 @@
+<!--
+Standalone live-verification harness for ReviewGatedToolExecutor. NOT part of the microsoft/
+mcp-gateway PR (kept out to keep that PR minimal, no new runtime deps in their build). Drop
+this folder into a real mcp-gateway checkout at dotnet/Microsoft.McpGateway.Tools/LiveVerify/
+(sibling of src/ and test/) and run:
+
+  IVV_API_KEY=ivv_... dotnet run -p dotnet/Microsoft.McpGateway.Tools/LiveVerify
+
+Verified working against a real clone of microsoft/mcp-gateway (main, 2026-08-04) and the real
+production invinoveritas API before this integration was shipped. See README.md.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Version omitted: resolved via the checkout's own Directory.Packages.props (central
+         package management) once this folder is dropped in as a sibling of src/ and test/.
+         If building this project standalone, outside a real mcp-gateway checkout, add
+         Version="4.20.72" (the version mcp-gateway's own test project pins) back here. -->
+    <PackageReference Include="Moq" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- When dropped into a real mcp-gateway checkout at
+         dotnet/Microsoft.McpGateway.Tools/LiveVerify/, this relative path resolves correctly. -->
+    <ProjectReference Include="../src/Microsoft.McpGateway.Tools.csproj" />
+  </ItemGroup>
+</Project>
