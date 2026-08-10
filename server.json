@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.babyblueviper/invinoveritas",
+  "description": "AI-agent verifier: verdict committed before the outcome graded against it; /review, /ledger.",
+  "repository": {
+    "url": "https://github.com/babyblueviper1/invinoveritas",
+    "source": "github"
+  },
+  "version": "1.13.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.babyblueviper.com/mcp"
+    }
+  ]
+}
