@@ -46,6 +46,7 @@ sys.path.insert(0, str(ROOT))
 
 REGISTRY_ID = "sha256:9b871ba9cf05e9da7df78e0b15d44fc04059e6af4bda8037d6f456984598d157"
 SCHEMA = "crc.cell.v2"
+SCHEMA_V3 = "crc.cell.v3"
 
 # Same field order/shape as crc_cell_236_v1_node1.json's proof_payload, plus registry_id
 # (section 2.2's EIP-712 struct field list, minus evidence_hash since our lane signs the
@@ -78,6 +79,42 @@ def build_cell_v2(claim_id: str, result: str, verifier: int, boundary: str, as_o
     return {k: payload[k] for k in _TOP_FIELDS}
 
 
+def build_cell_v3(claim_id: str, result: str, verifier: int, boundary: str, as_of: str,
+                   evidence: dict, recomputed_at: str | None = None) -> dict:
+    """crc.cell.v3 (CELL-v3.md, activated 2026-08-10 per PR #10/#43-#46 -- crc.cell.v2 became
+    RED after the activation commit) -- structurally identical to v2 (build_cell_v2) except
+    `schema` and the required `evidence.independence.derived_from` field (LINEAGE-REF.md).
+    `evidence["independence"]["derived_from"]` MUST already be set by the caller before calling
+    this (build_cell_v2 predates the requirement and won't set it) -- this function only
+    validates it's present with the right shape rather than injecting a value, since what
+    belongs there is a real declaration about THIS implementation's real lineage, not a default
+    this script should silently assume."""
+    if result not in ("GREEN", "RED", "AMBER"):
+        raise ValueError(f"result must be GREEN|RED|AMBER, got {result!r}")
+    if not claim_id.startswith("sha256:") or len(claim_id) != 71:
+        raise ValueError("claim_id must be 'sha256:' + 64 lowercase hex (CELL-v2.md section 3)")
+    independence = evidence.get("independence") or {}
+    derived_from = independence.get("derived_from")
+    if not isinstance(derived_from, list):
+        raise ValueError("evidence.independence.derived_from is required for crc.cell.v3 and "
+                          "must be a list (CELL-v3.md section 1.1) -- pass [] for 'no known "
+                          "derivation, written from spec', not omit the field")
+    if len(set(derived_from)) != len(derived_from):
+        raise ValueError("derived_from contains duplicate entries -- gate REJECT (CELL-v3.md 1.1)")
+    payload = {
+        "schema": SCHEMA_V3,
+        "claim_id": claim_id,
+        "result": result,
+        "verifier": verifier,
+        "registry_id": REGISTRY_ID,
+        "boundary": boundary,
+        "as_of": as_of,
+        "recomputed_at": recomputed_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "evidence": evidence,
+    }
+    return {k: payload[k] for k in _TOP_FIELDS}
+
+
 def sign_cell_v2(payload: dict) -> dict:
     """Schnorr-sign the payload as a NIP-01/kind-30078 Nostr event, same key as /prove and
     every prior Cell (PUBLISHED_PUBKEY). Content is JCS-style canonical: sort_keys, compact
@@ -97,7 +134,7 @@ def sign_cell_v2(payload: dict) -> dict:
     ev = Event(
         kind=30078,
         content=content,
-        tags=[["d", d_tag], ["t", "invinoveritas"], ["t", "proof"], ["schema", SCHEMA]],
+        tags=[["d", d_tag], ["t", "invinoveritas"], ["t", "proof"], ["schema", payload["schema"]]],
         public_key=pk.public_key.hex(),
         created_at=created_at,
     )
@@ -117,6 +154,8 @@ def main() -> int:
                      "it should match --claim-preimage)")
     ap.add_argument("--out", help="write the finished artifact (payload + signed event) here")
     ap.add_argument("--dry", action="store_true", help="build + print without signing/publishing")
+    ap.add_argument("--v3", action="store_true", help="build crc.cell.v3 instead of v2 -- "
+                     "requires evidence.independence.derived_from already set in --evidence")
     args = ap.parse_args()
 
     from crc_claim_id import claim_id as compute_claim_id  # sibling script, same dir on sys.path
@@ -124,8 +163,9 @@ def main() -> int:
     preimage = json.loads(Path(args.claim_preimage).read_text())
     evidence = json.loads(Path(args.evidence).read_text())
     cid = compute_claim_id(preimage)
-    payload = build_cell_v2(claim_id=cid, result=args.result, verifier=args.verifier,
-                             boundary=args.boundary, as_of=preimage["as_of"], evidence=evidence)
+    builder = build_cell_v3 if args.v3 else build_cell_v2
+    payload = builder(claim_id=cid, result=args.result, verifier=args.verifier,
+                       boundary=args.boundary, as_of=preimage["as_of"], evidence=evidence)
 
     if args.dry:
         print(json.dumps(payload, indent=2, sort_keys=True))
