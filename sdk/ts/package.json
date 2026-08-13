@@ -1,0 +1,38 @@
+{
+  "name": "invinoveritas-verify",
+  "version": "1.1.1",
+  "description": "Verify-before-pay / demand-a-proof primitives for x402 + agent-to-agent commerce. Check a provider's verifiable track record before you pay it; confirm a proof an agent attached to its output — online (verifyAttachedProof) or fully OFFLINE/trustless (verifyProofLocal), without trusting the presenter or us.",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "files": ["index.js", "index.d.ts", "test.mjs", "sample_proof.json", "README.md"],
+  "engines": { "node": ">=18" },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/babyblueviper1/invinoveritas.git",
+    "directory": "sdk/ts"
+  },
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0"
+  },
+  "keywords": [
+    "x402", "agent", "ai-agent", "verification", "reputation", "trust",
+    "verify-before-pay", "x402-signals", "mcp", "agent-to-agent", "a2a", "proof",
+    "nostr", "nip-01", "schnorr", "offline", "trustless"
+  ],
+  "homepage": "https://api.babyblueviper.com/ledger",
+  "author": "invinoveritas (babyblueviper1)",
+  "license": "MIT"
+}
