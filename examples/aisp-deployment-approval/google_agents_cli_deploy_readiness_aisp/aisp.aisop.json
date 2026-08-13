@@ -1,0 +1,146 @@
+[
+  {
+    "role": "system",
+    "content": {
+      "protocol": "AISP V1.0.0",
+      "axiom_0": "Human_Sovereignty_and_Wellbeing",
+      "id": "google_agents_cli_deploy_readiness_aisp",
+      "name": "agents-cli deploy readiness (signed human approval)",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "summary": "Resolve the effective agents-cli deployment plan, block for an explicit human decision, and refuse to deploy unless signed approval evidence verifies against that plan.",
+      "description": "AISP companion to google-agents-cli-deploy. Closes the prose-only 'Never run agents-cli deploy without explicit human approval' gap (google/agents-cli#48) by composing: a real-plan resolver over cmd_deploy.py flags + agents-cli-manifest.yaml, SoulBot's existing sys.io.confirm Runtime, and the v2 BIP-340 approval verifier. Prototype resolver — several LOAD_BEARING_FIELDS have no first-class agents-cli source today and stay absent.",
+      "flow_format": "mermaid",
+      "loading_mode": "node",
+      "tools": [
+        "filesystem",
+        "code"
+      ],
+      "params": {
+        "cli_flags": "object, parsed agents-cli deploy flags (click dest names or --flag spellings)",
+        "manifest": "object, loaded agents-cli-manifest.yaml, or empty for a flags-only deploy",
+        "approval_payload": "object, optional pre-built approval envelope (normally produced by the human via sys.io.confirm)"
+      },
+      "system_prompt": "ASSERT: AISOP skill. Strictly execute aisop.main. Align Axiom 0: Human Sovereignty and Wellbeing. The LLM identifies approve / reject / modify and routes; it never adjudicates signatures, digests, or expiry. Pass the raw approval payload to the verifier. Never synthesize, infer, complete, or auto-approve the human decision."
+    }
+  },
+  {
+    "role": "user",
+    "content": {
+      "instruction": "STRICTLY OBEY aisp_contract; its non_negotiable rules are inviolable; then RUN aisop.main",
+      "user_input": "{user_input}",
+      "aisp_contract": {
+        "profile": "aisp.skill.v1",
+        "invocation": {
+          "mode": "manual_only",
+          "when_to_use": [
+            "deploy an ADK agent with agents-cli and a forced human decision is required",
+            "produce or verify a plan-bound signed approval for agents-cli deploy",
+            "gate agents-cli deploy behind sys.io.confirm + deterministic evidence"
+          ],
+          "when_not_to_use": [
+            "local dry-run / --list / --status with no deploy",
+            "evaluation-only work (use google-agents-cli-eval)",
+            "scaffolding a new project (use google-agents-cli-scaffold)"
+          ]
+        },
+        "non_negotiable": [
+          {
+            "rule": "Do not deploy without an explicit human decision on the resolved deployment plan.",
+            "enforced_by": "human_approval.step2:sys.io.confirm"
+          },
+          {
+            "rule": "When the human decision is approve, deployment must not proceed unless the attached approval evidence validates against the current effective deployment plan.",
+            "enforced_by": "verify_approval.step2:sys.assert"
+          }
+        ],
+        "discovery": {
+          "category": "deployment-governance",
+          "tags": [
+            "agents-cli",
+            "deploy",
+            "human-approval",
+            "sys.io.confirm",
+            "bip-340",
+            "google-agents-cli"
+          ]
+        },
+        "risk_level": "critical",
+        "resources": [
+          {
+            "id": "approval_verifier",
+            "path": "scripts/approval_verifier.py",
+            "kind": "script",
+            "mode": "read_and_execute",
+            "when": "resolve_plan and verify_approval",
+            "requires_tools": ["code"]
+          },
+          {
+            "id": "approval_response_schema",
+            "path": "schemas/approval-response.schema.json",
+            "kind": "schema",
+            "mode": "read_only",
+            "when": "validating the human-authored approval envelope"
+          },
+          {
+            "id": "effective_plan_schema",
+            "path": "schemas/effective-deployment-plan.schema.json",
+            "kind": "schema",
+            "mode": "read_only",
+            "when": "documenting LOAD_BEARING_FIELDS and honest coverage gaps"
+          },
+          {
+            "id": "fixed_vectors",
+            "path": "evals/vectors",
+            "kind": "data",
+            "mode": "read_only",
+            "when": "cross-language recomputation of the v2 fixtures"
+          }
+        ]
+      },
+      "aisop": {
+        "main": "graph TD\n    resolve_plan[Resolve effective deployment plan]\n        --> human_approval[Wait for human decision]\n\n    human_approval --> decision{Human decision}\n\n    decision -->|approve| verify_approval[Verify approval evidence]\n    decision -->|modify| modify_plan[Apply requested changes]\n    decision -->|reject| cancelled[Stop without deployment]\n\n    modify_plan --> resolve_plan\n    verify_approval --> verified{Evidence valid?}\n\n    verified -->|yes| deploy[Run agents-cli deploy]\n    verified -->|no| blocked[Block deployment]"
+      },
+      "functions": {
+        "resolve_plan": {
+          "step1": "Call the deterministic plan resolver (scripts/approval_verifier.py resolve, which composes ../resolve_agents_cli_plan.py) with the parsed cmd_deploy.py-style CLI flags and the loaded agents-cli-manifest.yaml. Do not ask an LLM to invent the effective plan.",
+          "step2": "Present the complete effective deployment plan, including target, project, region, source or image revision, eval evidence, IAM/secrets status, rollback plan, and observability requirements. Fields the resolver could not map from real agents-cli state are absent — say so, do not fill them in.",
+          "output_mapping": "effective_plan",
+          "execute_mode": "inline"
+        },
+        "human_approval": {
+          "step1": "Present the complete effective deployment plan, including target, project, region, source or image revision, eval evidence, IAM/secrets status, rollback plan, and observability requirements.",
+          "step2": "sys.io.confirm('Reply with approve {approval evidence}, reject {reason}, or modify {requested changes}', options=['approve', 'reject', 'modify']) -> human_response",
+          "step3": "Interpret the leading human decision and preserve the remaining human-authored content without inventing, completing, or silently altering approval evidence.",
+          "output_mapping": "human_decision"
+        },
+        "verify_approval": {
+          "step1": "When human_decision is approve, call the deterministic approval-verification tool with the current effective deployment plan and the preserved approval payload.",
+          "step2": "sys.assert('human_decision.decision != \"approve\" || approval_verification.valid == true', 'The human approval evidence does not authorize the current effective deployment plan')",
+          "output_mapping": "approval_verification"
+        },
+        "modify_plan": {
+          "step1": "Apply the requested changes from the human modify payload to the CLI flags / manifest inputs. A modified plan necessarily returns to resolve_plan and then to a new human confirmation.",
+          "step2": "Discard any previous approval envelope. Approval for the previous plan must never silently carry over.",
+          "output_mapping": "modified_inputs",
+          "execute_mode": "inline"
+        },
+        "deploy": {
+          "step1": "sys.assert('approval_verification.valid == true', 'The deployment approval does not authorize the current effective plan')",
+          "step2": "Run agents-cli deploy with the same flags that produced effective_plan. Do not re-resolve ad hoc in the shell.",
+          "output_mapping": "deploy_result"
+        },
+        "cancelled": {
+          "step1": "Stop without deployment. Record the human reject reason.",
+          "output_mapping": "cancelled",
+          "execute_mode": "inline"
+        },
+        "blocked": {
+          "step1": "Block deployment. Surface the structured verification checks (plan_digest_matches, approved_scope_matches_current_plan, approved_scope_digest_matches, signature_valid, not_expired, decision_is_approve) without asking the LLM whether the evidence 'looks valid'.",
+          "output_mapping": "blocked",
+          "execute_mode": "inline"
+        }
+      }
+    }
+  }
+]

@@ -62,10 +62,33 @@ host) are implemented here, each real and executed, not just described:
   randomness, which is what a real deployment wants). Verified: ran `--fixtures` twice into
   separate directories, `diff -r` reports identical output including the signature bytes.
 
-Deliberately **not** attempted, because they need optimization2026's own side to be real: (1)
+Deliberately **not** attempted **in v2**, because they need optimization2026's own side to be real: (1)
 wiring through an actual `sys.io.confirm` human-response channel, (2) resolving the plan from real
 `agents-cli` state instead of a hardcoded dict, (8) authenticating the `approver` identity against
 a real IdP. Named here rather than silently implied as covered.
+
+## v3 integration prototype (2026-08-13) — still in this directory, still not agents-cli itself
+
+The two items that were honestly open after v2 now have a runnable prototype next to this
+example, not a PR against `google/agents-cli`:
+
+- `resolve_agents_cli_plan.py` — merges real `cmd_deploy.py` flags + a loaded
+  `agents-cli-manifest.yaml` into an effective plan. CLI flags override manifest values.
+  Fields with no first-class agents-cli source (`rollback_plan`, `eval_evidence`,
+  `python_version`, `environment`, `observability_requirements`) stay absent.
+- `google_agents_cli_deploy_readiness_aisp/` — conforming AISP skill package
+  (`aisp.aisop.json`, `SKILL.md`, `scripts/approval_verifier.py`, `schemas/`,
+  `evals/vectors/` → symlink to `./vectors`). `sys.io.confirm` /
+  `sys.assert` steps and the `aisp_contract.non_negotiable` rules are
+  optimization2026's exact text from the issue thread.
+
+```bash
+python3 resolve_agents_cli_plan.py --demo
+python3 google_agents_cli_deploy_readiness_aisp/scripts/approval_verifier.py --demo
+```
+
+(1) remains a wiring problem on the SoulBot Runtime, not a missing primitive.
+(8) identity authentication remains optional policy, not built here.
 
 ## What v1 demonstrated (still true, extended not replaced)
 

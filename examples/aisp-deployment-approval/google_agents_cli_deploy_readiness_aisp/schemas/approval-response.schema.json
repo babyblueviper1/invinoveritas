@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.babyblueviper.com/schemas/aisp-deployment-approval-response.schema.json",
+  "title": "AISP deployment-approval response envelope",
+  "description": "Extracted from examples/aisp-deployment-approval/deployment_approval_example.py (v2). This is the structured human-approval payload that rides inside sys.io.confirm after the leading approve/reject/modify token. Signed fields are listed in SIGNED_FIELD_NAMES; display_note is presentational and unsigned; signature covers the signed subset only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision",
+    "approver",
+    "approved_scope",
+    "plan_sha256",
+    "approval_conditions",
+    "public_key",
+    "key_id",
+    "profile",
+    "skill_id",
+    "operation",
+    "plan_schema",
+    "audience",
+    "issued_at",
+    "expires_at",
+    "nonce",
+    "max_uses",
+    "signature"
+  ],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "const": "approve",
+      "description": "Control-flow decision. reject/modify are routing tokens on the raw USER_ANSWER, not this envelope."
+    },
+    "approver": {
+      "type": "string",
+      "description": "Declared approver identity. A signature over this string is not IdP authentication."
+    },
+    "approved_scope": {
+      "$ref": "effective-deployment-plan.schema.json",
+      "description": "Load-bearing subset of the plan the human approved. Independently checked against the current plan AND against plan_sha256."
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "approval_conditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Signed, load-bearing conditions (maintenance window, instance cap, ...)."
+    },
+    "public_key": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "description": "x-only secp256k1 hex the verifier actually checks (BIP-340). Not the same as key_id."
+    },
+    "key_id": {
+      "type": "string",
+      "description": "Opaque registry label. Not key material."
+    },
+    "profile": {
+      "type": "string",
+      "const": "aisp.deployment_approval_response.v1"
+    },
+    "skill_id": {
+      "type": "string",
+      "const": "google_agents_cli_deploy_readiness_aisp"
+    },
+    "operation": {
+      "type": "string",
+      "const": "agents-cli.deploy"
+    },
+    "plan_schema": {
+      "type": "string",
+      "const": "agents-cli.effective_deployment_plan.v1"
+    },
+    "audience": {
+      "type": "string"
+    },
+    "issued_at": {
+      "type": "integer",
+      "description": "Unix epoch seconds."
+    },
+    "expires_at": {
+      "type": "integer",
+      "description": "Unix epoch seconds. issued_at + ttl."
+    },
+    "nonce": {
+      "type": "string"
+    },
+    "max_uses": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 128,
+      "maxLength": 128,
+      "description": "BIP-340 Schnorr signature hex over sha256(JCS-safe-canon(signed_fields))."
+    },
+    "display_note": {
+      "type": "string",
+      "description": "Presentational, UNSIGNED. A typo fix here must not invalidate a real approval."
+    }
+  }
+}

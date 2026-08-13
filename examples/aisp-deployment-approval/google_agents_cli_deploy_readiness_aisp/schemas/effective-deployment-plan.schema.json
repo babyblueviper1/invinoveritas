@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.babyblueviper.com/schemas/agents-cli-effective-deployment-plan.schema.json",
+  "title": "agents-cli effective deployment plan (approval-profile shape)",
+  "description": "LOAD_BEARING_FIELDS from deployment_approval_example.py. This is the approval profile's schema, not agents-cli's native schema. Fields with no first-class agents-cli source are omitted by resolve_agents_cli_plan.py (absence, not a fabricated value). Values must stay inside the documented JCS-safe subset: str / int (not bool) / dict[str, _] / list / null. No float, no JSON bool.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deployment_target": {
+      "type": "string",
+      "enum": ["agent_runtime", "cloud_run", "gke"],
+      "description": "Mapped. CLI --deployment-target overrides manifest create_params.deployment_target."
+    },
+    "environment": {
+      "type": ["string", "null"],
+      "description": "ABSENT in agents-cli today. No --environment on deploy."
+    },
+    "gcp_project": {
+      "type": "string",
+      "description": "Mapped. CLI --project, else GOOGLE_CLOUD_PROJECT. This adapter does not call gcloud/ADC."
+    },
+    "region": {
+      "type": "string",
+      "description": "Mapped. CLI --region overrides manifest region. Create default: us-east1."
+    },
+    "service_name": {
+      "type": "string",
+      "description": "Mapped. CLI --service-name overrides manifest name. Create fallback: agent. Rejected for GKE."
+    },
+    "source_revision": {
+      "type": "string",
+      "description": "PARTIAL. Only CLI --image (a container URI, not a git SHA). From-source deploys have no revision."
+    },
+    "python_version": {
+      "type": ["string", "null"],
+      "description": "ABSENT. language is a family; requires-python is a range; AGENT_VERSION is a package version."
+    },
+    "service_account": {
+      "type": "string",
+      "description": "Mapped. CLI --service-account. Unset means the platform default SA (not resolved here)."
+    },
+    "network_exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Mapped as a JCS-safe string-valued dict assembled from real flags. No JSON bools.",
+      "properties": {
+        "ingress": { "type": "string" },
+        "iap": { "type": "string" },
+        "network_attachment": { "type": "string" },
+        "dns_peering_domain": { "type": "string" },
+        "dns_peering_project": { "type": "string" },
+        "dns_peering_network": { "type": "string" }
+      }
+    },
+    "secret_policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Mapped. sha256 of JCS-canon({ENV: {secret, version}}) from --secrets. Identifiers only."
+    },
+    "resource_sizing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Mapped. CLI --cpu/--memory/--min-instances/--max-instances/--concurrency. Create defaults from deploy/_utils.py. Absent for GKE.",
+      "properties": {
+        "cpu": { "type": "string" },
+        "memory": { "type": "string" },
+        "min_instances": { "type": "integer" },
+        "max_instances": { "type": "integer" },
+        "concurrency": { "type": "integer" }
+      }
+    },
+    "eval_evidence": {
+      "type": ["string", "null"],
+      "description": "ABSENT. Evaluation is a separate agents-cli eval command family."
+    },
+    "rollback_plan": {
+      "type": ["string", "null"],
+      "description": "ABSENT. No --rollback, no manifest key, no agents-cli rollback subcommand."
+    },
+    "observability_requirements": {
+      "type": ["string", "null"],
+      "description": "ABSENT. Owned by the observability skill / infra single-project."
+    }
+  }
+}
