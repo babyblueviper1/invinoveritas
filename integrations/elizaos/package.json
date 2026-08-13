@@ -1,0 +1,50 @@
+{
+  "name": "elizaos-plugin-invinoveritas",
+  "version": "0.2.0",
+  "description": "elizaOS plugin for invinoveritas — an automated, independent second opinion before an irreversible action (the agent calls it and decides, no human in the loop, never blocks), plus free recomputable proof verification. The independent check an agent can't self-issue.",
+  "keywords": [
+    "elizaos",
+    "eliza",
+    "plugin",
+    "ai-agent",
+    "verification",
+    "x402",
+    "review",
+    "onchain",
+    "trading",
+    "autonomous",
+    "second-opinion"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "node --experimental-vm-modules --test dist/test/*.test.js",
+    "pretest": "npm run build"
+  },
+  "dependencies": {
+    "invinoveritas-verify": "^1.1.0"
+  },
+  "peerDependencies": {
+    "@elizaos/core": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@elizaos/core": ">=0.1.0",
+    "@noble/curves": "^2.3.0",
+    "@noble/hashes": "^2.3.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/babyblueviper1/invinoveritas"
+  },
+  "homepage": "https://api.babyblueviper.com/install"
+}
