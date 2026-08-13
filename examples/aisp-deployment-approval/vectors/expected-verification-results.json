@@ -1,0 +1,25 @@
+{
+  "against_fixed_plan": {
+    "checks": {
+      "approved_scope_digest_matches": true,
+      "approved_scope_matches_current_plan": true,
+      "audience_matches": true,
+      "decision_is_approve": true,
+      "not_expired": false,
+      "plan_digest_matches": true,
+      "signature_valid": true
+    },
+    "valid": false
+  },
+  "against_tampered_region_plan": {
+    "checks": {
+      "approved_scope_digest_matches": true,
+      "approved_scope_matches_current_plan": false,
+      "decision_is_approve": true,
+      "not_expired": false,
+      "plan_digest_matches": false,
+      "signature_valid": true
+    },
+    "valid": false
+  }
+}
