@@ -117,6 +117,19 @@ export async function callVerifyProof(event?: Record<string, unknown>, proofId?:
     if (!data?.event) {
       return { valid: false, method: "fetched_then_local", error: "fetch response had no `event` field." };
     }
+    // Real gap found by lalalune (elizaOS PR #9090, round 5): the fetched event's own `id` was
+    // never checked against the requested proofId. A compromised or misconfigured
+    // INVINO_INDEPENDENT_NODE could substitute ANY other genuinely-valid signed event and this
+    // would report it valid for the caller's requested proof -- cryptographic validity alone
+    // doesn't prove it's the SAME proof that was asked for. Fail closed on a normalized mismatch.
+    const fetchedId = String(data.event.id ?? "").toLowerCase();
+    const requestedId = proofId.toLowerCase();
+    if (fetchedId !== requestedId) {
+      return {
+        valid: false, method: "fetched_then_local",
+        error: `fetched event id (${fetchedId || "<missing>"}) does not match requested proofId (${requestedId}) -- endpoint returned the wrong proof`,
+      };
+    }
     const r = verifyProofLocal(data.event);
     return { ...r, method: "fetched_then_local", fetched_from: fetchBase };
   } catch {

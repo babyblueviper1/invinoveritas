@@ -1,6 +1,6 @@
 {
   "name": "elizaos-plugin-invinoveritas",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "elizaOS plugin for invinoveritas — an automated, independent second opinion before an irreversible action (the agent calls it and decides, no human in the loop, never blocks), plus free recomputable proof verification. The independent check an agent can't self-issue.",
   "keywords": [
     "elizaos",

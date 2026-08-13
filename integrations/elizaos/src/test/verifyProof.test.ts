@@ -102,10 +102,41 @@ test("positive case: proofId-only path fetches then verifies the same genuine ev
     return { ok: true, json: async () => ({ event: SAMPLE }) } as Response;
   }) as typeof fetch;
   try {
-    const r = await callVerifyProof(undefined, "some-proof-id");
+    // Real fix (lalalune, round 5): the requested proofId MUST match the fetched event's own id,
+    // normalized case-insensitively -- this test previously requested an unrelated "some-proof-id"
+    // and still asserted success, which encoded the exact substitution bug being fixed.
+    const r = await callVerifyProof(undefined, SAMPLE.id);
     assert.equal(r.method, "fetched_then_local");
     assert.equal(r.valid, true);
     assert.equal((r as any).checks.issued_by_invinoveritas, true);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test("proofId substitution: a valid event under the WRONG requested id fails closed", async () => {
+  // Real gap found by lalalune (elizaOS PR #9090, round 5), reproduced live against the
+  // published 0.2.2 tarball: requesting an unrelated proofId while the endpoint returns a
+  // genuinely valid, differently-signed event used to report valid:true for the wrong proof.
+  const SAMPLE = {
+    id: "68378998c57cc5b12b0e82cd1def49cc0a1d0130e6db5b85837419b048f3e422",
+    pubkey: "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    created_at: 1781569676,
+    kind: 30078,
+    tags: [["d", "invinoveritas-proof-proof-1781569676-ddd67438"], ["t", "invinoveritas"],
+      ["t", "proof"], ["schema", "invinoveritas.content_attestation.v1"]],
+    content: "{\"attests\":\"Sample proof \\u2014 verify it to confirm invinoveritas's signing key, trust nothing.\",\"content_type\":\"handshake_sample\",\"issued_at\":1781569676,\"platform\":\"invinoveritas\",\"schema\":\"invinoveritas.content_attestation.v1\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"POST this proof's signed `event` to verify_url, OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \\u21d2 invinoveritas issued this verdict. No trust required.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+    sig: "ac802c627f37303483c512d60293b9f7af090c343067312e34493a05c692e8832b0c1294fc96e115216d02a144e5e05ab2db89c0d408d490bf458b4f829146aa",
+  };
+  const realFetch = global.fetch;
+  global.fetch = (async () => {
+    return { ok: true, json: async () => ({ event: SAMPLE }) } as Response;
+  }) as typeof fetch;
+  try {
+    const r = await callVerifyProof(undefined, "0".repeat(64)); // 64 zeroes, matching lalalune's exact repro
+    assert.equal(r.method, "fetched_then_local");
+    assert.equal(r.valid, false, "must fail closed on an id mismatch, regardless of the event's own crypto validity");
+    assert.ok(r.error?.includes("does not match"), `expected an id-mismatch error, got: ${r.error}`);
   } finally {
     global.fetch = realFetch;
   }
