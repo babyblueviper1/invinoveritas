@@ -1,6 +1,6 @@
 {
   "name": "elizaos-plugin-invinoveritas",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "elizaOS plugin for invinoveritas — an automated, independent second opinion before an irreversible action (the agent calls it and decides, no human in the loop, never blocks), plus free recomputable proof verification. The independent check an agent can't self-issue.",
   "keywords": [
     "elizaos",
@@ -21,7 +21,9 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "src",
+    "README.md",
+    "tsconfig.json"
   ],
   "scripts": {
     "build": "tsc",
@@ -30,7 +32,7 @@
     "pretest": "npm run build"
   },
   "dependencies": {
-    "invinoveritas-verify": "^1.1.0"
+    "invinoveritas-verify": "1.1.0"
   },
   "peerDependencies": {
     "@elizaos/core": ">=0.1.0"
