@@ -55,6 +55,62 @@ test("tampered content after signing invalidates id_integrity (content swapped p
   assert.equal(r.valid, false);
 });
 
+test("positive case: a genuine event under the real published key verifies fully local, zero network calls", async () => {
+  // Real sample proof shipped with invinoveritas-verify (sdk/ts/sample_proof.json) -- genuinely
+  // signed under the actual published verifier_pubkey, not a synthetic fixture. Added per
+  // lalalune's round-3 review of PR #9090: prior tests only proved rejection paths (forged key,
+  // tampered content), never a positive "this really works" case.
+  const SAMPLE = {
+    id: "68378998c57cc5b12b0e82cd1def49cc0a1d0130e6db5b85837419b048f3e422",
+    pubkey: "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    created_at: 1781569676,
+    kind: 30078,
+    tags: [["d", "invinoveritas-proof-proof-1781569676-ddd67438"], ["t", "invinoveritas"],
+      ["t", "proof"], ["schema", "invinoveritas.content_attestation.v1"]],
+    content: "{\"attests\":\"Sample proof \\u2014 verify it to confirm invinoveritas's signing key, trust nothing.\",\"content_type\":\"handshake_sample\",\"issued_at\":1781569676,\"platform\":\"invinoveritas\",\"schema\":\"invinoveritas.content_attestation.v1\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"POST this proof's signed `event` to verify_url, OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \\u21d2 invinoveritas issued this verdict. No trust required.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+    sig: "ac802c627f37303483c512d60293b9f7af090c343067312e34493a05c692e8832b0c1294fc96e115216d02a144e5e05ab2db89c0d408d490bf458b4f829146aa",
+  };
+  const realFetch = global.fetch;
+  global.fetch = (async () => {
+    throw new Error("verifyProofLocal must never call fetch -- a network call here means the local path is broken");
+  }) as typeof fetch;
+  try {
+    const r = await callVerifyProof(SAMPLE);
+    assert.equal(r.method, "local");
+    assert.equal(r.valid, true);
+    assert.equal((r as any).checks.id_integrity, true);
+    assert.equal((r as any).checks.signature_valid, true);
+    assert.equal((r as any).checks.issued_by_invinoveritas, true);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test("positive case: proofId-only path fetches then verifies the same genuine event, method=fetched_then_local", async () => {
+  const SAMPLE = {
+    id: "68378998c57cc5b12b0e82cd1def49cc0a1d0130e6db5b85837419b048f3e422",
+    pubkey: "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    created_at: 1781569676,
+    kind: 30078,
+    tags: [["d", "invinoveritas-proof-proof-1781569676-ddd67438"], ["t", "invinoveritas"],
+      ["t", "proof"], ["schema", "invinoveritas.content_attestation.v1"]],
+    content: "{\"attests\":\"Sample proof \\u2014 verify it to confirm invinoveritas's signing key, trust nothing.\",\"content_type\":\"handshake_sample\",\"issued_at\":1781569676,\"platform\":\"invinoveritas\",\"schema\":\"invinoveritas.content_attestation.v1\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"POST this proof's signed `event` to verify_url, OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \\u21d2 invinoveritas issued this verdict. No trust required.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+    sig: "ac802c627f37303483c512d60293b9f7af090c343067312e34493a05c692e8832b0c1294fc96e115216d02a144e5e05ab2db89c0d408d490bf458b4f829146aa",
+  };
+  const realFetch = global.fetch;
+  global.fetch = (async () => {
+    return { ok: true, json: async () => ({ event: SAMPLE }) } as Response;
+  }) as typeof fetch;
+  try {
+    const r = await callVerifyProof(undefined, "some-proof-id");
+    assert.equal(r.method, "fetched_then_local");
+    assert.equal(r.valid, true);
+    assert.equal((r as any).checks.issued_by_invinoveritas, true);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
 test("proofId-only path: endpoint substitution via INVINO_INDEPENDENT_NODE is honored, not silently ignored", async () => {
   const calls: string[] = [];
   const realFetch = global.fetch;
