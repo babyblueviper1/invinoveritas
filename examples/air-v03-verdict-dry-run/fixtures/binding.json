@@ -1,0 +1,23 @@
+{
+  "spec_version": "0.3-draft-2",
+  "ledger_entry": 62,
+  "ledger_url": "https://api.babyblueviper.com/ledger/62",
+  "authorizations": [
+    {
+      "scheme": "invinoveritas.verdict_proof.v1",
+      "decision_ref": "sha256:b2bbbf7989ec1b673e7a3918e2d60bcfbe514e4ab6ab3c99bcfe2404262fdb3b",
+      "trust_model": "issuer_signed",
+      "authority_ref": "nostr:6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+      "authorization_uri": "nostr:926831de4d62bdd5facf5aa01e8fceb17dc489f73addee8c695c2c28b7a1c54f",
+      "authorization_sha256": "b1be650f8dfaf50c5f5db7c1127c17022f77855773425707bbcbc1e00eb7ce3c",
+      "transport_hint": "relay_event",
+      "axes": {
+        "precedence": {
+          "field": "created_at"
+        },
+        "freshness": null,
+        "correctness": null
+      }
+    }
+  ]
+}

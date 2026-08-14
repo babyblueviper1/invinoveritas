@@ -1,0 +1,128 @@
+{
+  "procedure": {
+    "spec_version": "0.3-draft-2",
+    "shape_errors": [],
+    "structural_ok": true,
+    "steps": [
+      {
+        "step": 1,
+        "name": "obtain_artifact",
+        "status": "pass",
+        "detail": "2363 bytes already held (transport_hint=relay_event, uri=nostr:926831de4d62bdd5facf5aa01e8fceb17dc489f73addee8c695c2c28b7a1c54f, source=cache)",
+        "bytes": 2363,
+        "event_id": "926831de4d62bdd5facf5aa01e8fceb17dc489f73addee8c695c2c28b7a1c54f",
+        "source": "cache",
+        "fetched_from": "wss://nos.lol"
+      },
+      {
+        "step": 2,
+        "name": "authorization_sha256",
+        "status": "pass",
+        "detail": "SHA-256(bytes) == authorization_sha256",
+        "declared": "b1be650f8dfaf50c5f5db7c1127c17022f77855773425707bbcbc1e00eb7ce3c",
+        "recomputed": "b1be650f8dfaf50c5f5db7c1127c17022f77855773425707bbcbc1e00eb7ce3c",
+        "match": true
+      },
+      {
+        "step": 3,
+        "name": "scheme_verify",
+        "status": "pass",
+        "detail": "verify_proof_event() valid=True on the fetched event",
+        "valid": true,
+        "checks": {
+          "id_integrity": true,
+          "signature_valid": true,
+          "issued_by_invinoveritas": true,
+          "is_proof_event": true,
+          "decision_ref_recomputes": true
+        },
+        "error": null,
+        "published_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "decision_ref": "sha256:b2bbbf7989ec1b673e7a3918e2d60bcfbe514e4ab6ab3c99bcfe2404262fdb3b",
+        "schema": "invinoveritas.verdict_proof.v1"
+      },
+      {
+        "step": 4,
+        "name": "axes_declaration",
+        "status": "pass",
+        "detail": "every declared field exists in the artifact",
+        "fields": [
+          {
+            "axis": "precedence",
+            "field": "created_at",
+            "present": true,
+            "where": "event",
+            "value": 1783347506,
+            "check": "pass"
+          },
+          {
+            "axis": "freshness",
+            "declaration": null,
+            "check": "n/a (present-and-null)"
+          },
+          {
+            "axis": "correctness",
+            "declaration": null,
+            "check": "n/a (present-and-null)"
+          }
+        ]
+      },
+      {
+        "step": 5,
+        "name": "coherence_table",
+        "status": "n/a",
+        "detail": "point-in-time verdict: artifact has no `state` field and axes.freshness is null. \u00a72.7 step 5's fresh/stale/unavailable table applies to rolling-snapshot artifacts (\u00a72.5), not to this class.",
+        "state": null
+      },
+      {
+        "step": 6,
+        "name": "consumer_judgment",
+        "status": "pass",
+        "detail": "authority classified per \u00a72.6 against each consumer trust-policy; freshness not declared; anchoring existence N/A (not chain_anchored)",
+        "freshness": {
+          "declared": null,
+          "computed": null,
+          "detail": "axes.freshness is null \u2014 a point-in-time verdict visibly claims nothing about 'still holds'; no consumer freshness function to run"
+        },
+        "anchoring_existence": {
+          "applicable": false,
+          "detail": "trust_model=issuer_signed \u2014 \u00a73.4 existence check is chain_anchored-only"
+        },
+        "classifications": [
+          {
+            "classification": "valid_and_authorized",
+            "trust_policy_id": "air.issuer_signed.v0:accepts-invinoveritas-published-key",
+            "authority_ref": "nostr:6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+            "listed_by_policy": true,
+            "structural_ok": true
+          },
+          {
+            "classification": "structurally_valid_zero_authority",
+            "trust_policy_id": "air.issuer_signed.v0:excludes-invinoveritas-key",
+            "authority_ref": "nostr:6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+            "listed_by_policy": false,
+            "structural_ok": true
+          }
+        ]
+      }
+    ],
+    "event_id": "926831de4d62bdd5facf5aa01e8fceb17dc489f73addee8c695c2c28b7a1c54f"
+  },
+  "fixture_flip": {
+    "name": "issuer_signed three-state fixture-flip (\u00a72.6 / \u00a76 fixtures owed)",
+    "identical_bundle": {
+      "air.issuer_signed.v0:accepts-invinoveritas-published-key": "valid_and_authorized",
+      "air.issuer_signed.v0:excludes-invinoveritas-key": "structurally_valid_zero_authority"
+    },
+    "tampered_bundle": {
+      "air.issuer_signed.v0:accepts-invinoveritas-published-key": "structurally_invalid",
+      "authorization_sha256_declared": "b1be650f8dfaf50c5f5db7c1127c17022f77855773425707bbcbc1e00eb7ce3c",
+      "authorization_sha256_tampered": "44ecad250d96286a6b6f235e343c3108a3ee86ba0bd12d2e20e42e3d1548525f"
+    },
+    "demonstrated": {
+      "valid_and_authorized": true,
+      "structurally_valid_zero_authority": true,
+      "structurally_invalid": true
+    }
+  }
+}

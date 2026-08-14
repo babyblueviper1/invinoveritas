@@ -1,0 +1,7 @@
+{
+  "trust_policy_id": "air.issuer_signed.v0:accepts-invinoveritas-published-key",
+  "trust_model": "issuer_signed",
+  "accepted_authority_refs": [
+    "nostr:6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
+  ]
+}

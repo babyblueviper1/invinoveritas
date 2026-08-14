@@ -1,0 +1,7 @@
+{
+  "trust_policy_id": "air.issuer_signed.v0:excludes-invinoveritas-key",
+  "trust_model": "issuer_signed",
+  "accepted_authority_refs": [
+    "nostr:0000000000000000000000000000000000000000000000000000000000000001"
+  ]
+}
