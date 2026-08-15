@@ -94,6 +94,22 @@ class GovernedWorkbench(Workbench):
             reason) -- persist/log/forward it yourself here. Also the natural seam to call
             submit_proof_to_ledger() (module-level function below) for a subset of your
             governed calls worth featuring on invinoveritas's public /ledger -- see README.
+        provider_id: stable name for THIS wrapper in a composed chain. Default
+            "invinoveritas.governed_workbench". Downstream markers name the provider
+            that never ran, not the one that denied.
+        downstream_provider_ids: optional explicit list of provider ids sitting
+            further down the chain that this wrapper will never call if it denies.
+            Also auto-discovered by walking `inner` (and nested `_inner`) for a
+            `provider_id` attribute -- so wrapping another GovernedWorkbench needs
+            no extra wiring. Deduped, order-preserving: explicit list first, then walk.
+        on_not_reached: optional callback(tool_name, marker) -- sync or async --
+            fired once per downstream id when THIS wrapper actually blocks a call
+            (gate mode + reject) and so never delegates. marker is exactly
+            {"provider_id": <str>, "reason": "upstream_deny"} -- not a verdict;
+            no verdict was computed for those providers. Sibling of on_verdict
+            on purpose: stuffing this into on_verdict would mix verdict-shaped
+            data with a non-verdict audit mark. Never fires on approve, advisory
+            reject (inner still runs), or fail-open.
         timeout_s: HTTP timeout for the /review call. On timeout, fails open (see class
             docstring) -- this is a ceiling on added latency per tool call, not a hang risk.
     """
@@ -110,6 +126,9 @@ class GovernedWorkbench(Workbench):
         should_review: Optional[Callable[[str], bool]] = None,
         sign: bool = False,
         on_verdict: Optional[Callable[[str, dict[str, Any]], Any]] = None,
+        provider_id: str = "invinoveritas.governed_workbench",
+        downstream_provider_ids: Optional[List[str]] = None,
+        on_not_reached: Optional[Callable[[str, dict[str, str]], Any]] = None,
         timeout_s: float = DEFAULT_TIMEOUT_S,
     ) -> None:
         if mode not in ("gate", "advisory"):
@@ -122,6 +141,9 @@ class GovernedWorkbench(Workbench):
         self._should_review = should_review
         self._sign = sign
         self._on_verdict = on_verdict
+        self.provider_id = provider_id
+        self._downstream_provider_ids = list(downstream_provider_ids or [])
+        self._on_not_reached = on_not_reached
         self._timeout_s = timeout_s
 
     # ---- lifecycle: pure delegation to inner ----
@@ -155,6 +177,7 @@ class GovernedWorkbench(Workbench):
     ) -> ToolResult:
         verdict = await self._review(name, arguments, call_id)
         if verdict is not None and self._mode == "gate" and verdict.get("verdict") == "reject":
+            await self._emit_not_reached(name)
             return self._blocked_result(name, verdict)
         return await self._inner.call_tool(name, arguments, cancellation_token, call_id)
 
@@ -220,6 +243,43 @@ class GovernedWorkbench(Workbench):
         except Exception as e:  # noqa: BLE001 -- fail-open on ANY error, by design
             logger.warning("GovernedWorkbench: /review call failed for %r (%s), failing open (review_unavailable)", name, e)
             return None
+
+    def _collect_downstream_ids(self) -> List[str]:
+        """Explicit constructor list, then walk inner wrappers that expose provider_id."""
+        ids: List[str] = []
+        seen: set[str] = set()
+
+        def _add(pid: Any) -> None:
+            if isinstance(pid, str) and pid and pid not in seen:
+                seen.add(pid)
+                ids.append(pid)
+
+        for pid in self._downstream_provider_ids:
+            _add(pid)
+        node: Any = self._inner
+        walked: set[int] = set()
+        while node is not None and id(node) not in walked:
+            walked.add(id(node))
+            _add(getattr(node, "provider_id", None))
+            node = getattr(node, "_inner", None)
+        return ids
+
+    async def _emit_not_reached(self, tool_name: str) -> None:
+        """One {provider_id, reason: upstream_deny} per downstream provider never called."""
+        if self._on_not_reached is None:
+            return
+        for pid in self._collect_downstream_ids():
+            marker = {"provider_id": pid, "reason": "upstream_deny"}
+            try:
+                maybe = self._on_not_reached(tool_name, marker)
+                if inspect.isawaitable(maybe):
+                    await maybe
+            except Exception as cb_err:  # noqa: BLE001
+                logger.warning(
+                    "GovernedWorkbench: on_not_reached callback raised for %r/%s (%s); "
+                    "block still honored",
+                    tool_name, pid, cb_err,
+                )
 
     @staticmethod
     def _blocked_result(name: str, verdict: dict[str, Any]) -> ToolResult:

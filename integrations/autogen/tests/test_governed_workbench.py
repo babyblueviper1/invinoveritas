@@ -218,3 +218,110 @@ async def test_lifecycle_methods_delegate_to_inner():
     state = await gw.save_state()
     await gw.load_state(state)
     await gw.stop()  # should not raise
+
+
+@pytest.mark.asyncio
+async def test_nested_reject_emits_not_reached_for_inner_and_does_not_run_it(_patch_httpx):
+    """Outer deny must still block, and emit a not_reached marker for the inner
+    provider that never ran -- not a verdict, just {provider_id, reason: upstream_deny}."""
+    review_calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        review_calls["count"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "status": "success", "type": "structured_review", "verdict": "reject",
+                "confidence": 0.9, "summary": "outer deny", "issues": [],
+            },
+        )
+
+    _patch_httpx(httpx.MockTransport(handler))
+    inner_not_reached: list[dict] = []
+    inner_verdicts: list[dict] = []
+    inner = GovernedWorkbench(
+        _workbench(),
+        api_key="test-key",
+        mode="gate",
+        provider_id="inner.gw",
+        on_verdict=lambda n, v: inner_verdicts.append(v),
+        on_not_reached=lambda n, m: inner_not_reached.append(m),
+    )
+    outer_markers: list[tuple[str, dict]] = []
+
+    def on_not_reached(name: str, marker: dict) -> None:
+        outer_markers.append((name, marker))
+
+    outer = GovernedWorkbench(
+        inner,
+        api_key="test-key",
+        mode="gate",
+        provider_id="outer.gw",
+        on_not_reached=on_not_reached,
+    )
+    result = await outer.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert result.is_error is True
+    assert "BLOCKED" in result.to_text()
+    assert "5" not in result.to_text(), "the real tool must never have run"
+    assert review_calls["count"] == 1, "inner.call_tool must not run, so only outer /review fires"
+    assert inner_verdicts == [], "inner never reviewed -- no verdict for it"
+    assert inner_not_reached == [], "inner's own callback must not fire; it never ran"
+    assert len(outer_markers) == 1
+    assert outer_markers[0][0] == "add"
+    assert outer_markers[0][1] == {"provider_id": "inner.gw", "reason": "upstream_deny"}
+    assert set(outer_markers[0][1].keys()) == {"provider_id", "reason"}
+
+
+@pytest.mark.asyncio
+async def test_approve_emits_zero_not_reached_markers(_patch_httpx):
+    _patch_httpx(_mock_client("approve"))
+    markers: list[dict] = []
+    gw = GovernedWorkbench(
+        _workbench(),
+        api_key="test-key",
+        mode="gate",
+        provider_id="solo.gw",
+        on_not_reached=lambda n, m: markers.append(m),
+    )
+    result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert result.is_error is False
+    assert "5" in result.to_text()
+    assert markers == [], "approve delegates; no downstream was skipped, so no not_reached"
+
+
+@pytest.mark.asyncio
+async def test_explicit_downstream_ids_used_when_inner_has_no_provider_id(_patch_httpx):
+    _patch_httpx(_mock_client("reject"))
+    markers: list[dict] = []
+    gw = GovernedWorkbench(
+        _workbench(),
+        api_key="test-key",
+        mode="gate",
+        provider_id="outer.gw",
+        downstream_provider_ids=["other.gate", "yet.another"],
+        on_not_reached=lambda n, m: markers.append(m),
+    )
+    result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert result.is_error is True
+    assert markers == [
+        {"provider_id": "other.gate", "reason": "upstream_deny"},
+        {"provider_id": "yet.another", "reason": "upstream_deny"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_advisory_reject_does_not_emit_not_reached(_patch_httpx):
+    """Advisory reject still delegates, so downstream *did* run -- not 'never reached'."""
+    _patch_httpx(_mock_client("reject"))
+    markers: list[dict] = []
+    outer = GovernedWorkbench(
+        _workbench(),
+        api_key="test-key",
+        mode="advisory",
+        provider_id="outer.gw",
+        downstream_provider_ids=["would.have.been.skipped"],
+        on_not_reached=lambda n, m: markers.append(m),
+    )
+    result = await outer.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert result.is_error is False
+    assert markers == []
