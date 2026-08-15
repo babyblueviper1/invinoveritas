@@ -1,0 +1,207 @@
+{
+  "attested_payload": {
+    "attestation_timestamp": 1786797420230,
+    "attested": {
+      "amount": "62916.215",
+      "base": "BTC",
+      "currency": "USD"
+    },
+    "method": "GET",
+    "parse": {
+      "amount": "$.data.amount",
+      "base": "$.data.base",
+      "currency": "$.data.currency"
+    },
+    "recipient": "0x0000000000000000000000000000000000000000",
+    "source": "https://api.coinbase.com/v2/prices/BTC-USD/spot"
+  },
+  "auth_used": "OPERATOR_FULL_API_KEY (HL_REVIEW_BEARER 402)",
+  "input_hash": "sha256:06fbeb9630a84d7f465b49a852af87bf1b470f85c69961081c87e68bd617fe44",
+  "review_request": {
+    "artifact": "SYNTHETIC / ADVISORY \u2014 no live order.\nSource-authenticated inputHash=sha256:06fbeb9630a84d7f465b49a852af87bf1b470f85c69961081c87e68bd617fe44\nHTTPS source: GET https://api.coinbase.com/v2/prices/BTC-USD/spot attested via Primus zkTLS (proxytls).\nRevealed fields: base='BTC' currency='USD' amount='62916.215'.\nattestation_timestamp=1786797420230.\nQuestion: is it reasonable to treat this independently source-authenticated Coinbase BTC-USD last print as a cited market fact for a subsequent Hyperliquid BTC risk/size review, given it is one snapshot from a non-execution venue?",
+    "artifact_type": "analysis",
+    "concerns": "The attested value is a single last print, not a book; Coinbase is not the execution venue (this fleet trades Hyperliquid); zkTLS here is occurrence evidence of one response, not a completeness claim that the price could not have moved; parsePath $.data.amount is a string but any downstream use as a float must not silently change the bound inputHash.",
+    "context": "WYRIWE Step 3 input-source-authentication demo (standalone script, NOT formal WYRIWE spec text). A Primus zkTLS attestation authenticated a Coinbase public BTC-USD spot GET. inputHash below is sha256 of the canonical attested payload. This /review judges whether it is reasonable to treat that source-authenticated print as a cited market fact for a later Hyperliquid BTC risk review \u2014 it does not re-authenticate the HTTPS source (zkTLS already did that) and it does not authorize a live order. inputHash=sha256:06fbeb9630a84d7f465b49a852af87bf1b470f85c69961081c87e68bd617fe44",
+    "seed": true,
+    "severity_threshold": "all",
+    "sign": true
+  },
+  "review_response": {
+    "admission_receipt": {
+      "accepted_at": 1786797447,
+      "admission_index": 282,
+      "artifact_hash": "704245fff165e979d962ac4189f4c1deeef6e04f433de0fe6abd2d2d4a1e5c94",
+      "deadline_policy_commitment": "3e2ea85bd49eb88ed705d49baa845815111e7dd1c1f04a2586c0e63d5d235638",
+      "request_capture_ref": null,
+      "request_class": "standard",
+      "requester_identity": "5fcb16caac0005bb9b3869ffa9e5cc860094da43349ed5e34e582681d02be4e0",
+      "response_deadline": 1786797507,
+      "review_policy_version": "invinoveritas.review.v10"
+    },
+    "alternative_approaches": [
+      "Treat the attested Coinbase print as a provenance-bearing external reference only, then gate any Hyperliquid risk/size output on a fresh venue-local market-data snapshot.",
+      "Use a robust cross-venue reference such as a timestamp-bounded index/median together with Hyperliquid mark and executable book data, while preserving the Coinbase attestation as supporting evidence."
+    ],
+    "artifact_provenance": "caller_supplied",
+    "confidence": 0.94,
+    "issues": [
+      {
+        "attribution": "agentive",
+        "category": "missing_check",
+        "description": "The attestation proves occurrence of one Coinbase response, not that 62916.215 was current when a later Hyperliquid review or order occurs. At the stated millisecond timestamp, normal market movement can make a later risk calculation stale without invalidating the zkTLS proof.",
+        "severity": "high",
+        "suggested_fix": "Require an explicit maximum attestation age at review time and reject/re-fetch if `now - attestation_timestamp` exceeds that bound."
+      },
+      {
+        "attribution": "agentive",
+        "category": "correctness",
+        "description": "Coinbase BTC-USD spot is not Hyperliquid's executable BTC price: basis, mark/index methodology, spread, liquidity, and liquidation pricing can differ. Using this print as the execution or stop reference can understate actual entry, fill, and liquidation risk.",
+        "severity": "high",
+        "suggested_fix": "Use the attested Coinbase value only as an external cited reference; obtain current Hyperliquid mark, best bid/ask, order-book depth, and instrument-specific funding/index data before sizing or approving a trade."
+      },
+      {
+        "attribution": "agentive",
+        "category": "correctness",
+        "description": "The revealed `amount` is a decimal string. A downstream binary float conversion can produce a non-canonical representation or silently detach the numeric calculation from the exact payload committed by `inputHash`.",
+        "severity": "medium",
+        "suggested_fix": "Retain the raw string and inputHash, parse with fixed-point decimal arithmetic, and record the exact parsing/rounding rule alongside every derived value."
+      },
+      {
+        "attribution": "agentive",
+        "category": "missing_check",
+        "description": "A last print is not a bid, ask, mid, or depth observation. It cannot establish available liquidity or a fillable price, particularly for a size-sensitive Hyperliquid risk review.",
+        "severity": "medium",
+        "suggested_fix": "For any size decision, require venue-local bid/ask and depth snapshots plus a modeled worst-case fill/slippage; do not infer them from the Coinbase last print."
+      },
+      {
+        "attribution": "agentive",
+        "category": "correctness",
+        "description": "The artifact states an attestation timestamp but does not state the timestamp's clock domain, freshness policy, or whether the canonical payload and disclosed fields were independently verified against the supplied hash by the consumer.",
+        "severity": "low",
+        "suggested_fix": "Store the attestation/proof, canonical payload bytes, hash-verification result, and a documented timestamp/freshness interpretation with the citation."
+      }
+    ],
+    "proof": {
+      "content_sha256": "5bb5e99868ba84ab3568dc4a7334464dcbbd1091e071674f2628d7e05c4f0e7d",
+      "event": {
+        "content": "{\"artifact_hash\":\"704245fff165e979d962ac4189f4c1deeef6e04f433de0fe6abd2d2d4a1e5c94\",\"artifact_type\":\"analysis\",\"confidence\":0.94,\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"decision_ref\":\"sha256:de01a8b64204a3687821d73380eea45421a250f872a280ee16c7d7ad0c35f452\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"engine_generation\":1,\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:9b155fe0451f9f77cd90002189dc185dc495951f46ed01efc53df8d20e1ae85b\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"62d32e519c39ba060950140ee7ceb5327371a0fe\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v10.md\",\"rubric_sha256\":\"a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5\"},\"policy_version\":\"invinoveritas.review.v10\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"9bb1d10b8c80a7929ca4b308425c494e84b9d36ccee5c34a85534fcd3c51ecdc\",\"verdict\":\"approve_with_concerns\",\"verified_at\":1786797456,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+        "created_at": 1786797456,
+        "id": "cfdeb79d154b3fcbd3b4f6631dbaff7319117dcca5a6424404171dcb50356bb1",
+        "kind": 30078,
+        "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "sig": "430451fc0e4a287edf9f8b96ef07dc0863c270c1af91e935b7c23543be9c870b33fa18aa6c994c18fc963f469f857b46cd4586a4c3a71a506855447d974ae26e",
+        "tags": [
+          [
+            "d",
+            "invinoveritas-proof-704245fff165e979d962ac4189f4c1deeef6e04f433de0fe6abd2d2d4a1e5c94-1786797456-71a7c159"
+          ],
+          [
+            "t",
+            "invinoveritas"
+          ],
+          [
+            "t",
+            "proof"
+          ],
+          [
+            "schema",
+            "invinoveritas.verdict_proof.v1"
+          ]
+        ]
+      },
+      "pq_companion_signature": {
+        "algorithm": "ML-DSA-65",
+        "pq_pubkey": "336f2fd2cbc38f5eac4de77f1ae23cb917c95c74aab5b68e31b54fb973892872213afb844d623c9d546493ce63418969c7748772f7ca4005f49eb03cf4b6aa49f828744372a410a015170082622d6eb3ec3e585b5c8eed608c4302adfcfc80075a91dbfb73a44c59317279b974957ae4021cda18f2150530216482d2b1af791db0a79e2087c4230150bd2e2e39cbd9ce73601c7c6dcdf9a3b38360960f6e309870d4404abd57c729a6086bb963e4aa038c2dadd284c75aedb6ec170c4fd050b881079c97ee6b7016736dc5185434a7c9dd4dfaa46f13957b0aa5344b1aef2a9efa92c64dc01683e5c30a231ddd0ea49ec8a034ef25b32ae23e729ad5afcaa2a8c19b82dbbd0e78b6ffce388b5f958bed58b9ade7faaa532550a7a27113fcc931ac4907ed98bec04370872d580dd1743518d92dd7ec0843bd9c4efcf87f06f8577b86c34fec39e760685188910df1bb6bc894ec184cf4f6a651598e739a9a98e259b6b9735cccfa592d0991a75930d92de1a5e3f9c5140540d9c2d845cc96b522aa089dfcdb7c1c8af164020811fb47680e8f0b66ca77fb7dd0510a549d225456e69767ac22e8c42ed78989586946a9be44ca5a32ef563919061b5f577aa136878ebd4a6a31cf520a9b474923b9adf8978d4113839634b8df01a117974de143634214cf2d15a5d03b970576b638bc8cbe9e3c697e36d465a7be7feab8a2e0abe14b410cc50a152c8a6d550b4e302a5f9a032d33536c443661984e8f7ac017c47600b31b61f0100351ff54bfef9d2c88888a4336e6394b0e041963c9d840aa157b23268e56d72d890c889a8b081647a79658258e4d11583d54fb30f7d13fcda9dd502f0f0b2e9fc039df89b33e03170d1573375c269aab02053b8f502502b6e70469fc724b477a5dfd7b00610bcbd40e965130a91f70661bfe989d3e3381015acbd6c840254358d4d2c89a1a2b7c090d3601b6c9bb742b146ae8ecda0135639615033137281168c3647ee52e6ae77ad9fbe77fa01b6d10370b963c89f36a89f8f9193101b8ad199518a4f8f4433bc1013dbdaa31c0eedcf9e5b8f63114228955f3e7d0d9553f237c9bdc4b7b512ff644547b758809b017e8f61a62e30d2ed7d116fcf81a6cc8641c78e19c516363dc47b83dcda109fa19c7f9c20b15be214342ec0196449c55d12c8a51db1afd66f2f7e3ff315db18241b7f02e830efff2bb2a20f1dacb7284ad9f2a0abff9841961f4968b45690d1327877a991c6665f64539442e3a485529349b367945b3c0315eb0f8c7e14813172f6d34679cee5c12aadd41c3a1586d801ab3cace5154424fa923f7d92e5bd9640fafdb15b66c5726da0407d2ab0bac63d2b84ded1bf1518d69c3e590692da36f4dd9dfee83fbee8c157729d83f740bb33e98db9529e6a53e9087faf8a18d7b73f88f2eb370c0e274f0bcaeeb11660e50c3c6d60363782530b29825b0d0a5b6841f3c46ea921fd34f3b1bbbc13a0f2a79e0dd17172913b62f460485245373f147572b6a2036263af923835ba640db43072805d1509458262898182476234b686853b5ec2f91c143df64d2018185bc50409447d8d7c53549bdc2a4ca0885a90f825f8fcdf6aa09e25021331c8966e0829ae958a2ec5d35fcf747243dcee905df359970842e0fb830fb33d6f09b09e4d3efc9fb852254f6d814d3532a1e276751804dfbc49ecaf6ebd5c30b4ceac879041cd560b2c9e7e1067926a7fbee17c7fd2cb58bfb2bcfb83eb8af6187fa107f6f190d652206bb64e340d45c0268e286067b3551c705f9710ff09ce96ab1780fb0bb6d2cd98987e0a99537470f6a0c055c276e50524e63d39ba8f024b87a4ec9f8c3d3ac328f2df0ee4a3cdbc744c73c47b0e14600ea58cde14ea43f6b44cd45c5f8e94ccaa04449790e7f02c6cf957bb96f3382430fdbfb367c256be67147a00aa9a6aa4e9d5578148542617c63f6820760fe8a63dd016be6e8bba868081cfbcf39ae2a34f49a0952b4d677d79841246ffda1b64dab3f21fbb793e60712819b6a4ff863d049bcbd89b523fbb927176ea57cb3681c795e7787c5a08bce5fc478d373d320f583daf3c8ae97504d8eeb06651ee7f9de7870a72f64a90f2cc5d995925c388bf3aa447510279fb546e4666eb3a429e85df63e49daa222692b37df0847b7ff3f795bbf3c45089366c14a22c9b235fe66359d548dad162b1d3c56fb586c9139941d0e1ae206292666423c8507fe7d73b464a306dd2921ba34cebfd1ce7eda250a69685e72d8357ab341fc2713658112c875c98a9583891136f50821741daae28bd8f9ec1a23d1763d0b8b262bb609f76ab2667649fd0df841ea04134aad7015a8aaffe9f01f87d61bf117dd75b3e44c43a79b194ccf925c3d22683cb56ab416f8cc8999bfcff4e5504c2e6525a918ed24f50c32d8723e04a899a6094fd9bf3d881e8c35397f9d445878c3f8843f364d4fb1731e7b26910bd34ec2bfe375c1c73b270801716034aebfcd072af508c062651fcec60a95e652004bd05fab95ad8ac11d3023aace6f575fd2e33dfc13ee93fa3d1ed68771297cd21bcb45a5e7068ae99307e35bd04143a96bb17313908908c2ca2dafc11bf19a4c049a69d27720192635330c61223f9a08e6a4957b575be3cba96bf5961ab28ab58b0cac034991eb6dd3997cd2533ef7437c367c1643ff136bd1e7e161a93ca0efa0d32c50c1594c574d47efcaef88979af7d78335640ba7c82912a406373b089e92",
+        "signature_hex": "80695f00953dc22f4a42caf20ac923547321dc936e313900e36e040e7c1e3864eb06297a131d40aaea0fcfefdc275b0ddde936ac448ae8ec518ffec764f74c6820046b78a89a5403e46be36b5bc3dfae77b2a77e941fd8ef4dee58730193e861fb76415c50c99290f079e79ae9c27c4c0315b545c8232c8db0bedf0119f52a616467bcafa5e13fd2e92f755ba16f075daf535d82471789e4bbcce44dc881df4c02c3242e4d2a52dcec03b6c3022ac9124204ef782bad09d5c491ddbfbf3c753946fbb59674aa09580d074999a107f65d3049c9954173cc85bcefdc04f6d3d1ddfaca8966a5de8ecadf7d5408ea8f87adf909d663d0a10254a0838f14c88b49dcc41f0ff4b6d09b44461cad1e06894e3b9e21b1b07f738d0bb1c8220cddf44b0ec96a70bad434fc9b62316d3d3401e01827826673db7a5bb20305d2710475d733f291b82dbfab45587536092564bfe2490b57b5b359bfa6bc448b9e467d622650fbeef1ed2be51f5686e29dbf482994f2dcd4b4bfb90315ff353b40a91dce8673e7c3c2eb77239b356858ac73b158830eee89030616f350f328e7fc55aee4d70a3c83fbe2fa425679265629823173ee406c4cba83f8fce1ec1fee50b0d3d4633c88bd6c43b2e3945422dfcea6e524c897025e8b3ec09ebb650c985f72aa7bbcef835d429791da2f61039806fe15a68d5e975acd1f1c8cee2c3fd61c5a97ded2fa4f46c77d5882c80fa0407b01bd214e9f9399859243acdfa5e86e002c9ddec15a540845edc254e57999c9ce4ffa54b7de2d0e78b6c2be5bf391f5335e36bca6a69e389b8e2612933c8d657aafbec0e314eaaac9a687aae9003ea75f250d206e296f0226508ddbcbe514758ed35b22e648d3ada99c14927d43561ef19001b6288b61f4166f3150f2ee5ffe20631a5e739f255872bc10b5177b257b18d86e4760636a31ec9a0652f808cc8d996ebd2da0d6238c6c46ae33ee91164eaf47c3a9a1370948db8376c94bed5be771811801f0395b381b3d3c8c04d5be5e647ba5a12cd5743abc807f2b68bbf281f0da1d662c52c55a3e273c70d45775ab7fe05a9b9b9876fb4df149fae8088d1523416ec20c4f24241287126f18145fd6018b91dbdbc0def3def4cdc47f7abd16964236e4fa4b733781cbc86d6bf0e1085c01fca1146dc76bc9488d4d7f245638b71325abb1e60e607bce736a4d9843bdbccea4d913f0333c1341e4e332f123680154b6d2b67ad3f52a337d9e0f19aa3d0a267791730d469b7fee889ab710d3ee11ac0b66a1e201b78e04635d329353945bde9d9e5b44d6d5c3448467c82d433879df7cac9004e4ad33b95562c68223c76b07f94c3502b657cfd48456972afc6ad8932d13584ecfbe4911b2a4f985de26f87a418f57585737947d382038073542610ad5e121e01b40678c6b834c97eb091caa1d04a777c3cdfc177864b30fa3401f3b4c5c164a8d4d16c77e53d066670ac750d8b9a0379929173a641ff65d44b9f050f3c1e26337c8550ef80d0228deda2a0b9c0026fac64062eafc05cfd0321538c86737322961805d63f36574865ab2f873fa85463ad2f21b06491e8aa9d2c9e812e3d8422c3deede10316cf737e0d1aa998774b59ba39158888a1be47ba1b65e7b51b135cf0dbc01378a59ee79740268bcea20993c9396c797384256af4800583200d2a7a76787daae198112d56d8f36d3ae3a6c768b669eff7a4cd622a4c847f816ac77adfa3a7c74b24fefc2fe405240f36f65a6e7f172fcc0a12bdfdf9660c0b43ae25911991a3e24294720831f6c18428fd487fc602752da6f6d598661051fe34e388739c5d2d38bda13bcb631981e71fbc157365c149e2706bec12ca89d58fc75b0c72aff38ec31ed6643e1cddc53547443148e986ceea9c25d93589bead1607aa39b89f2a47dbc55dcdc5ce8728c1822ca5f6cbcb70037ebcec367bdc9eeae937dd58b4622a56204d5605ddafe6cd41de4c7c3f9b556c571c1f7abd45173d82cf5c60ea879cc96485b33fee04fcf3d0b959fe796f512e6382dab81cfe56aba59f9ad9acfde2a2cb0a254882086c9e164abf6f27cd8e5b7980bb71b7cb26cad8f2f6196310e545f705b92e68ec8c58664964670fbcc460146b18a689412984ad7a56a1d1214498eaa3382f1bbce21ea6ed6ce00376b5c37e214913271b1065e319543071d75549d2842bf3f14c65f7344b0d0939d874f7222ddc8da282260b77efe45bb3ddc51c8b78d3fbd96167aca01ecfce4e78e0583bd3cbcb85d98584d5a766deef19b1e40d669b2c13e61fa7c42c59c8910fab1f4ac820f7e66e0a9695537b8680eac40a2325e956b495c70721590eac47b4593c108fb2b30a461beee410cf12a7e7c76a9ff457bb18e05949f482b3da4b2820cc3dc901df44e52eff55942777dc128ccee01a6c048c4dc68b3a90a90d9d96f02bfac2690c4f9ba5dce8a4ab412c78612bb0170ae2db65cf587866366fa26308d5a0ead4e4a7c39c9f9ced03256118858b0fcb6308c6f58183aba0e3cc704a54cc2f4e95df64c19676f1bb068ba9c888089633b192f2ed117933624e03d4c7f17465653f9b99b3dc293c11695ea371e3fdab0655f41ff2b5c64e7b77d867d2c62f66e572ac178cacade3620bf2bc46c56e25d7bbc40d4ee7a4b5477ce24145967d01f750b297f4a4fd8d782668617ed7f446d5159a4cda1e55ebd21a6eb4240f3f2fab866f5b40518d7c43c8077518a257f5e70238ee893c2aeb689fc195cce1aa0778ec42d7becae9f70a0449d6386963b2790f86f3d05411a68bd6adea3f8dcafafc8d0fda7752e4713adcea0f91ffe9d79d4b382c585a58453db04059d42fe9baa24c12c2444963fd6ca49e4678c0e3119393dd3e487cd5afd2345a7339273a4acf8bdc1711dc5264e12fdf002e22922b0e1f53207342ffb9d634676000d9afaa14475acba4bfc43868fef058e2b3f11c61d3080f6988f5effa03f4a9c5a502099c55c0a638c866d02a70b0998194f6631242f1318dc91668588e8de2a05be65fbebe94ae8ae5b785ac19e21341e54a6719df9264152a15aaad0b7268d4c036565a91d9ca4a6d5a77147b3ac8d94f579729f431fe87a7fe9ceba97b4e09e1602a5c97229641c15da5351998ef21b1b72c44363d16ccee8d2324d876ef19317252e354230793573fec2e0a4093dbf80f14b124fd26f5909609709981de91ddae6ade0d514ddc419197a17becd710a21400a89fd2e42f7bdb12a1d5c9546719112fffea81162e7b4bc21839458107aeb8e42842c490732cfeaf7e3115fc73d33fb604fc3642397792703fc4095855798173ec7d74c4aa1545391152122d05795f7a37d40cdfff5dd7f08be03485f2d3a4a6bd53339d468cfdd88fd1d9c467fb485ee5b6266ecdfb8c000a4a9649486f943783f992a80849b8405845d64886ad6b46165f1d2603749f6939bc93a50b48301cdcd92df8b941c63be1610d2d4591279969b52f723cef25ef62a9d9b23d2932d3ebe2df7efada228557c9ef4b2b7bf6158f3fdaf540fa980e03fcef1f6278b25c38e0a817a0597578e7964a6fba088ada46afec277d0ebf7e4c94d1429b201ba1dfe805c7547270d3af36d5bf6bbbdf29034476e15050d09696a4d77209af9b5890bf88b822766a9ee6df84e16aab2f41cbe0a71e97029cd994fd42a412be2460ebce8f70f4db3fe6ab94314a4dd02be29a4a014a0b57475f12ead84b98cd7b503ca0417749a57f9d7f675ad71f98d7d9640ba1bdc9280275589716e1f569e43ec9afabdeb237f012c49d14d8182121929e06d6b9b7d59f3d6a77def6a173c6107566c7a38f92fb1b9b9d5c142d83b44a66a1bd487642992264fb29cdd5a178dd2e080ae2626c72cead7164df686f1212803c664e9611e53619764313f1ad6cfaeef3073b02f3abd501a1752b289d3f50c894d3220f1b5e761dd9e3a47b3e32bf27863358eae1ffe7c6758f171e580f30779210ccb5b6076a01834ee8d39d5d0cea93ee97975e0354af070c2e332afacff14018d4324e4910da32f19d9672007ecc8418576cbc156190901efd1523fe34a937f762d39ebbca91e2084323c8b2bc1b2e886b8fe081911206fc456f6b2760dff2503b00a8f4e05594167690ca881915927f8d308e13bfeb3fdf5202fa1dc6d8d1025f5a62b4efee99f4c9cb1f552dc1b84024ad36c85d37d82ed31111fd20b80b3bc1ca5aa420f35402cd5b5138ffc2c3a3fd3af5c6ff1e42fa0a24659f1924429b71642702800ecaa20652eeebec2231c120ab4c20b6cbb81976fe2c72c6e6676dbb626268ae0aafdbf0e67c76b0d1329a825204b62d80c55c3b2cd7cafdcf2ee0dfbcbc5bd1fb6e1af697d049c9d74bd68b94e479a2ce2870d81096e210aeb5788ce3521a9dfcc53742b07b304fe10f7817355844bb1e8a56005cf5a92bdcee78b5b9371e4247ce630298da8a64dc97a61142713cef4e4f35986ee00cd611e2fba1309b7018cce18825f85621152933845e43b870ebbe7d7817c8570b162b1e487c48578397f01cfb45b23581ead454981aa9e811a253f253647fb78bc3cd5f9a24b6258995cd8bc155e9094daf727334e5f75ab333f95cd27474868698998628893979ec1c80836474b68a5add50000000000000000000000000000000000060c10171e26",
+        "signs": "event.id (hex-decoded to 32 raw bytes)"
+      },
+      "proof_payload": {
+        "artifact_hash": "704245fff165e979d962ac4189f4c1deeef6e04f433de0fe6abd2d2d4a1e5c94",
+        "artifact_type": "analysis",
+        "confidence": 0.94,
+        "conformance_suite": "https://github.com/babyblueviper1/preaction-governance-conformance",
+        "decision_ref": "sha256:de01a8b64204a3687821d73380eea45421a250f872a280ee16c7d7ad0c35f452",
+        "decision_ref_preimage_fields": [
+          "artifact_hash",
+          "artifact_type",
+          "policy_version",
+          "verdict",
+          "source_class",
+          "vantage_limitation",
+          "related_decision_ref",
+          "intended_audience",
+          "confidentiality_tier",
+          "disclosed_summary",
+          "intended_verifier",
+          "policy_commitment"
+        ],
+        "decision_ref_preimage_rule": "every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.",
+        "engine_generation": 1,
+        "independent_nodes": [
+          "https://invinoveritas-castra.babyblueviper.workers.dev/verify",
+          "https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run"
+        ],
+        "key_id": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "platform": "invinoveritas",
+        "policy_commitment": "sha256:9b155fe0451f9f77cd90002189dc185dc495951f46ed01efc53df8d20e1ae85b",
+        "policy_commitment_inputs": {
+          "conformance_suite_commit": "62d32e519c39ba060950140ee7ceb5327371a0fe",
+          "conformance_suite_repo": "babyblueviper1/preaction-governance-conformance",
+          "rubric_doc_path": "docs/policy_spec/invinoveritas.review.v10.md",
+          "rubric_sha256": "a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5"
+        },
+        "policy_version": "invinoveritas.review.v10",
+        "schema": "invinoveritas.verdict_proof.v1",
+        "source_class": "agent_reported",
+        "summary_hash": "9bb1d10b8c80a7929ca4b308425c494e84b9d36ccee5c34a85534fcd3c51ecdc",
+        "verdict": "approve_with_concerns",
+        "verified_at": 1786797456,
+        "verifier_keys": "https://api.babyblueviper.com/.well-known/verifier-keys.json",
+        "verifier_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "verify_how": "Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.",
+        "verify_offline": "npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.",
+        "verify_url": "https://api.babyblueviper.com/verify-proof"
+      },
+      "signature_type": "nostr_event",
+      "verify": "POST /verify-proof with the `event` object (or run NIP-01 verification yourself)."
+    },
+    "recall": {
+      "endpoint": "https://api.babyblueviper.com/review",
+      "recall_hint": "Call before every irreversible action \u2014 this is a per-decision gate, not a one-time check.",
+      "stable": true,
+      "verify_before_trusting_cache": "https://api.babyblueviper.com/verify-proof",
+      "why_safe_to_cache": "Every response ships a signed, recomputable proof \u2014 re-verify a cached result at /verify-proof (free, no auth) so saving us never means trusting us."
+    },
+    "related": [
+      {
+        "description": "invinoveritas /ledger \u2014 the FREE public verdict track record: every signed /review verdict, published BEFORE its outcome, with on-chain-anchored commit time and the settled win or loss (losses kept, not just wins). Recom",
+        "payment": "free",
+        "resource": "https://api.babyblueviper.com/ledger"
+      },
+      {
+        "description": "invinoveritas /prove \u2014 a signed, independently-verifiable attestation of a prior execution that anyone recomputes offline to confirm it is untampered. The VERIFICATION layer: redacted-but-bound attestation of a prior exe",
+        "payment": "same x402 flow as this call (402 challenge at the URL), or Bearer credits",
+        "resource": "https://api.babyblueviper.com/prove"
+      },
+      {
+        "description": "invinoveritas /execute \u2014 sandboxed Python that returns a SIGNED PROVENANCE PROOF of the exact output you recompute offline to confirm the run is untampered. Hardened Docker (network off, read-only root, caps dropped, non",
+        "payment": "same x402 flow as this call (402 challenge at the URL), or Bearer credits",
+        "resource": "https://api.babyblueviper.com/execute"
+      },
+      {
+        "description": "invinoveritas /audit/agent-readiness \u2014 a RECOMPUTABLE agent-readiness verdict: scores any agent URL (0-100 + grade) on handshake, discovery and verifiable-PROOF readiness, returns ranked fixes AND a signed proof of the a",
+        "payment": "same x402 flow as this call (402 challenge at the URL), or Bearer credits",
+        "resource": "https://api.babyblueviper.com/audit/agent-readiness"
+      },
+      {
+        "description": "FREE, no auth \u2014 verify any invinoveritas signed verdict proof (schnorr vs our published key). Trust nothing; check the signature.",
+        "payment": "free",
+        "resource": "https://api.babyblueviper.com/verify-proof"
+      }
+    ],
+    "status": "success",
+    "summary": "It is reasonable to cite this as independently source-authenticated evidence that Coinbase returned BTC-USD spot amount='62916.215' in the attested response at the stated timestamp. It is not sufficient by itself to price, size, or validate execution risk on Hyperliquid because it is a single, potentially stale last-print snapshot from a different venue.",
+    "type": "structured_review",
+    "verdict": "approve_with_concerns"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "source": {
+    "name": "coinbase_btc_usd_spot",
+    "request": {
+      "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot",
+      "method": "GET",
+      "header": {
+        "Accept": "application/json"
+      },
+      "body": ""
+    },
+    "responseResolves": [
+      {
+        "keyName": "amount",
+        "parsePath": "$.data.amount"
+      },
+      {
+        "keyName": "base",
+        "parsePath": "$.data.base"
+      },
+      {
+        "keyName": "currency",
+        "parsePath": "$.data.currency"
+      }
+    ],
+    "justification": "A trading /review on this platform often cites a last price as a stated fact. Coinbase's public spot is an independent HTTPS source (not Hyperliquid, not Binance — Binance is geo-blocked from this box). Authenticating THAT response is the Step-3 gap: prove the cited print came from api.coinbase.com, then let /review judge the reasoning."
+  },
+  "initResult": "{\"retcode\":\"0\",\"retdesc\":\"success\",\"isUserClick\":\"true\",\"content\":null,\"details\":{\"errlog\":{\"code\":\"0\",\"type\":\"\",\"desc\":\"\",\"uuid\":\"\",\"time\":\"0\"},\"initialization\":{\"status\":\"3\",\"statusDescription\":\"DONE\",\"elapsed\":\"0\"},\"offline\":{\"status\":\"10\",\"statusDescription\":\"UNSTART\",\"elapsed\":\"0\"},\"online\":{\"status\":\"20\",\"statusDescription\":\"UNSTART\",\"elapsed\":\"0\"}}}",
+  "attestation": {
+    "recipient": "0x0000000000000000000000000000000000000000",
+    "request": {
+      "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot",
+      "header": "",
+      "method": "GET",
+      "body": ""
+    },
+    "reponseResolve": [
+      {
+        "keyName": "amount",
+        "parseType": "",
+        "parsePath": "$.data.amount"
+      },
+      {
+        "keyName": "base",
+        "parseType": "",
+        "parsePath": "$.data.base"
+      },
+      {
+        "keyName": "currency",
+        "parseType": "",
+        "parsePath": "$.data.currency"
+      }
+    ],
+    "data": "{\"amount\":\"62916.215\",\"base\":\"BTC\",\"currency\":\"USD\"}",
+    "attConditions": "[{\"op\":\"REVEAL_STRING\",\"field\":\"$.data.amount\",\"reveal_id\":\"amount\"},{\"op\":\"REVEAL_STRING\",\"field\":\"$.data.base\",\"reveal_id\":\"base\"},{\"op\":\"REVEAL_STRING\",\"field\":\"$.data.currency\",\"reveal_id\":\"currency\"}]",
+    "timestamp": 1786797420230,
+    "additionParams": "{\"note\":\"standalone mechanism demo; not WYRIWE spec text\",\"algorithmType\":\"proxytls\",\"source\":\"coinbase_btc_usd_spot\",\"demo\":\"wyriwe-step3-zktls-demo\"}",
+    "attestors": [
+      {
+        "attestorAddr": "0xdb736b13e2f522dbe18b2015d0291e4b193d8ef6",
+        "url": "https://primuslabs.xyz"
+      }
+    ],
+    "signatures": [
+      "0x274b5e9a395b53580854bbe67a6647d97c67d92f4357f0d603836b11d3e459667764d370c47354e44d9c60bfa665d0d4699b75fe2d8827b18a8d3966d314553d1c"
+    ]
+  },
+  "verifyResult": true,
+  "captured_at": "2026-08-15T12:37:00.707Z"
+}

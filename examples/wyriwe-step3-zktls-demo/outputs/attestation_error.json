@@ -1,0 +1,10 @@
+{
+  "ok": false,
+  "stage": "sign",
+  "error": {
+    "name": "Error",
+    "message": "hex data is odd-length (argument=\"value\", value=\"0x[redacted]\", code=INVALID_ARGUMENT, version=bytes/5.8.0)",
+    "code": "INVALID_ARGUMENT"
+  },
+  "diagnosis": "PRIMUS_APP_SECRET is loaded from ../../.env (not printed). zktls-core-sdk sign() constructs ethers.Wallet(appSecret), which requires a 32-byte hex private key (0x + 64 hex digits). This environment's secret is 0x + 63 hex digits (odd-length body). Not padded or guessed."
+}

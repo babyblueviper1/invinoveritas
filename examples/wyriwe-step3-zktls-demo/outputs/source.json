@@ -1,0 +1,28 @@
+{
+  "source": {
+    "name": "coinbase_btc_usd_spot",
+    "request": {
+      "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot",
+      "method": "GET",
+      "header": {
+        "Accept": "application/json"
+      },
+      "body": ""
+    },
+    "responseResolves": [
+      {
+        "keyName": "amount",
+        "parsePath": "$.data.amount"
+      },
+      {
+        "keyName": "base",
+        "parsePath": "$.data.base"
+      },
+      {
+        "keyName": "currency",
+        "parsePath": "$.data.currency"
+      }
+    ],
+    "justification": "A trading /review on this platform often cites a last price as a stated fact. Coinbase's public spot is an independent HTTPS source (not Hyperliquid, not Binance — Binance is geo-blocked from this box). Authenticating THAT response is the Step-3 gap: prove the cited print came from api.coinbase.com, then let /review judge the reasoning."
+  }
+}
