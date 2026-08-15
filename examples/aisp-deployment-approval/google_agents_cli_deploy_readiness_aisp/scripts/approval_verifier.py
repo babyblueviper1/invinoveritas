@@ -34,11 +34,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# examples/aisp-deployment-approval/ — parent of this skill package.
-_SKILL_ROOT = Path(__file__).resolve().parent.parent
-_EXAMPLE_ROOT = _SKILL_ROOT.parent
-if str(_EXAMPLE_ROOT) not in sys.path:
-    sys.path.insert(0, str(_EXAMPLE_ROOT))
+# 2026-08-15 (optimization2026's real packaging critique on google/agents-cli#48):
+# this package used to reach OUTSIDE the Skill Folder for these two modules
+# (examples/aisp-deployment-approval/, the parent of this skill), which breaks
+# self-containment the moment the folder is copied/hashed/zipped/registered on its
+# own -- exactly the failure mode a portable AISP package must not have. Both
+# modules are now local copies inside this Skill Folder's own scripts/ dir; the
+# outer examples/aisp-deployment-approval/ copies remain as the standalone
+# generator/demo they always were, kept in sync by hand (no runtime dependency
+# between the two anymore).
+_THIS_DIR = Path(__file__).resolve().parent
+if str(_THIS_DIR) not in sys.path:
+    sys.path.insert(0, str(_THIS_DIR))
 
 import deployment_approval_example as dae  # noqa: E402
 import resolve_agents_cli_plan as resolver  # noqa: E402

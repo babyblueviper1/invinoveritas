@@ -51,7 +51,7 @@
           },
           {
             "rule": "When the human decision is approve, deployment must not proceed unless the attached approval evidence validates against the current effective deployment plan.",
-            "enforced_by": "verify_approval.step2:sys.assert"
+            "enforced_by": "verified{Evidence valid?}:no->blocked, and redundantly by deploy.step1:sys.assert immediately before the irreversible action"
           }
         ],
         "discovery": {
@@ -103,7 +103,7 @@
       },
       "functions": {
         "resolve_plan": {
-          "step1": "Call the deterministic plan resolver (scripts/approval_verifier.py resolve, which composes ../resolve_agents_cli_plan.py) with the parsed cmd_deploy.py-style CLI flags and the loaded agents-cli-manifest.yaml. Do not ask an LLM to invent the effective plan.",
+          "step1": "Call the deterministic plan resolver (scripts/approval_verifier.py resolve, which composes scripts/resolve_agents_cli_plan.py -- both local to this Skill Folder, no path outside it) with the parsed cmd_deploy.py-style CLI flags and the loaded agents-cli-manifest.yaml. Do not ask an LLM to invent the effective plan.",
           "step2": "Present the complete effective deployment plan, including target, project, region, source or image revision, eval evidence, IAM/secrets status, rollback plan, and observability requirements. Fields the resolver could not map from real agents-cli state are absent — say so, do not fill them in.",
           "output_mapping": "effective_plan",
           "execute_mode": "inline"
@@ -116,7 +116,7 @@
         },
         "verify_approval": {
           "step1": "When human_decision is approve, call the deterministic approval-verification tool with the current effective deployment plan and the preserved approval payload.",
-          "step2": "sys.assert('human_decision.decision != \"approve\" || approval_verification.valid == true', 'The human approval evidence does not authorize the current effective deployment plan')",
+          "step2": "Return the structured verification result (valid, plan_digest_matches, approved_scope_matches_current_plan, approved_scope_digest_matches, signature_valid, not_expired, decision_is_approve) as-is. Do not assert here -- the verified{Evidence valid?} routing node and deploy.step1's sys.assert are the sole gates on invalid evidence, so a rejection routes to blocked instead of raising mid-function.",
           "output_mapping": "approval_verification"
         },
         "modify_plan": {

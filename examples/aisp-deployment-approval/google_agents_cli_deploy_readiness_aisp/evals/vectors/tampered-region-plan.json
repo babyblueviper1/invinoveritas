@@ -1,0 +1,19 @@
+{
+  "deployment_target": "agent_runtime",
+  "environment": "production",
+  "eval_evidence": "sha256:eval-report-hash",
+  "gcp_project": "company-prod",
+  "network_exposure": "internal-only",
+  "observability_requirements": "logs+traces to company-prod/support-agent",
+  "python_version": "3.13",
+  "region": "eu-west-1",
+  "resource_sizing": {
+    "cpu": "2",
+    "memory": "4Gi"
+  },
+  "rollback_plan": "revert to abc122 via agents-cli rollback --to abc122",
+  "secret_policy_digest": "sha256:deadbeef",
+  "service_account": "support-agent-sa@company-prod.iam.gserviceaccount.com",
+  "service_name": "support-agent",
+  "source_revision": "abc123"
+}

@@ -1,0 +1,41 @@
+{
+  "approval_conditions": [
+    "Deploy only during the approved maintenance window",
+    "Maximum instances must remain <= 10"
+  ],
+  "approved_scope": {
+    "deployment_target": "agent_runtime",
+    "environment": "production",
+    "eval_evidence": "sha256:eval-report-hash",
+    "gcp_project": "company-prod",
+    "network_exposure": "internal-only",
+    "observability_requirements": "logs+traces to company-prod/support-agent",
+    "python_version": "3.13",
+    "region": "us-central1",
+    "resource_sizing": {
+      "cpu": "2",
+      "memory": "4Gi"
+    },
+    "rollback_plan": "revert to abc122 via agents-cli rollback --to abc122",
+    "secret_policy_digest": "sha256:deadbeef",
+    "service_account": "support-agent-sa@company-prod.iam.gserviceaccount.com",
+    "service_name": "support-agent",
+    "source_revision": "abc123"
+  },
+  "approver": "alice@example.com",
+  "audience": "agents-cli-production-deployer",
+  "decision": "approve",
+  "display_note": "typo fix, still approved for production",
+  "expires_at": 1786003600,
+  "issued_at": 1786000000,
+  "key_id": "release-key-2026-01",
+  "max_uses": 1,
+  "nonce": "00000000000000000000000000000000",
+  "operation": "agents-cli.deploy",
+  "plan_schema": "agents-cli.effective_deployment_plan.v1",
+  "plan_sha256": "sha256:0d6f3f1b89adb400a6b798258a55faff05e69e23fc05648931c0cf9d0bab71df",
+  "profile": "aisp.deployment_approval_response.v1",
+  "public_key": "030cda8747d22b89263570bf86e4d4ff665cf803d46d25d8a47d726b8c7b9fa4",
+  "signature": "e4fd918e829146cfc8c324b738a1221bc8da45fab86d74df2fcf2bd5a12ae9c97c19b7d9ece186a76b4d3dfb660d098de9963add8e8997b5c021efc7d0779e8d",
+  "skill_id": "google_agents_cli_deploy_readiness_aisp"
+}
