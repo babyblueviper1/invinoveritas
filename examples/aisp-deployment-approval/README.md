@@ -76,11 +76,16 @@ example, not a PR against `google/agents-cli`:
   `agents-cli-manifest.yaml` into an effective plan. CLI flags override manifest values.
   Fields with no first-class agents-cli source (`rollback_plan`, `eval_evidence`,
   `python_version`, `environment`, `observability_requirements`) stay absent.
-- `google_agents_cli_deploy_readiness_aisp/` — conforming AISP skill package
+  Unmapped-but-real flags (`--update-env-vars`, `--agent-identity`, `--port`,
+  `--build-args`, `--cluster-name`, `--no-wait`, …) are named in the mapping
+  table, not silently dropped.
+- `google_agents_cli_deploy_readiness_aisp/` — candidate AISP skill package
   (`aisp.aisop.json`, `SKILL.md`, `scripts/approval_verifier.py`, `schemas/`,
-  `evals/vectors/` → symlink to `./vectors`). `sys.io.confirm` /
+  `evals/vectors/` — real copies). `sys.io.confirm` /
   `sys.assert` steps and the `aisp_contract.non_negotiable` rules are
-  optimization2026's exact text from the issue thread.
+  optimization2026's exact text from the issue thread. Deploy-time
+  `deploy-check` re-resolves live flags/manifest and refuses if any
+  execution-relevant field has drifted from the approved plan.
 
 ```bash
 python3 resolve_agents_cli_plan.py --demo

@@ -17,9 +17,10 @@ google_agents_cli_deploy_readiness_aisp/
 ├── README.md                # this file
 ├── SKILL.md                 # coding-agent guide (agents-cli skill register)
 ├── scripts/
-│   ├── approval_verifier.py           # resolve + verify CLI, local imports only
+│   ├── approval_verifier.py           # resolve + verify + deploy-check, local imports only
 │   ├── deployment_approval_example.py # v2 digest / BIP-340 / verify (local copy)
-│   └── resolve_agents_cli_plan.py     # effective-plan adapter (local copy)
+│   ├── resolve_agents_cli_plan.py     # effective-plan adapter (local copy)
+│   └── test_deploy_binding.py         # A→B service_account drift must refuse
 ├── schemas/
 │   ├── approval-response.schema.json
 │   └── effective-deployment-plan.schema.json
@@ -53,11 +54,21 @@ approve → scripts/approval_verifier.py verify   (LLM does not judge crypto)
         ↓
 sys.assert on approval_verification.valid
         ↓
-agents-cli deploy   (same flags that produced the plan)
+scripts/approval_verifier.py deploy-check
+        (re-resolve live flags+manifest, compare every execution-relevant
+         field to the already-approved plan; refuse on any divergence)
+        ↓
+agents-cli deploy   (only if deploy-check reports bound=true)
 ```
 
 `modify` returns to resolve. A previous approval must not carry over.
-`reject` or a failed verify stops without deploy.
+`reject`, a failed verify, or a failed deploy-check stops without deploy.
+
+There is no native `agents-cli deploy --plan-json`. The deploy-check is
+the adapter-level substitute: the human approved a resolved plan, and
+deploy is refused unless a *fresh* resolve of the live flags/manifest
+still produces the same execution-relevant values. Approving a projection
+and then running a drifted flag set is the gap this closes.
 
 The human-response Runtime is SoulBot's existing `sys.io.confirm` path, not
 this package. The v2 script does not need to become the human channel.
@@ -129,13 +140,50 @@ same field. That is what `cmd_deploy.py` does
 | `observability_requirements` | Separate observability skill / `infra single-project`. |
 
 `validate_plan_completeness` still requires `rollback_plan` and
-`source_revision` for a production approval. A plan resolved from
-agents-cli state alone will therefore be **refused** until a human or
-policy supplies those via `--supplements`. That is the point of
-fail-closed, not a gap to paper over.
+`source_revision` for a production approval. `rollback_plan` is a
+policy supplement (no agents-cli source). `source_revision` is an
+execution input — it only appears when `--image` was passed; it cannot
+be invented via `--supplements`. A from-source deploy has no captured
+revision and stays incomplete. That is the point of fail-closed, not a
+gap to paper over.
+
+`--supplements` is split in two:
+
+| Category | Fields | Allowed? |
+|----------|--------|----------|
+| Policy / evidence | `environment`, `eval_evidence`, `rollback_plan`, `observability_requirements`, `python_version` | Yes, only when honestly absent |
+| Execution input | `deployment_target`, `gcp_project`, `region`, `service_name`, `service_account`, `source_revision`, `resource_sizing`, `network_exposure`, `secret_policy_digest` | **No.** Must come from CLI flags / manifest so they bind to deploy. |
 
 `--supplements` will error if you try to override a field the resolver
-already mapped.
+already mapped, **or** if you try to inject an execution input that
+never came from agents-cli. The deploy-check then re-resolves live
+flags/manifest and refuses if any execution-relevant field has drifted
+from the approved plan (e.g. approved `service_account=A`, live flags
+now resolve to `B`).
+
+### Unmapped CLI flags (recognized, not captured)
+
+These are real `cmd_deploy.py` options. The resolver accepts them
+(`normalize_cli_flags`) and reports them on
+`unmapped_cli_flags_present`. They do **not** enter the plan or the
+approval digest. Named here so they are not a silent coverage hole.
+Not mapped yet.
+
+| Flag | Kind | Why it is not in the plan |
+|------|------|---------------------------|
+| `--update-env-vars` | execution-relevant | Env-var mutations at deploy. No load-bearing field today. |
+| `--agent-identity` | execution-relevant | Agent identity. No load-bearing field today. |
+| `--port` | execution-relevant | Container/service port. No load-bearing field today. |
+| `--build-args` | execution-relevant | Source-build arguments. No load-bearing field today. |
+| `--cluster-name` | execution-relevant | GKE cluster. No load-bearing field today. |
+| `--no-wait` | control-flow | Does not change the deployed artifact. |
+| `--dry-run` / `--list` / `--status` / `--interactive` / `--no-confirm-project` | control-flow | Not a deploy of a new artifact (or, for `--no-confirm-project`, only skips the GCP-project prompt). |
+
+Print the same tables from the resolver:
+
+```bash
+python3 scripts/resolve_agents_cli_plan.py --mapping-table
+```
 
 ### What the adapter will not pretend to do
 
@@ -148,7 +196,6 @@ already mapped.
 
 ```bash
 python3 scripts/resolve_agents_cli_plan.py --demo
-python3 scripts/resolve_agents_cli_plan.py --mapping-table
 ```
 
 ## Scope

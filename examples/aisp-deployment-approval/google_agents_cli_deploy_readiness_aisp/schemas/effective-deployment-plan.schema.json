@@ -2,7 +2,57 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://api.babyblueviper.com/schemas/agents-cli-effective-deployment-plan.schema.json",
   "title": "agents-cli effective deployment plan (approval-profile shape)",
-  "description": "LOAD_BEARING_FIELDS from deployment_approval_example.py. This is the approval profile's schema, not agents-cli's native schema. Fields with no first-class agents-cli source are omitted by resolve_agents_cli_plan.py (absence, not a fabricated value). Values must stay inside the documented JCS-safe subset: str / int (not bool) / dict[str, _] / list / null. No float, no JSON bool.",
+  "description": "LOAD_BEARING_FIELDS from deployment_approval_example.py. This is the approval profile's schema, not agents-cli's native schema. Fields with no first-class agents-cli source are omitted by resolve_agents_cli_plan.py (absence, not a fabricated value). Values must stay inside the documented JCS-safe subset: str / int (not bool) / dict[str, _] / list / null. No float, no JSON bool. Honest coverage gap: several real cmd_deploy.py flags are recognized by the resolver but are NOT properties of this schema and do not enter the approval digest — see x-unmapped-cli-flags. They are named here so they are not silently uncovered; they are not mapped yet.",
+  "x-execution-relevant-fields": [
+    "deployment_target",
+    "gcp_project",
+    "region",
+    "service_name",
+    "service_account",
+    "resource_sizing",
+    "network_exposure",
+    "secret_policy_digest",
+    "source_revision"
+  ],
+  "x-supplement-categories": {
+    "policy_evidence": [
+      "eval_evidence",
+      "rollback_plan",
+      "observability_requirements",
+      "environment",
+      "python_version"
+    ],
+    "execution_input": [
+      "deployment_target",
+      "gcp_project",
+      "region",
+      "service_name",
+      "service_account",
+      "resource_sizing",
+      "network_exposure",
+      "secret_policy_digest",
+      "source_revision"
+    ],
+    "notes": "Policy/evidence supplements may fill honestly-absent fields. Execution-input supplements are refused — those values must come from CLI flags/manifest so a deploy-time re-resolve can bind them."
+  },
+  "x-unmapped-cli-flags": {
+    "description": "Real agents-cli deploy flags this adapter recognizes (normalize_cli_flags) but does not map onto a load-bearing plan field. Reported on ResolveResult.unmapped_cli_flags_present. Not captured in the approval digest. Do not invent a mapping here; this annotation is the honest gap.",
+    "execution_relevant_unmapped": {
+      "--update-env-vars": "Env-var mutations at deploy time. No plan field today.",
+      "--agent-identity": "Agent identity passed to deploy. No plan field today.",
+      "--port": "Container/service port. No plan field today.",
+      "--build-args": "Source-build arguments. No plan field today.",
+      "--cluster-name": "GKE cluster. No plan field today."
+    },
+    "control_flow_unmapped": {
+      "--no-wait": "Do not wait for the deploy to finish. Does not change the artifact.",
+      "--dry-run": "Print without deploying.",
+      "--list": "List deployments; not a deploy.",
+      "--status": "Status query; not a deploy.",
+      "--interactive": "Interactive prompts.",
+      "--no-confirm-project": "Skip the GCP-project click.confirm; not a deploy-approval gate."
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "properties": {

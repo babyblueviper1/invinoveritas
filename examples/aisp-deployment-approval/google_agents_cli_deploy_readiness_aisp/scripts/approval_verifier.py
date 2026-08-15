@@ -21,10 +21,25 @@ those absent. `validate_plan_completeness` / `build_approval_response` will
 refuse a production approval that is missing `rollback_plan` or
 `source_revision`.
 
-`--supplements` exists so a human or a policy layer can supply those
-honestly-absent fields out of band. It is an error to use supplements to
-override a field the resolver *did* map — that would paper over a real
-agents-cli value. Only keys in `result.absent_fields` are accepted.
+`--supplements` is split into two categories:
+
+  * policy / evidence (`environment`, `eval_evidence`, `rollback_plan`,
+    `observability_requirements`, `python_version`) — may come from outside
+    agents-cli and may fill honestly-absent fields.
+  * execution inputs (`gcp_project`, `service_account`, `source_revision`,
+    `resource_sizing`, `network_exposure`, and the other
+    `EXECUTION_RELEVANT_FIELDS`) — must come from CLI flags / manifest so
+    they can bind to `agents-cli deploy`. They are refused as supplements.
+
+Deploy-time bind
+----------------
+A native `agents-cli deploy --plan-json` does not exist. This adapter's
+substitute: take the already-approved plan, re-resolve a *fresh* plan from
+the live flags/manifest immediately before deploy, and compare every
+execution-relevant field. Any divergence refuses the deploy (fail closed).
+That is "resolve effective plan -> approve that plan -> deploy consumes
+the same resolved values", prototyped locally. Approving a projection
+and then running a different flag set is the gap this closes.
 """
 from __future__ import annotations
 
@@ -62,27 +77,70 @@ def _load_manifest(path: str | None) -> dict[str, Any]:
     return resolver.load_manifest(path)
 
 
+_ABSENT = object()
+
+
+class PlanDivergenceError(ValueError):
+    """Approved plan and live re-resolve disagree on an execution-relevant field."""
+
+    def __init__(self, report: dict[str, Any]):
+        self.report = report
+        fields = [d["field"] for d in report.get("divergences", [])]
+        super().__init__(
+            "deploy refused: approved plan diverges from a fresh re-resolve "
+            f"on execution-relevant field(s) {fields}. "
+            "The approval digest does not bind to what would execute."
+        )
+
+
 def merge_supplements(
     result: resolver.ResolveResult,
     supplements: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Return plan + out-of-band fills for honestly-absent fields only."""
+    """Return plan + out-of-band fills for honestly-absent *policy/evidence* fields.
+
+    Execution-input keys are refused even when currently absent: they must
+    arrive via CLI flags / manifest so a deploy-time re-resolve can see them.
+    """
     plan = dict(result.plan)
     if not supplements:
         return plan
+    execution = [
+        k for k in supplements
+        if k in resolver.EXECUTION_INPUT_SUPPLEMENT_FIELDS
+    ]
+    if execution:
+        raise ValueError(
+            f"--supplements tried to set execution-input field(s) {execution}. "
+            "Those must come from CLI flags or the manifest so they flow into "
+            "the deploy invocation, not just the approval record. "
+            f"Policy/evidence supplements allowed: "
+            f"{list(resolver.POLICY_EVIDENCE_SUPPLEMENT_FIELDS)}."
+        )
     illegal = [k for k in supplements if k not in result.absent_fields]
     if illegal:
         sources = {k: result.coverage.get(k) for k in illegal}
         raise ValueError(
             f"--supplements tried to set {illegal}, but those fields already "
             f"have a real agents-cli source in this resolution (sources: {sources}). "
-            f"Supplements may only fill absent_fields={result.absent_fields}."
+            f"Policy/evidence supplements may only fill absent_fields="
+            f"{[f for f in result.absent_fields if f in resolver.POLICY_EVIDENCE_SUPPLEMENT_FIELDS]}."
         )
     unknown = [k for k in supplements if k not in dae.LOAD_BEARING_FIELDS]
     if unknown:
         raise ValueError(
             f"--supplements contains non-load-bearing keys {unknown}; "
-            f"allowed absent fields are {result.absent_fields}"
+            f"allowed policy/evidence fields are "
+            f"{list(resolver.POLICY_EVIDENCE_SUPPLEMENT_FIELDS)}"
+        )
+    not_policy = [
+        k for k in supplements
+        if k not in resolver.POLICY_EVIDENCE_SUPPLEMENT_FIELDS
+    ]
+    if not_policy:
+        raise ValueError(
+            f"--supplements keys {not_policy} are not policy/evidence fields. "
+            f"Allowed: {list(resolver.POLICY_EVIDENCE_SUPPLEMENT_FIELDS)}."
         )
     plan.update(supplements)
     return plan
@@ -100,6 +158,78 @@ def resolve_from_inputs(
     )
     plan = merge_supplements(result, supplements)
     return result, plan
+
+
+def _field_slice(plan: dict[str, Any]) -> dict[str, Any]:
+    """Execution-relevant subset. Missing keys stay missing (not fabricated null)."""
+    return {
+        name: plan[name]
+        for name in resolver.EXECUTION_RELEVANT_FIELDS
+        if name in plan
+    }
+
+
+def compare_execution_fields(
+    approved_plan: dict[str, Any],
+    live_plan: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Field-by-field diffs on EXECUTION_RELEVANT_FIELDS, including both-absent."""
+    diffs: list[dict[str, Any]] = []
+    for name in resolver.EXECUTION_RELEVANT_FIELDS:
+        approved_val = approved_plan[name] if name in approved_plan else _ABSENT
+        live_val = live_plan[name] if name in live_plan else _ABSENT
+        if approved_val != live_val:
+            diffs.append({
+                "field": name,
+                "approved": None if approved_val is _ABSENT else approved_val,
+                "approved_present": approved_val is not _ABSENT,
+                "live": None if live_val is _ABSENT else live_val,
+                "live_present": live_val is not _ABSENT,
+            })
+    return diffs
+
+
+def check_deploy_binding(
+    approved_plan: dict[str, Any],
+    flags: dict[str, Any] | None,
+    manifest: dict[str, Any] | None,
+    *,
+    defaults_mode: str = "create",
+) -> dict[str, Any]:
+    """Re-resolve live flags+manifest and compare to the already-approved plan.
+
+    Does not apply supplements: execution inputs must come from flags/manifest,
+    and policy/evidence fields are not in the comparison set.
+    `bound` is True only when every execution-relevant field matches.
+    """
+    fresh = resolver.resolve_agents_cli_plan(
+        flags, manifest, defaults_mode=defaults_mode
+    )
+    diffs = compare_execution_fields(approved_plan, fresh.plan)
+    return {
+        "bound": not diffs,
+        "execution_relevant_fields": list(resolver.EXECUTION_RELEVANT_FIELDS),
+        "divergences": diffs,
+        "approved_execution_slice": _field_slice(approved_plan),
+        "live_execution_slice": _field_slice(fresh.plan),
+        "live_unmapped_cli_flags_present": fresh.unmapped_cli_flags_present,
+    }
+
+
+def assert_deploy_bound(
+    approved_plan: dict[str, Any],
+    flags: dict[str, Any] | None,
+    manifest: dict[str, Any] | None,
+    *,
+    defaults_mode: str = "create",
+) -> dict[str, Any]:
+    """Fail closed: raise PlanDivergenceError unless the live re-resolve binds."""
+    report = check_deploy_binding(
+        approved_plan, flags, manifest, defaults_mode=defaults_mode
+    )
+    if not report["bound"]:
+        raise PlanDivergenceError(report)
+    return report
 
 
 def verify_payload(
@@ -143,6 +273,19 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     json.dump(report, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0 if report.get("valid") else 2
+
+
+def _cmd_deploy_check(args: argparse.Namespace) -> int:
+    """Fail closed unless the live re-resolve binds to the approved plan."""
+    approved = _load_json(args.plan)
+    flags = _load_json(args.flags) if args.flags else {}
+    manifest = _load_manifest(args.manifest)
+    report = check_deploy_binding(
+        approved, flags, manifest, defaults_mode=args.defaults_mode
+    )
+    json.dump(report, sys.stdout, indent=2, sort_keys=True)
+    sys.stdout.write("\n")
+    return 0 if report.get("bound") else 2
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
@@ -255,8 +398,41 @@ def _demo() -> int:
     except ValueError as exc:
         print(f"Correctly refused: {exc}")
 
-    print("\n=== composition OK: resolver -> supplements-for-absent-only -> "
-          "build_approval_response -> verify_approval (pass + tamper fail) ===")
+    print("\n=== execution-input supplements are refused (service_account) ===")
+    try:
+        merge_supplements(result, {
+            "service_account": "other-sa@company-prod.iam.gserviceaccount.com",
+        })
+        raise AssertionError("expected execution-input supplement to fail")
+    except ValueError as exc:
+        print(f"Correctly refused: {exc}")
+
+    print("\n=== deploy-time bind: live flags still match the approved plan ===")
+    bind_ok = check_deploy_binding(plan, flags, None, defaults_mode="create")
+    print(json.dumps({k: bind_ok[k] for k in (
+        "bound", "divergences", "approved_execution_slice", "live_execution_slice",
+    )}, indent=2, sort_keys=True))
+    assert bind_ok["bound"], bind_ok
+    assert_deploy_bound(plan, flags, None, defaults_mode="create")
+
+    print("\n=== deploy-time bind: service_account drifted A -> B, refuse ===")
+    drifted = dict(flags)
+    drifted["--service-account"] = "other-sa@company-prod.iam.gserviceaccount.com"
+    bind_bad = check_deploy_binding(plan, drifted, None, defaults_mode="create")
+    print(json.dumps(bind_bad["divergences"], indent=2, sort_keys=True))
+    assert not bind_bad["bound"], bind_bad
+    sa_diff = next(d for d in bind_bad["divergences"] if d["field"] == "service_account")
+    assert sa_diff["approved"] == flags["--service-account"]
+    assert sa_diff["live"] == drifted["--service-account"]
+    try:
+        assert_deploy_bound(plan, drifted, None, defaults_mode="create")
+        raise AssertionError("expected drifted service_account to refuse deploy")
+    except PlanDivergenceError as exc:
+        print(f"Correctly refused: {exc}")
+
+    print("\n=== composition OK: resolver -> policy-supplements-only -> "
+          "build_approval_response -> verify_approval (pass + tamper fail) -> "
+          "deploy-bind (pass + service_account drift refuse) ===")
     return 0
 
 
@@ -269,7 +445,12 @@ def main() -> int:
     def add_common(p: argparse.ArgumentParser) -> None:
         p.add_argument("--flags", help="JSON object of cmd_deploy.py-style flags")
         p.add_argument("--manifest", help="Path to agents-cli-manifest.yaml or .json")
-        p.add_argument("--supplements", help="JSON object filling honestly-absent fields only")
+        p.add_argument(
+            "--supplements",
+            help="JSON object filling honestly-absent *policy/evidence* fields only "
+                 "(environment, eval_evidence, rollback_plan, observability_requirements, "
+                 "python_version). Execution inputs are refused.",
+        )
         p.add_argument(
             "--defaults-mode",
             choices=("create", "explicit_only"),
@@ -299,9 +480,23 @@ def main() -> int:
     p_build.add_argument("--fixed", action="store_true",
                          help="use the v2 fixture timestamps/nonce/aux_rand")
 
+    p_bind = sub.add_parser(
+        "deploy-check",
+        help="re-resolve live flags/manifest and refuse if they diverge "
+             "from the already-approved plan on any execution-relevant field",
+    )
+    p_bind.add_argument("--plan", required=True, help="already-approved plan JSON")
+    p_bind.add_argument("--flags", help="JSON object of current cmd_deploy.py-style flags")
+    p_bind.add_argument("--manifest", help="Path to current agents-cli-manifest.yaml or .json")
+    p_bind.add_argument(
+        "--defaults-mode",
+        choices=("create", "explicit_only"),
+        default="create",
+    )
+
     ap.add_argument("--demo", action="store_true",
                     help="run the composition: resolve, refuse-incomplete, "
-                         "supplement, build, verify, tamper")
+                         "supplement, build, verify, tamper, deploy-bind")
 
     args = ap.parse_args()
     if args.demo or args.cmd is None:
@@ -312,6 +507,8 @@ def main() -> int:
         return _cmd_verify(args)
     if args.cmd == "build":
         return _cmd_build(args)
+    if args.cmd == "deploy-check":
+        return _cmd_deploy_check(args)
     ap.error(f"unknown command {args.cmd}")
     return 2
 

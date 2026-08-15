@@ -109,20 +109,35 @@ unapproved deploy sneaks through.
 7. On `modify`: apply the requested changes, **re-resolve**, and return to
    step 4. A previous approval must never silently carry over.
 8. On `reject` or a failed verify: **stop**. Do not run `agents-cli deploy`.
-9. Once verified: `agents-cli deploy` with the **same flags** that produced
-   the plan.
+9. Once verified: run the deploy-time bind check, then deploy only if it
+   reports `bound=true`:
+   ```bash
+   python3 scripts/approval_verifier.py deploy-check \
+     --plan approved-plan.json \
+     --flags flags.json \
+     --manifest /path/to/agents-cli-manifest.yaml
+   ```
+   This re-resolves the *current* flags/manifest and compares every
+   execution-relevant field to the already-approved plan. A drift
+   (`service_account=A` approved, live flags now resolve to `B`) is a
+   refuse, not a deploy. There is no native `agents-cli deploy --plan-json`;
+   this is the adapter-level substitute.
+10. Only if `bound` is true: `agents-cli deploy` with those same live flags.
 
 **IMPORTANT**: Never run `agents-cli deploy` without an explicit human
 decision on the resolved plan. Never treat a verified approval for plan A as
-authorization for plan B.
+authorization for plan B. Never skip `deploy-check` and re-resolve
+independently in the shell.
 
 > **Do NOT invent missing plan fields.** `rollback_plan`, `eval_evidence`,
-> `python_version`, `environment`, and `observability_requirements` have no
-> first-class agents-cli source today. Leave them absent, or supply them
-> only via `--supplements` as an explicit out-of-band human/policy fill.
-> `build_approval_response` will refuse a production approval that is still
-> missing `rollback_plan` or `source_revision` — that is the fail-closed
-> behavior, not a bug.
+> `python_version`, `environment`, and `observability_requirements` are
+> policy/evidence fields with no first-class agents-cli source. Leave them
+> absent, or supply them via `--supplements`. Execution inputs
+> (`service_account`, `source_revision` / image identity, `gcp_project`,
+> sizing, network, …) must come from CLI flags / manifest — `--supplements`
+> will refuse them. `build_approval_response` will refuse a production
+> approval that is still missing `rollback_plan` or `source_revision`
+> (`source_revision` only exists when `--image` was passed).
 
 ---
 
@@ -144,11 +159,16 @@ CLI flags override manifest values where both exist. That is the same rule
 | `network_exposure` | `--iap`, `--network-attachment`, `--dns-peering-*`, Cloud Run hardcoded `--no-allow-unauthenticated` | mapped (assembled dict) |
 | `secret_policy_digest` | `--secrets` (digest of secret *ids*, never values) | mapped |
 | `source_revision` | `--image` only (image URI, not a git SHA) | **partial** |
-| `environment` | — | **absent** |
-| `python_version` | — (`language` is a family, not a version) | **absent** |
-| `eval_evidence` | — (separate `agents-cli eval` family) | **absent** |
-| `rollback_plan` | — (prose in `/google-agents-cli-deploy`, no flag) | **absent** |
-| `observability_requirements` | — (separate observability skill) | **absent** |
+| `environment` | — | **absent** (policy/evidence supplement) |
+| `python_version` | — (`language` is a family, not a version) | **absent** (policy/evidence supplement) |
+| `eval_evidence` | — (separate `agents-cli eval` family) | **absent** (policy/evidence supplement) |
+| `rollback_plan` | — (prose in `/google-agents-cli-deploy`, no flag) | **absent** (policy/evidence supplement) |
+| `observability_requirements` | — (separate observability skill) | **absent** (policy/evidence supplement) |
+
+Unmapped (recognized, **not** in the plan — honest gap, not mapped yet):
+`--update-env-vars`, `--agent-identity`, `--port`, `--build-args`,
+`--cluster-name` (execution-relevant); `--no-wait`, `--dry-run`, `--list`,
+`--status`, `--interactive`, `--no-confirm-project` (control-flow).
 
 Print the same table from the resolver:
 

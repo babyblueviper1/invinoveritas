@@ -158,19 +158,50 @@ _FLAG_ALIASES: dict[str, str] = {
 
 # Flags that exist on `agents-cli deploy` but have no LOAD_BEARING_FIELDS home.
 # Listed so a caller can see we read them and chose not to invent a mapping.
-UNMAPPED_CLI_FLAGS = (
-    "agent_identity",
-    "update_env_vars",
-    "port",
-    "build_args",
-    "cluster_name",
+# Split so execution-relevant gaps are not lumped in with control-flow flags.
+# These are NOT mapped yet — they are named so they are not silently uncovered.
+UNMAPPED_EXECUTION_CLI_FLAGS = (
+    "update_env_vars",   # --update-env-vars  (env var mutations at deploy)
+    "agent_identity",    # --agent-identity
+    "port",              # --port
+    "build_args",        # --build-args
+    "cluster_name",      # --cluster-name
+)
+UNMAPPED_CONTROL_CLI_FLAGS = (
     "dry_run",
     "list_deployments",
-    "no_wait",
+    "no_wait",           # --no-wait
     "status",
     "interactive",
     "no_confirm_project",
 )
+UNMAPPED_CLI_FLAGS = UNMAPPED_EXECUTION_CLI_FLAGS + UNMAPPED_CONTROL_CLI_FLAGS
+
+# Fields the human approves that must equal a fresh re-resolve at deploy time.
+# Mapped + partial only. Absent policy/evidence fields are not execution inputs.
+EXECUTION_RELEVANT_FIELDS = (
+    "deployment_target",
+    "gcp_project",
+    "region",
+    "service_name",
+    "service_account",
+    "resource_sizing",
+    "network_exposure",
+    "secret_policy_digest",
+    "source_revision",
+)
+
+# --supplements categories. Policy/evidence may come from outside agents-cli.
+# Execution inputs must come from flags/manifest (so they can bind to deploy);
+# they are refused as supplements. See approval_verifier.merge_supplements.
+POLICY_EVIDENCE_SUPPLEMENT_FIELDS = (
+    "eval_evidence",
+    "rollback_plan",
+    "observability_requirements",
+    "environment",
+    "python_version",
+)
+EXECUTION_INPUT_SUPPLEMENT_FIELDS = EXECUTION_RELEVANT_FIELDS
 
 # Static field-by-field mapping. `status` is one of:
 #   mapped   — a real 1:1 (or documented-merge) source exists
@@ -880,6 +911,14 @@ def load_flags(path: str) -> dict[str, Any]:
     return data
 
 
+def _unmapped_flag_spelling(dest: str) -> str:
+    """Prefer the real hyphenated CLI spelling (e.g. --list, not --list-deployments)."""
+    for spelling, name in _FLAG_ALIASES.items():
+        if name == dest and spelling.startswith("--"):
+            return spelling
+    return "--" + dest.replace("_", "-")
+
+
 def _print_mapping_table() -> None:
     print(f"{'field':<28} {'status':<8} cli / manifest")
     print("-" * 88)
@@ -890,6 +929,19 @@ def _print_mapping_table() -> None:
         print(f"{row['field']:<28} {row['status']:<8} {src}")
         print(f"{'':28}          {row['notes']}")
         print()
+    print("UNMAPPED CLI FLAGS (recognized, not captured in the plan)")
+    print("-" * 88)
+    print("  execution-relevant (would affect what deploy executes; not mapped yet):")
+    for name in UNMAPPED_EXECUTION_CLI_FLAGS:
+        print(f"    {_unmapped_flag_spelling(name)}")
+    print("  control-flow (do not change the deployed artifact):")
+    for name in UNMAPPED_CONTROL_CLI_FLAGS:
+        print(f"    {_unmapped_flag_spelling(name)}")
+    print()
+    print("  These flags are accepted by normalize_cli_flags and reported on")
+    print("  ResolveResult.unmapped_cli_flags_present. They do not enter the")
+    print("  approval digest. Mapping them is future work; until then this")
+    print("  table is the honest coverage gap, not a silent omission.")
 
 
 def _demo() -> None:

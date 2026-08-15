@@ -127,7 +127,9 @@
         },
         "deploy": {
           "step1": "sys.assert('approval_verification.valid == true', 'The deployment approval does not authorize the current effective plan')",
-          "step2": "Run agents-cli deploy with the same flags that produced effective_plan. Do not re-resolve ad hoc in the shell.",
+          "step2": "Call scripts/approval_verifier.py deploy-check with the already-approved plan object and the current live cli_flags/manifest. Re-resolve a fresh plan from that live state and compare every execution-relevant field (deployment_target, gcp_project, region, service_name, service_account, resource_sizing, network_exposure, secret_policy_digest, source_revision). If any field diverges, refuse (fail closed). Do not treat the original flags as authoritative without this bind — a native agents-cli deploy --plan-json does not exist yet.",
+          "step3": "sys.assert('deploy_check.bound == true', 'Live flags/manifest no longer resolve to the approved execution-relevant plan')",
+          "step4": "Only then run agents-cli deploy with those same live flags. Do not re-resolve ad hoc in the shell after this check.",
           "output_mapping": "deploy_result"
         },
         "cancelled": {
