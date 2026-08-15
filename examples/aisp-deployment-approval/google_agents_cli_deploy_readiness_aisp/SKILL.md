@@ -43,12 +43,12 @@ metadata:
 | File | Contents |
 |------|----------|
 | `aisp.aisop.json` | AISOP flow + `aisp_contract.non_negotiable` (the red lines) |
-| `../resolve_agents_cli_plan.py` | Effective-plan resolver (prototype; honest coverage gaps) |
-| `../deployment_approval_example.py` | v2 digest / BIP-340 sign / verify (tested) |
+| `scripts/resolve_agents_cli_plan.py` | Effective-plan resolver (prototype; honest coverage gaps) |
+| `scripts/deployment_approval_example.py` | v2 digest / BIP-340 sign / verify (tested) |
 | `scripts/approval_verifier.py` | Thin composition wrapper the AISOP node calls |
 | `schemas/approval-response.schema.json` | Approval-envelope JSON shape |
 | `schemas/effective-deployment-plan.schema.json` | Load-bearing plan shape + mapped-vs-absent notes |
-| `evals/vectors/` | Fixed v2 cross-language fixtures (symlink, not regenerated) |
+| `evals/vectors/` | Fixed v2 cross-language fixtures (real copies, self-contained) |
 
 ---
 
@@ -153,7 +153,7 @@ CLI flags override manifest values where both exist. That is the same rule
 Print the same table from the resolver:
 
 ```bash
-python3 ../resolve_agents_cli_plan.py --mapping-table
+python3 scripts/resolve_agents_cli_plan.py --mapping-table
 ```
 
 ---

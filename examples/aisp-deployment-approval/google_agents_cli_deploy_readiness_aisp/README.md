@@ -1,9 +1,12 @@
 # `google_agents_cli_deploy_readiness_aisp`
 
 AISP skill package for [google/agents-cli#48](https://github.com/google/agents-cli/issues/48):
-a conforming skill that composes a **real agents-cli plan resolver** with the
-already-tested v2 signed-approval verifier, and declares the
-`sys.io.confirm` / `sys.assert` red lines optimization2026 specified.
+an `agents-cli` deployment-approval and plan-binding candidate skill (not the
+complete deployment-readiness lifecycle — see Scope below) that composes a
+**real agents-cli plan resolver** with the already-tested v2 signed-approval
+verifier, and declares the `sys.io.confirm` / `sys.assert` red lines
+optimization2026 specified. "Conforming" is reserved for after official AISP
+validation evidence is posted, per his review — this is a candidate package.
 
 This lives in *our* repo as a runnable prototype. It is not a PR against
 `google/agents-cli` (not our repo, not asked for).
@@ -14,18 +17,24 @@ google_agents_cli_deploy_readiness_aisp/
 ├── README.md                # this file
 ├── SKILL.md                 # coding-agent guide (agents-cli skill register)
 ├── scripts/
-│   └── approval_verifier.py # resolve + verify; imports, does not duplicate
+│   ├── approval_verifier.py           # resolve + verify CLI, local imports only
+│   ├── deployment_approval_example.py # v2 digest / BIP-340 / verify (local copy)
+│   └── resolve_agents_cli_plan.py     # effective-plan adapter (local copy)
 ├── schemas/
 │   ├── approval-response.schema.json
 │   └── effective-deployment-plan.schema.json
 └── evals/
-    └── vectors/             # symlink to ../vectors/ (v2 fixtures, not regenerated)
+    └── vectors/             # real copies of the v2 fixtures, not a symlink
 ```
 
-Sibling modules (one directory up, imported, not copied):
-
-- `../deployment_approval_example.py` — v2 digest / BIP-340 / verify
-- `../resolve_agents_cli_plan.py` — effective-plan adapter
+Self-contained: everything under this directory is a real file, not a
+symlink or a `sys.path` reach into the parent `examples/aisp-deployment-approval/`
+directory. Verified by copying this whole folder to an isolated location with
+zero access to the outer directory and running `scripts/approval_verifier.py
+--demo` there — full resolve → refuse-incomplete → supplement → build →
+verify → tamper-fail sequence passes. Fixed 2026-08-15 in response to
+optimization2026's packaging review (the two sibling modules and the
+`evals/vectors` symlink previously reached outside the Skill Folder).
 
 ## How it composes with `agents-cli deploy`
 
@@ -61,14 +70,14 @@ this package. The v2 script does not need to become the human channel.
 - Independent `approved_scope` checks, signed `approval_conditions`,
   domain separation, in-memory replay demo, fail-closed required-field
   validation, JCS-safe subset enforcement
-- Fixed fixtures under `evals/vectors/` — the same files as
-  `../vectors/`, reused via symlink, not regenerated
+- Fixed fixtures under `evals/vectors/` — real copies of the v2 fixtures,
+  not a symlink
 
 Run the existing v2 suite:
 
 ```bash
 pip install coincurve
-python3 ../deployment_approval_example.py
+python3 scripts/deployment_approval_example.py
 ```
 
 Run the composition (resolve a real-shaped plan, refuse it as incomplete,
@@ -138,15 +147,30 @@ already mapped.
 - Read Terraform state for GKE names or sizing
 
 ```bash
-python3 ../resolve_agents_cli_plan.py --demo
-python3 ../resolve_agents_cli_plan.py --mapping-table
+python3 scripts/resolve_agents_cli_plan.py --demo
+python3 scripts/resolve_agents_cli_plan.py --mapping-table
 ```
+
+## Scope
+
+This package implements deployment approval and plan-binding: resolve a
+plan, block for a human decision, refuse to deploy unless signed evidence
+verifies against that plan. It does not yet implement the full original
+readiness proposal (eval-threshold enforcement, IAM role validation,
+secrets-policy enforcement, Python build compatibility, rollback
+executability, observability verification, post-deploy health validation,
+runtime trace emission) — those are separate, larger gates layered on top
+of this one, not yet built. Call this `agents-cli deployment approval and
+plan-binding AISP skill`, not the complete deployment-readiness lifecycle,
+per optimization2026's naming correction.
 
 ## AISP contract (verbatim from the 2026-08-13 review)
 
-`aisp.aisop.json` carries optimization2026's exact function steps and the
-two non-negotiable rules from his latest review on the issue
-([comment](https://github.com/google/agents-cli/issues/48#issuecomment-5287163425)):
+`aisp.aisop.json` carries optimization2026's exact function steps and two
+non-negotiable rules, the second updated 2026-08-15 to resolve the
+control-flow ambiguity his packaging review flagged (a failing `sys.assert`
+inside `verify_approval.step2` could short-circuit before the graph's own
+`verified{Evidence valid?}` routing node was reached):
 
 ```json
 {
@@ -158,12 +182,14 @@ two non-negotiable rules from his latest review on the issue
 ```json
 {
   "rule": "When the human decision is approve, deployment must not proceed unless the attached approval evidence validates against the current effective deployment plan.",
-  "enforced_by": "verify_approval.step2:sys.assert"
+  "enforced_by": "verified{Evidence valid?}:no->blocked, and redundantly by deploy.step1:sys.assert immediately before the irreversible action"
 }
 ```
 
 `human_approval.step2` is his exact `sys.io.confirm(..., options=['approve', 'reject', 'modify'])` line.
-`verify_approval.step2` is his exact `sys.assert(...)` line.
+`verify_approval.step2` now just returns the structured verification result
+(no assert) — `verified{}` and `deploy.step1`'s own `sys.assert` are the
+sole gates on invalid evidence, matching his "Pattern A" recommendation.
 
 The surrounding `[system, user]` envelope matches a real AISP skill
 (`user.content.aisp_contract.profile = aisp.skill.v1`) so a SoulBot-class
