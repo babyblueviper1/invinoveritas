@@ -1,6 +1,7 @@
 # Article 12 worked example — NOMOS authority-gate + invinoveritas /review
 
-A joint, half-finished pair with Allan Sendagi (SafeHaven/NOMOS).
+A joint pair with Allan Sendagi (SafeHaven/NOMOS) — **both halves shipped**
+as of 2026-08-15.
 
 Article 12 of the EU AI Act requires human oversight to be **real and
 specific to this action**, not a standing org-level sign-off somewhere in
@@ -9,7 +10,7 @@ same underlying transfer and answer **different questions**:
 
 | Layer | Who | Question | Status |
 |---|---|---|---|
-| Authority-gate | NOMOS / `.nomos` | Did a named human review and authorize **this** transfer (amount, counterparty, timestamp) under the cited policy? | Waiting on Allan's fixture |
+| Authority-gate | NOMOS / `.nomos` | Did a named human review and authorize **this** transfer (amount, counterparty, timestamp) under the cited policy? | Shipped — [nomos-spec/interoperability-examples](https://github.com/nomos-spec/interoperability-examples/tree/main/examples/article12-fund-transfer), independently verified below |
 | Judgment | invinoveritas `/review` | Given the stated facts, is the transfer itself a reasonable action? | This folder — signed, independently verified |
 
 Those are not the same claim. A fully-authorized-but-bad transfer is in
@@ -24,8 +25,6 @@ can attach to the same artifact without changing the original fingerprint.
 Canonical serialization is locked down (one standard representation;
 field order / spacing / formatting cannot change the digest). A standalone
 NOMOS verifier exists independent of their server.
-
-He has not sent a `.nomos` fixture yet. Our side does not wait on that.
 
 ## The case
 
@@ -66,9 +65,30 @@ change the digest, and pretty-printed JSON is a *different* digest (so the
 lock is real, not a no-op).
 
 This fingerprint is **ours** over the synthetic transfer record. It is not
-a `.nomos` fingerprint. When Allan's fixture arrives, his digest is
-computed by NOMOS's own canonicalizer over his artifact; composition is
-"two seals, one underlying transfer," not "we computed his hash for him."
+a `.nomos` fingerprint. Allan's digest is computed by NOMOS's own
+canonicalizer over his artifact; composition is "two seals, one underlying
+transfer," not "we computed his hash for him."
+
+**Two valid binding points, not one — worth naming precisely (found
+2026-08-15, checking Allan's shipped fixture).** This folder actually
+publishes TWO different hashes over the same underlying case, and this
+README originally only headlined one of them as "the" fingerprint, which
+briefly read like a mismatch when cross-checking Allan's artifact:
+
+| Hash | What it's over | Where it lives |
+|---|---|---|
+| `artifact_fingerprint` = `sha256:8879...0265e` | The raw `synthetic_fund_transfer_artifact.json`, canonicalized (`canonicalize.py`: sorted keys, `separators=(',',':')`, no floats) | `artifact_fingerprint.txt` |
+| `artifact_hash` = `sha256:4ea0...bede36` | The SAME fixture, rendered as the `/review` call's input text and embedded inside the signed verdict proof event | `review_response.json`'s `proof.event.content.artifact_hash` |
+
+Both are real, both independently recomputable, both trace to the same
+`underlying_transfer_id`. Allan's `.nomos` fixture binds to `artifact_hash`
+(the one embedded in our *signed* proof event) rather than
+`artifact_fingerprint.txt` (a static local file) — arguably the stronger
+anchor of the two, since it's inside a schnorr-signed, independently
+verifiable event rather than something either party could quietly edit on
+disk. Naming this explicitly so a future verifier checking either binding
+knows both are legitimate and point at the same case, rather than treating
+a mismatch against just one of them as an error.
 
 ## Reproduce
 
@@ -117,13 +137,41 @@ Committed outputs:
 | `review_response.json` | full `/review` body plus the request we sent |
 | `verify_proof_response.json` | independent `/verify-proof` result |
 
-## Waiting on
+## Both halves, verified independently (2026-08-15)
 
-Allan Sendagi / SafeHaven / NOMOS: a `.nomos` fixture for **this same**
-synthetic transfer (`underlying_transfer_id` above, or an explicit bind
-to `artifact_fingerprint.txt`) recording whether a named human authorized
-it under `AI-ACT-ART12-v1`. Once that file is here, a third script can
-verify his seal with the standalone NOMOS verifier and sit both
-attestations next to each other without either party trusting the other.
+Allan's NOMOS authority-gate fixture shipped:
+[`nomos-spec/interoperability-examples/examples/article12-fund-transfer`](https://github.com/nomos-spec/interoperability-examples/tree/main/examples/article12-fund-transfer).
+Verdict: **ESCALATE** (no named human authorized this specific amount/
+counterparty/timestamp) — the mirror-image result to our `/review`
+**REJECT**, exactly as the two-question framing above predicts: neither
+system answers the other's question, both fire on the same underlying
+case.
 
-Until then this folder is half of the pair, published as such.
+Independently re-verified myself, not just trusted the description:
+
+```bash
+git clone https://github.com/nomos-spec/interoperability-examples.git
+cd interoperability-examples/examples/article12-fund-transfer
+node ../../scripts/verify-nomos.mjs article12-fixture.nomos \
+  --pubkey article12-fixture.pubkey.pem
+```
+
+```
+[OK] Payload hash matches: c3850804ffbc3dee…
+[OK] Ed25519 signature verified against published key (no secret, no server call)
+Result: VALID
+```
+
+Both attestations are now sitting side by side on one underlying
+transfer, sealed by two independent parties, neither derived from the
+other, both offline-verifiable by anyone. That's the pair.
+
+**Real next milestone (Allan's own framing, and it lines up with our own
+`vantage_limitation` field):** the NOMOS-SPEC-002 agent runtime guard is
+*declared* in his artifact as the pre-action mediation layer our
+`vantage_limitation` field says a proof needs before it's more than
+advisory input for an irreversible action — but that guard's current
+default is advisory and this exercise didn't run it. Turning that from a
+declared capability into a demonstrated block (a live, still-synthetic
+agent action actually intercepted and escalated) is the natural next
+build, not a new idea — open on our side.
