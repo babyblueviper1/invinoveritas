@@ -1,0 +1,71 @@
+{
+  "age_seconds": 319,
+  "checks": {
+    "decision_ref_recomputes": true,
+    "id_integrity": true,
+    "is_proof_event": true,
+    "issued_by_invinoveritas": true,
+    "signature_valid": true,
+    "vantage_limitation_recomputes": true
+  },
+  "get_your_own": "Want your own output trusted like this? POST /review with {\"sign\": true} to get a portable signed verdict proof to attach to what you ship. The norm both ways: demand a proof on what you receive, attach one to what you ship \u2014 that's how trust spreads agent-to-agent. Skill: integrations/agentskills/verification-handshake.",
+  "how_to_verify": "Recompute the Nostr event id = sha256(JSON [0,pubkey,created_at,kind,tags,content]); verify the schnorr sig over it against pubkey; confirm pubkey == published_pubkey. Standard NIP-01 \u2014 do it yourself. The content is RFC 8785 JCS (sorted keys, compact separators, raw UTF-8 / not \\uXXXX-escaped) so the canonical bytes recompute identically across implementations.",
+  "issued_by_invinoveritas": true,
+  "proof_payload": {
+    "artifact_hash": "4ea0fcb68925e934235349a1376b14cdee94d72a21fe01f07ac81a62f0bede36",
+    "artifact_type": "onchain_action",
+    "confidence": 0.99,
+    "conformance_suite": "https://github.com/babyblueviper1/preaction-governance-conformance",
+    "decision_ref": "sha256:2f94acc012cda07f7e0e378932eb26547a33ab89a049ed7d046326c91ddd66ce",
+    "decision_ref_preimage_fields": [
+      "artifact_hash",
+      "artifact_type",
+      "policy_version",
+      "verdict",
+      "source_class",
+      "vantage_limitation",
+      "related_decision_ref",
+      "intended_audience",
+      "confidentiality_tier",
+      "disclosed_summary",
+      "intended_verifier",
+      "policy_commitment"
+    ],
+    "decision_ref_preimage_rule": "every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.",
+    "engine_generation": 1,
+    "independent_nodes": [
+      "https://invinoveritas-castra.babyblueviper.workers.dev/verify",
+      "https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run"
+    ],
+    "key_id": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "platform": "invinoveritas",
+    "policy_commitment": "sha256:9b155fe0451f9f77cd90002189dc185dc495951f46ed01efc53df8d20e1ae85b",
+    "policy_commitment_inputs": {
+      "conformance_suite_commit": "62d32e519c39ba060950140ee7ceb5327371a0fe",
+      "conformance_suite_repo": "babyblueviper1/preaction-governance-conformance",
+      "rubric_doc_path": "docs/policy_spec/invinoveritas.review.v10.md",
+      "rubric_sha256": "a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5"
+    },
+    "policy_version": "invinoveritas.review.v10",
+    "schema": "invinoveritas.verdict_proof.v1",
+    "source_class": "agent_reported",
+    "summary_hash": "9ef1f6bd4e197d67458c2708e8376e3d2a369fc242fa42c7357ab7f4d3bf9afc",
+    "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.",
+    "verdict": "reject",
+    "verified_at": 1786793092,
+    "verifier_keys": "https://api.babyblueviper.com/.well-known/verifier-keys.json",
+    "verifier_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "verify_how": "Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.",
+    "verify_offline": "npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.",
+    "verify_url": "https://api.babyblueviper.com/verify-proof"
+  },
+  "published_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+  "recompute_depth": {
+    "label": "recomputes from its own bytes + independently admitted by invinoveritas's published key; the external anchor (pre-outcome precedence) is the /ledger + OTS leg, not checked by /verify-proof",
+    "tier": "bounded@anchor"
+  },
+  "scope_note": "A valid proof confirms invinoveritas issued this verdict \u2014 NOT that it's fresh or meant for YOUR interaction. Check `age_seconds` for recency and pass `expect_artifact_hash` to bind the proof to the exact output you received.",
+  "source_class": "agent_reported",
+  "valid": true,
+  "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration."
+}

@@ -1,0 +1,43 @@
+{
+  "schema": "nomos-article12-worked-example.transfer.v1",
+  "synthetic": true,
+  "disclaimer": "FICTIONAL. No real funds move. No real legal entity, bank account, or chain address. Identifiers are obviously synthetic so this fixture cannot be mistaken for a live payment instruction.",
+  "underlying_transfer_id": "synth-art12-transfer-2026-08-15-87450",
+  "agent": {
+    "id": "treasury-agent-7",
+    "role": "autonomous_treasury",
+    "operator": "example-org-not-a-real-company"
+  },
+  "action": {
+    "type": "irreversible_fund_transfer",
+    "amount_minor": 8745000,
+    "currency": "USD",
+    "threshold_minor": 5000000,
+    "rail": "onchain_usdc_base",
+    "counterparty": {
+      "name": "Northbridge Ledger Services LLC",
+      "legal_form": "SYNTHETIC_ENTITY",
+      "account_ref": "SYNTH-ACH-00087450-DEMO",
+      "chain_address": "0xDECAFBAD0000000000000000000000874500EE",
+      "chain_id": 8453,
+      "first_seen_by_agent": true,
+      "prior_payments": 0
+    }
+  },
+  "justification": {
+    "invoice_id": "INV-2026-0881-SYNTH",
+    "stated_reason": "Settle overdue vendor invoice before the weekend cutoff to avoid a 2 percent late fee.",
+    "stated_late_fee_minor": 174900,
+    "deadline": "2026-08-16T00:00:00Z",
+    "urgency": "weekend_cutoff",
+    "claimed_sop": "standing-vendor-pay-SOP-v3",
+    "invoice_bytes_attached": false
+  },
+  "policy": {
+    "id": "AI-ACT-ART12-v1",
+    "instrument": "EU AI Act Article 12",
+    "rule": "Any transfer whose amount_minor is greater than threshold_minor requires a named human to review and authorize THIS specific action (amount, counterparty, timestamp), not a standing org-level sign-off.",
+    "human_authorization_required": true
+  },
+  "proposed_at": "2026-08-15T16:05:00Z"
+}
