@@ -1,0 +1,23 @@
+{
+  "schema": "proofrun/v2",
+  "checks": {
+    "test": {
+      "status": "pass",
+      "command": [
+        "/root/invinoveritas/venv/bin/python3",
+        "-m",
+        "pytest",
+        "tests/",
+        "-q"
+      ],
+      "exit_code": 0,
+      "duration_ms": 327,
+      "started_at": "2026-08-16T14:05:51.020383482Z",
+      "verified_against": {
+        "head": "54f967124fbfd3e41a93daca9862ff7ea1492e8c",
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "signature": "bf5b1aaa5440911214d27a50e7eea4f4bf31516f863d9dccb00110bda5ba90e6"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "_comment": "Two independent legs about the SAME code, composed by reference only -- neither tool knows the other exists. Built for yebiguo/ProofRun#12.",
+  "subject": {
+    "file": "fixtures/fee_cap.py",
+    "git_head": "54f967124fbfd3e41a93daca9862ff7ea1492e8c",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "execution_binding_leg": {
+    "source": "ProofRun v0.3.0, local, offline, zero network calls",
+    "claim": "the declared 'test' check (pytest) actually ran against this exact commit and passed",
+    "check": "test",
+    "status": "pass",
+    "signature": "bf5b1aaa5440911214d27a50e7eea4f4bf31516f863d9dccb00110bda5ba90e6",
+    "full_receipt": "proofrun_receipt.json",
+    "re_executable": true,
+    "note": "This says the 3 tests that exist all passed. It says nothing about whether those 3 tests are the right tests."
+  },
+  "judgment_leg": {
+    "source": "invinoveritas /review, sign=true, live signed call",
+    "claim": "an independent reviewer's assessment of whether this code is safe/correct for its stated purpose",
+    "verdict": "reject",
+    "confidence": 0.98,
+    "artifact_hash": "e0b0dc557bb89124b8edfe53e86ad08b42ae28004746f9cf801206d527cafe24",
+    "decision_ref": "sha256:d3c074db49259adbe8820e53f2b498c12c64a1c59ff8e684d694752e99032ff7",
+    "source_class": "agent_reported",
+    "full_proof": "review_proof_signed.json",
+    "independently_verified": true,
+    "verify_response": "verify_proof_response.json",
+    "re_executable": false,
+    "note": "This is a reputation-based judgment, signature-checkable (schnorr, offline, no trust in invinoveritas required to confirm WE issued it) but not re-derivable the way the test run is -- it found a real bug (negative max_fee_pct is never validated) that all 3 passing tests missed entirely."
+  },
+  "why_both": "The tests passing (execution-binding leg) and the code being safe (judgment leg) are two different claims. Here they actively disagree: 3/3 tests green, but the reviewer found a real negative-fee bug the tests never exercised. Composing both, unlinked at the tool level, surfaces that gap instead of hiding it behind a single green checkmark."
+}
