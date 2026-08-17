@@ -69,6 +69,13 @@ That gap — rationale names `canSend`/`canReceive`; this live token does
 not have them — is a real finding, not a demo inconvenience. Record 2
 therefore calls the functions that exist, and labels them.
 
+**Update (2026-08-17, thamerdridi, t/28208#22):** confirmed this is a live-deployment-scope
+gap, not a spec gap — ERC-7943 is not deployed on this Sepolia setup, but the RAMS↔ERC-7943
+composition has been implemented and tested separately on the RAMS side, just not part of
+what this repo's script talks to. The blocked case above still demonstrates the intended
+separation cleanly: asset-side compliance would pass, RAMS independently rejects on the
+mandate-specific cap.
+
 ## The two transactions
 
 Same agent, same principal, same sink, same mandate (`maxTransactionValue
