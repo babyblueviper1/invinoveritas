@@ -1,0 +1,6 @@
+{
+  "_": "SEPOLIA TESTNET ONLY. Zero real value. Published deliberately for full reproducibility, same 'not mocked' ethos as the rest of this repo -- anyone can re-run or extend Part 2 with these exact keys. Do NOT reuse these keys for anything with real value.",
+  "deployer": {"address": "0x9b872912Cf7C9E0831ef852343A1e06B5B37BcA8", "private_key": "0x182d2ff84808d436683ba80684bf0f7d7d6aa39dfad84f8e63651033524a7ef9"},
+  "principal": {"address": "0xc5eC2960Ad560AFE09602605CBCEa060244C4178", "private_key": "0x521f6eb8ce1ec40c0aeeb27f24708c5da2a84a66eaabaa5013b0c700929cc7bc"},
+  "agent": {"address": "0x3a260e797339f4Bc822ee67A1d52cfd04719EB07", "private_key": "0xe9b1c449600829a32839928fc93936e73f01c12f3fcf475a07d7888c516cfaba"}
+}

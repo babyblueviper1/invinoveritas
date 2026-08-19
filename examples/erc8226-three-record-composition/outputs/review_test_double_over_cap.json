@@ -1,0 +1,322 @@
+{
+  "auth_used": "HL_REVIEW_BEARER",
+  "confidence": 0.99,
+  "decision_ref": "sha256:0faafb1665200c957d4713b1bf155427c2b1d9cc401e02d86aa0aee03a6f469a",
+  "proof_event_id": "cfbd989cad29e67156a2d3388eea8a561dad0e0cccd31521fdd75254684d2bef",
+  "review_response": {
+    "admission_receipt": {
+      "accepted_at": 1787145236,
+      "admission_index": 469,
+      "artifact_hash": "ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad",
+      "deadline_policy_commitment": "d9aa2818fafe9a7d58a4e7c5b02ade3850999219b568c141a9eb90752808faf8",
+      "request_capture_ref": null,
+      "request_class": "irreversible",
+      "requester_identity": "3f4c462df0c59dc4a4511684f108457f4979b5b7dd2bc0165d8db3acbd693f74",
+      "response_deadline": 1787145416,
+      "review_policy_version": "invinoveritas.review.v11"
+    },
+    "alternative_approaches": [
+      "Use a transfer amount of 100000000 or less, after confirming canExecute returns true for that exact amount and current state.",
+      "Use a RAMS-enforcing adapter or asset implementation so a direct ERC-20 transfer cannot bypass a denied mandate.",
+      "If the purpose is solely the standalone demonstration, label the venue transfer explicitly as unauthorized-under-RAMS but successful-under-the-test-double, rather than end-to-end authorized."
+    ],
+    "artifact_provenance": "caller_supplied",
+    "confidence": 0.99,
+    "issues": [
+      {
+        "detail": "Calldata calls selector 0x946f4a9e, which this engine does not decode. The action could not be deterministically classified \u2014 treat with caution and review manually.",
+        "recompute": "Look up selector 0x946f4a9e (e.g. 4byte.directory) to learn the function being called.",
+        "severity": "info",
+        "source": "deterministic_onchain_engine",
+        "title": "Unrecognized function selector"
+      },
+      {
+        "detail": "v1 runs deterministic calldata checks only. Token honeypot status, contract verification, and live slippage/MEV are NOT verified here \u2014 check the token/contract on a block explorer and set a tight slippage bound before signing.",
+        "recompute": "Independent of this verdict; verify token + contract reputation separately.",
+        "severity": "info",
+        "source": "deterministic_onchain_engine",
+        "title": "Token-reputation / honeypot / live-slippage not checked"
+      },
+      {
+        "attribution": "agentive",
+        "category": "intent_mismatch",
+        "description": "The proposed amount is 150000000 (150.000000 units), while the stated real mandate has maxTransactionValue=100000000 (100.000000 units). Record 1 confirms canExecute(agent, principal, asset, transfer.selector, 150000000) = False. Treating this completed transfer as authorized would directly contradict the mandate's explicit authorization result.",
+        "severity": "blocker",
+        "suggested_fix": "Do not classify this transfer as authorized; submit only an amount at or below 100000000 and require canExecute to return true immediately before execution."
+      },
+      {
+        "attribution": "agentive",
+        "category": "security",
+        "description": "The asset's transfer() path never consults RAMS, allowing the agent to move the asset despite a denied mandate. This creates an enforcement gap: an agent or compromised agent key can bypass the authorization layer by calling the test-double asset directly.",
+        "severity": "high",
+        "suggested_fix": "For any asset intended to be mandate-controlled, enforce RAMS authorization inside the transfer execution path or route transfers exclusively through a RAMS-enforcing settlement/adapter contract."
+      },
+      {
+        "attribution": "agentive",
+        "category": "missing_check",
+        "description": "The stated facts establish only the single-transaction cap violation. They do not establish the mandate's current cumulative usage, validity window, revocation state, nonce/version, or whether the live canExecute result was obtained against the exact same chain state immediately before the transfer.",
+        "severity": "medium",
+        "suggested_fix": "Before any future execution, perform an atomic or immediately-pre-submit canExecute check using the exact calldata and verify mandate validity, revocation/version, and cumulative remaining capacity."
+      },
+      {
+        "attribution": "ambiguous",
+        "category": "other",
+        "description": "The recipient is the mandate principal and the transaction/event amount and sender are internally consistent with the described transfer. However, those consistency checks prove what executed, not that execution was authorized.",
+        "severity": "low",
+        "suggested_fix": "no fix needed"
+      }
+    ],
+    "onchain_risk": {
+      "checks_run": [
+        "calldata_decode",
+        "approval_limits",
+        "set_approval_for_all",
+        "permit",
+        "address_poisoning",
+        "blind_signing",
+        "native_value"
+      ],
+      "decoded": {
+        "selector": "0x946f4a9e"
+      },
+      "deterministic_verdict": null
+    },
+    "proof": {
+      "content_sha256": "d8d91ffd1a4ac7a3e1ba64150772bd1c509d8f91907dc7d4fa54947e1b6d2416",
+      "event": {
+        "content": "{\"artifact_hash\":\"ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad\",\"artifact_type\":\"onchain_action\",\"confidence\":0.99,\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"decision_ref\":\"sha256:0faafb1665200c957d4713b1bf155427c2b1d9cc401e02d86aa0aee03a6f469a\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"engine_generation\":1,\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:b0d29b374874515c8ffa392326fd05d80fcee28dc791fdbb5edbeb6fd50396dd\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"62d32e519c39ba060950140ee7ceb5327371a0fe\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v10.md\",\"rubric_sha256\":\"a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5\"},\"policy_version\":\"invinoveritas.review.v11\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"8961fb3472fbb7831e62dcd5dcecaef4da412fb7a771c77550c4177185502599\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"reject\",\"verified_at\":1787145244,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+        "created_at": 1787145244,
+        "id": "cfbd989cad29e67156a2d3388eea8a561dad0e0cccd31521fdd75254684d2bef",
+        "kind": 30078,
+        "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "sig": "6a73f988c1cca37e31144012d00a615b1f6df1802f67c4984f3cbb003d6e88869afdecdf14c445dd096ee5241c0fa85f0a6e6ad5f805f196c925d64724eaf66b",
+        "tags": [
+          [
+            "d",
+            "invinoveritas-proof-ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad-1787145244-7f1e3cf3"
+          ],
+          [
+            "t",
+            "invinoveritas"
+          ],
+          [
+            "t",
+            "proof"
+          ],
+          [
+            "schema",
+            "invinoveritas.verdict_proof.v1"
+          ]
+        ]
+      },
+      "pq_companion_signature": {
+        "algorithm": "ML-DSA-65",
+        "pq_pubkey": "336f2fd2cbc38f5eac4de77f1ae23cb917c95c74aab5b68e31b54fb973892872213afb844d623c9d546493ce63418969c7748772f7ca4005f49eb03cf4b6aa49f828744372a410a015170082622d6eb3ec3e585b5c8eed608c4302adfcfc80075a91dbfb73a44c59317279b974957ae4021cda18f2150530216482d2b1af791db0a79e2087c4230150bd2e2e39cbd9ce73601c7c6dcdf9a3b38360960f6e309870d4404abd57c729a6086bb963e4aa038c2dadd284c75aedb6ec170c4fd050b881079c97ee6b7016736dc5185434a7c9dd4dfaa46f13957b0aa5344b1aef2a9efa92c64dc01683e5c30a231ddd0ea49ec8a034ef25b32ae23e729ad5afcaa2a8c19b82dbbd0e78b6ffce388b5f958bed58b9ade7faaa532550a7a27113fcc931ac4907ed98bec04370872d580dd1743518d92dd7ec0843bd9c4efcf87f06f8577b86c34fec39e760685188910df1bb6bc894ec184cf4f6a651598e739a9a98e259b6b9735cccfa592d0991a75930d92de1a5e3f9c5140540d9c2d845cc96b522aa089dfcdb7c1c8af164020811fb47680e8f0b66ca77fb7dd0510a549d225456e69767ac22e8c42ed78989586946a9be44ca5a32ef563919061b5f577aa136878ebd4a6a31cf520a9b474923b9adf8978d4113839634b8df01a117974de143634214cf2d15a5d03b970576b638bc8cbe9e3c697e36d465a7be7feab8a2e0abe14b410cc50a152c8a6d550b4e302a5f9a032d33536c443661984e8f7ac017c47600b31b61f0100351ff54bfef9d2c88888a4336e6394b0e041963c9d840aa157b23268e56d72d890c889a8b081647a79658258e4d11583d54fb30f7d13fcda9dd502f0f0b2e9fc039df89b33e03170d1573375c269aab02053b8f502502b6e70469fc724b477a5dfd7b00610bcbd40e965130a91f70661bfe989d3e3381015acbd6c840254358d4d2c89a1a2b7c090d3601b6c9bb742b146ae8ecda0135639615033137281168c3647ee52e6ae77ad9fbe77fa01b6d10370b963c89f36a89f8f9193101b8ad199518a4f8f4433bc1013dbdaa31c0eedcf9e5b8f63114228955f3e7d0d9553f237c9bdc4b7b512ff644547b758809b017e8f61a62e30d2ed7d116fcf81a6cc8641c78e19c516363dc47b83dcda109fa19c7f9c20b15be214342ec0196449c55d12c8a51db1afd66f2f7e3ff315db18241b7f02e830efff2bb2a20f1dacb7284ad9f2a0abff9841961f4968b45690d1327877a991c6665f64539442e3a485529349b367945b3c0315eb0f8c7e14813172f6d34679cee5c12aadd41c3a1586d801ab3cace5154424fa923f7d92e5bd9640fafdb15b66c5726da0407d2ab0bac63d2b84ded1bf1518d69c3e590692da36f4dd9dfee83fbee8c157729d83f740bb33e98db9529e6a53e9087faf8a18d7b73f88f2eb370c0e274f0bcaeeb11660e50c3c6d60363782530b29825b0d0a5b6841f3c46ea921fd34f3b1bbbc13a0f2a79e0dd17172913b62f460485245373f147572b6a2036263af923835ba640db43072805d1509458262898182476234b686853b5ec2f91c143df64d2018185bc50409447d8d7c53549bdc2a4ca0885a90f825f8fcdf6aa09e25021331c8966e0829ae958a2ec5d35fcf747243dcee905df359970842e0fb830fb33d6f09b09e4d3efc9fb852254f6d814d3532a1e276751804dfbc49ecaf6ebd5c30b4ceac879041cd560b2c9e7e1067926a7fbee17c7fd2cb58bfb2bcfb83eb8af6187fa107f6f190d652206bb64e340d45c0268e286067b3551c705f9710ff09ce96ab1780fb0bb6d2cd98987e0a99537470f6a0c055c276e50524e63d39ba8f024b87a4ec9f8c3d3ac328f2df0ee4a3cdbc744c73c47b0e14600ea58cde14ea43f6b44cd45c5f8e94ccaa04449790e7f02c6cf957bb96f3382430fdbfb367c256be67147a00aa9a6aa4e9d5578148542617c63f6820760fe8a63dd016be6e8bba868081cfbcf39ae2a34f49a0952b4d677d79841246ffda1b64dab3f21fbb793e60712819b6a4ff863d049bcbd89b523fbb927176ea57cb3681c795e7787c5a08bce5fc478d373d320f583daf3c8ae97504d8eeb06651ee7f9de7870a72f64a90f2cc5d995925c388bf3aa447510279fb546e4666eb3a429e85df63e49daa222692b37df0847b7ff3f795bbf3c45089366c14a22c9b235fe66359d548dad162b1d3c56fb586c9139941d0e1ae206292666423c8507fe7d73b464a306dd2921ba34cebfd1ce7eda250a69685e72d8357ab341fc2713658112c875c98a9583891136f50821741daae28bd8f9ec1a23d1763d0b8b262bb609f76ab2667649fd0df841ea04134aad7015a8aaffe9f01f87d61bf117dd75b3e44c43a79b194ccf925c3d22683cb56ab416f8cc8999bfcff4e5504c2e6525a918ed24f50c32d8723e04a899a6094fd9bf3d881e8c35397f9d445878c3f8843f364d4fb1731e7b26910bd34ec2bfe375c1c73b270801716034aebfcd072af508c062651fcec60a95e652004bd05fab95ad8ac11d3023aace6f575fd2e33dfc13ee93fa3d1ed68771297cd21bcb45a5e7068ae99307e35bd04143a96bb17313908908c2ca2dafc11bf19a4c049a69d27720192635330c61223f9a08e6a4957b575be3cba96bf5961ab28ab58b0cac034991eb6dd3997cd2533ef7437c367c1643ff136bd1e7e161a93ca0efa0d32c50c1594c574d47efcaef88979af7d78335640ba7c82912a406373b089e92",
+        "signature_hex": "6e9a45352fee8325845d21170dda714e486addac7ed8c379780404820dad23f06d283ef2b81a6a8a6f8b128e2e55f5f0f7de1cf07cef9ac96d0c8a997e979610d97fa8275aca105e6564edd0edb578f3107463f7e6b3ba67dd290138e74e1c018ae292ea7e433dd958b5f20bda91496a6e38c10ef2cdf95700c953a560386ef8c0eb9c04c2625534679d31ce71902f5cd9de43c43499fac91f9a7367d17ac0c1017a629e03edb7086e0b921d16bd8caa9e2ce57fb19f8b0dc3a1c8bc37b5b4c0d31cf6bd1dd6040e48bf78eff338679da945bfc845c8d159eecc671a7505366725bfda44b7aecc3fd0dfe1395d8206c3f125cf59e3f36b432eeec090294ee73c964346f0aee942e4858e630bba9d1f3837acbf203ed1a9f1c2574dd203185b5f72671af6af6cb741f037109e992d1cf8e1c598fc206d34cea00fec9c18d00b4c4206fa831eaf34fc0157394b5b9d8675febd10d5e60a0b9715bf9951e8569f62dcfe60520f8b02ae839ee1cb1dc0421f229c626c6dd889f0e22f5c998ea31b45c6d52ae55fd1dc4f8099e24dd6cdc728cad0940f0ee5da3fbd341e1ab50183ea499b8f5666560c383c86b840ae0eaae02a251aca537ca4cf8b94812b6267d20f4dcbdc90e0bc1d78eef9e3e22cd2f6d851fb9127d1bbddec4929068d4a463138824773abc0edc01125f5e1405db28d85b566b72bc17e929301e156cde3697e9376a1e6187efeed0a76a902006d36b669f3ecaaec8a2193830827e2701086422e069f8f803a8e110dedb8e9ff7878f6e9abfeede63dcd3008a653118dbdb61523aafd2cfb81e996ac1c75d747600a0d585671424954d99c0d423f4405c1550d52a7e60afd0a9187bde0ee17c1334f221bfc9f712ec8a115b53dea6611c8c84c203e39aacb0d20166634f4903eee4b47bcaa114035eb74f9baa88503876d3d6c1e90530a8db3643e72b43ca8c02da5cb92948333e0960a51813d4f57660ddecd4a4a58ca51393d3561544fcf01fd04dfa7786192366f4c3213190e2bee934c99fd8fddbb0afaf2b5ae26f748d0fd82be655659fe4f43b70564e905a3cabaddd5c31e3e2fefa666f19c5435a367efbf67e533c510ca35d4f1b2da5871883c4b40e1b1df78fa6319f352fb96a651af07569345173dd9d0fc706ced178adac51f903110febd4f44fc077799af151fa85b8848d9374dc6bf9621bd08aab6e2a92e2935e778aaec432a7411353a111e0b785e8ba07a14404b1aaacd3ef9c1c1e5cad70e71d78d6c965a48a6436274681b36a70aee412be9d322acb882396a76e379afe0d09116e5cb1c7737f2e9d2034617e883dfdba50916397b78ff16c6576739dfdc8cded42cf3907f0d87f9011ef6572e069e3442133b2cd11084135235ec58b056aca7d691f7ba7e2d68baf0d9c89f1a573d78acec9a071de8099825d9a2b7f06e14edc07c5d52dbd1b13d14e5ba6338a35c3d246b123e55490d0e283fb984c7e97afeb7250aac08667df2b3e28413f299caaceb42bac134c4a48e13d98686ec279afe95d653341422000865440ddb5cb8718bcce84c4506ce7fc788751ed5ac66cce3fd06089799c4d462413799e456ebe2bed70b1867dc3b8bd1730f93e791255636bce8ea904c0f8e0220c71228b6a01211f3c638e2d7e402973923764c653e8e9981aecc2a579dfaf93e641407e74b3d6ad76e367c039a7e4b17b80524bb7ad2c4df7bcfb74471769dc60f430c71cc7564e6cc5d07f132f69a6463c5e9fac251734bd1a7dab767a30f661bacd3cd0454fc34ac8a50d20e010163e207ca0bfcda5a6ea61d243141c6adcce66e82b3c55727f5b2db1bd8abcd14b2375fbf6be7efecb8a862b5c214626aad2152c070426a1dabbeae722f4e2ca6a1ea6434a7491f2c869a46f206d60778eee5c60c73312a01a26e58be0e63a39bf65911bb793ed7aa35fb0e7398e0f1074c451ecbae9da2c7501419a3fd417df0a8500853a93cb53d11deca30a20fd92d6ea26fca9cea850521000a32b5fbef103a8c37b3745acc4a63777f80705a3b5b4aafc17b9684efb74153f6e2a1809864615aed09b4260e47d2cd7f1be3fa8469be88299055b5085123b17aa1c034d695635781a00c3d02b2f52d429a651a229bb01ab65ca80f8098533484e2e4bc983fefb27dcd1cf308890ba24dc6cb91e62f14b1a06d42849eb493148d890912d6e08b539ea98390bc63e656797e15e6101cc99d04ab48da1bd656b3db059b0fea4a053ab5f7c89cba4fc28e753be9045bb6c575411dc934a345d8fa1b85f20699af392c56bd507b4096dc6e6899af95e0913c4934c66bca43a47282c9c048e82ca38485eaebdfde74c68725038b1b67c8df4418889e2c3d98bb5809df98d6e62793935bb94a53be3266b9b38c9fdfd550db12e7bed72ee14cb7841433e9cc0c8fd9cf93badd2222716ca625bb7bbc14b62eea89c473d5b31e9d015ef731b002af8dc10fc86913d0180ec45f336aac278467167efb438bd4ed4a928c3ad0f5d779d3abfc559b8ddac7d3796bec62276cd19c79a105ba3053aa3e2927d94fea0f0243879774e6b4b086144c95dabb8574cb51a122aca12262389c576b33f95a70ad3be5c95fce1e1cd98723413f4395166615ac74f368d7bc027588384c8f1076c80d5cc014c9efef714227bca3bd09ec93266fea2560662e922834e80070bee9a341a057a247d04b7730d7bf9e26e2aad77b40ff185f6186e2e61ce5d98c00614b1769bc0a503923564febadedd97637ba77a75aec70f271d304d6df8037830829b6791c98dde26889b668a876e5e5f56b851f51963d377466d77bad9e33bbd86d7795c11a94e49c50e86776af69eda9db646956d187246a87c2ff30d800e94467d82eec2eb360355321129565f247bcf72c002fda25baafc7e25ae70ae9c44b4365b7505e437dbfd3bfc44095b472f3ee7d83d688e56b857a187ca6cfe6b1abfdc725653f990ee74937a9925ecd000edc984153989ca08956823c00431349dd80b02e4477a20b98b812c2bcb184b50e5b1d44ef1656239a4594043571ebb84b1622eab1fa7a41b8b53e9cdee082b1407da945d6c7848a8ddc0f700a1ec290bacfd2902696acec3be83f3774dc8fa8c2fb1006418065b90f21c8591899974587c88711af78643857349d05e1415a0e92988735a9d2253946f870d9da502c35d7113e83c93c6285e553d7cfc9728c7800426e53a9466ae0a3fc22f40766dc673f48880bffec90b23d24f6ff86b130294a911c22d7e7acc9c3a01bc864acfb789bb6b6d15a2d15520078a30d4e8c9740547b3a7690ee04291310b62a6c7265d25fbdb215f72c3c136efa35c9ab33d65eda54e9db03b4b9cd2053cc1f65064c2b1bbcb3e30e8c199fc2c46cf53f6765164f481da11778e0378dba7a5d16e71fcee12238bdd15dc9442ef054d74154f42e7ad613002c1e3cdccf1acb02317c19b63ccdfae9f1d13b8e14479502a81b6f17e812bb18311501e07ce527f8e9e0b67c395f59c3897a014ad66abc4a0c605003cbf0ae76a37200bb6e64987bae04c15fba2ada42e27db6d4d0fa769c44bacc3cbf1fea0a300733c6c150ecf7912f0c6121695e390ceceec97c4db1d332f0561c8b8cd98bc8bcad66d8de7fc2f9e1d2b8dfcf8c5adcd711921c7c70290ada16540649bd454c8fd9c73a48739197017acc185ccd153033ca66b02166ab61bdb858cda514437ada3109f16bd3f0d80000ef9e374261d84c4bc05ec600957cd2f4a42f8b12313586f47255a2db94984ac4dfcb18ef2646237257204f66ba4fca39ac0238fdeb8cd20eee2a930dc24b63b12ceb3052f70fbdb5509bae54ac29fc2a0c9d304c13301a3e225e118f267efc150d85a9ce5db78774dc6012610de1a1a77ef3b6757f1f7a62b00267bbece7d4f7d64665c16baa672b5fa62c4af74437b20501d70ddda5b30346fc8a2dc064e0acc6ad07c9f10bf907305b5c643f51bc5a7f358c6cc42d65daa84cf60e875e24f901fdd578676c77d882efcc7109048a93ba8d537544b958679dba6b501f2a5918be8c360bc4b06b94f0c6ae536154aa67f765ce0be7a07a1a20531b7480c0042daee80021e96221c4e947670b81dc5f27b3da130e1ff4f45e202412fcc4dd63ea347ce7c5b4ee4369f4d7f366dc42cb53e1b6988c5b82cff5ed34475cc77a6b352a21aa2005bcd09f318ae542e7d44f73db3081fb79be64556ac283a74000e279f97053a05cca94ac6e23b6cd9746423b0a7ce106c1d7e86e5dacf3a9b9557118accf418758b461ef8beb558c87fa07db2da956c4b62ca50907a781a1a53cfa29ba398297a86621a703dd0e1fae23560b408a874de55cd27ce383e31f7da9245f36174af092819675aaa9bc149c26526578723c81e85a2718f9f2c565d9e0ab7d3446d9a65ac86d033ab7c295bec22a33f416a431e523bcc353eea55fc112ee88e0f513e1a4a950691d8cd9050e0031df5630e6a60eb9154d8d6bacab2b9376cfad6cd5e85f50075aa034525a62a311c5ad9a2ed0bfdb6c95728e3921cb20ffef87a2e1a79e810194f6fb9354c0e662c48b1b4cdc523a726fbb4f2e428c9197aab5d4f2031e24b11a66b5015f7c7d81b4d3dff430509095ced9e7373b8d90b4c4dcdde20000000000000000000000000000090d10192029",
+        "signs": "event.id (hex-decoded to 32 raw bytes)"
+      },
+      "proof_payload": {
+        "artifact_hash": "ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad",
+        "artifact_type": "onchain_action",
+        "confidence": 0.99,
+        "conformance_suite": "https://github.com/babyblueviper1/preaction-governance-conformance",
+        "decision_ref": "sha256:0faafb1665200c957d4713b1bf155427c2b1d9cc401e02d86aa0aee03a6f469a",
+        "decision_ref_preimage_fields": [
+          "artifact_hash",
+          "artifact_type",
+          "policy_version",
+          "verdict",
+          "source_class",
+          "vantage_limitation",
+          "related_decision_ref",
+          "intended_audience",
+          "confidentiality_tier",
+          "disclosed_summary",
+          "intended_verifier",
+          "policy_commitment",
+          "verified_at",
+          "registry_as_of",
+          "registry_snapshot_sha256"
+        ],
+        "decision_ref_preimage_rule": "every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.",
+        "engine_generation": 1,
+        "independent_nodes": [
+          "https://invinoveritas-castra.babyblueviper.workers.dev/verify",
+          "https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run"
+        ],
+        "key_id": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "platform": "invinoveritas",
+        "policy_commitment": "sha256:b0d29b374874515c8ffa392326fd05d80fcee28dc791fdbb5edbeb6fd50396dd",
+        "policy_commitment_inputs": {
+          "conformance_suite_commit": "62d32e519c39ba060950140ee7ceb5327371a0fe",
+          "conformance_suite_repo": "babyblueviper1/preaction-governance-conformance",
+          "rubric_doc_path": "docs/policy_spec/invinoveritas.review.v10.md",
+          "rubric_sha256": "a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5"
+        },
+        "policy_version": "invinoveritas.review.v11",
+        "registry_as_of": null,
+        "registry_snapshot_sha256": null,
+        "review_model_hash": "deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669",
+        "schema": "invinoveritas.verdict_proof.v1",
+        "source_class": "agent_reported",
+        "summary_hash": "8961fb3472fbb7831e62dcd5dcecaef4da412fb7a771c77550c4177185502599",
+        "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.",
+        "verdict": "reject",
+        "verified_at": 1787145244,
+        "verifier_keys": "https://api.babyblueviper.com/.well-known/verifier-keys.json",
+        "verifier_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+        "verify_how": "Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.",
+        "verify_offline": "npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.",
+        "verify_url": "https://api.babyblueviper.com/verify-proof"
+      },
+      "signature_type": "nostr_event",
+      "verify": "POST /verify-proof with the `event` object (or run NIP-01 verification yourself)."
+    },
+    "recall": {
+      "endpoint": "https://api.babyblueviper.com/review",
+      "recall_hint": "Call before every irreversible action \u2014 this is a per-decision gate, not a one-time check.",
+      "stable": true,
+      "verify_before_trusting_cache": "https://api.babyblueviper.com/verify-proof",
+      "why_safe_to_cache": "Every response ships a signed, recomputable proof \u2014 re-verify a cached result at /verify-proof (free, no auth) so saving us never means trusting us."
+    },
+    "related": [
+      {
+        "description": "invinoveritas /ledger \u2014 the FREE public verdict track record: every signed /review verdict, published BEFORE its outcome, with on-chain-anchored commit time and the settled win or loss (losses kept, not just wins). Recom",
+        "payment": "free",
+        "resource": "https://api.babyblueviper.com/ledger"
+      },
+      {
+        "description": "invinoveritas /prove \u2014 a signed, independently-verifiable attestation of a prior execution that anyone recomputes offline to confirm it is untampered. The VERIFICATION layer: redacted-but-bound attestation of a prior exe",
+        "payment": "same x402 flow as this call (402 challenge at the URL), or Bearer credits",
+        "resource": "https://api.babyblueviper.com/prove"
+      },
+      {
+        "description": "invinoveritas /execute \u2014 sandboxed Python that returns a SIGNED PROVENANCE PROOF of the exact output you recompute offline to confirm the run is untampered. Hardened Docker (network off, read-only root, caps dropped, non",
+        "payment": "same x402 flow as this call (402 challenge at the URL), or Bearer credits",
+        "resource": "https://api.babyblueviper.com/execute"
+      },
+      {
+        "description": "invinoveritas /audit/agent-readiness \u2014 a RECOMPUTABLE agent-readiness verdict: scores any agent URL (0-100 + grade) on handshake, discovery and verifiable-PROOF readiness, returns ranked fixes AND a signed proof of the a",
+        "payment": "same x402 flow as this call (402 challenge at the URL), or Bearer credits",
+        "resource": "https://api.babyblueviper.com/audit/agent-readiness"
+      },
+      {
+        "description": "FREE, no auth \u2014 verify any invinoveritas signed verdict proof (schnorr vs our published key). Trust nothing; check the signature.",
+        "payment": "free",
+        "resource": "https://api.babyblueviper.com/verify-proof"
+      }
+    ],
+    "reversibility_gate": {
+      "triggered": false
+    },
+    "status": "success",
+    "summary": "This transfer is not reasonable to treat as authorized end-to-end: the authoritative RAMS mandate check explicitly returns false because 150.000000 units exceeds the 100.000000-unit per-transaction cap. The separate test-double transfer succeeded only because that asset does not enforce RAMS, so venue success and asset compliance do not cure the mandate violation.",
+    "type": "structured_review",
+    "verdict": "reject"
+  },
+  "verdict": "reject",
+  "verify_proof": {
+    "age_seconds": 0,
+    "checks": {
+      "decision_ref_recomputes": true,
+      "id_integrity": true,
+      "is_proof_event": true,
+      "issued_by_invinoveritas": true,
+      "signature_valid": true,
+      "vantage_limitation_recomputes": true
+    },
+    "event": {
+      "content": "{\"artifact_hash\":\"ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad\",\"artifact_type\":\"onchain_action\",\"confidence\":0.99,\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"decision_ref\":\"sha256:0faafb1665200c957d4713b1bf155427c2b1d9cc401e02d86aa0aee03a6f469a\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"engine_generation\":1,\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:b0d29b374874515c8ffa392326fd05d80fcee28dc791fdbb5edbeb6fd50396dd\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"62d32e519c39ba060950140ee7ceb5327371a0fe\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v10.md\",\"rubric_sha256\":\"a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5\"},\"policy_version\":\"invinoveritas.review.v11\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"8961fb3472fbb7831e62dcd5dcecaef4da412fb7a771c77550c4177185502599\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"reject\",\"verified_at\":1787145244,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+      "created_at": 1787145244,
+      "id": "cfbd989cad29e67156a2d3388eea8a561dad0e0cccd31521fdd75254684d2bef",
+      "kind": 30078,
+      "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+      "sig": "6a73f988c1cca37e31144012d00a615b1f6df1802f67c4984f3cbb003d6e88869afdecdf14c445dd096ee5241c0fa85f0a6e6ad5f805f196c925d64724eaf66b",
+      "tags": [
+        [
+          "d",
+          "invinoveritas-proof-ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad-1787145244-7f1e3cf3"
+        ],
+        [
+          "t",
+          "invinoveritas"
+        ],
+        [
+          "t",
+          "proof"
+        ],
+        [
+          "schema",
+          "invinoveritas.verdict_proof.v1"
+        ]
+      ]
+    },
+    "get_your_own": "Want your own output trusted like this? POST /review with {\"sign\": true} to get a portable signed verdict proof to attach to what you ship. The norm both ways: demand a proof on what you receive, attach one to what you ship \u2014 that's how trust spreads agent-to-agent. Skill: integrations/agentskills/verification-handshake.",
+    "how_to_verify": "Recompute the Nostr event id = sha256(JSON [0,pubkey,created_at,kind,tags,content]); verify the schnorr sig over it against pubkey; confirm pubkey == published_pubkey. Standard NIP-01 \u2014 do it yourself. The content is RFC 8785 JCS (sorted keys, compact separators, raw UTF-8 / not \\uXXXX-escaped) so the canonical bytes recompute identically across implementations.",
+    "issued_by_invinoveritas": true,
+    "proof_payload": {
+      "artifact_hash": "ba835411aeac2db5f2f05885ae3734ccc86971f8b3237dddbb627a64b0814bad",
+      "artifact_type": "onchain_action",
+      "confidence": 0.99,
+      "conformance_suite": "https://github.com/babyblueviper1/preaction-governance-conformance",
+      "decision_ref": "sha256:0faafb1665200c957d4713b1bf155427c2b1d9cc401e02d86aa0aee03a6f469a",
+      "decision_ref_preimage_fields": [
+        "artifact_hash",
+        "artifact_type",
+        "policy_version",
+        "verdict",
+        "source_class",
+        "vantage_limitation",
+        "related_decision_ref",
+        "intended_audience",
+        "confidentiality_tier",
+        "disclosed_summary",
+        "intended_verifier",
+        "policy_commitment",
+        "verified_at",
+        "registry_as_of",
+        "registry_snapshot_sha256"
+      ],
+      "decision_ref_preimage_rule": "every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.",
+      "engine_generation": 1,
+      "independent_nodes": [
+        "https://invinoveritas-castra.babyblueviper.workers.dev/verify",
+        "https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run"
+      ],
+      "key_id": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+      "platform": "invinoveritas",
+      "policy_commitment": "sha256:b0d29b374874515c8ffa392326fd05d80fcee28dc791fdbb5edbeb6fd50396dd",
+      "policy_commitment_inputs": {
+        "conformance_suite_commit": "62d32e519c39ba060950140ee7ceb5327371a0fe",
+        "conformance_suite_repo": "babyblueviper1/preaction-governance-conformance",
+        "rubric_doc_path": "docs/policy_spec/invinoveritas.review.v10.md",
+        "rubric_sha256": "a4af5917fb2d37a685476458a6e326e6cc870fc24e8b49b41243b685fb9eb1b5"
+      },
+      "policy_version": "invinoveritas.review.v11",
+      "registry_as_of": null,
+      "registry_snapshot_sha256": null,
+      "review_model_hash": "deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669",
+      "schema": "invinoveritas.verdict_proof.v1",
+      "source_class": "agent_reported",
+      "summary_hash": "8961fb3472fbb7831e62dcd5dcecaef4da412fb7a771c77550c4177185502599",
+      "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.",
+      "verdict": "reject",
+      "verified_at": 1787145244,
+      "verifier_keys": "https://api.babyblueviper.com/.well-known/verifier-keys.json",
+      "verifier_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+      "verify_how": "Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.",
+      "verify_offline": "npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.",
+      "verify_url": "https://api.babyblueviper.com/verify-proof"
+    },
+    "published_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "recompute_depth": {
+      "label": "recomputes from its own bytes + independently admitted by invinoveritas's published key; the external anchor (pre-outcome precedence) is the /ledger + OTS leg, not checked by /verify-proof",
+      "tier": "bounded@anchor"
+    },
+    "scope_note": "A valid proof confirms invinoveritas issued this verdict \u2014 NOT that it's fresh or meant for YOUR interaction. Check `age_seconds` for recency and pass `expect_artifact_hash` to bind the proof to the exact output you received. Freshness is informational only this call (no expect_max_age_seconds supplied) -- check age_seconds yourself if staleness matters to you.",
+    "source_class": "agent_reported",
+    "valid": true,
+    "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration."
+  },
+  "verify_valid": true
+}

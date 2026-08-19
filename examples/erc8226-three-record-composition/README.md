@@ -1,5 +1,23 @@
 # ERC-8226 three-record composition
 
+**Update (2026-08-19) — Part 2 added below: a composed demo WITH a real ERC-7943
+test double.** Part 1 (original, unchanged) found that the live `GatedUSDRams`
+deployment does not implement ERC-7943 `canSend()`/`canReceive()` at all — a real
+gap, not a demo inconvenience (see "Investigation" below). WeissCurry
+([post #24](https://ethereum-magicians.org/t/erc-8226-regulated-agent-mandate/28208/24))
+asked whether the reference material should include one end-to-end example
+putting asset compliance, RAMS authorization, and the venue-level result side
+by side, "so an integrator can see which layer produced each decision without
+having to reconstruct it across separate examples." Ludovico rossi (RAMS
+editor, [post #27](https://ethereum-magicians.org/t/erc-8226-regulated-agent-mandate/28208/27))
+confirmed: "yes, treat the composed case as prioritized." Part 2 is that
+example — jump to [Part 2](#part-2--composed-with-a-real-erc-7943-test-double)
+if that's what you're here for; Part 1 below is preserved as originally written.
+
+---
+
+## Part 1 — original (Thamer Dridi's ask, posts #13–#20)
+
 **This is not ERC-8226 spec text.** Thamer Dridi (spec editor) asked for a
 worked example against the live Sepolia deployment. Thread:
 [ERC-8226: Regulated Agent Mandate](https://ethereum-magicians.org/t/erc-8226-regulated-agent-mandate/28208),
@@ -228,3 +246,184 @@ blocked tx exists to show.
 | `outputs/three_records.json` | both cases, all three records, calldata so you can recast |
 | `outputs/review_cleared.json` / `review_blocked.json` | full `/review` request + body |
 | `outputs/verify_proof_cleared.json` / `verify_proof_blocked.json` | independent `/verify-proof` |
+
+---
+
+## Part 2 — composed with a real ERC-7943 test double
+
+Part 1 above found a real gap: the live `GatedUSDRams` deployment does not
+implement ERC-7943 `canSend()`/`canReceive()` at all, so the original demo's
+Record 2 was necessarily the token's actual (non-ERC-7943) surface, not the
+canonical pair WeissCurry and Ludovico were asking about. This part closes
+that gap with a real, minimal, deliberately non-enforcing ERC-7943-shaped
+test double, deployed fresh, and a real mandate self-granted on the same
+already-live, already-deployed `AgentMandate` registry — no cooperation from
+the RAMS team needed. `grantMandate` is permissionless by design (it just
+verifies an EIP-712 signature from the named principal); the domain separator
+computed locally (`ae6058ab...`) was checked byte-for-byte against the real
+on-chain `AgentMandate.DOMAIN_SEPARATOR()` before signing anything for real.
+
+### What's new here vs Part 1
+
+| | Part 1 (`GatedUSDRams`) | Part 2 (`MinimalERC7943TestDouble`) |
+|---|---|---|
+| `canSend()`/`canReceive()` | Not implemented | Implemented, real, queryable |
+| Asset knows about RAMS | Yes — live `checkPrincipal` re-check on every `transferFrom` | **No** — `transfer()` only checks its own `blocked` flag |
+| What "blocked" means | The token's own transfer reverts (status 0) | `canExecute()` independently says no; the asset's `transfer()` still **succeeds** (status 1) — read that as the venue executing an action RAMS would refuse to authorize, not as a reverted transaction |
+
+That second row is the actual finding, not a shortcoming of the test double.
+An integrator who assumes "the asset would have caught it" is wrong for any
+asset shaped like this one — which is a real, plausible shape (a token that
+predates RAMS, or one whose team hasn't wired in a live mandate check). The
+whole reason to check all three records independently, not infer one from
+another, is exactly this case.
+
+### Contracts
+
+`contracts/MinimalERC7943TestDouble.sol` — `canSend`/`canReceive` return
+`!blocked`; `transfer(address,uint256)` moves its own internal balance,
+gated only by `blocked`, never by RAMS. Not a full compliant token by design
+(see [post #25](https://ethereum-magicians.org/t/erc-8226-regulated-agent-mandate/28208/25),
+"even a minimal test double").
+
+`contracts/MinimalComplianceProvider.sol` — always reports `eligible=true`.
+Exists only because `grantMandate` requires a working `IComplianceProvider`
+whose `checkPrincipal` clears for the named principal; a fresh throwaway
+demo address has no real KYC/AML registration anywhere to check against.
+
+Both deployed fresh on Sepolia, verifiable read-only via the addresses below
+(bytecode/source in this repo, not independently Sourcify-verified — these
+are throwaway demo contracts, not published for reuse):
+
+| contract | address |
+|---|---|
+| `MinimalERC7943TestDouble` | `0x3dd1Fc46c3FAf44B46733689bAb47157b530783f` |
+| `MinimalComplianceProvider` | `0x35c1adC4f68BEC4Bb042612dC9D50aef5A675eF5` |
+
+### The real mandate
+
+Granted via a real `grantMandate` tx on the live registry
+(`0xD68E1bb972cA4EF7F5764FBf6d685a6DfC26778e`):
+`0x946f4a9e721264bf22a76cf905f920b926a6845f707db0054413074321b2fb28`.
+
+`agent=0x3a260e797339f4Bc822ee67A1d52cfd04719EB07`
+`principal=0xc5eC2960Ad560AFE09602605CBCEa060244C4178`
+`maxTransactionValue=100000000` `maxCumulativeValue=500000000` (same shape
+as Part 1's 100/500 gUSD caps). Signed off-chain by the principal key
+(EIP-712, `nonces(principal)=0` at grant time) — the principal never pays
+gas; the deployer relays the signed grant. All three throwaway keys are
+published in `testnet_keys.json` in this directory — Sepolia only, zero real
+value, published for full reproducibility (same "not mocked" ethos as the
+rest of this repo).
+
+### The two cases — real transactions, agent as `tx.from`
+
+Both venue-level transfers were submitted by the **agent itself** (not a
+deployer stand-in — an earlier draft used a deployer self-transfer and
+`/review` correctly flagged that as a real gap, `intent_mismatch`: "the
+authorized agent neither submitted the transaction nor transferred the
+principal's assets" — fixed in `exercise_as_agent.py`), sending to the
+**principal**.
+
+| | cleared | over_cap |
+|---|---|---|
+| amount | 90,000,000 (90 units) | 150,000,000 (150 units) |
+| Record 1 — `canExecute` (real live view call, pinned at the tx's own parent block) | **true** | **false** — 150 > 100 cap |
+| Record 2 — `canSend`/`canReceive` (real live view calls, same pin) | **true / true** | **true / true** — the asset has no opinion either way |
+| Record 3 — venue `transfer()` tx | `0x12e7fc69ae7660f534e6d460155b69aac3d45299f84fbe5087a28e2033968947` status **1** | `0xdb832e96dfc595407a76771d9e745a0d9be3fefa8e13d116be270b78665834a8` status **1** |
+| Record 3 decoded Transfer event | from=agent to=principal amount=90000000 | from=agent to=principal amount=150000000 |
+| Record 3 (`/review`, sign+seed) | **approve_with_concerns** (0.87) | **reject** (0.99) |
+
+Pinned pre-state blocks (parent of each venue tx, matching Part 1's own
+EIP-1898 convention): cleared at block 11522248
+(`0xb2ebe89dfb75e1ff3052b13f9dd672ef5d8a41c30fe208c86fa6f074200d9b85`),
+over_cap at block 11522249
+(`0x8328b61e1d586a8b87de7ddc87301ef30cc7ddbed0e10b4f9c55d7ba8a6cbd36`) — both
+independently re-checked against `--block <hash>` and matched the unpinned
+reads exactly (recorded in `outputs/test_double_composition.json`'s
+`pinned_reproduce` field per case).
+
+Both cases' venue transaction **succeeded** (status 1) — including
+over_cap, where RAMS's own `canExecute()` independently said no. This is the
+whole point: the test double never asked RAMS, so it had no way to refuse.
+`/review`'s own verdicts on the two cases land where they should:
+`approve_with_concerns` on cleared (everything agrees, but RAMS is
+advisory, not an execution control — a real, disclosed concern, not a
+false positive), flat `reject` on over_cap (RAMS denies, the asset let it
+through anyway — treating the completed transfer as authorized would
+directly contradict the governing authorization layer). Full verdict bodies:
+`outputs/review_test_double_cleared.json` / `outputs/review_test_double_over_cap.json`
+(named with a `test_double_` prefix so they never collide with Part 1's own
+`review_cleared.json`/`review_blocked.json` — an earlier draft here used the
+bare names and silently overwrote Part 1's real recorded output; caught in
+`git diff` before commit, restored via `git checkout`, filenames fixed).
+
+### A real methodology mistake, caught and fixed mid-build
+
+An earlier pass here (worth stating plainly rather than editing out of the
+history) had the **deployer** submit both venue transfers to itself, as a
+placeholder — `/review` correctly rejected with a `blocker`-severity
+`intent_mismatch` finding ("the authorized agent neither submitted the
+transaction nor transferred the principal's assets"). A second, sloppier
+pass fixed the sender but left a stale sentence in the reviewed artifact
+text claiming `from==to==deployer` while the actual decoded event already
+showed `from=agent to=principal` — `/review` caught that internal
+inconsistency too (`blocker`, `correctness`: "the stated transaction facts
+conflict"). Both are logged in this directory's git history/outputs rather
+than quietly cleaned up, in the same spirit as Part 1's own honesty about
+what `GatedUSDRams` does and doesn't implement — the review tool doing its
+job on our own work, twice, is itself part of the record.
+
+### Reproduce
+
+```bash
+cd examples/erc8226-three-record-composition
+# Deploys are already live (see addresses above); to redeploy fresh:
+../../venv/bin/python compose_with_test_double.py --skip-review
+# Re-exercise with the agent as sender (already the recorded state):
+../../venv/bin/python exercise_as_agent.py
+# Add/refresh Record 3 (/review + /verify-proof) on top of the recorded facts:
+../../venv/bin/python add_review_record.py
+```
+
+Independent recompute of Records 1/2 without Python, pinned at the cleared
+case's parent block:
+
+```bash
+cast call 0xD68E1bb972cA4EF7F5764FBf6d685a6DfC26778e \
+  "canExecute(address,address,address,bytes32,uint256)(bool)" \
+  0x3a260e797339f4Bc822ee67A1d52cfd04719EB07 \
+  0xc5eC2960Ad560AFE09602605CBCEa060244C4178 \
+  0x3dd1Fc46c3FAf44B46733689bAb47157b530783f \
+  0xa9059cbb00000000000000000000000000000000000000000000000000000000 \
+  90000000 \
+  --rpc-url https://sepolia.gateway.tenderly.co \
+  --block 0xb2ebe89dfb75e1ff3052b13f9dd672ef5d8a41c30fe208c86fa6f074200d9b85
+
+cast call 0x3dd1Fc46c3FAf44B46733689bAb47157b530783f \
+  "canSend(address,address,uint256)(bool)" \
+  0x3a260e797339f4Bc822ee67A1d52cfd04719EB07 \
+  0xc5eC2960Ad560AFE09602605CBCEa060244C4178 \
+  90000000 \
+  --rpc-url https://sepolia.gateway.tenderly.co \
+  --block 0xb2ebe89dfb75e1ff3052b13f9dd672ef5d8a41c30fe208c86fa6f074200d9b85
+```
+
+Record 3 (`/review`): `POST /verify-proof` with `outputs/review_test_double_cleared.json`
+/ `outputs/review_test_double_over_cap.json` → `review_response.proof.event`
+(free, no auth) — do not trust the self-report in the review body.
+
+### Files (Part 2)
+
+| file | role |
+|---|---|
+| `contracts/MinimalERC7943TestDouble.sol` | ERC-7943-shaped test double, `blocked` flag, real `transfer()` |
+| `contracts/MinimalComplianceProvider.sol` | always-eligible `IComplianceProvider` test double |
+| `contracts/foundry.toml` | scoped forge project (src=".") so `forge build`/`create` don't pick up unrelated repo files |
+| `testnet_keys.json` | throwaway deployer/principal/agent keys, Sepolia only, published for reproducibility |
+| `compose_with_test_double.py` | deploy, EIP-712 sign+submit grantMandate, exercise both cases |
+| `exercise_as_agent.py` | re-run the venue leg with the agent (not deployer) as `tx.from` |
+| `add_review_record.py` | fetch real tx details, add Record 3 (`/review` + `/verify-proof`) on top |
+| `outputs/test_double_deploy.json` | deployed contract addresses |
+| `outputs/test_double_composition.json` | both cases, all three records, pinned-reproduce block hashes |
+| `outputs/review_test_double_cleared.json` / `review_test_double_over_cap.json` | full `/review` request + body |
