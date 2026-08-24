@@ -1,0 +1,127 @@
+{
+  "conformance_suite": "tests/test_vantage_resolution.py",
+  "declared_expectation": "conformant",
+  "implementation_under_test": "services/vantage_resolution.py",
+  "mutants": [
+    {
+      "clause": "\u00a77.1",
+      "id": "M1-signer-counting",
+      "must": "quorum counts distinct signers per vantage class, never raw attestations",
+      "status": "KILLED",
+      "suite_result": "1 failed, 27 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a75 E5",
+      "id": "M2-window-signed-timestamp",
+      "must": "evaluation windows MUST NOT be defined over signed timestamps",
+      "status": "KILLED",
+      "suite_result": "1 failed, 20 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a75 E3 / \u00a78",
+      "id": "M3-global-independence",
+      "must": "independence is claimed per vantage class, never globally",
+      "status": "KILLED",
+      "suite_result": "1 failed, 21 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a74.2 / V2",
+      "id": "M4-ineligible-in-commitment",
+      "must": "eligibility is recomputed at commitment time; ineligible rows never enter the committed set",
+      "status": "KILLED",
+      "suite_result": "1 failed, 15 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a74.2 / \u00a711",
+      "id": "M5-unsigned-eligible",
+      "must": "a \"0x\" signature is structurally ineligible -- presence is not verification",
+      "status": "KILLED",
+      "suite_result": "1 failed, 14 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a75",
+      "id": "M6-no-trailing-lf",
+      "must": "canonical form is sorted-key UTF-8 JSON with a single trailing LF",
+      "status": "KILLED",
+      "suite_result": "1 failed in 0.09s"
+    },
+    {
+      "clause": "\u00a79",
+      "id": "M7-insufficient-without-inspected-set",
+      "must": "\"not found\" without an inspected-set commitment is nonconformant",
+      "status": "KILLED",
+      "suite_result": "1 failed, 26 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a75 V2",
+      "id": "M8-v2-order-dependent",
+      "must": "V2 is a digest over the SORTED signatures -- a set commitment, never ingest-order dependent",
+      "status": "KILLED",
+      "suite_result": "1 failed, 19 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a73",
+      "id": "M9-equivocation-silent",
+      "must": "the detector MUST warn on same-signer equivocation",
+      "status": "KILLED",
+      "suite_result": "1 failed, 9 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a76 / V5",
+      "id": "M10-quorum-emits-agreement",
+      "must": "no false green: a failed/auto resolution MUST NOT surface as agreement",
+      "status": "KILLED",
+      "suite_result": "1 failed, 28 passed in 0.10s"
+    },
+    {
+      "clause": "\u00a74.2",
+      "id": "M11-source-peer-in-identity",
+      "must": "transport metadata (source_peer) cannot redefine record identity",
+      "status": "KILLED",
+      "suite_result": "1 failed, 15 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a75 E4 / \u00a76a",
+      "id": "M12-finality-implied",
+      "must": "no evaluation carries finality unless the profile declares a finality rule",
+      "status": "KILLED",
+      "suite_result": "1 failed, 22 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a76a",
+      "id": "M13-supersession-mutates",
+      "must": "supersession neither rewrites nor invalidates the superseded claim",
+      "status": "KILLED",
+      "suite_result": "1 failed, 32 passed in 0.10s"
+    },
+    {
+      "clause": "\u00a76 Q2",
+      "id": "M14-resolving-without-ref",
+      "must": "resolved(...) carries the full set by reference; retrievability demonstrated not declared",
+      "status": "KILLED",
+      "suite_result": "1 failed, 30 passed in 0.09s"
+    },
+    {
+      "clause": "\u00a75 (v0.3)",
+      "id": "M15-unbound-schema-defaults",
+      "must": "an unbound schema MUST raise -- no default serializer, inference forbidden",
+      "status": "KILLED",
+      "suite_result": "1 failed, 5 passed in 0.08s"
+    },
+    {
+      "clause": "\u00a75 (v0.3)",
+      "id": "M16-bindings-collapse",
+      "must": "the companion binds TWO schemas to DIFFERENT serializers; collapsing them re-creates the exact ambiguity the per-schema rule was ratified to remove",
+      "status": "KILLED",
+      "suite_result": "1 failed, 38 passed in 0.10s"
+    }
+  ],
+  "schema": "erc-8309-vantage-authority-companion/spec-mutations",
+  "spec_version": "0.2.2",
+  "summary": {
+    "applied": 16,
+    "killed": 16,
+    "not_applied": 0,
+    "survived": 0
+  }
+}

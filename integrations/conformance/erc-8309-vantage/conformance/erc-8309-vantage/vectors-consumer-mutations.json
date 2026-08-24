@@ -1,0 +1,65 @@
+{
+  "golden_set_inventory": {
+    "bindings_total": 6,
+    "by_binding": {
+      "ccip.attestation.unsigned.v1": "no denominator yet",
+      "crc.claim": "no denominator yet",
+      "decision_ref": "no denominator yet",
+      "erc-8309-vantage-authority-companion": "no denominator yet",
+      "recompute-kit.artifact": "no denominator yet",
+      "tsei.frozen-artifact": "no denominator yet"
+    },
+    "complete": false,
+    "has_conforming_set": 0,
+    "needs_conforming_set": 0,
+    "no_denominator_yet": 6
+  },
+  "inventory_note": "Empty input deliberately: no conforming vector set has been published against these bindings yet, so every binding reports 'no denominator yet'. That is distinct from 'needs a conforming set' (a set exists and fails) and the two must never collapse into one blank.",
+  "mutants": [
+    {
+      "clause": "\u00a75 / v0.1 carrier",
+      "id": "V1-bytes-hex-optional",
+      "must": "bytes_hex is REQUIRED as the normative hashable carrier",
+      "status": "KILLED",
+      "suite_result": "1 failed, 1 passed in 0.05s"
+    },
+    {
+      "clause": "\u00a710 / v0.1 pair",
+      "id": "V2-adversarial-pair-optional",
+      "must": "a binding's vector set MUST carry the adversarial pair",
+      "status": "KILLED",
+      "suite_result": "1 failed, 13 passed in 0.05s"
+    },
+    {
+      "clause": "\u00a75 / \u00a79",
+      "id": "V3-wrong-serializer-digest-accepted",
+      "must": "a digest produced under the unbound serializer MUST be rejected",
+      "status": "KILLED",
+      "suite_result": "1 failed, 6 passed in 0.05s"
+    },
+    {
+      "clause": "\u00a710 inventory",
+      "id": "V4-inventory-state-collapse",
+      "must": "'needs a conforming set' and 'no denominator yet' MUST stay distinct states",
+      "status": "KILLED",
+      "suite_result": "1 failed, 11 passed in 0.05s"
+    }
+  ],
+  "other_surfaces": {
+    "provenance-class MUSTs -- required artifact + independent reproducibility": "0 mutants BY DESIGN; a code mutant cannot express 'this vector was derived the wrong way'. Discharged by the definition-derived leg existing and being independently reproducible, scoped to v0.1's demonstration object only.",
+    "vantage_resolution.py -- executable profile/serializer semantics": "see conformance/erc-8309-vantage/spec-mutations.json (16/16 KILLED)"
+  },
+  "reported_by_surface": true,
+  "schema": "erc-8309-vantage-authority-companion/vectors-consumer-mutations",
+  "summary": {
+    "applied": 4,
+    "killed": 4,
+    "not_applied": 0,
+    "survived": 0
+  },
+  "surface": {
+    "conformance_suite": "tests/test_vantage_vectors_consumer.py",
+    "implementation_under_test": "services/vantage_vectors_consumer.py",
+    "name": "vectors consumer -- vector-artifact obligations"
+  }
+}
