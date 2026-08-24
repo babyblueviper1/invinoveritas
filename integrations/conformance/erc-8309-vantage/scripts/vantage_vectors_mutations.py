@@ -113,11 +113,25 @@ def main() -> int:
         with tempfile.TemporaryDirectory() as td:
             _stage(td, mutated)
             green, tail = run_suite(td)
-        killed = not green
+        # A kill must be an ASSERTION FAILURE, never a collection/runtime error. Ported from the
+        # surface-1 gate the same day it was found there: M6's replacement string emitted a real
+        # newline into a bytes literal, produced a SyntaxError, and the gate счёл the resulting
+        # collection error a kill -- so the mutant proved nothing while reporting green. ANY
+        # mutation that fails to parse kills every mutant trivially, which means a gate that
+        # accepts an error as a kill can report 100% while testing nothing. Applied here too rather
+        # than waiting for the same defect to be found on this surface separately.
+        vacuous = (not green) and "failed" not in tail
+        killed = (not green) and not vacuous
+        status = "VACUOUS" if vacuous else ("KILLED" if killed else "SURVIVED")
         results.append({"id": mid, "clause": clause, "must": must,
-                        "status": "KILLED" if killed else "SURVIVED", "suite_result": tail})
+                        "status": status, "suite_result": tail,
+                        **({"note": "suite went red on an ERROR, not an assertion -- this mutation "
+                                    "broke the module rather than violating the claim, so it proves "
+                                    "nothing. NOT counted as a kill."} if vacuous else {})})
         if not json_only:
-            print(f"  {mid:40} {'KILLED' if killed else 'SURVIVED  <-- GAP'}  {tail[:46]}")
+            mark = {"KILLED": "KILLED", "VACUOUS": "VACUOUS  <-- NOT A KILL",
+                    "SURVIVED": "SURVIVED  <-- GAP"}[status]
+            print(f"  {mid:40} {mark}  {tail[:46]}")
 
     sys.path.insert(0, os.path.join(ROOT, "services"))
     from vantage_vectors_consumer import golden_set_inventory  # noqa: E402
@@ -126,6 +140,11 @@ def main() -> int:
     applied = sum(1 for r in results if r["status"] != "NOT_APPLIED")
     payload = {
         "schema": "erc-8309-vantage-authority-companion/vectors-consumer-mutations",
+        # Machine pin, added 2026-08-24 (found Pavlo): the README claimed BOTH generated artifacts
+        # carried spec_version 0.3.3, and this one carried no such field at all -- a documentation
+        # claim about a machine-readable property that the machine did not actually assert. The
+        # sibling surface-1 artifact had the pin; this one only had it in prose about it.
+        "spec_version": "0.3.3",
         "reported_by_surface": True,
         "surface": {
             "name": "vectors consumer -- vector-artifact obligations",

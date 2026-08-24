@@ -78,7 +78,7 @@ MUTANTS = [
     ("M6-jcs-trailing-byte-appended", "§5",
      "a JCS-bound schema's canonical bytes are RFC 8785 with NO trailing byte",
      r"    return rfc8785\.dumps\(obj\)",
-     '    return rfc8785.dumps(obj) + b"\\n"  # mutant: JCS must emit no trailing byte'),
+     '    return rfc8785.dumps(obj) + b"\\\\n"  # mutant: JCS must emit no trailing byte'),
 
     ("M7-insufficient-without-inspected-set", "§9",
      '"not found" without an inspected-set commitment is nonconformant',
@@ -154,6 +154,24 @@ def run_suite(workdir: str) -> tuple[bool, str]:
     return p.returncode == 0, out.strip().splitlines()[-1] if out.strip() else ""
 
 
+def _red_is_a_real_failure(tail: str) -> bool:
+    """A mutant counts as KILLED only if a test ASSERTED its way to red.
+
+    Found 2026-08-24 by Pavlo, who noticed M6 was recorded as "1 error" rather than "1 failed" and
+    asked whether the red was actually caused by the violation. It was not. M6's replacement string
+    contained a backslash-n, and re.sub PROCESSES ESCAPES IN THE REPLACEMENT -- so it emitted a real
+    newline into the middle of a bytes literal, producing an unterminated string and a SyntaxError.
+    pytest reported a collection error, the gate saw not-green, and counted it KILLED. The mutant
+    never tested the JCS trailing-byte claim; it broke the file.
+
+    That is the vacuous-digest defect of §9 one level up, inside the gate whose whole job is to
+    prove tests are load-bearing: ANY mutation that fails to parse kills every mutant trivially, so
+    a gate that accepts an error as a kill can report 100% while testing nothing. The fix is
+    structural rather than M6-specific -- every mutant now has to earn its red the same way.
+    """
+    return "failed" in tail
+
+
 def main() -> int:
     json_only = "--json-only" in sys.argv
     original = open(SRC).read()
@@ -190,10 +208,15 @@ def main() -> int:
             with open(os.path.join(td, "services", "vantage_resolution.py"), "w") as f:
                 f.write(mutated)
             green, tail = run_suite(td)
-        killed = not green
+        vacuous = (not green) and not _red_is_a_real_failure(tail)
+        killed = (not green) and not vacuous
+        status = "VACUOUS" if vacuous else ("KILLED" if killed else "SURVIVED")
         results.append({"id": mid, "clause": clause, "must": must,
-                        "status": "KILLED" if killed else "SURVIVED",
-                        "suite_result": tail})
+                        "status": status,
+                        "suite_result": tail,
+                        **({"note": "suite went red on an ERROR, not an assertion -- this mutation "
+                                    "broke the module rather than violating the claim, so it proves "
+                                    "nothing. NOT counted as a kill."} if vacuous else {})})
         if not json_only:
             print(f"  {mid:38} {'KILLED' if killed else 'SURVIVED  <-- GAP'}  {tail[:52]}")
 

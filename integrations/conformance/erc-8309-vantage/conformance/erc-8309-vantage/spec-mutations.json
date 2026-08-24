@@ -15,21 +15,21 @@
       "id": "M2-window-signed-timestamp",
       "must": "evaluation windows MUST NOT be defined over signed timestamps",
       "status": "KILLED",
-      "suite_result": "1 failed, 20 passed in 0.12s"
+      "suite_result": "1 failed, 20 passed in 0.09s"
     },
     {
       "clause": "\u00a75 E3 / \u00a78",
       "id": "M3-global-independence",
       "must": "independence is claimed per vantage class, never globally",
       "status": "KILLED",
-      "suite_result": "1 failed, 21 passed in 0.09s"
+      "suite_result": "1 failed, 21 passed in 0.10s"
     },
     {
       "clause": "\u00a74.2 / V2",
       "id": "M4-ineligible-in-commitment",
       "must": "eligibility is recomputed at commitment time; ineligible rows never enter the committed set",
       "status": "KILLED",
-      "suite_result": "1 failed, 15 passed in 0.09s"
+      "suite_result": "1 failed, 15 passed in 0.10s"
     },
     {
       "clause": "\u00a74.2 / \u00a711",
@@ -43,14 +43,14 @@
       "id": "M6-jcs-trailing-byte-appended",
       "must": "a JCS-bound schema's canonical bytes are RFC 8785 with NO trailing byte",
       "status": "KILLED",
-      "suite_result": "1 error in 0.17s"
+      "suite_result": "1 failed, 1 passed in 0.08s"
     },
     {
       "clause": "\u00a79",
       "id": "M7-insufficient-without-inspected-set",
       "must": "\"not found\" without an inspected-set commitment is nonconformant",
       "status": "KILLED",
-      "suite_result": "1 failed, 26 passed in 0.10s"
+      "suite_result": "1 failed, 26 passed in 0.12s"
     },
     {
       "clause": "\u00a75 V2",
@@ -78,7 +78,7 @@
       "id": "M11-source-peer-in-identity",
       "must": "transport metadata (source_peer) cannot redefine record identity",
       "status": "KILLED",
-      "suite_result": "1 failed, 15 passed in 0.09s"
+      "suite_result": "1 failed, 15 passed in 0.10s"
     },
     {
       "clause": "\u00a75 E4 / \u00a76a",

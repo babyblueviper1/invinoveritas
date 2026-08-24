@@ -59,7 +59,8 @@ digit" (Merlini). The replacement, `M6-jcs-trailing-byte-appended`, mutates the 
 appending `0x0a` to the JCS encoder's output. The current suite kills it. The exactly-one-LF mutant
 belongs to the future LF byte-contract gate.
 
-Both artifacts are pinned to `spec_version: 0.3.3`.
+Both artifacts are pinned to `spec_version: 0.3.3` — see **Runtime pins** below; this
+was not true at the moment it was first claimed.
 
 ## The wrong-serializer obligation is PARTIALLY discharged
 
@@ -87,3 +88,38 @@ equivalent there. For a **non-list** it is the only protection, and nothing in t
 that shape. Adding it exposed a real defect underneath: `check_binding_set`'s `or []` iterated a
 truthy non-list, so a function whose contract is that it never raises did. Both fixed; V2 now dies
 to genuine coverage, not to a weakened mutant.
+
+## A kill must be an assertion, not an error (2026-08-24)
+
+`M6` was recorded as KILLED on **"1 error"** rather than "1 failed". Pavlo asked whether the red was
+actually caused by the JCS violation. It was not.
+
+M6's replacement string contained a backslash-n, and **`re.sub` processes escapes in the
+replacement** — so it emitted a real newline into the middle of a bytes literal, producing an
+unterminated string and a `SyntaxError`. pytest reported a collection error, the gate saw not-green,
+and counted it KILLED. **The mutant never tested the trailing-byte claim; it broke the file.** The
+honest history of the previous artifact is *15/16 plus one vacuous kill*, not 16/16.
+
+This is the vacuous-digest defect one level up, inside the gate whose entire job is proving tests
+are load-bearing: any mutation that fails to parse kills every mutant trivially, so a gate that
+accepts an error as a kill can report 100% while testing nothing.
+
+Both gates now require the red to be an **assertion failure**. A mutation that only breaks the
+module is reported as `VACUOUS` and is **not** counted as a kill. After fixing the escaping, all 16
+and all 4 report `1 failed` — so no other mutant was vacuous, and the current numbers are earned.
+
+## Runtime pins
+
+`vectors-consumer-mutations.json` previously had **no `spec_version` field at all** while this
+README claimed both artifacts carried one — a documentation claim about a machine-readable property
+the machine never asserted. Both now carry `0.3.3`.
+
+`SPEC_VERSION` in `vantage_resolution.py` was still `0.2.2`, flowing into every emitted envelope and
+verdict `version` and into the V1 policy version. The test that "covered" it compared output to the
+same constant — a self-reference can only confirm the code agrees with itself, never that the
+constant is stale. Now pinned **literally**.
+
+`Verdict.to_obj()` emitted `schema: SPEC_ID`. The table said the document id is not a schema while
+every verdict on the wire claimed it was one. Now emits `erc-8309.verdict`, pinned by a test, with
+the envelope's `erc-8309.envelope` pinned alongside so a future realignment cannot fix one emitter
+and silently leave the other behind.

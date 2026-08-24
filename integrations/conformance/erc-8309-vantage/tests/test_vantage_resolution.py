@@ -453,3 +453,33 @@ def test_envelope_and_verdict_are_separate_bindings_not_an_alias():
     obj = {"b": 2, "a": 1}
     assert encode_for(VERDICT_SCHEMA, obj) == encode_for(ENVELOPE_SCHEMA, obj)   # same serializer
     assert not encode_for(VERDICT_SCHEMA, obj).endswith(b"\n")
+
+
+def test_spec_version_is_pinned_to_the_current_cut_literally():
+    """LITERAL, not a self-reference (found Pavlo 2026-08-24). The prior coverage compared emitted
+    output to SPEC_VERSION itself, which can only confirm the code agrees with itself -- it can
+    never detect that the constant is stale. It sat at "0.2.2" through two cuts for exactly that
+    reason. This value flows into the envelope/verdict `version` and the V1 policy version, so a
+    stale pin makes every emitted object self-identify as a cut it no longer implements."""
+    assert SPEC_VERSION == "0.3.3"
+
+
+def test_verdict_self_identifies_with_the_verdict_schema_not_the_document_id():
+    """Found Pavlo 2026-08-24: the binding table was realigned to §5's seven names while
+    Verdict.to_obj() still emitted schema=SPEC_ID. So the table said the document id is not a
+    schema, and every verdict on the wire claimed it was one. Aligning the lookup without aligning
+    the emitted object leaves the wire format asserting the collapse the realignment removed."""
+    v = Verdict(v1_policy="p", v1_policy_version="0.3.3", v2_committed_set_digest="sha256:00",
+                v3_as_of={}, v4_vantage_classes={},
+                v5_state=InsufficientObservation(inspected_set_digest="sha256:" + "0" * 64,
+                                                 inspected_count=0))
+    o = v.to_obj()
+    assert o["schema"] == "erc-8309.verdict"
+    assert o["schema"] != SPEC_ID
+    assert o["version"] == "0.3.3"
+
+
+def test_envelope_self_identifies_with_the_envelope_schema():
+    """Same check on the other emitter -- it was already correct, and this pins it so a future
+    realignment cannot fix one object and silently leave the other behind."""
+    assert PROFILE_A_ENVELOPE.to_obj()["schema"] == "erc-8309.envelope"

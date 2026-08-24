@@ -44,7 +44,7 @@
       "id": "V4-inventory-state-collapse",
       "must": "'needs a conforming set' and 'no denominator yet' MUST stay distinct states",
       "status": "KILLED",
-      "suite_result": "1 failed, 11 passed in 0.06s"
+      "suite_result": "1 failed, 11 passed in 0.05s"
     }
   ],
   "other_surfaces": {
@@ -53,6 +53,7 @@
   },
   "reported_by_surface": true,
   "schema": "erc-8309-vantage-authority-companion/vectors-consumer-mutations",
+  "spec_version": "0.3.3",
   "summary": {
     "applied": 4,
     "killed": 4,

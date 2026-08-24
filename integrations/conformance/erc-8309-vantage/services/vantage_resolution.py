@@ -67,7 +67,12 @@ SPEC_ID = "erc-8309-vantage-authority-companion"
 # is expected is exactly the collapse Pavlo caught in the published table.
 ENVELOPE_SCHEMA = "erc-8309.envelope"
 VERDICT_SCHEMA = "erc-8309.verdict"
-SPEC_VERSION = "0.2.2"
+# 0.2.2 -> 0.3.3 (2026-08-24, found Pavlo from the runtime, not the text). This value flows into
+# the envelope/verdict `version` field AND the V1 policy version, so a stale pin means every object
+# this module emits self-identifies as a cut it no longer implements. The test that "covered" it
+# compared output to this same constant -- a self-reference cannot detect staleness, it can only
+# confirm the code agrees with itself. Pinned literally in the suite now.
+SPEC_VERSION = "0.3.3"
 
 # --- §5 canonicalization ----------------------------------------------------
 
@@ -470,7 +475,12 @@ class Verdict:
     disclosed_limitations: tuple = field(default_factory=tuple)
 
     def to_obj(self) -> dict:
-        return {"schema": SPEC_ID, "version": SPEC_VERSION,
+        # VERDICT_SCHEMA, not SPEC_ID (found Pavlo 2026-08-24). The binding table was realigned to
+        # §5's seven names, but the verdict object still self-identified with the DOCUMENT id --
+        # so the table said "the document id is not a schema" while every emitted verdict claimed
+        # it was one. Aligning the table without aligning what the objects emit fixes the lookup
+        # and leaves the wire format asserting the collapse.
+        return {"schema": VERDICT_SCHEMA, "version": SPEC_VERSION,
                 "v1": {"policy": self.v1_policy, "policy_version": self.v1_policy_version},
                 "v2_committed_set_digest": self.v2_committed_set_digest,
                 "v3_as_of": self.v3_as_of,
