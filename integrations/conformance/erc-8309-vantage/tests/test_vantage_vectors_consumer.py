@@ -25,7 +25,9 @@ from vantage_vectors_consumer import (  # noqa: E402
     check_binding_set, golden_set_inventory,
 )
 
-SCHEMA = "erc-8309-vantage-authority-companion"
+# v0.3.3 §5 binds `erc-8309.envelope` and `erc-8309.verdict` as two explicit schemas. The document
+# id is NOT a schema; using it as one is the six-binding collapse this realignment removed.
+SCHEMA = "erc-8309.envelope"
 DEMO = {"b": 2, "a": 1}
 
 

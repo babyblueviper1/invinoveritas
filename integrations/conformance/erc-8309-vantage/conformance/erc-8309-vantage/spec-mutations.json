@@ -8,14 +8,14 @@
       "id": "M1-signer-counting",
       "must": "quorum counts distinct signers per vantage class, never raw attestations",
       "status": "KILLED",
-      "suite_result": "1 failed, 27 passed in 0.09s"
+      "suite_result": "1 failed, 27 passed in 0.10s"
     },
     {
       "clause": "\u00a75 E5",
       "id": "M2-window-signed-timestamp",
       "must": "evaluation windows MUST NOT be defined over signed timestamps",
       "status": "KILLED",
-      "suite_result": "1 failed, 20 passed in 0.09s"
+      "suite_result": "1 failed, 20 passed in 0.12s"
     },
     {
       "clause": "\u00a75 E3 / \u00a78",
@@ -40,24 +40,24 @@
     },
     {
       "clause": "\u00a75",
-      "id": "M6-no-trailing-lf",
-      "must": "canonical form is sorted-key UTF-8 JSON with a single trailing LF",
+      "id": "M6-jcs-trailing-byte-appended",
+      "must": "a JCS-bound schema's canonical bytes are RFC 8785 with NO trailing byte",
       "status": "KILLED",
-      "suite_result": "1 failed in 0.09s"
+      "suite_result": "1 error in 0.17s"
     },
     {
       "clause": "\u00a79",
       "id": "M7-insufficient-without-inspected-set",
       "must": "\"not found\" without an inspected-set commitment is nonconformant",
       "status": "KILLED",
-      "suite_result": "1 failed, 26 passed in 0.09s"
+      "suite_result": "1 failed, 26 passed in 0.10s"
     },
     {
       "clause": "\u00a75 V2",
       "id": "M8-v2-order-dependent",
       "must": "V2 is a digest over the SORTED signatures -- a set commitment, never ingest-order dependent",
       "status": "KILLED",
-      "suite_result": "1 failed, 19 passed in 0.09s"
+      "suite_result": "1 failed, 19 passed in 0.10s"
     },
     {
       "clause": "\u00a73",
@@ -85,7 +85,7 @@
       "id": "M12-finality-implied",
       "must": "no evaluation carries finality unless the profile declares a finality rule",
       "status": "KILLED",
-      "suite_result": "1 failed, 22 passed in 0.09s"
+      "suite_result": "1 failed, 22 passed in 0.10s"
     },
     {
       "clause": "\u00a76a",
@@ -99,25 +99,25 @@
       "id": "M14-resolving-without-ref",
       "must": "resolved(...) carries the full set by reference; retrievability demonstrated not declared",
       "status": "KILLED",
-      "suite_result": "1 failed, 30 passed in 0.09s"
+      "suite_result": "1 failed, 30 passed in 0.10s"
     },
     {
       "clause": "\u00a75 (v0.3)",
       "id": "M15-unbound-schema-defaults",
       "must": "an unbound schema MUST raise -- no default serializer, inference forbidden",
       "status": "KILLED",
-      "suite_result": "1 failed, 5 passed in 0.08s"
+      "suite_result": "1 failed, 5 passed in 0.09s"
     },
     {
       "clause": "\u00a75 (v0.3)",
       "id": "M16-bindings-collapse",
       "must": "the companion binds TWO schemas to DIFFERENT serializers; collapsing them re-creates the exact ambiguity the per-schema rule was ratified to remove",
       "status": "KILLED",
-      "suite_result": "1 failed, 38 passed in 0.10s"
+      "suite_result": "1 failed, 38 passed in 0.11s"
     }
   ],
   "schema": "erc-8309-vantage-authority-companion/spec-mutations",
-  "spec_version": "0.2.2",
+  "spec_version": "0.3.3",
   "summary": {
     "applied": 16,
     "killed": 16,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mutation-survival gate for the ERC-8309 vantage-authority companion (spec v0.2.2 §10).
+"""Mutation-survival gate for the ERC-8309 vantage-authority companion (spec v0.3.3 §10).
 
 §10: "every normative MUST in this document maps to at least one mutant a conformant suite MUST
 KILL." This runs that gate for real rather than declaring it: each mutant is applied to a copy of
@@ -62,10 +62,23 @@ MUTANTS = [
      r"return len\(s\) == 132  # 0x \+ 130 hex chars == 65 bytes",
      "return True  # mutant: structural eligibility check removed"),
 
-    ("M6-no-trailing-lf", "§5",
-     "canonical form is sorted-key UTF-8 JSON with a single trailing LF",
-     r'ensure_ascii=False\) \+ "\\n"\)\.encode\("utf-8"\)',
-     'ensure_ascii=False)).encode("utf-8")'),
+    # M6 REPLACED (not relabeled), 2026-08-24, Pavlo's ruling, endorsed by Merlini and taken here.
+    # The old M6 removed encodeJsonUtf8Lf's trailing LF and was labelled "canonical form is
+    # sorted-key UTF-8 JSON with a single trailing LF". After the v0.3 per-schema split the
+    # companion asserts NOTHING about the LF form beyond its binding assignments (v0.3.3 §5,
+    # verbatim), so that mutation tested a MUST the document no longer makes. Relabelling it would
+    # have left a mutant testing a removed claim -- "coverage of nothing wearing a green digit"
+    # (Merlini). The exactly-one-LF mutant belongs to the future LF byte-contract gate, once that
+    # contract is specified and bound; it does not belong to this companion gate now.
+    #
+    # The replacement mutates the claim the companion DOES make: a JCS-bound schema's canonical
+    # bytes are RFC 8785 with NO trailing byte. Appending 0x0a to the JCS encoder's output is the
+    # exact one-byte break that "a spec that says JCS but adds one byte" would cause -- silent,
+    # and only surfacing when two implementations first try to agree.
+    ("M6-jcs-trailing-byte-appended", "§5",
+     "a JCS-bound schema's canonical bytes are RFC 8785 with NO trailing byte",
+     r"    return rfc8785\.dumps\(obj\)",
+     '    return rfc8785.dumps(obj) + b"\\n"  # mutant: JCS must emit no trailing byte'),
 
     ("M7-insufficient-without-inspected-set", "§9",
      '"not found" without an inspected-set commitment is nonconformant',
@@ -188,7 +201,7 @@ def main() -> int:
     applied = sum(1 for r in results if r["status"] != "NOT_APPLIED")
     payload = {
         "schema": "erc-8309-vantage-authority-companion/spec-mutations",
-        "spec_version": "0.2.2",
+        "spec_version": "0.3.3",
         "implementation_under_test": "services/vantage_resolution.py",
         "conformance_suite": "tests/test_vantage_resolution.py",
         "declared_expectation": "conformant",

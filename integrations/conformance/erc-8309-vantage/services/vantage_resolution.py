@@ -62,6 +62,11 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Literal, Optional
 
 SPEC_ID = "erc-8309-vantage-authority-companion"
+# SPEC_ID names the DOCUMENT. It is not a schema binding and must never be used as one: §5 binds
+# `erc-8309.envelope` and `erc-8309.verdict` separately, and passing the document id where a schema
+# is expected is exactly the collapse Pavlo caught in the published table.
+ENVELOPE_SCHEMA = "erc-8309.envelope"
+VERDICT_SCHEMA = "erc-8309.verdict"
 SPEC_VERSION = "0.2.2"
 
 # --- §5 canonicalization ----------------------------------------------------
@@ -105,8 +110,15 @@ def encode_jcs(obj: Any) -> bytes:
 # ERC-8309 envelope => JCS is Merlini's proposal (aligned: Merlini, Pavlo, and this side);
 # Jimmy is the remaining word at time of writing, so it is bound in ONE place and flips with one
 # line if the group lands elsewhere.
+# Realigned to v0.3.3 §5's EXACT SEVEN schema names, 2026-08-24 (found Pavlo, from the published
+# artifacts rather than from the text: the table carried SIX bindings, collapsing `erc-8309.envelope`
+# and `erc-8309.verdict` into one `erc-8309-vantage-authority-companion` entry. That collapse was
+# inference inside the artifact whose own rule is "bound explicitly per schema, never inferred" --
+# six = stale, seven = aligned. Names below are transcribed from the v0.3.3 §5 bytes, not derived
+# from the document's prose about them; the whole point of this round is that those differ.)
 SERIALIZER_BINDINGS = {
-    "erc-8309-vantage-authority-companion": "rfc8785-jcs",   # §5 envelope + verdict (this module)
+    "erc-8309.envelope": "rfc8785-jcs",                      # §5, ratified five of five
+    "erc-8309.verdict": "rfc8785-jcs",                       # §5, its own binding -- NOT the envelope's
     # §4.2 unsigned-attestation preimage. THE COMPANION HAS TWO BINDINGS, NOT ONE -- surfaced by
     # Damon 2026-08-24 while drafting v0.3, and it was a real gap in this table: the spec already
     # bound this to the LF form (ratified at b9fc7e6) long before the §5 argument happened, so an
@@ -135,7 +147,7 @@ def encode_for(schema: str, obj: Any) -> bytes:
         )
 
 
-def digest(obj: Any, schema: str = SPEC_ID) -> str:
+def digest(obj: Any, schema: str = ENVELOPE_SCHEMA) -> str:
     """Digest under this schema's bound serializer (ERC-8309 envelope: RFC 8785 JCS)."""
     return "sha256:" + hashlib.sha256(encode_for(schema, obj)).hexdigest()
 
@@ -266,7 +278,7 @@ class ResolutionEnvelope:
     e4_fault_model: dict           # MUST carry finality rule or finality is NOT implied (§5 E4)
     e5_synchrony: dict             # evaluator-local window; MUST NOT be defined over signed ts
     e6_evidence_requirements: list
-    schema: str = SPEC_ID
+    schema: str = ENVELOPE_SCHEMA
     version: str = SPEC_VERSION
 
     def __post_init__(self):

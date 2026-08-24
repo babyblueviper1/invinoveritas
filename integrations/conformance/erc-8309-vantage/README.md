@@ -1,11 +1,11 @@
 # ERC-8309 vantage-authority companion — reference consumer + mutation gates
 
-Reference implementation for the companion spec (Damon Zwicker; working group Merlini / Pavlo /
-Jimmy Shi / Fede). Self-contained: nothing here imports the rest of the platform, so the gates can
-be reproduced without cloning anything else.
+Reference implementation for the companion spec **v0.3.3** (Damon Zwicker; working group Merlini /
+Pavlo / Jimmy Shi / Fede). Self-contained: nothing here imports the rest of the platform, so both
+gates can be reproduced without cloning anything else.
 
 ```
-python -m pytest tests/ -q                       # 38 + 14 conformance vectors
+python -m pytest tests/ -q                       # 42 + 14 conformance vectors
 python scripts/vantage_spec_mutations.py         # surface 1 gate
 python scripts/vantage_vectors_mutations.py      # surface 2 gate
 ```
@@ -16,69 +16,74 @@ test really goes red, never because a table says so.
 
 ## Coverage, reported by surface — never as one total
 
-A single number across two implementations-under-test is how "16/16" came to read as coverage it
-did not have. The count was true. Its scope was `services/vantage_resolution.py`, which never
-touches the vectors artifact, so three of the spec's normative MUSTs had no enforcing vector
-anywhere and structurally could not have had one.
-
 | surface | implementation under test | mutants | result |
 |---|---|---|---|
 | executable profile / serializer semantics | `services/vantage_resolution.py` | 16 | 16 KILLED |
 | vector-artifact obligations | `services/vantage_vectors_consumer.py` | 4 | 4 KILLED |
-| provenance class | — | 0 **by design** | discharged differently, see below |
+| provenance class | — | 0 **by design** | discharged by reproducibility, v0.1 scope only |
 
-**Zero-by-design is not zero-by-missing.** The provenance-class MUSTs (a required artifact, an
-independently reproducible derivation) carry 0 mutants deliberately: a code mutant cannot express
-"this vector was derived the wrong way." Manufacturing a vacuous mutant to complete a count would
-be the §9 defect one level up. That leg discharges by the definition-derived artifact existing and
-being independently reproducible — scoped to canonical-form-adversarial-vectors v0.1 and its
-demonstration object only, and explicitly non-transferable.
+**Zero-by-design is not zero-by-missing.** The provenance-class MUSTs carry 0 mutants deliberately:
+a code mutant cannot express "this vector was derived the wrong way." Manufacturing a vacuous
+mutant to complete a count would be the §9 defect one level up.
 
-## The vectors surface
+## Binding universe — v0.3.3 §5's exact seven names
 
-Three MUSTs constrain the artifact and its consumer rather than the resolution module:
+Realigned 2026-08-24. The previously published table carried **six** bindings, collapsing
+`erc-8309.envelope` and `erc-8309.verdict` into one document-id entry — **inference inside the
+artifact whose own rule is "bound explicitly per schema, never inferred"** (found Pavlo, from the
+generated artifacts rather than from the prose). Six = stale, seven = aligned. The names below are
+transcribed from the v0.3.3 §5 bytes.
 
-- `bytes_hex` REQUIRED as the normative hashable carrier
-- the adversarial PAIR must be present
-- a digest produced under the unbound serializer MUST be rejected
+| binding | serializer | golden-set state |
+|---|---|---|
+| `erc-8309.envelope` | RFC 8785 JCS | no denominator yet |
+| `erc-8309.verdict` | RFC 8785 JCS | no denominator yet |
+| `decision_ref` | RFC 8785 JCS | no denominator yet |
+| `crc.claim` | RFC 8785 JCS | no denominator yet |
+| `ccip.attestation.unsigned.v1` | `encodeJsonUtf8Lf` | no denominator yet |
+| `tsei.frozen-artifact` | `encodeJsonUtf8Lf` | no denominator yet |
+| `recompute-kit.artifact` | `encodeJsonUtf8Lf` | no denominator yet |
 
-(A fourth from Merlini's map — an unbound schema MUST raise — is already banked as M15 on surface
-one. Three are outstanding here, not four.)
+**0 of 7 bindings have a conforming published vector set.** `complete` is computed over all
+bindings, so an inventory covering a subset can never print complete. The document id
+`erc-8309-vantage-authority-companion` is deliberately **not** a binding — passing it where a
+schema is expected raises, and a test pins that.
 
-The module is a **consumer**, not a validator of convenience: every MUST is expressed as a path
-that REJECTS, because a checker that can only pass proves nothing when mutated. Rejection of the
-wrong-serializer digest is *earned* — the conforming bytes are recomputed under the bound
-serializer from the demonstration object and compared — not asserted.
+## M6 was replaced, not relabeled
 
-`V4-inventory-state-collapse` is not one of the three. It exists because if the inventory below
-stops distinguishing "no set at all" from "a set that fails," the report collapses back into a
-single blank and the whole by-surface exercise is undone.
+The old M6 removed `encodeJsonUtf8Lf`'s trailing LF. After the v0.3 per-schema split the companion
+asserts **nothing** about the LF form beyond its binding assignments, so that mutation tested a MUST
+the document no longer makes; relabeling it would have left "coverage of nothing wearing a green
+digit" (Merlini). The replacement, `M6-jcs-trailing-byte-appended`, mutates the claim the companion
+**does** make — a JCS-bound schema's canonical bytes are RFC 8785 with no trailing byte — by
+appending `0x0a` to the JCS encoder's output. The current suite kills it. The exactly-one-LF mutant
+belongs to the future LF byte-contract gate.
 
-## Golden-set inventory — three states, structurally
+Both artifacts are pinned to `spec_version: 0.3.3`.
 
-| binding | state |
-|---|---|
-| `ccip.attestation.unsigned.v1` | no denominator yet |
-| `crc.claim` | no denominator yet |
-| `decision_ref` | no denominator yet |
-| `erc-8309-vantage-authority-companion` | no denominator yet |
-| `recompute-kit.artifact` | no denominator yet |
-| `tsei.frozen-artifact` | no denominator yet |
+## The wrong-serializer obligation is PARTIALLY discharged
 
-**0 of 6 bindings have a conforming published vector set.** The three values — *has a conforming
-set* / *needs a conforming set* / *no denominator yet* — are kept distinct in the emitted JSON so
-"missing" and "not applicable yet" can never share a blank, and `complete` is computed over all
-bindings so an inventory covering one binding can never print complete. A complete validator over
-an incomplete inventory still under-discharges §5.
+Two obligations, one discharged, one open — never blurred into done:
+
+- **Distinguishability — discharged.** Mutation-tested and *earned* by recompute-and-compare: the
+  conforming bytes are recomputed under the bound serializer from the demonstration object, so a set
+  whose `failure_digest` equals that recomputation is rejected for a reason rather than by
+  declaration (mutant V3).
+- **Alternate-serializer equality — open, not yet provable.** The consumer checks the
+  `failure_digest` for *inequality* against the conforming JCS digest. It does not recompute the
+  failure side under the LF form and require *equality*, because a schema bound to one serializer
+  gives it no second serializer to recompute with. So it cannot today distinguish "this is the LF
+  reading of the same object" from "these are arbitrary bytes that merely differ." Both pass.
+  Blocked on the full `encodeJsonUtf8Lf` byte contract being specified and bound in its own
+  normative artifact.
 
 ## The gate found a hole in its own suite on the first run
 
 `V2-adversarial-pair-optional` SURVIVED. Recorded rather than quietly fixed, because the enforcing
 artifact is audited against its own rule first.
 
-For a *list* input the `len(vectors) < 2` guard is shadowed by the serializer-count guard below it,
-so removing it changes nothing — equivalent there. For a **non-list** input it is the only
-protection, and nothing in the suite exercised that shape. Adding it exposed a real defect
-underneath: `check_binding_set`'s `or []` iterated a truthy non-list, so a function whose contract
-is that it never raises did. Both are fixed and V2 now dies to genuine coverage, not to a weakened
-mutant.
+For a *list* input the `len(vectors) < 2` guard is shadowed by the serializer-count guard below it —
+equivalent there. For a **non-list** it is the only protection, and nothing in the suite exercised
+that shape. Adding it exposed a real defect underneath: `check_binding_set`'s `or []` iterated a
+truthy non-list, so a function whose contract is that it never raises did. Both fixed; V2 now dies
+to genuine coverage, not to a weakened mutant.

@@ -19,7 +19,8 @@ if ROOT not in sys.path:
 
 from services.vantage_resolution import (  # noqa: E402
     Agreement, Attestation, Divergence, InsufficientObservation, ResolutionEnvelope, Resolved,
-    Verdict, PROFILE_A_ENVELOPE, SERIALIZER_BINDINGS, SPEC_ID, SPEC_VERSION, classify_divergence,
+    Verdict, PROFILE_A_ENVELOPE, SERIALIZER_BINDINGS, SPEC_ID, SPEC_VERSION,
+    ENVELOPE_SCHEMA, VERDICT_SCHEMA, classify_divergence,
     committed_set_digest, compose_a_plus_optional_b, digest, encode_for, encode_jcs,
     encode_json_utf8_lf, profile_a_surface, profile_b_quorum,
 )
@@ -74,8 +75,8 @@ def test_erc8309_envelope_is_bound_to_jcs_not_the_lf_form():
     RFC 8785 JCS -- matching decision_ref. Every JCS library emits no trailing byte; a spec that
     says JCS but adds one breaks all of them by one byte, silently."""
     obj = {"artifact": "x"}
-    assert encode_for(SPEC_ID, obj) == encode_jcs(obj)
-    assert not encode_for(SPEC_ID, obj).endswith(b"\n")
+    assert encode_for(ENVELOPE_SCHEMA, obj) == encode_jcs(obj)
+    assert not encode_for(ENVELOPE_SCHEMA, obj).endswith(b"\n")
     assert digest(obj) == "sha256:" + hashlib.sha256(encode_jcs(obj)).hexdigest()
 
 
@@ -402,11 +403,16 @@ def test_companion_binds_two_schemas_not_one():
     -- the exact failure the rule forbids, one level down. §4.2's preimage was bound to the LF
     form (ratified b9fc7e6) before the §5 argument even happened.
     """
-    assert SERIALIZER_BINDINGS["erc-8309-vantage-authority-companion"] == "rfc8785-jcs"
+    assert SERIALIZER_BINDINGS["erc-8309.envelope"] == "rfc8785-jcs"
+    assert SERIALIZER_BINDINGS["erc-8309.verdict"] == "rfc8785-jcs"
     assert SERIALIZER_BINDINGS["ccip.attestation.unsigned.v1"] == "encode-json-utf8-lf"
     obj = {"a": 1}
-    assert not encode_for(SPEC_ID, obj).endswith(b"\n")
+    assert not encode_for(ENVELOPE_SCHEMA, obj).endswith(b"\n")
     assert encode_for("ccip.attestation.unsigned.v1", obj).endswith(b"\n")
+    # SPEC_ID names the DOCUMENT and is deliberately NOT a binding: passing it where a schema is
+    # expected must RAISE rather than resolve. That is the six-binding collapse, in one assertion.
+    with pytest.raises(ValueError):
+        encode_for(SPEC_ID, obj)
 
 
 def test_unsigned_preimage_uses_the_specs_own_named_canonical_object():
@@ -419,3 +425,31 @@ def test_unsigned_preimage_uses_the_specs_own_named_canonical_object():
     assert b.startswith(b'{"domain":')          # sorted keys put domain first here
     # source_peer / signature are excluded from identity BY ENUMERATION (§4.2)
     assert b"source_peer" not in b and b"signature" not in b
+
+
+def test_binding_table_is_exactly_the_seven_v033_schema_names():
+    """Realignment pin (v0.3.3 §5, transcribed from the document bytes -- not from prose about it).
+
+    The published table carried SIX bindings, collapsing `erc-8309.envelope` and
+    `erc-8309.verdict` into one `erc-8309-vantage-authority-companion` entry (found Pavlo, from
+    the generated artifacts). That collapse was inference inside the artifact whose own rule is
+    "bound explicitly per schema, never inferred". Six = stale, seven = aligned.
+    """
+    assert set(SERIALIZER_BINDINGS) == {
+        "erc-8309.envelope", "erc-8309.verdict",
+        "decision_ref", "crc.claim",
+        "ccip.attestation.unsigned.v1", "tsei.frozen-artifact", "recompute-kit.artifact",
+    }
+    assert len(SERIALIZER_BINDINGS) == 7
+    assert "erc-8309-vantage-authority-companion" not in SERIALIZER_BINDINGS, \
+        "the document id is not a schema binding -- that is the collapse this pin exists to catch"
+
+
+def test_envelope_and_verdict_are_separate_bindings_not_an_alias():
+    """Two schemas that happen to share a serializer are still TWO bindings. If verdict were ever
+    resolved via the envelope's entry, the table would be inferring again the moment they diverge."""
+    assert ENVELOPE_SCHEMA in SERIALIZER_BINDINGS and VERDICT_SCHEMA in SERIALIZER_BINDINGS
+    assert ENVELOPE_SCHEMA != VERDICT_SCHEMA
+    obj = {"b": 2, "a": 1}
+    assert encode_for(VERDICT_SCHEMA, obj) == encode_for(ENVELOPE_SCHEMA, obj)   # same serializer
+    assert not encode_for(VERDICT_SCHEMA, obj).endswith(b"\n")

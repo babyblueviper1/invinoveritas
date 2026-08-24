@@ -142,7 +142,41 @@ def main() -> int:
         },
         "summary": {"applied": applied, "killed": killed, "survived": applied - killed,
                     "not_applied": len(results) - applied},
+        # Reported in Pavlo's exact two-part form. The wrong-serializer obligation has TWO halves
+        # and only one is discharged; collapsing them into "done" is the same digit-collapse that
+        # made 16/16 read as coverage it did not have, one level down.
+        "wrong_serializer_obligation": {
+            "status": "PARTIALLY DISCHARGED",
+            "distinguishability": {
+                "status": "discharged",
+                "how": "mutation-tested and earned by recompute-and-compare -- the conforming "
+                       "bytes are recomputed under the BOUND serializer from the demonstration "
+                       "object, so a set whose failure_digest equals that recomputation is "
+                       "rejected for a reason rather than by declaration (mutant V3).",
+            },
+            "alternate_serializer_equality": {
+                "status": "OPEN -- not yet provable",
+                "why": "the consumer checks the failure_digest for INEQUALITY against the "
+                       "conforming JCS digest. It does not recompute the failure side under the "
+                       "LF form and require EQUALITY, because a schema bound to one serializer "
+                       "gives it no second serializer to recompute with. So it cannot today "
+                       "distinguish 'this failure_digest is the LF reading of the same object' "
+                       "from 'this failure_digest is arbitrary bytes that merely differ'. Both "
+                       "pass.",
+                "blocked_on": "the full encodeJsonUtf8Lf byte contract being specified and bound "
+                              "in its own normative serializer-contract artifact (v0.3.3 §5 "
+                              "asserts nothing about that form beyond the binding assignments).",
+                "closes_when": "that contract lands -- recompute the same object under the LF "
+                               "form and require the failure_digest to equal THAT, upgrading the "
+                               "check from adversarial-looking to adversarial.",
+            },
+            "limitation_named_by": "Fede", "reporting_form": "Pavlo",
+        },
         "golden_set_inventory": golden_set_inventory([]),
+        "binding_universe": ("v0.3.3 §5 exact seven schema names. The previously published table "
+                            "carried SIX, collapsing erc-8309.envelope and erc-8309.verdict into "
+                            "one document-id entry -- inference inside the never-infer artifact "
+                            "(found Pavlo). Six = stale, seven = aligned."),
         "inventory_note": ("Empty input deliberately: no conforming vector set has been published "
                            "against these bindings yet, so every binding reports 'no denominator "
                            "yet'. That is distinct from 'needs a conforming set' (a set exists and "

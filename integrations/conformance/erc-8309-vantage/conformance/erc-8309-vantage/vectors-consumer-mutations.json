@@ -1,18 +1,20 @@
 {
+  "binding_universe": "v0.3.3 \u00a75 exact seven schema names. The previously published table carried SIX, collapsing erc-8309.envelope and erc-8309.verdict into one document-id entry -- inference inside the never-infer artifact (found Pavlo). Six = stale, seven = aligned.",
   "golden_set_inventory": {
-    "bindings_total": 6,
+    "bindings_total": 7,
     "by_binding": {
       "ccip.attestation.unsigned.v1": "no denominator yet",
       "crc.claim": "no denominator yet",
       "decision_ref": "no denominator yet",
-      "erc-8309-vantage-authority-companion": "no denominator yet",
+      "erc-8309.envelope": "no denominator yet",
+      "erc-8309.verdict": "no denominator yet",
       "recompute-kit.artifact": "no denominator yet",
       "tsei.frozen-artifact": "no denominator yet"
     },
     "complete": false,
     "has_conforming_set": 0,
     "needs_conforming_set": 0,
-    "no_denominator_yet": 6
+    "no_denominator_yet": 7
   },
   "inventory_note": "Empty input deliberately: no conforming vector set has been published against these bindings yet, so every binding reports 'no denominator yet'. That is distinct from 'needs a conforming set' (a set exists and fails) and the two must never collapse into one blank.",
   "mutants": [
@@ -42,7 +44,7 @@
       "id": "V4-inventory-state-collapse",
       "must": "'needs a conforming set' and 'no denominator yet' MUST stay distinct states",
       "status": "KILLED",
-      "suite_result": "1 failed, 11 passed in 0.05s"
+      "suite_result": "1 failed, 11 passed in 0.06s"
     }
   ],
   "other_surfaces": {
@@ -61,5 +63,20 @@
     "conformance_suite": "tests/test_vantage_vectors_consumer.py",
     "implementation_under_test": "services/vantage_vectors_consumer.py",
     "name": "vectors consumer -- vector-artifact obligations"
+  },
+  "wrong_serializer_obligation": {
+    "alternate_serializer_equality": {
+      "blocked_on": "the full encodeJsonUtf8Lf byte contract being specified and bound in its own normative serializer-contract artifact (v0.3.3 \u00a75 asserts nothing about that form beyond the binding assignments).",
+      "closes_when": "that contract lands -- recompute the same object under the LF form and require the failure_digest to equal THAT, upgrading the check from adversarial-looking to adversarial.",
+      "status": "OPEN -- not yet provable",
+      "why": "the consumer checks the failure_digest for INEQUALITY against the conforming JCS digest. It does not recompute the failure side under the LF form and require EQUALITY, because a schema bound to one serializer gives it no second serializer to recompute with. So it cannot today distinguish 'this failure_digest is the LF reading of the same object' from 'this failure_digest is arbitrary bytes that merely differ'. Both pass."
+    },
+    "distinguishability": {
+      "how": "mutation-tested and earned by recompute-and-compare -- the conforming bytes are recomputed under the BOUND serializer from the demonstration object, so a set whose failure_digest equals that recomputation is rejected for a reason rather than by declaration (mutant V3).",
+      "status": "discharged"
+    },
+    "limitation_named_by": "Fede",
+    "reporting_form": "Pavlo",
+    "status": "PARTIALLY DISCHARGED"
   }
 }
