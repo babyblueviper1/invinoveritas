@@ -77,7 +77,8 @@
       "properties": {
         "commit": {
           "type": "string",
-          "description": "Full immutable commit SHA (not abbreviated -- Pavlo's ask, v2), when the contribution has one. Absent for pure discovery/audit/verification work that never touched a diff -- absence here is NOT a gap, it's the exact case this ledger exists to make first-class."
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full immutable commit SHA -- mechanically constrained to exactly 40 hex chars (v2.1, Pavlo's ask: constrain, don't just describe), when the contribution has one. Absent for pure discovery/audit/verification work that never touched a diff -- absence here is NOT a gap, it's the exact case this ledger exists to make first-class."
         },
         "url": {
           "type": "string",
@@ -95,14 +96,19 @@
         "accessibility": {
           "type": "string",
           "enum": ["publicly_resolvable", "requires_group_access", "not_independently_resolvable"],
-          "description": "Explicit classification of whether a stranger can actually open/check the evidence above (Pavlo's ask, v2) -- a URL behind a private group's access, or a reference to a conversation with no public record, is real evidence but not equally checkable by everyone, and that distinction should be stated rather than left to be discovered."
+          "description": "Explicit classification of whether a stranger can actually open/check the evidence CARRIER above -- a URL behind a private group's access, or a reference to a conversation with no public record, is real evidence but not equally checkable by everyone. `accessibility` describes a carrier; it is never itself a carrier -- see the object-level `anyOf` below, added v2.1 after Pavlo flagged that `minProperties: 1` let `{\"accessibility\": ...}` alone satisfy the requirement with no actual evidence present."
         }
       },
-      "minProperties": 1
+      "anyOf": [
+        {"required": ["commit"]},
+        {"required": ["url"]},
+        {"required": ["recompute"]},
+        {"required": ["hash"]}
+      ]
     },
     "notes": {
       "type": "string",
-      "description": "Optional. Context that doesn't belong in `claim` itself -- e.g. a correction to an earlier entry, a caveat on scope."
+      "description": "Optional. Context that doesn't belong in `claim` itself -- e.g. a correction to an earlier entry, a caveat on scope. EXCLUDED from the entry_id preimage (v2.1, resolving an ambiguity Pavlo flagged: `notes` is commentary ABOUT an already-identified entry, so it must be free to add or edit -- e.g. appending a correction -- without changing the entry's own content-addressed identity. entry_id's preimage is exactly {claim, actor, verified_by, timestamp, surface, type, evidence}, the seven REQUIRED fields, nothing optional included."
     }
   }
 }

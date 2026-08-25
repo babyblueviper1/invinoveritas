@@ -62,6 +62,36 @@ once two real ledger entries genuinely on either side of a dependency/applicatio
 relationship get written -- happy to build that pair for real once a genuine case shows up (e.g.
 if/when a real verified-application edge onto a Vertice surface happens).
 
+## v2.1: quick mechanical fixes, real gaps flagged for a validator (2026-08-25, Pavlo's second round)
+
+Pavlo reviewed the actual v2 commit (not just the description) and split the remaining gaps
+correctly into two classes: schema-text gaps (fixable here) and ledger-level gaps (need a real
+validator with access to the full entry set, which JSON Schema alone cannot express). Fixed the
+schema-text ones same pass:
+
+- `evidence.commit` now has `pattern: "^[0-9a-f]{40}$"` -- a real constraint, not just a
+  description saying "full immutable SHA."
+- `evidence` now has an `anyOf` requiring at least one real carrier (`commit`/`url`/`recompute`/
+  `hash`) present -- fixes a real gap where `minProperties: 1` let `{"accessibility": ...}` alone
+  satisfy the evidence requirement with no actual evidence in it. Verified this actually rejects
+  (tested against `jsonschema`, not assumed).
+- `notes` is now explicitly documented as EXCLUDED from the `entry_id` preimage -- resolving an
+  ambiguity Pavlo named (can a later correction/comment be added without changing an entry's own
+  identity? yes, because it was never part of the hashed content).
+
+**Honestly still open, correctly identified as needing a real validator, not more schema text:**
+recomputing `entry_id` from its own JCS preimage and rejecting a pattern-valid-but-wrong digest;
+referential integrity (does `source_entry`/`target` actually resolve to a real entry, with
+UNRESOLVED as its own distinct state rather than silently deriving `counts_toward_vertice_split =
+false`); mechanically rejecting `actor == sole verified_by` (JSON Schema without a `$data`
+extension genuinely cannot compare an array's contents against a sibling field's value --
+confirmed this is a real limitation, not laziness); append-only/supersession semantics for adding
+a verifier to `verified_by` after an entry already has a citable `entry_id` (a real design
+question -- adding a verifier changes the preimage, which changes `entry_id`, which breaks any
+edge that already referenced the old one); and committing the synthetic pass/fail cases as real,
+runnable conformance vectors rather than a reported result. These need actual code, not another
+schema revision -- logged as the next real build, not deferred indefinitely.
+
 ## The rules this format enforces, and why
 
 1. **`entry_id` is deterministic and content-addressed**, not assigned. Same claim recorded twice,
