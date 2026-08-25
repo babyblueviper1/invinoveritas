@@ -41,7 +41,7 @@
       "must": "evaluation windows MUST NOT be defined over signed timestamps",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.12s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a75 E3 / \u00a78",
@@ -61,7 +61,7 @@
       "must": "independence is claimed per vantage class, never globally",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.12s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a74.2 / V2",
@@ -81,7 +81,7 @@
       "must": "eligibility is recomputed at commitment time; ineligible rows never enter the committed set",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.12s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a74.2 / \u00a711",
@@ -101,7 +101,7 @@
       "must": "a \"0x\" signature is structurally ineligible -- presence is not verification",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.12s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a75",
@@ -125,7 +125,7 @@
       "must": "a JCS-bound schema's canonical bytes are RFC 8785 with NO trailing byte",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "4 failed, 41 passed in 0.14s"
+      "suite_result": "4 failed, 41 passed in 0.13s"
     },
     {
       "clause": "\u00a79",
@@ -165,7 +165,7 @@
       "must": "V2 is a digest over the SORTED signatures -- a set commitment, never ingest-order dependent",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.13s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a73",
@@ -247,7 +247,7 @@
       "must": "no evaluation carries finality unless the profile declares a finality rule",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.11s"
+      "suite_result": "1 failed, 44 passed in 0.12s"
     },
     {
       "clause": "\u00a76a",

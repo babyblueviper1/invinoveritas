@@ -164,3 +164,33 @@ Collateral failures are recorded rather than discarded; they measure a mutation'
 against its mapped claim. Four independent tallies are asserted to sum to the mutant total as a
 **hard generator failure**, never a reported field — a count derived by subtraction can hide a
 category nobody named, and this artifact named two in a single day.
+
+## §5 schemas — envelope and verdict (2026-08-25)
+
+```
+python scripts/vantage_schema_check.py
+```
+
+`conformance/erc-8309-vantage/schema/` carries the two §5 schemas. They were **derived from the
+bytes the emitters actually produce**, then run back against them — not written from the prose and
+assumed to match. This round produced three separate cases where text and runtime disagreed (the
+six-binding table, `SPEC_VERSION` stale at 0.2.2, `Verdict.to_obj` emitting the document id), so
+the schema is checked in **both** directions:
+
+- both live emitters validate — otherwise the schema describes an implementation nobody has;
+- **9 deliberately nonconformant objects are each rejected by the clause they violate** — otherwise
+  the schema is decorative. A schema that accepts everything validates nothing, which is the same
+  defect as a conformance test that cannot go red.
+
+Constraints are **unrepresentable rather than discouraged**, per §2: the document identifier cannot
+appear as `schema` (`const`), E5 cannot be a signed-timestamp window, E3 cannot claim global
+independence, §6 has no collapsed state to name, and an insufficient-observation verdict cannot
+omit its §9 inspected-set commitment.
+
+Each schema **names its own serializer** in an `x-canonical-serializer` block, and a test asserts
+the declared binding matches what `encode_for` actually does. §5 binds the serializer explicitly
+per schema and never infers it — so a schema that does not name its own forces every consumer to
+infer one, which is exactly the defect the per-schema rule was ratified to remove.
+
+`erc-8309.envelope` and `erc-8309.verdict` are separate schemas with separate `$id`s. Two schemas
+that share a serializer are still two bindings — the six-vs-seven correction, at schema level.

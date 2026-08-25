@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.babyblueviper.com/schema/erc-8309.verdict/0.3.3",
+  "title": "ERC-8309 vantage-authority companion -- verdict (§5 V1-V5)",
+  "description": "Derived from the bytes Verdict.to_obj() actually emits, then verified against it. §5 binds erc-8309.verdict as its OWN schema, separate from erc-8309.envelope -- two schemas that happen to share a serializer are still two bindings, and collapsing them is inference inside an artifact whose rule forbids it.",
+  "x-canonical-serializer": {
+    "schema": "erc-8309.verdict",
+    "serializer": "rfc8785-jcs",
+    "trailing_byte": "none",
+    "note": "Bound separately from the envelope. If the two ever diverge, a table that resolved verdict via the envelope's entry would be inferring again."
+  },
+  "type": "object",
+  "required": ["schema", "version", "v1", "v2_committed_set_digest", "v3_as_of", "v4_vantage_classes", "v5", "execution_binding"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "erc-8309.verdict"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"},
+    "v1": {
+      "type": "object",
+      "required": ["policy", "policy_version"],
+      "additionalProperties": false,
+      "properties": {
+        "policy": {"type": "string", "minLength": 1},
+        "policy_version": {"type": "string", "minLength": 1}
+      },
+      "description": "V1: the policy AND its version. A policy reference without a version cannot be pinned, so the verdict could not be re-derived later."
+    },
+    "v2_committed_set_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "V2: a SET COMMITMENT over sorted signatures -- never a count. §4.2 is normative that the store is evidence, not authority: eligibility is recomputed at commitment time, so a count would let a caller assert membership it never demonstrated."
+    },
+    "v3_as_of": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "V3: the coordinate the verdict was evaluated at. Empty is nonconformant -- 'as of nothing' is not a checkable claim."
+    },
+    "v4_vantage_classes": {
+      "type": "object",
+      "description": "V4: observations by vantage class (§8). Independence is asserted per class here, never globally -- see the envelope's E3."
+    },
+    "v5": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": {
+          "enum": ["agreement", "divergence", "insufficient-observation", "resolved"],
+          "description": "§6 taxonomy. §2 requires collapsed forms be UNREPRESENTABLE rather than discouraged: `resolved` is a distinct state, not a flavour of `agreement`, and no value here can turn one into the other."
+        },
+        "inspected_set_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "§9: an insufficient-observation state MUST carry a committed enumeration of what WAS inspected. 'Not found' without it is nonconformant -- it is a claim about absence with no evidence of the search."
+        },
+        "inspected_count": {"type": "integer", "minimum": 0}
+      },
+      "allOf": [{
+        "if": {"properties": {"state": {"const": "insufficient-observation"}}},
+        "then": {"required": ["state", "inspected_set_digest", "inspected_count"]}
+      }]
+    },
+    "execution_binding": {
+      "enum": ["external", "in-path"],
+      "description": "§10 role. `external` means the verifier is NOT in the caller's execution path: it produces evidence, it does not enforce. A verifier ON the dispatch path enforces; one that OBSERVES produces evidence -- and the signature verifies either way, so the distinction must be declared rather than inferred."
+    },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "§6a: evaluations are immutable but supersedable. Superseding appends a new verdict referencing the prior one; it never mutates it."
+    },
+    "disclosed_limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

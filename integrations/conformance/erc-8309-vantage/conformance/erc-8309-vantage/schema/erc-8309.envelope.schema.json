@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.babyblueviper.com/schema/erc-8309.envelope/0.3.3",
+  "title": "ERC-8309 vantage-authority companion -- resolution envelope (§5 E1-E6)",
+  "description": "Derived from the bytes the reference implementation actually emits (services/vantage_resolution.py, ResolutionEnvelope.to_obj), then verified against it -- not written from the prose and assumed to match. Any disagreement between this schema and the emitter is a finding, and the check script treats it as one.",
+  "x-canonical-serializer": {
+    "schema": "erc-8309.envelope",
+    "serializer": "rfc8785-jcs",
+    "trailing_byte": "none",
+    "note": "§5 binds the serializer EXPLICITLY PER SCHEMA and never infers it. Recorded inside the schema on purpose: a schema that does not name its own serializer forces every consumer to infer one, which is the exact defect the per-schema rule was ratified to remove. RFC 8785 emits no trailing byte; encodeJsonUtf8Lf emits exactly one 0x0a and is a DIFFERENT, separately-bound serializer -- the same object digests to unrelated hashes under the two."
+  },
+  "type": "object",
+  "required": ["schema", "version", "e1_agreement_object", "e2_membership", "e3_independence", "e4_fault_model", "e5_synchrony", "e6_evidence_requirements"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "erc-8309.envelope",
+      "description": "MUST be the schema binding, never the document identifier. `erc-8309-vantage-authority-companion` names the DOCUMENT and does not resolve as a schema -- the six-binding collapse this const exists to make unrepresentable."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+      "description": "Self-identifying so an envelope can be pinned. §5."
+    },
+    "e1_agreement_object": {
+      "type": "string",
+      "minLength": 1,
+      "description": "E1: WHAT is being agreed about. A resolution over an unnamed object is not checkable."
+    },
+    "e2_membership": {
+      "type": "object",
+      "required": ["judgment"],
+      "properties": {
+        "judgment": {"type": ["string", "null"]},
+        "note": {"type": "string"}
+      },
+      "description": "E2: who counts. null is a legitimate value -- Profile A makes no membership judgment -- and is distinct from the key being absent, which would leave it inferable."
+    },
+    "e3_independence": {
+      "type": "object",
+      "required": ["claimed"],
+      "properties": {
+        "claimed": {"type": "boolean"},
+        "global": {
+          "const": false,
+          "description": "E3: independence is declared PER VANTAGE CLASS (§8), never globally. A global claim is nonconformant, so `true` is unrepresentable here rather than merely discouraged."
+        },
+        "by_class": {"type": "object"},
+        "note": {"type": "string"}
+      }
+    },
+    "e4_fault_model": {
+      "type": "object",
+      "required": ["tolerated"],
+      "properties": {
+        "tolerated": {"type": "array", "items": {"type": "string"}},
+        "finality_rule": {
+          "type": ["string", "null"],
+          "description": "E4/§6a: null means NO finality is claimed. Absence of a finality rule must never be read as finality -- §6a evaluations are immutable but supersedable, with no implied finality."
+        },
+        "note": {"type": "string"}
+      }
+    },
+    "e5_synchrony": {
+      "type": "object",
+      "required": ["window_basis"],
+      "properties": {
+        "window_basis": {
+          "type": "string",
+          "not": {"const": "signed_timestamp"},
+          "description": "E5: a window measured over SIGNED TIMESTAMPS is nonconformant, because backdating and late arrival are indistinguishable under one. Enforced here as an exclusion rather than left to the consumer."
+        },
+        "note": {"type": "string"}
+      }
+    },
+    "e6_evidence_requirements": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "E6: what evidence a conformant reading requires. An empty list would mean 'no evidence required', which is not a resolution."
+    }
+  }
+}
