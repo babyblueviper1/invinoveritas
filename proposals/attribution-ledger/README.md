@@ -1,4 +1,4 @@
-# Attribution ledger -- draft v0
+# Attribution ledger -- draft v1
 
 **Status: DRAFT, not yet placed anywhere permanent.** Posted for review in `damon:general`
 (trustless-ai Telegram group), 2026-08-25, per the split Merlini named: the ledger's **format**
@@ -69,6 +69,45 @@ yet. This is the format doing its job: a claim sits as a claim, visible and evid
 independent party actually verifies it -- it does not get counted just because it was made in good
 faith by a track record we trust. The entry gets added the moment a real `verified_by` exists, not
 before.
+
+## v1 update: edges (`edge-schema.json`, `edges.jsonl`)
+
+**A real gap in v0, caught the honest way -- Pavlo and Merlini posted the requirement while v0
+was being drafted, and it was missed on first announcement because the thread wasn't re-checked
+right before posting.** Corrected same pass, not defended as-is.
+
+v0's `schema.json` records ONE claim. It cannot represent what this conversation actually needed:
+a foundation discovery/audit/method *deliberately applied* to a Vertice surface (Pavlo, msg 3343/
+3345), or the reverse -- a Vertice/commercial surface that *enabled* foundation work to exist at
+all (Merlini, msg 3344: "the dinamic.eth scaffolds, the boiler kit, ai.verticecriativo.pt gave the
+opening to build some of it"). Those are causal edges between two pieces of work, not properties
+of a single entry -- Pavlo's own framing: "contribution follows the reproduced causal edge, not
+repository location or commit authorship."
+
+`edge-schema.json` adds exactly that, with the rules specified in-thread kept precise:
+
+- **`edge_type` is a closed enum** (Pavlo's explicit ask): `dependency` | `verified_application` |
+  `enabling_provenance`. Only `verified_application` can ever count toward a Vertice split.
+  `dependency` and `enabling_provenance` are recorded for an honest, bidirectional causal graph
+  and never sized -- Merlini was explicit he's not asking to size the enabling direction, only to
+  keep the record honest that provenance runs both ways.
+- **`counts_toward_vertice_split` is never a stored field.** It's derived: true iff
+  `edge_type == "verified_application"` AND `edge_verified_by` is non-empty AND all three evidence
+  fields below are present. Every other edge_type is unconditionally false. See the schema's own
+  `x-derivation-rule`.
+- **A `verified_application` edge needs three specific evidence refs** (Pavlo, msg 3345, kept
+  close to verbatim): the exact foundation contribution being applied, the exact Vertice surface/
+  feature/release/claim it was applied to, and the independent verifier who reproduced *that
+  causal link* -- not just the original claim, but that the application actually happened and
+  actually caused the target.
+
+One real example in `edges.jsonl` -- a `dependency` edge (invinoveritas using trustless-ai's
+serializer-binding rule; using a rule isn't a verified application of a specific discovery, so it
+stays unsized). **No `verified_application` or `enabling_provenance` example exists yet, and none
+is fabricated here** -- Merlini's dinamic.eth/boiler-kit/ai.verticecriativo.pt case is real but I
+don't have the exact references (which specific foundation work, which specific surface, on what
+date) to construct a real entry rather than an invented-looking one. That's an open item for
+Merlini to fill in with the real specifics if he wants a worked example of his own case.
 
 ## Open questions for review (not resolved by this draft)
 

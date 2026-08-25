@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "TBD -- draft only, same placeholder status as schema.json.",
+  "title": "Attribution ledger edge -- causal relation between two pieces of work",
+  "description": "Added 2026-08-25 (Pavlo/Merlini, damon:general -- posted while v0 of schema.json was already being drafted, caught on a next-pass re-read, not before announcing v0). A single ledger entry (schema.json) records ONE claim. It cannot represent the thing this conversation actually needed: a foundation discovery/audit/method DELIBERATELY APPLIED to a Vertice surface, or the reverse -- a Vertice/commercial surface that enabled foundation work to happen at all (Merlini's own examples: the dinamic.eth scaffolds, the boiler kit, ai.verticecriativo.pt). Pavlo's framing, kept close to verbatim because it's precise: 'contribution follows the reproduced causal edge, not repository location or commit authorship.' This file is that edge.",
+  "type": "object",
+  "required": ["edge_type", "source_entry", "target", "timestamp", "evidence"],
+  "additionalProperties": false,
+  "properties": {
+    "edge_type": {
+      "type": "string",
+      "enum": ["dependency", "verified_application", "enabling_provenance"],
+      "description": "Closed enum, per Pavlo's explicit ask (damon:general 2026-08-25, msg 3345) -- not free text. 'dependency': a surface uses a foundation artifact/tool without any deliberate, verified act of applying a specific discovery to it -- recorded, never counts. 'verified_application': a specific foundation discovery/audit/spec-correction/method was DELIBERATELY applied to a named Vertice surface, and that application itself was independently verified -- the only edge_type that can count. 'enabling_provenance': the reverse direction -- a Vertice/commercial surface enabled foundation work to exist (gave the opening, provided the scaffold) -- recorded for an honest bidirectional causal graph, never sized, never counts (Merlini, msg 3344: 'not asking to size that... enabling-into-the-commons gets recorded, not counted')."
+    },
+    "source_entry": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reference (id, commit, or content hash) to the ledger entry (schema.json) this edge originates from -- the discovery/audit/method/surface being applied, depended on, or that did the enabling."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the source was applied to, depends on, or enabled. A ledger-entry reference when the target is itself a recorded entry; otherwise a concrete external reference (a release tag, a product claim, a named surface) -- never a bare repo name or vague description. For verified_application specifically, this MUST be the exact surface/feature/release/claim, per Pavlo's ask."
+    },
+    "edge_verified_by": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "REQUIRED and non-empty when edge_type is 'verified_application' (optional/absent otherwise -- a plain dependency or an enabling-provenance edge is recorded on the strength of the fact itself, not gated on independent reproduction the way a value-sharing-eligible edge is). This verifies the CAUSAL LINK ITSELF -- that the application actually happened and actually caused the target -- which is a different, additional verification from whichever verified_by already exists on the source entry's own claim. Same anti-self-assertion rule as schema.json: the actor of the edge cannot be its sole edge_verified_by."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the causal relation is recorded (not necessarily when either endpoint's own entry was made)."
+    },
+    "evidence": {
+      "type": "object",
+      "description": "Pavlo's three-part evidence requirement for a verified_application edge (msg 3345): what was applied, what it was applied to, who verified the causal link. All three required when edge_type is verified_application; a looser single evidence ref is enough for dependency/enabling_provenance.",
+      "properties": {
+        "source_contribution_ref": {
+          "type": "string",
+          "description": "The exact foundation contribution being applied -- a ledger-entry id/hash, PR, or artifact reference. Required for verified_application."
+        },
+        "target_surface_ref": {
+          "type": "string",
+          "description": "The exact Vertice surface/feature/release/claim the contribution was applied to -- a commit, release tag, or product-facing reference, not a repo name alone. Required for verified_application."
+        },
+        "causal_link_verification": {
+          "type": "string",
+          "description": "How the causal link itself (not just the source claim) was independently confirmed -- what the edge_verified_by parties actually checked. Required for verified_application."
+        },
+        "note": {"type": "string"}
+      }
+    }
+  },
+  "x-derivation-rule": "counts_toward_vertice_split is NEVER a stored/writable field on an edge (Pavlo, msg 3345: 'derived from the edge type plus verification state, not manually asserted'). A reader computes it: true iff edge_type == 'verified_application' AND edge_verified_by is present and non-empty AND all three evidence.* fields above are present. Every other edge_type is always false, unconditionally -- dependency and enabling_provenance are attribution, never sizing, no matter how well-evidenced."
+}
