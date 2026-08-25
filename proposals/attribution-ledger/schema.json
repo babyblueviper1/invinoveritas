@@ -54,16 +54,23 @@
       "properties": {
         "classification": {
           "type": "string",
-          "enum": ["commons", "vertice_product", "vendor", "external"],
-          "description": "Closed enum (Pavlo's ask, v2) so vertice_product/commons/vendor/external can never be conflated by inference. `commons`: a trustless-ai-owned or group-owned surface (e.g. this ledger's own format, agent-ercs, recompute-kit). `vertice_product`: a Vertice-owned product surface (e.g. AgentMarketEscrow). `vendor`: a third-party vendor/build relationship's own surface (e.g. invinoveritas's own repo/product, when the entry is about invinoveritas's own work rather than something done ON a Vertice or commons surface). `external`: any other party's surface entirely (e.g. crewAI, w3c-cg -- real interop work that isn't owned by anyone in this ledger's own group)."
+          "enum": ["commons", "commercial_product", "external"],
+          "description": "Closed enum, owner-neutral (v3, 2026-08-25 -- Merlini/Pavlo). v2 hardcoded `vertice_product` and `vendor` as named special cases, which put one party's (Vertice's, and separately invinoveritas's own) commercial situation into a format meant to belong to no one -- Merlini's own real contributions (verifying ReceiptOS's artifacts, work landing in invinoveritas) had no classification that could ever count under that scheme, the same asymmetry from the opposite direction. `commons`: a trustless-ai-owned or group-owned surface (this ledger's own format, agent-ercs, recompute-kit). `commercial_product`: ANY company/product surface with a real owner -- Vertice, invinoveritas, ReceiptOS, or a future one -- carrying `owner_id` so the schema itself never special-cases a specific company. `external`: any other party's surface entirely, not part of this group's commons/commercial ecosystem (e.g. crewAI, w3c-cg)."
         },
         "identifier": {
           "type": "string",
           "minLength": 1,
-          "description": "The specific repo/product/artifact within that classification -- e.g. 'trustless-ai/recompute-kit', 'vertice/agentmarketescrow', 'invinoveritas', 'crewAIInc/crewAI#4877'."
+          "description": "The specific repo/product/artifact within that classification -- e.g. 'trustless-ai/recompute-kit', 'agentmarketescrow', 'invinoveritas', 'crewAIInc/crewAI#4877'."
+        },
+        "owner_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "REQUIRED when classification is `commercial_product` (enforced by the object-level if/then below), absent otherwise. A stable identifier for who owns this surface's compensation policy -- e.g. 'vertice', 'invinoveritas', 'receiptos'. This is the field any owner's OWN private compensation policy reads to find edges that touch their surface; the commons format itself defines no sizing rule for any owner (v3 removal of `counts_toward_vertice_split`, see edge-schema.json)."
         }
       },
-      "description": "Structured, never free text (v2) -- this is the field a value-sharing formula reads to answer 'was this verified work done ON this specific Vertice surface,' and a free-text string left that answerable only by inference, which is exactly the conflation risk Pavlo flagged."
+      "if": {"properties": {"classification": {"const": "commercial_product"}}},
+      "then": {"required": ["owner_id"]},
+      "description": "Structured, never free text, and owner-neutral (v3) -- this is the field ANY commercial surface's own compensation policy reads to answer 'was this verified work done on MY surface,' symmetrically for every owner, not just one hardcoded party."
     },
     "type": {
       "type": "string",

@@ -1,4 +1,4 @@
-# Attribution ledger -- draft v2
+# Attribution ledger -- draft v3
 
 **Status: DRAFT, not yet placed anywhere permanent.** Posted for review in `damon:general`
 (trustless-ai Telegram group), 2026-08-25, per the split Merlini named: the ledger's **format**
@@ -14,83 +14,70 @@ That's the right shape -- the problem is it only exists as prose in one document
 (a value-sharing formula, a future audit, a stranger checking a claim) can read it structurally.
 This draft generalizes that shape into a machine-checkable format.
 
-## v2 revision history, honestly (not glossed over)
+## Revision history, honestly (not glossed over)
 
 - **v0**: `claim / actor / verified_by / timestamp / surface / type / evidence`, `surface` as a
   free-text string, no stable entry identity.
 - **v1**: added `edge-schema.json` -- causal edges (dependency / verified_application /
   enabling_provenance) between two pieces of work, after Pavlo and Merlini posted that exact
   requirement while v0 was already being drafted. Caught on a next-pass re-read, not before
-  announcing v0 -- a real process gap, corrected same pass, not defended as-is.
-- **v2** (this version): Pavlo's mechanical-not-prose-only round on v1 -- six specific,
-  correct gaps, all incorporated:
-  1. `verified_application` edges now schema-REQUIRE non-empty `edge_verified_by` and all three
-     causal-evidence fields, via real JSON Schema `if`/`then`, not a description field someone has
-     to read and honor.
-  2. `evidence` objects reject unknown properties (`additionalProperties: false`).
-  3. Ledger entries now carry a deterministic `entry_id` -- content-addressed
-     (`sha256:` + hex(sha256(RFC 8785 JCS bytes of every other field)), the exact same
-     construction this repo already uses for `decision_ref`/`artifact_hash` in
-     `services/proof_signing.py::sign_payload`, reused rather than invented. Edges reference this
-     exact identity instead of a free-form id/commit/hash string.
-  4. `surface` is now a structured object (`{classification, identifier}`) with a closed
-     `classification` enum (`commons` / `vertice_product` / `vendor` / `external`), not free text
-     -- so a value-sharing formula reading `surface` can never conflate a Vertice product surface
-     with a commons repo by inference.
-  5. `counts_toward_vertice_split`'s derivation rule now ALSO requires resolving `target` to its
-     ledger entry and checking `surface.classification == "vertice_product"` -- v1's rule checked
-     `edge_type` and `edge_verified_by` but never actually looked at what the edge's target
-     surface was, which meant a verified_application edge aimed at a non-Vertice surface would
-     have incorrectly counted.
-  6. `verified_by`/`edge_verified_by` array items can now be either a bare name string (v1-
-     compatible) or `{name, evidence_ref}` -- moving toward "evidence-bearing verification refs,
-     not only names," without breaking the simpler form when no separate verification artifact
-     exists yet (Pavlo: "should eventually resolve to..." -- read as directional, not
-     immediately-mandatory, so both forms stay valid).
+  announcing v0.
+- **v2**: entries got a deterministic content-addressed `entry_id`; `surface` became a structured
+  `{classification, identifier}` object; `verified_application` edges got real JSON Schema
+  `if`/`then` enforcement; `verified_by` items could carry `evidence_ref`.
+- **v2.1**: three quick mechanical fixes (commit-hash pattern, a real `evidence` carrier
+  requirement, `notes` excluded from the `entry_id` preimage) from Pavlo's second review round,
+  plus a list of genuinely ledger-level gaps (needing a real validator, not more schema) logged
+  honestly rather than forced into schema text that can't express them.
+- **v3** (this version, 2026-08-25): **the commons stops at attribution; sizing is out.**
 
-**A real, honest consequence of tightening the identity model: the one edge example from v1 no
-longer has a valid referent.** v1's `edges.jsonl` had a `dependency` edge with `source_entry`/
-`target` as bare strings ("trustless-ai/agent-ercs (SDK)", "invinoveritas services/
-vantage_resolution.py imports"). Under v2's rule that both ends of an edge must be real,
-independently-verified ledger `entry_id`s, that example is no longer valid -- there was never a
-proper ledger entry on either side of it, just a description. Rather than force a fabricated pair
-of entries into existence to keep an example around, `edges.jsonl` has been removed entirely for
-this version. **No edge example exists in this draft right now, and that's disclosed rather than
-patched over** -- it's a real signal the stricter model is doing its job (forcing real recorded
-entries to exist before an edge can reference them), not a flaw. A real edge example will exist
-once two real ledger entries genuinely on either side of a dependency/application/enabling
-relationship get written -- happy to build that pair for real once a genuine case shows up (e.g.
-if/when a real verified-application edge onto a Vertice surface happens).
+## v3: removing `counts_toward_vertice_split` -- the real reason, not a cosmetic rename
 
-## v2.1: quick mechanical fixes, real gaps flagged for a validator (2026-08-25, Pavlo's second round)
+v2's `counts_toward_vertice_split` derivation rule hardcoded a single company's compensation logic
+(Vertice's) into a format whose own README opened by calling itself "an open commons standard
+nobody owns." Merlini named the concrete asymmetry this produced, grounded in his own real work
+that week: he verified a v2 production-grounding receipt on ReceiptOS's own artifact, and separate
+erc-8309-envelope vectors he built landed in invinoveritas. Both are the exact same SHAPE of edge
+the format was built to size toward Vertice -- except the v2 taxonomy had no classification that
+could ever let either of them count. `vertice_product` was a named special case; everything else
+(`vendor`, `external`) was structurally excluded from ever counting, no matter how real or how well
+verified. The format didn't just privilege one party's sizing -- it couldn't even express anyone
+else's.
 
-Pavlo reviewed the actual v2 commit (not just the description) and split the remaining gaps
-correctly into two classes: schema-text gaps (fixable here) and ledger-level gaps (need a real
-validator with access to the full entry set, which JSON Schema alone cannot express). Fixed the
-schema-text ones same pass:
+Two fixes were on the table. (A) generalize `counts_toward_vertice_split` into an owner-keyed
+version, with a `commercial_product` classification carrying an `owner_id`. (B) remove sizing from
+the commons format entirely -- attribution and causal provenance only; each surface's own owner
+reads the same shared record and applies their own private compensation policy on top. Both Pavlo
+and Merlini converged on (B), and it's the right call: sizing is inherently one party's business
+logic, and putting it in a commons format is a category error regardless of whose logic it is.
 
-- `evidence.commit` now has `pattern: "^[0-9a-f]{40}$"` -- a real constraint, not just a
-  description saying "full immutable SHA."
-- `evidence` now has an `anyOf` requiring at least one real carrier (`commit`/`url`/`recompute`/
-  `hash`) present -- fixes a real gap where `minProperties: 1` let `{"accessibility": ...}` alone
-  satisfy the evidence requirement with no actual evidence in it. Verified this actually rejects
-  (tested against `jsonschema`, not assumed).
-- `notes` is now explicitly documented as EXCLUDED from the `entry_id` preimage -- resolving an
-  ambiguity Pavlo named (can a later correction/comment be added without changing an entry's own
-  identity? yes, because it was never part of the hashed content).
+**What changed:**
+- `surface.classification` is now `commons` / `commercial_product` / `external` -- no named company
+  special case anywhere in the schema. A `commercial_product` surface carries a required `owner_id`
+  (Vertice, invinoveritas, ReceiptOS, or any future owner), symmetric by construction.
+- `edge-schema.json` no longer defines `counts_toward_vertice_split` or any derivation rule for it.
+  The schema records `edge_type` (dependency / verified_application / enabling_provenance),
+  `source_entry`, `target`, `edge_verified_by`, and `evidence` -- full stop. Whether any given edge
+  counts toward ANY owner's compensation is that owner's own decision, made outside this format.
 
-**Honestly still open, correctly identified as needing a real validator, not more schema text:**
-recomputing `entry_id` from its own JCS preimage and rejecting a pattern-valid-but-wrong digest;
-referential integrity (does `source_entry`/`target` actually resolve to a real entry, with
-UNRESOLVED as its own distinct state rather than silently deriving `counts_toward_vertice_split =
-false`); mechanically rejecting `actor == sole verified_by` (JSON Schema without a `$data`
-extension genuinely cannot compare an array's contents against a sibling field's value --
-confirmed this is a real limitation, not laziness); append-only/supersession semantics for adding
-a verifier to `verified_by` after an entry already has a citable `entry_id` (a real design
-question -- adding a verifier changes the preimage, which changes `entry_id`, which breaks any
-edge that already referenced the old one); and committing the synthetic pass/fail cases as real,
-runnable conformance vectors rather than a reported result. These need actual code, not another
-schema revision -- logged as the next real build, not deferred indefinitely.
+### Reading edges for your own compensation policy (guidance, not part of the schema)
+
+An owner (Vertice, invinoveritas, or anyone else building a commercial surface on this commons)
+computes their own sizing by reading the shared ledger with their own rule -- something like:
+
+```
+an edge counts toward OWNER's split iff:
+  edge.edge_type == "verified_application"
+  AND edge.edge_verified_by is non-empty
+  AND edge.evidence carries all three required refs
+  AND resolve(edge.target).surface.classification == "commercial_product"
+  AND resolve(edge.target).surface.owner_id == OWNER
+```
+
+This is deliberately NOT a field in `edge-schema.json` -- it's each owner's own policy, reading
+data that's fully public and symmetric. Vertice can apply exactly this rule with `OWNER = "vertice"`
+today; invinoveritas could apply the identical rule with `OWNER = "invinoveritas"` tomorrow. Neither
+owner's policy is privileged by the format itself.
 
 ## The rules this format enforces, and why
 
@@ -102,45 +89,56 @@ schema revision -- logged as the next real build, not deferred indefinitely.
 3. **An actor cannot be the sole `verified_by` for their own claim.**
 4. **`type` is one of five, each first-class, none requiring a commit:** `find` / `prove` / `audit`
    / `verify` / `build`.
-5. **`surface` is a structured, closed classification, never inferred or free text.**
-6. **`evidence` must give a stranger something to check, not just a claim** -- and, v2, must state
-   explicitly whether that evidence is actually resolvable by a stranger (`accessibility`), since a
-   real citation behind a private group's access is not equally checkable by everyone.
-7. **Causal edges (`edge-schema.json`) are typed and asymmetric**: `dependency` (recorded, never
-   counts), `verified_application` (the only type that can count, and only onto a
-   `vertice_product`-classified target, schema-enforced), `enabling_provenance` (recorded, the
-   honest reverse-direction case, never sized -- Merlini: "not asking to size that... enabling-
-   into-the-commons gets recorded, not counted").
+5. **`surface` is a structured, closed, owner-neutral classification, never inferred or free
+   text.** No named company is special-cased in the schema.
+6. **`evidence` must give a stranger something to check, not just a claim** -- and must state
+   explicitly whether that evidence is actually resolvable by a stranger (`accessibility`).
+7. **Causal edges (`edge-schema.json`) are typed, symmetric, and carry no sizing.** `dependency`,
+   `verified_application`, `enabling_provenance` are recorded identically as attribution; whether
+   any of them counts toward compensation is out of scope for the commons (see above).
 
-## Real examples (`examples.jsonl`)
+## Real examples (`examples.jsonl`, `edges.jsonl`)
 
-Four entries, drawn from actual events the same day this draft was written, not fabricated for
-illustration -- all four validate cleanly against `schema.json` (including real `entry_id`s
-computed with `services/vantage_resolution.py::encode_jcs`, the same encoder used elsewhere in
-this repo, checked before use, not assumed correct):
+Four ledger entries, drawn from actual events the same day this draft was written, not fabricated
+for illustration -- all validate cleanly against `schema.json`, including real `entry_id`s computed
+with `services/vantage_resolution.py::encode_jcs`:
 
-- Two `find`/`build` entries from the erc-8309.envelope inventory fix.
+- Two `find`/`build` entries from the erc-8309.envelope inventory fix (surface: `commercial_product`
+  / `invinoveritas`, since that work touched invinoveritas's own product surface -- not excludable
+  under v3 the way it was under v2's `vendor` category).
 - One `find` entry on a real, live bug (`encode_json_utf8_lf`'s code-point-vs-UTF-16 sort
   divergence), independently reproduced by Merlini before he agreed rather than taken on faith.
 - One `verify` entry from a real cross-project interop exchange with safal207
-  (Causal-Memory-Layer) on crewAI#4877.
+  (Causal-Memory-Layer) on crewAI#4877 (surface: `external`).
 
-**A fifth real case, deliberately left OUT -- worth naming explicitly, because it's the format
-working as designed, not a gap.** babyblueviper1 posted a reciprocal verification back to
-safal207 on 2026-08-25T16:20:39Z (running his CML fixture through invinoveritas's own JCS path,
-both legs byte-identical) -- a real claim, with real evidence, but as of this draft safal207 has
-not yet replied to confirm it. Per rule 2 above, that means it does not get a ledger entry yet.
+**One real edge now exists, restoring what v2 had to remove.** Under v2's identity model, no real
+edge example existed because no two entries were properly connected as source/target. Under v3's
+owner-neutral surface model, entry 0 (Merlini's `find` -- locating the exact
+`golden_set_inventory([])` gap) and entry 1 (babyblueviper1's `build` -- the fix, applied directly
+to invinoveritas's own commercial surface) form a genuine `verified_application` edge: Merlini's
+discovery was deliberately applied to a specific commercial surface, and the causal link is
+independently checkable (the build entry's own claim states it implements exactly the fix Merlini
+located). Recorded in `edges.jsonl`, not fabricated -- this is the actual shape of the week's real
+work, expressed correctly for the first time now that the taxonomy isn't asymmetric.
+
+**A fifth ledger case, deliberately left OUT -- the format working as designed, not a gap.**
+babyblueviper1 posted a reciprocal verification back to safal207 on 2026-08-25T16:20:39Z, a real
+claim with real evidence, but safal207 has not yet replied to confirm it. Per rule 2, that means it
+does not get a ledger entry yet.
 
 ## Open questions for review (not resolved by this draft)
 
 - **Where does this live?** Still explicitly not decided -- `$id` in both schema files stays a
-  placeholder. Likely a trustless-ai org repo, since the whole point is that it isn't owned by
-  invinoveritas or Vertice specifically.
+  placeholder.
 - **Multi-surface entries** (work that touches both a commons repo and a company's product surface
-  in one PR) aren't modeled -- `surface` is a single object, not an array. Worth deciding whether
-  that needs splitting into two entries once a real case shows up.
-- **`verified_by` fully moving to evidence-bearing refs** -- v2 allows but doesn't require the
-  richer `{name, evidence_ref}` form. Whether that should tighten further (require evidence_ref
-  once available, or always) is open.
+  in one PR) aren't modeled -- `surface` is a single object, not an array.
+- **`verified_by` fully moving to evidence-bearing refs** -- allowed but not required yet.
+- **The ledger-level validator work** (from v2.1's review round) is still open: recomputing
+  `entry_id` from its own preimage and rejecting a pattern-valid-but-wrong digest; referential
+  integrity with UNRESOLVED as its own state; mechanically rejecting `actor == sole verified_by`
+  (confirmed this needs real code, not a schema trick); append-only/supersession semantics for
+  `verified_by` since it's in the `entry_id` preimage; committing the synthetic pass/fail cases as
+  real conformance vectors. Logged to `data/BUILD_QUEUE.md` (invinoveritas repo) as the next real
+  build.
 - **What operates the reference instance, and where.** Explicitly out of scope for this draft --
   that's the vendor/build lane, a separate conversation once this format itself is settled.

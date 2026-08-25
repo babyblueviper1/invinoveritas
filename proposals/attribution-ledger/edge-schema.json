@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "TBD -- draft only, same placeholder status as schema.json.",
   "title": "Attribution ledger edge -- causal relation between two pieces of work",
-  "description": "v2 (2026-08-25, Pavlo's mechanical-not-prose-only round): source_entry/target now reference schema.json's entry_id (a real, resolvable ledger entry) instead of a free-form id/commit/hash string, and the verified_application requirements are enforced via if/then instead of documented only in prose. A single ledger entry (schema.json) records ONE claim; this file is the causal edge between two of them -- a foundation discovery/audit/method DELIBERATELY APPLIED to a Vertice surface, or the reverse -- a Vertice/commercial surface that enabled foundation work to happen at all. Pavlo's framing, kept close to verbatim: 'contribution follows the reproduced causal edge, not repository location or commit authorship.'",
+  "description": "v3 (2026-08-25, Merlini/Pavlo -- the commons stops at attribution, sizing is out). v2 hardcoded a `counts_toward_vertice_split` derivation rule -- a single company's compensation logic living inside a format explicitly meant to belong to no one. Merlini named the concrete asymmetry: his own real contributions (verifying ReceiptOS's artifacts, work landing in invinoveritas) had no way to ever 'count' under a scheme that only special-cased Vertice. Pavlo's framing, adopted here: 'commons attribution record -> owner-specific compensation policy.' This file now records ONLY what happened, causally -- a foundation discovery/audit/method applied to (or enabling, or depended on by) another surface, and who independently verified that causal link. Whether any given edge counts toward ANY owner's compensation is that owner's own private policy, read from this record -- never a field this schema defines. See README.md's 'Reading edges for your own compensation policy' section for how an owner (Vertice, invinoveritas, or anyone else) builds that policy on top of this data without it living in the commons.",
   "type": "object",
   "required": ["edge_type", "source_entry", "target", "timestamp", "evidence"],
   "additionalProperties": false,
@@ -10,7 +10,7 @@
     "edge_type": {
       "type": "string",
       "enum": ["dependency", "verified_application", "enabling_provenance"],
-      "description": "Closed enum. 'dependency': a surface uses a foundation artifact/tool without any deliberate, verified act of applying a specific discovery to it -- recorded, never counts. 'verified_application': a specific foundation discovery/audit/spec-correction/method was DELIBERATELY applied to a named Vertice surface, and that application itself was independently verified -- the only edge_type that can count. 'enabling_provenance': the reverse direction -- a Vertice/commercial surface enabled foundation work to exist -- recorded for an honest bidirectional causal graph, never sized, never counts."
+      "description": "Closed enum, owner-neutral. 'dependency': a surface uses a foundation artifact/tool without any deliberate, verified act of applying a specific discovery to it. 'verified_application': a specific foundation discovery/audit/spec-correction/method was DELIBERATELY applied to a named commercial_product surface, and that application itself was independently verified. 'enabling_provenance': the reverse direction -- a commercial/product surface enabled foundation work to exist. All three are recorded identically as attribution -- this schema does not rank them by whether any of them 'counts' toward anyone's compensation; that judgment belongs to whichever surface owner is reading the record for their own policy."
     },
     "source_entry": {
       "type": "string",
@@ -20,7 +20,7 @@
     "target": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "The `entry_id` (schema.json) of what the source was applied to, depends on, or enabled. Same rule as source_entry -- must be a real ledger entry's id, resolvable to that entry's own `surface` field, which is what `counts_toward_vertice_split` reads (see x-derivation-rule below). This is the concrete fix for Merlini's dinamic.eth/boiler-kit/ai.verticecriativo.pt case: recording that enabling_provenance edge requires a real ledger entry for the enabling surface to exist first (a `build` entry describing what it was and when), not a bare description inline on the edge."
+      "description": "The `entry_id` (schema.json) of what the source was applied to, depends on, or enabled. Same rule as source_entry -- must be a real ledger entry's id, resolvable to that entry's own `surface` field (classification + identifier + owner_id when commercial). This is the concrete fix for Merlini's dinamic.eth/boiler-kit/ai.verticecriativo.pt case: recording that enabling_provenance edge requires a real ledger entry for the enabling surface to exist first (a `build` entry describing what it was and when), not a bare description inline on the edge."
     },
     "edge_verified_by": {
       "type": "array",
@@ -56,7 +56,7 @@
         },
         "target_surface_ref": {
           "type": "string",
-          "description": "The exact Vertice surface/feature/release/claim the contribution was applied to -- a commit, release tag, or product-facing reference, not a repo name alone. Required for verified_application."
+          "description": "The exact surface/feature/release/claim the contribution was applied to -- a commit, release tag, or product-facing reference, not a repo name alone. Required for verified_application. Owner-neutral: this is whichever commercial_product (or commons, or external) surface target resolves to, not specifically a Vertice one."
         },
         "causal_link_verification": {
           "type": "string",
@@ -77,6 +77,5 @@
       }
     },
     "required": ["edge_verified_by"]
-  },
-  "x-derivation-rule": "counts_toward_vertice_split is NEVER a stored/writable field on an edge. A reader computes it: true iff ALL of -- (1) edge_type == 'verified_application', (2) edge_verified_by is present and non-empty, (3) evidence carries all three required refs (enforced by the if/then above, so a schema-valid verified_application edge always satisfies this), AND (4) resolving `target` to its ledger entry (schema.json) shows surface.classification == 'vertice_product' (v2 addition, Pavlo's ask -- a verified_application edge whose target is NOT a Vertice product surface, e.g. applied to a vendor's own repo or another external party's surface, must not count, and checking only edge_type + verified_by without resolving the target's actual surface was the v1 gap). Every other edge_type, or any edge whose target resolves to a non-vertice_product surface, is unconditionally false -- dependency and enabling_provenance are attribution, never sizing, no matter how well-evidenced."
+  }
 }
