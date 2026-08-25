@@ -24,6 +24,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "services"))
+import mutation_classify as mc  # noqa: E402
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SRC = os.path.join(ROOT, "services", "vantage_resolution.py")
 OUT_DIR = os.path.join(ROOT, "conformance", "erc-8309-vantage")
@@ -140,15 +143,78 @@ MUTANTS = [
 ]
 
 
+
+# --- expected_kill_tests (Pavlo, 2026-08-25) --------------------------------------------------
+# A call-phase failure ANYWHERE in the suite can certify a MUST by accident. KILLED now requires
+# the red to land in the mutant's own mapped enforcing test.
+#
+# These values are MEASURED, not asserted: every mutant was run and the failing nodeid recorded
+# (2026-08-25T01:40Z). That matters twice over -- it means the initial mapping reflects what the
+# suite actually does rather than what I believe it does, AND any future drift between those two
+# is exactly what this field now catches.
+#
+# What the measurement found: 14 of 16 kill exactly one test, and it is the mapped one. The
+# exceptions are why the field is needed:
+#   M6  reds FOUR tests -- honest collateral, since the mutation makes JCS emit a trailing byte
+#       and everything JCS-dependent breaks with it. Only the mapped one is listed; the rest are
+#       recorded as collateral rather than discarded.
+#   M11 reds its own enforcer AND test_ineligible_rows_never_enter_the_v2_commitment, which is
+#       M4's. It is ONE DELETED TEST from being certified entirely by a test written for a
+#       different MUST. Nothing is mis-certified today -- the gate simply could not have noticed.
+#   M15/M16 each also pick up test_companion_binds_two_schemas_not_one.
+EXPECTED_KILL_TESTS = {
+    'M1-signer-counting': ['test_quorum_counts_distinct_signers_not_attestations'],
+    'M2-window-signed-timestamp': ['test_window_over_signed_timestamps_is_rejected'],
+    'M3-global-independence': ['test_global_independence_claim_is_rejected'],
+    'M4-ineligible-in-commitment': ['test_ineligible_rows_never_enter_the_v2_commitment'],
+    'M5-unsigned-eligible': ['test_malformed_length_signature_is_ineligible'],
+    'M6-jcs-trailing-byte-appended': ['test_the_two_serializers_differ_by_exactly_the_trailing_byte'],
+    'M7-insufficient-without-inspected-set': ['test_insufficient_observation_carries_inspected_set_commitment'],
+    'M8-v2-order-dependent': ['test_v2_is_order_independent'],
+    'M9-equivocation-silent': ['test_same_signer_equivocation_is_byzantine_evidence'],
+    'M10-quorum-emits-agreement': ['test_quorum_failure_falls_back_to_profile_a_never_to_agreement'],
+    'M11-source-peer-in-identity': ['test_source_peer_is_excluded_from_identity_by_enumeration'],
+    'M12-finality-implied': ['test_no_finality_unless_declared'],
+    'M13-supersession-mutates': ['test_supersession_does_not_mutate_the_prior_claim'],
+    'M14-resolving-without-ref': ['test_resolving_profile_without_a_retrievable_ref_is_rejected'],
+    'M15-unbound-schema-defaults': ['test_serializer_is_never_inferred_for_an_unbound_schema'],
+    'M16-bindings-collapse': ['test_companion_binds_two_schemas_not_one'],
+}
+
+
+def compile_ok(path: str) -> bool:
+    """A mutation that does not PARSE kills every mutant trivially -- the M6 defect. Checked first
+    so such a run is classified VACUOUS rather than scored as a kill."""
+    try:
+        compile(open(path).read(), path, "exec")
+        return True
+    except SyntaxError:
+        return False
+
+
 def run_suite(workdir: str) -> tuple[bool, str]:
-    """Return (all_green, tail). Runs the conformance suite against the mutated tree."""
+    """Return (all_green, tail). Runs the conformance suite against the mutated tree.
+
+    Also drops the phase-recording conftest in and points it at a report path, so classification
+    keys off WHERE the red happened rather than pytest's summary-line wording.
+    """
+    shutil.copy(os.path.join(OUT_DIR, "mutation_conftest.py"),
+                os.path.join(workdir, "tests", "conftest.py"))
+    # NO -x. It was here to fail fast, and it is INCOMPATIBLE with expected_kill_tests: -x stops
+    # at the FIRST failure, so if an unrelated test fails earlier in file order the mutant's own
+    # mapped enforcing test never executes and the mutant is scored SURVIVED for a reason that has
+    # nothing to do with the suite's coverage. Found immediately on wiring the classifier -- M11
+    # flipped to SURVIVED because M4's enforcer fails first and aborted the run before M11's own
+    # test could run. That is the same shape as the collection-error case: a test that never ran
+    # leaves no evidence to classify, and -x manufactures exactly that condition.
     env = dict(os.environ)
     env["PYTHONPATH"] = workdir
+    env["MUTATION_REPORT_PATH"] = os.path.join(workdir, "mutation_report.json")
     # sys.executable, not a hardcoded venv path: the gate has to run wherever a
     # reader checks it, not only inside this repo's tree.
     p = subprocess.run(
         [sys.executable, "-m", "pytest",
-         os.path.join(workdir, "tests", "test_vantage_resolution.py"), "-q", "--no-header", "-x"],
+         os.path.join(workdir, "tests", "test_vantage_resolution.py"), "-q", "--no-header"],
         cwd=workdir, capture_output=True, text=True, env=env, timeout=300)
     out = (p.stdout or "") + (p.stderr or "")
     return p.returncode == 0, out.strip().splitlines()[-1] if out.strip() else ""
@@ -205,22 +271,35 @@ def main() -> int:
             os.makedirs(os.path.join(td, "tests"), exist_ok=True)
             shutil.copy(os.path.join(ROOT, "tests", "test_vantage_resolution.py"),
                         os.path.join(td, "tests", "test_vantage_resolution.py"))
-            with open(os.path.join(td, "services", "vantage_resolution.py"), "w") as f:
+            src_path = os.path.join(td, "services", "vantage_resolution.py")
+            with open(src_path, "w") as f:
                 f.write(mutated)
+            compiled = compile_ok(src_path)
             green, tail = run_suite(td)
-        vacuous = (not green) and not _red_is_a_real_failure(tail)
-        killed = (not green) and not vacuous
-        status = "VACUOUS" if vacuous else ("KILLED" if killed else "SURVIVED")
+            phase_report = None
+            rp = os.path.join(td, "mutation_report.json")
+            if os.path.exists(rp):
+                try:
+                    phase_report = json.load(open(rp))
+                except Exception:
+                    phase_report = None
+        status, reason, evidence = mc.classify(
+            phase_report, EXPECTED_KILL_TESTS.get(mid), compile_ok=compiled)
         results.append({"id": mid, "clause": clause, "must": must,
-                        "status": status,
-                        "suite_result": tail,
-                        **({"note": "suite went red on an ERROR, not an assertion -- this mutation "
-                                    "broke the module rather than violating the claim, so it proves "
-                                    "nothing. NOT counted as a kill."} if vacuous else {})})
+                        "status": status, "reason": reason,
+                        "expected_kill_tests": EXPECTED_KILL_TESTS.get(mid, []),
+                        "evidence": evidence, "suite_result": tail})
         if not json_only:
-            print(f"  {mid:38} {'KILLED' if killed else 'SURVIVED  <-- GAP'}  {tail[:52]}")
+            mark = {"KILLED": "KILLED",
+                    "VACUOUS": "VACUOUS   <-- NOT A KILL",
+                    "SURVIVED": "SURVIVED  <-- GAP"}.get(status, status)
+            extra = ""
+            if status == "KILLED" and evidence.get("collateral_failures"):
+                extra = f"  (+{len(evidence['collateral_failures'])} collateral)"
+            print(f"  {mid:38} {mark:26} {tail[:34]}{extra}")
 
-    killed = sum(1 for r in results if r["status"] == "KILLED")
+    counts = mc.tally(results, len(MUTANTS))     # raises if a mutant is in an unnamed state
+    killed = counts["KILLED"]
     applied = sum(1 for r in results if r["status"] != "NOT_APPLIED")
     payload = {
         "schema": "erc-8309-vantage-authority-companion/spec-mutations",

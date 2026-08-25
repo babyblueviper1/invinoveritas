@@ -20,31 +20,83 @@
   "mutants": [
     {
       "clause": "\u00a75 / v0.1 carrier",
+      "evidence": {
+        "collateral_failures": [],
+        "exception_classes": [
+          "KeyError"
+        ],
+        "killed_by": [
+          "test_missing_bytes_hex_is_rejected"
+        ]
+      },
+      "expected_kill_tests": [
+        "test_missing_bytes_hex_is_rejected"
+      ],
       "id": "V1-bytes-hex-optional",
       "must": "bytes_hex is REQUIRED as the normative hashable carrier",
+      "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 1 passed in 0.05s"
+      "suite_result": "1 failed, 13 passed in 0.05s"
     },
     {
       "clause": "\u00a710 / v0.1 pair",
+      "evidence": {
+        "collateral_failures": [],
+        "exception_classes": [
+          "AssertionError"
+        ],
+        "killed_by": [
+          "test_non_list_vectors_field_is_rejected_as_a_missing_pair"
+        ]
+      },
+      "expected_kill_tests": [
+        "test_non_list_vectors_field_is_rejected_as_a_missing_pair"
+      ],
       "id": "V2-adversarial-pair-optional",
       "must": "a binding's vector set MUST carry the adversarial pair",
+      "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
       "suite_result": "1 failed, 13 passed in 0.05s"
     },
     {
       "clause": "\u00a75 / \u00a79",
+      "evidence": {
+        "collateral_failures": [],
+        "exception_classes": [
+          "AssertionError"
+        ],
+        "killed_by": [
+          "test_failure_digest_equal_to_the_conforming_one_is_rejected"
+        ]
+      },
+      "expected_kill_tests": [
+        "test_failure_digest_equal_to_the_conforming_one_is_rejected"
+      ],
       "id": "V3-wrong-serializer-digest-accepted",
       "must": "a digest produced under the unbound serializer MUST be rejected",
+      "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 6 passed in 0.05s"
+      "suite_result": "1 failed, 13 passed in 0.05s"
     },
     {
       "clause": "\u00a710 inventory",
+      "evidence": {
+        "collateral_failures": [],
+        "exception_classes": [
+          "AssertionError"
+        ],
+        "killed_by": [
+          "test_a_failing_set_reads_as_needs_one_not_as_absent"
+        ]
+      },
+      "expected_kill_tests": [
+        "test_a_failing_set_reads_as_needs_one_not_as_absent"
+      ],
       "id": "V4-inventory-state-collapse",
       "must": "'needs a conforming set' and 'no denominator yet' MUST stay distinct states",
+      "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 11 passed in 0.05s"
+      "suite_result": "1 failed, 13 passed in 0.05s"
     }
   ],
   "other_surfaces": {

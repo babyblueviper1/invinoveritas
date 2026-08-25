@@ -32,6 +32,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "services"))
+import mutation_classify as mc  # noqa: E402
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SRC = os.path.join(ROOT, "services", "vantage_vectors_consumer.py")
 SUITE = os.path.join(ROOT, "tests", "test_vantage_vectors_consumer.py")
@@ -64,15 +67,36 @@ MUTANTS = [
 ]
 
 
+
+# Measured 2026-08-25, same discipline as the surface-1 map: every mutant run, failing nodeid
+# recorded. All four are clean 1:1 here -- no collateral, no borrowed enforcers.
+EXPECTED_KILL_TESTS = {
+    'V1-bytes-hex-optional': ['test_missing_bytes_hex_is_rejected'],
+    'V2-adversarial-pair-optional': ['test_non_list_vectors_field_is_rejected_as_a_missing_pair'],
+    'V3-wrong-serializer-digest-accepted': ['test_failure_digest_equal_to_the_conforming_one_is_rejected'],
+    'V4-inventory-state-collapse': ['test_a_failing_set_reads_as_needs_one_not_as_absent'],
+}
+
+
 def run_suite(workdir: str) -> tuple:
+    # NO -x. It was here to fail fast, and it is INCOMPATIBLE with expected_kill_tests: -x stops
+    # at the FIRST failure, so if an unrelated test fails earlier in file order the mutant's own
+    # mapped enforcing test never executes and the mutant is scored SURVIVED for a reason that has
+    # nothing to do with the suite's coverage. Found immediately on wiring the classifier -- M11
+    # flipped to SURVIVED because M4's enforcer fails first and aborted the run before M11's own
+    # test could run. That is the same shape as the collection-error case: a test that never ran
+    # leaves no evidence to classify, and -x manufactures exactly that condition.
+    shutil.copy(os.path.join(OUT_DIR, "mutation_conftest.py"),
+                os.path.join(workdir, "tests", "conftest.py"))
     env = dict(os.environ)
     env["PYTHONPATH"] = os.path.join(workdir, "services")
+    env["MUTATION_REPORT_PATH"] = os.path.join(workdir, "mutation_report.json")
     # sys.executable, not a hardcoded venv path: the gate has to run wherever a
     # reader checks it, not only inside this repo's tree.
     p = subprocess.run(
         [sys.executable, "-m", "pytest",
          os.path.join(workdir, "tests", "test_vantage_vectors_consumer.py"),
-         "-q", "--no-header", "-x"],
+         "-q", "--no-header"],
         cwd=workdir, capture_output=True, text=True, env=env, timeout=300)
     out = (p.stdout or "") + (p.stderr or "")
     return p.returncode == 0, (out.strip().splitlines()[-1] if out.strip() else "")
@@ -85,6 +109,16 @@ def _stage(td: str, mutated: str = None) -> None:
     if mutated is not None:
         with open(os.path.join(td, "services", "vantage_vectors_consumer.py"), "w") as f:
             f.write(mutated)
+
+
+def compile_ok(path: str) -> bool:
+    """A mutation that does not PARSE kills every mutant trivially -- the M6 defect on the sibling
+    surface. Checked so such a run classifies VACUOUS rather than scoring a kill."""
+    try:
+        compile(open(path).read(), path, "exec")
+        return True
+    except SyntaxError:
+        return False
 
 
 def main() -> int:
@@ -112,7 +146,15 @@ def main() -> int:
             continue
         with tempfile.TemporaryDirectory() as td:
             _stage(td, mutated)
+            compiled = compile_ok(os.path.join(td, "services", "vantage_vectors_consumer.py"))
             green, tail = run_suite(td)
+            phase_report = None
+            rp = os.path.join(td, "mutation_report.json")
+            if os.path.exists(rp):
+                try:
+                    phase_report = json.load(open(rp))
+                except Exception:
+                    phase_report = None
         # A kill must be an ASSERTION FAILURE, never a collection/runtime error. Ported from the
         # surface-1 gate the same day it was found there: M6's replacement string emitted a real
         # newline into a bytes literal, produced a SyntaxError, and the gate счёл the resulting
@@ -120,23 +162,24 @@ def main() -> int:
         # mutation that fails to parse kills every mutant trivially, which means a gate that
         # accepts an error as a kill can report 100% while testing nothing. Applied here too rather
         # than waiting for the same defect to be found on this surface separately.
-        vacuous = (not green) and "failed" not in tail
-        killed = (not green) and not vacuous
-        status = "VACUOUS" if vacuous else ("KILLED" if killed else "SURVIVED")
+        status, reason, evidence = mc.classify(
+            phase_report, EXPECTED_KILL_TESTS.get(mid), compile_ok=compiled)
         results.append({"id": mid, "clause": clause, "must": must,
-                        "status": status, "suite_result": tail,
-                        **({"note": "suite went red on an ERROR, not an assertion -- this mutation "
-                                    "broke the module rather than violating the claim, so it proves "
-                                    "nothing. NOT counted as a kill."} if vacuous else {})})
+                        "status": status, "reason": reason,
+                        "expected_kill_tests": EXPECTED_KILL_TESTS.get(mid, []),
+                        "evidence": evidence, "suite_result": tail})
         if not json_only:
             mark = {"KILLED": "KILLED", "VACUOUS": "VACUOUS  <-- NOT A KILL",
-                    "SURVIVED": "SURVIVED  <-- GAP"}[status]
-            print(f"  {mid:40} {mark}  {tail[:46]}")
+                    "SURVIVED": "SURVIVED  <-- GAP"}.get(status, status)
+            extra = (f"  (+{len(evidence['collateral_failures'])} collateral)"
+                     if status == "KILLED" and evidence.get("collateral_failures") else "")
+            print(f"  {mid:40} {mark:26} {tail[:30]}{extra}")
 
     sys.path.insert(0, os.path.join(ROOT, "services"))
     from vantage_vectors_consumer import golden_set_inventory  # noqa: E402
 
-    killed = sum(1 for r in results if r["status"] == "KILLED")
+    counts = mc.tally(results, len(MUTANTS))     # raises if a mutant is in an unnamed state
+    killed = counts["KILLED"]
     applied = sum(1 for r in results if r["status"] != "NOT_APPLIED")
     payload = {
         "schema": "erc-8309-vantage-authority-companion/vectors-consumer-mutations",

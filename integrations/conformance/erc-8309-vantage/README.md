@@ -123,3 +123,44 @@ constant is stale. Now pinned **literally**.
 every verdict on the wire claimed it was one. Now emits `erc-8309.verdict`, pinned by a test, with
 the envelope's `erc-8309.envelope` pinned alongside so a future realignment cannot fix one emitter
 and silently leave the other behind.
+
+## Kill classification is phase-bound (2026-08-25)
+
+A mutant counts as KILLED only when the red lands **in that mutant's own mapped enforcing test,
+during the call phase**:
+
+```
+pattern does not apply ............................ NOT_APPLIED
+mutated module fails py_compile ................... VACUOUS
+collect / import / setup fails before the call .... VACUOUS
+call phase fails IN A MAPPED ENFORCING TEST ....... KILLED
+call phase executes cleanly ....................... SURVIVED
+```
+
+Ladder by Merlini; `expected_kill_tests` and the teardown exclusion by Pavlo.
+
+Classification reads a conftest hook recording `(nodeid, when, outcome, exception_class)` per
+test. It previously matched the word "failed" in pytest's summary line — which agreed with the
+sound rule on every live mutant, and only because pytest happens to map call-phase failures to
+"failed" and pre-call breakage to "error". Correct by coincidence of another tool's formatting is
+not correct by construction.
+
+`when` is the load-bearing field. A raise during the **call** phase can be the violated behaviour
+itself — a `ValueError` where a never-raise MUST is enforced — and is a genuine kill. The same
+exception at collect or setup means the claim was never evaluated.
+
+`expected_kill_tests` values are **measured, not asserted**: every mutant was run and its failing
+nodeid recorded. 14 of 16 spec mutants are clean 1:1. `M6` reds four tests (honest collateral —
+the mutation makes JCS emit a trailing byte, so everything JCS-dependent breaks). `M11` reds its
+own enforcer *and* `M4`'s, leaving it one deleted test from being certified entirely by a test
+written for a different MUST.
+
+Wiring this found a real harness bug immediately: `M11` flipped to SURVIVED because the suite ran
+under `-x`, which stops at the first failure — so `M4`'s enforcer aborted the run before `M11`'s
+own mapped test could execute. That is the collection-error case in a second costume, and `-x` is
+now removed from both gates.
+
+Collateral failures are recorded rather than discarded; they measure a mutation's blast radius
+against its mapped claim. Four independent tallies are asserted to sum to the mutant total as a
+**hard generator failure**, never a reported field — a count derived by subtraction can hide a
+category nobody named, and this artifact named two in a single day.
