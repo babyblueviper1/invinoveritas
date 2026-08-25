@@ -21,34 +21,53 @@ candidate scheme's own defined procedure, and byte-compare the outputs.**
 
 ## Mechanism
 
-1. **Define one canonical preimage** -- the logical input every candidate scheme claims to encode,
-   hash, or bind. This must be expressed precisely enough that there's no ambiguity in what each
-   scheme is being asked to process (e.g. a concrete JSON object plus whatever contextual fields
-   a scheme's own spec says are part of its preimage -- a domain tag, a version marker, a chain
-   id, whatever each scheme itself declares as input).
-2. **For each candidate scheme S_i, apply S_i's own defined procedure to the preimage**, using
-   that scheme's own reference implementation or a faithful reproduction of its written spec --
-   never a shared or borrowed implementation, since the whole point is testing independently
-   defined procedures against each other, not one procedure applied twice.
-3. **Byte-compare every pair of outputs.** Not "semantically equivalent," not "structurally
-   similar" -- exact bytes, identical or not.
-4. **Report per pair: IDENTICAL or DISTINCT**, with the first differing byte/field named when
-   distinct, not just a bare "different" result.
+**Revised (2026-08-25, real correction from TKCollective, x402-foundation/x402#2332): a single
+preimage is enough to prove DISTINCT, but not enough to prove IDENTICAL.** If two procedures
+produce different bytes on one input, they are different procedures -- nothing more is needed. But
+if they agree on one input, that establishes agreement on that input, not sameness of the
+primitive in general; two RFC-8785-compliant implementations can agree on a flat ASCII object and
+still diverge on number formatting near a precision boundary, unicode normalization of keys, or
+absent-versus-null. This is the same asymmetry independently named by meloliva14 the same day, in
+a different domain (x402-foundation/tsc#4): "a false IDENTICAL is reachable and a false DISTINCT
+is not, so the error is one-directional and invisible from inside a single comparison." The
+mechanism below is written to that constraint from the start rather than patched after the fact.
+
+1. **Define a preimage SET, not a single preimage** -- chosen specifically to exercise the points
+   where two procedures claiming to be the same primitive are actually likely to diverge:
+   non-ASCII keys, combining characters, integers at or near a serializer's precision boundary,
+   empty-versus-absent members, nesting depth, and whatever else the specific primitive under test
+   is known to be sensitive to. A set exists to make the IDENTICAL verdict earn its strength the
+   same way the DISTINCT verdict already has it for free.
+2. **For each candidate scheme S_i, apply S_i's own defined procedure to every preimage in the
+   set**, using that scheme's own reference implementation or a faithful reproduction of its
+   written spec -- never a shared or borrowed implementation, since the whole point is testing
+   independently defined procedures against each other, not one procedure applied twice.
+3. **Byte-compare every pair of outputs, per preimage.** Not "semantically equivalent," not
+   "structurally similar" -- exact bytes, identical or not.
+4. **Report per pair, per preimage: IDENTICAL or DISTINCT**, with the first differing byte/field
+   named when distinct. The aggregate report MUST name the exact preimage set it held over --
+   "IDENTICAL" with no stated set is exactly the unsound single-preimage claim this revision
+   exists to prevent.
 
 ## Interpretation
 
-- **IDENTICAL**: the two schemes are the same primitive under different names. Multiplying names
-  was the actual bug -- one name should cover both, and maintaining two names going forward is
-  pure fragmentation with no technical justification behind it.
-- **DISTINCT**: a real difference exists between what the two schemes compute, and it deserves its
-  own name. Collapsing them under one shared name would be the bug -- it would let two genuinely
-  different constructions silently interoperate-by-assumption until something depending on
-  byte-identity breaks in production.
+- **DISTINCT is sound from a single preimage.** One disagreeing pair of bytes is enough -- the two
+  procedures are different, full stop, and this doesn't get stronger or weaker by testing more
+  preimages. Collapsing two DISTINCT schemes under one shared name would be the bug -- it would
+  let two genuinely different constructions silently interoperate-by-assumption until something
+  depending on byte-identity breaks in production.
+- **IDENTICAL requires the whole preimage set, and is scoped to it.** "IDENTICAL across set S"
+  means the two schemes agree on every preimage in S -- it does NOT mean the two schemes are the
+  same primitive in general, only that no divergence was found within S. A stranger who wants a
+  stronger claim can extend S with a preimage that stresses whatever S didn't cover; that's a
+  legitimate way to falsify a prior IDENTICAL result, not a contradiction of it.
 
 The test doesn't judge which scheme is "correct" in any semantic sense -- it only answers whether
-two schemes claiming to be the same primitive actually compute the same bytes. That's a narrower,
-harder-to-argue-with question than "are these equivalent," and it's the one that actually matters
-for any consumer trying to verify one scheme's output using another scheme's tooling.
+two schemes claiming to be the same primitive actually compute the same bytes, over the set tested.
+That's a narrower, harder-to-argue-with question than "are these equivalent," and it's the one
+that actually matters for any consumer trying to verify one scheme's output using another scheme's
+tooling -- with the honest caveat that IDENTICAL's strength is bounded by how well the set was
+chosen to find real divergence, while DISTINCT's strength is not bounded at all.
 
 ## Worked example (already run, real result, not hypothetical)
 
@@ -70,8 +89,21 @@ choice or a documentation nuance, it is a genuinely different construction that 
 bytes, and therefore correctly earns its own name (its own reject reason in the vector suite)
 rather than being folded into the same category as the version it's easy to confuse it with.
 
+**Worth being explicit about, per the revision above: this worked example only ever needed to
+prove DISTINCT, which a single preimage genuinely suffices for.** It is not an example of a sound
+single-preimage IDENTICAL claim, because no such claim was made here -- had the two constructions
+happened to agree on this one preimage, that result alone would not have licensed "these are the
+same primitive," only "these agree on this input." The set-based requirement above exists for the
+IDENTICAL branch specifically; this example's soundness was never resting on it.
+
 ## What this does not prove
 
+- **An IDENTICAL verdict is bounded by the preimage set, never a general claim.** "IDENTICAL
+  across set S" means no divergence was found within S -- it is not evidence-free proof that no
+  divergence exists anywhere. The asymmetry is real and one-directional: a false DISTINCT is not
+  reachable (a genuine byte disagreement cannot be an artifact of the test), but a false IDENTICAL
+  is reachable whenever S doesn't happen to include the input two procedures actually disagree on.
+  Treat every IDENTICAL result as "agrees on everything tested so far," not "proven the same."
 - **Not a correctness judgment.** Byte-identity says two schemes compute the same thing; it says
   nothing about whether that computation is itself sound, secure, or fit for purpose. A test that
   only checks whether two flawed schemes agree with each other proves agreement, not soundness.
