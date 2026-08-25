@@ -1,0 +1,162 @@
+{
+  "canonicalization": "sorted-key JSON, separators (',',':'), UTF-8, no trailing byte",
+  "domain_tag_hex": "617267656e74756d2e616374696f6e5f7265662e763200",
+  "negatives": [
+    {
+      "expected_reject_reason": "cross-coordinate-mismatch",
+      "id": "N1-right-shape-wrong-object",
+      "record": {
+        "action_ref": "2947588db068371f9f86f2e8499aad4a8d0e5829a5aa0e940045643cc4fa1d11",
+        "action_type": "transfer",
+        "agent_id": "agent:treasury-7",
+        "args": {
+          "amount_minor": 4200000,
+          "to": "0xdead...beef"
+        },
+        "args_digest": "8983b005d78b00b89749dc3d91adb289661e06b482a73f798754ad8094862d20",
+        "evidence_ref": {
+          "chain": "base",
+          "kind": "tx",
+          "tx_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "scope": {
+          "cap_minor": 5000000,
+          "chain": "base",
+          "contract": "0xA0b8...eB48"
+        }
+      },
+      "why": "THE SEAM. action_ref and args_digest are each internally valid, but the args_digest covers a DIFFERENT object than the one the caller acted on. Every mechanism passes in isolation; only cross-reading the coordinates against one another catches it. A runner that checks each field independently reports this record as conformant."
+    },
+    {
+      "expected_reject_reason": "missing-domain-separation",
+      "id": "N2-untagged-hash-as-v2",
+      "record": {
+        "action_ref": "06856dc054e4fb87f7fba03efe0d9b7d26a64c65f5886b87445aaac27e92b79c",
+        "action_type": "transfer",
+        "agent_id": "agent:treasury-7",
+        "args": {
+          "amount_minor": 4200000,
+          "to": "0xdead...beef"
+        },
+        "args_digest": "895149b5c57afa8cb12b3c60fcd1e34bbe86456b03b2e31a38fad647f5475129",
+        "evidence_ref": {
+          "chain": "base",
+          "kind": "tx",
+          "tx_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "scope": {
+          "cap_minor": 5000000,
+          "chain": "base",
+          "contract": "0xA0b8...eB48"
+        }
+      },
+      "why": "A bare hash of the body presented as a domain-separated v2 action_ref. This is the exact collision mode the v1->v2 split was made to close."
+    },
+    {
+      "expected_reject_reason": "domain-tag-not-prefixed",
+      "id": "N3-tag-applied-after-hashing",
+      "record": {
+        "action_ref": "af0e86f9f2877a4ca74514f9d792490f36f0d15befab510af576acc4c845d495",
+        "action_type": "transfer",
+        "agent_id": "agent:treasury-7",
+        "args": {
+          "amount_minor": 4200000,
+          "to": "0xdead...beef"
+        },
+        "args_digest": "895149b5c57afa8cb12b3c60fcd1e34bbe86456b03b2e31a38fad647f5475129",
+        "evidence_ref": {
+          "chain": "base",
+          "kind": "tx",
+          "tx_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "scope": {
+          "cap_minor": 5000000,
+          "chain": "base",
+          "contract": "0xA0b8...eB48"
+        }
+      },
+      "why": "The domain tag is concatenated to the DIGEST rather than prefixed to the preimage. It looks domain-separated and provides none of the separation."
+    },
+    {
+      "expected_reject_reason": "evidence-not-retrievable",
+      "id": "N4-evidence-ref-unresolvable",
+      "record": {
+        "action_ref": "2947588db068371f9f86f2e8499aad4a8d0e5829a5aa0e940045643cc4fa1d11",
+        "action_type": "transfer",
+        "agent_id": "agent:treasury-7",
+        "args": {
+          "amount_minor": 4200000,
+          "to": "0xdead...beef"
+        },
+        "args_digest": "895149b5c57afa8cb12b3c60fcd1e34bbe86456b03b2e31a38fad647f5475129",
+        "evidence_ref": {
+          "chain": "base",
+          "kind": "tx",
+          "tx_hash": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        "scope": {
+          "cap_minor": 5000000,
+          "chain": "base",
+          "contract": "0xA0b8...eB48"
+        }
+      },
+      "why": "A well-formed coordinate pointing at nothing. ABSENCE IS NOT EVIDENCE OF NON-EXECUTION -- the correct verdict is could-not-verify, never 'did not happen'. A runner that reports this as a refutation has made a claim the record cannot support."
+    },
+    {
+      "also_malformed": true,
+      "expected_reject_reason": "cross-coordinate-mismatch",
+      "id": "N5-canary-fails-for-the-wrong-reason",
+      "record": {
+        "action_ref": "not-a-hex-digest",
+        "action_type": "transfer",
+        "agent_id": "agent:treasury-7",
+        "args": {
+          "amount_minor": 4200000,
+          "to": "0xdead...beef"
+        },
+        "args_digest": "8983b005d78b00b89749dc3d91adb289661e06b482a73f798754ad8094862d20",
+        "evidence_ref": {
+          "chain": "base",
+          "kind": "tx",
+          "tx_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "scope": {
+          "cap_minor": 5000000,
+          "chain": "base",
+          "contract": "0xA0b8...eB48"
+        }
+      },
+      "why": "META-CHECK, and the reason expected_reject_reason exists at all. This record carries the SAME seam defect as N1 and is ALSO structurally malformed (action_ref is not hex). A runner that rejects on the malformed field and reports 'rejected' has NOT demonstrated it can detect the seam -- it failed for the wrong reason and looks identical in an aggregate pass/fail count. A conformant runner must report cross-coordinate-mismatch here, not a parse error. If your runner cannot distinguish these, that is the finding."
+    }
+  ],
+  "non_goals": [
+    "config_hash / tools-list rug-pull. All three mechanisms here bind THE ACTION. A rug-pull changes what the action's NAME RESOLVED TO -- a different object -- so no amount of tightening action-binding can reach it. Stated as a named non-goal rather than an open item so a green run here is never read as covering it."
+  ],
+  "positives": [
+    {
+      "id": "P1-all-three-agree",
+      "note": "All three coordinates derive from ONE object. Each check passes alone AND the cross-read agrees. This is the only shape a conformant record may take.",
+      "record": {
+        "action_ref": "2947588db068371f9f86f2e8499aad4a8d0e5829a5aa0e940045643cc4fa1d11",
+        "action_type": "transfer",
+        "agent_id": "agent:treasury-7",
+        "args": {
+          "amount_minor": 4200000,
+          "to": "0xdead...beef"
+        },
+        "args_digest": "895149b5c57afa8cb12b3c60fcd1e34bbe86456b03b2e31a38fad647f5475129",
+        "evidence_ref": {
+          "chain": "base",
+          "kind": "tx",
+          "tx_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "scope": {
+          "cap_minor": 5000000,
+          "chain": "base",
+          "contract": "0xA0b8...eB48"
+        }
+      }
+    }
+  ],
+  "schema": "three-party-action-binding/v0.1"
+}
