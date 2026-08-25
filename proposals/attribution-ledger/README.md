@@ -1,10 +1,10 @@
-# Attribution ledger -- draft v1
+# Attribution ledger -- draft v2
 
 **Status: DRAFT, not yet placed anywhere permanent.** Posted for review in `damon:general`
 (trustless-ai Telegram group), 2026-08-25, per the split Merlini named: the ledger's **format**
 should be an open commons standard nobody owns (invinoveritas included); **operating** a
 conformant instance of it is a vendor/build lane. This draft is the format half. Comments welcome
-before it moves anywhere -- Merlini is reviewing as a reviewer, not a spec-author.
+before it moves anywhere -- Merlini and Pavlo are reviewing, not co-authoring.
 
 ## Why this exists
 
@@ -12,115 +12,105 @@ The group already does this by hand, in prose, in Damon's v0.3.x companion doc's
 states what someone found/said/built, credits the actor, and names who independently confirmed it.
 That's the right shape -- the problem is it only exists as prose in one document, so nothing else
 (a value-sharing formula, a future audit, a stranger checking a claim) can read it structurally.
-This draft generalizes that shape into a machine-checkable format:
+This draft generalizes that shape into a machine-checkable format.
 
-```
-claim / actor / verified_by / timestamp / surface / type / evidence
-```
+## v2 revision history, honestly (not glossed over)
+
+- **v0**: `claim / actor / verified_by / timestamp / surface / type / evidence`, `surface` as a
+  free-text string, no stable entry identity.
+- **v1**: added `edge-schema.json` -- causal edges (dependency / verified_application /
+  enabling_provenance) between two pieces of work, after Pavlo and Merlini posted that exact
+  requirement while v0 was already being drafted. Caught on a next-pass re-read, not before
+  announcing v0 -- a real process gap, corrected same pass, not defended as-is.
+- **v2** (this version): Pavlo's mechanical-not-prose-only round on v1 -- six specific,
+  correct gaps, all incorporated:
+  1. `verified_application` edges now schema-REQUIRE non-empty `edge_verified_by` and all three
+     causal-evidence fields, via real JSON Schema `if`/`then`, not a description field someone has
+     to read and honor.
+  2. `evidence` objects reject unknown properties (`additionalProperties: false`).
+  3. Ledger entries now carry a deterministic `entry_id` -- content-addressed
+     (`sha256:` + hex(sha256(RFC 8785 JCS bytes of every other field)), the exact same
+     construction this repo already uses for `decision_ref`/`artifact_hash` in
+     `services/proof_signing.py::sign_payload`, reused rather than invented. Edges reference this
+     exact identity instead of a free-form id/commit/hash string.
+  4. `surface` is now a structured object (`{classification, identifier}`) with a closed
+     `classification` enum (`commons` / `vertice_product` / `vendor` / `external`), not free text
+     -- so a value-sharing formula reading `surface` can never conflate a Vertice product surface
+     with a commons repo by inference.
+  5. `counts_toward_vertice_split`'s derivation rule now ALSO requires resolving `target` to its
+     ledger entry and checking `surface.classification == "vertice_product"` -- v1's rule checked
+     `edge_type` and `edge_verified_by` but never actually looked at what the edge's target
+     surface was, which meant a verified_application edge aimed at a non-Vertice surface would
+     have incorrectly counted.
+  6. `verified_by`/`edge_verified_by` array items can now be either a bare name string (v1-
+     compatible) or `{name, evidence_ref}` -- moving toward "evidence-bearing verification refs,
+     not only names," without breaking the simpler form when no separate verification artifact
+     exists yet (Pavlo: "should eventually resolve to..." -- read as directional, not
+     immediately-mandatory, so both forms stay valid).
+
+**A real, honest consequence of tightening the identity model: the one edge example from v1 no
+longer has a valid referent.** v1's `edges.jsonl` had a `dependency` edge with `source_entry`/
+`target` as bare strings ("trustless-ai/agent-ercs (SDK)", "invinoveritas services/
+vantage_resolution.py imports"). Under v2's rule that both ends of an edge must be real,
+independently-verified ledger `entry_id`s, that example is no longer valid -- there was never a
+proper ledger entry on either side of it, just a description. Rather than force a fabricated pair
+of entries into existence to keep an example around, `edges.jsonl` has been removed entirely for
+this version. **No edge example exists in this draft right now, and that's disclosed rather than
+patched over** -- it's a real signal the stricter model is doing its job (forcing real recorded
+entries to exist before an edge can reference them), not a flaw. A real edge example will exist
+once two real ledger entries genuinely on either side of a dependency/application/enabling
+relationship get written -- happy to build that pair for real once a genuine case shows up (e.g.
+if/when a real verified-application edge onto a Vertice surface happens).
 
 ## The rules this format enforces, and why
 
-1. **`verified_by` is required and non-empty.** An entry with nobody independently confirming it
-   is a self-assertion, not a ledger row. "That's not a trust question, it's a recompute question"
-   (Merlini, damon:general 2026-08-25) -- the whole reason this format is worth building at all is
-   that a claim/actor/verified_by/timestamp record can be checked by a stranger without trusting
-   the operator, same reason `/review` verdicts are signed and independently re-verifiable rather
-   than just asserted.
-
-2. **An actor cannot be the sole `verified_by` for their own claim.** Self-verification alone
-   collapses the whole point of the field.
-
-3. **`type` is one of five, each first-class, none requiring a commit:** `find` / `prove` / `audit`
-   / `verify` / `build`. This is the load-bearing correction Pavlo raised and Merlini locked in:
-   discovery, audit, spec-correction, and independent verification are product/commons
-   contributions in full, whether or not the person who did them typed the final commit. `git blame`
-   structurally cannot see the other four -- that's not an oversight in git, it's the wrong tool for
-   the job, which is why this format exists as its own thing rather than as a git convention.
-
-4. **`surface` is explicit, always, never inferred.** This is the field a value-sharing formula
-   reads to answer "was there verified work done ON this specific surface" -- Merlini's own
-   precise boundary: "counts" is triggered by verified work on the surface, never by a product
-   merely depending on or being built with outside work. A commons-repo entry and a named company's
-   product-surface entry are never conflated by guessing from context.
-
-5. **`evidence` must give a stranger something to check, not just a claim.** A commit hash, a URL
-   to a real artifact, a stated recompute procedure, or a content hash -- whichever fits the entry,
-   but at least one, always.
+1. **`entry_id` is deterministic and content-addressed**, not assigned. Same claim recorded twice,
+   byte-identical, necessarily produces the same `entry_id` -- that's intentional signal (a
+   duplicate claim), not a collision bug to guard against.
+2. **`verified_by` is required and non-empty.** An entry with nobody independently confirming it
+   is a self-assertion, not a ledger row.
+3. **An actor cannot be the sole `verified_by` for their own claim.**
+4. **`type` is one of five, each first-class, none requiring a commit:** `find` / `prove` / `audit`
+   / `verify` / `build`.
+5. **`surface` is a structured, closed classification, never inferred or free text.**
+6. **`evidence` must give a stranger something to check, not just a claim** -- and, v2, must state
+   explicitly whether that evidence is actually resolvable by a stranger (`accessibility`), since a
+   real citation behind a private group's access is not equally checkable by everyone.
+7. **Causal edges (`edge-schema.json`) are typed and asymmetric**: `dependency` (recorded, never
+   counts), `verified_application` (the only type that can count, and only onto a
+   `vertice_product`-classified target, schema-enforced), `enabling_provenance` (recorded, the
+   honest reverse-direction case, never sized -- Merlini: "not asking to size that... enabling-
+   into-the-commons gets recorded, not counted").
 
 ## Real examples (`examples.jsonl`)
 
 Four entries, drawn from actual events the same day this draft was written, not fabricated for
-illustration -- all four validate cleanly against `schema.json`:
+illustration -- all four validate cleanly against `schema.json` (including real `entry_id`s
+computed with `services/vantage_resolution.py::encode_jcs`, the same encoder used elsewhere in
+this repo, checked before use, not assumed correct):
 
-- Two `find`/`build` entries from the erc-8309.envelope inventory fix (Merlini found the exact gap,
-  babyblueviper1 built and shipped the fix, each verified by the other).
+- Two `find`/`build` entries from the erc-8309.envelope inventory fix.
 - One `find` entry on a real, live bug (`encode_json_utf8_lf`'s code-point-vs-UTF-16 sort
   divergence), independently reproduced by Merlini before he agreed rather than taken on faith.
-- One `verify` entry from a real cross-project interop exchange with safal207 (Causal-Memory-Layer)
-  on crewAI#4877 -- an independent reproduction of a published `decision_ref` hash, with zero
-  import from either side's code.
+- One `verify` entry from a real cross-project interop exchange with safal207
+  (Causal-Memory-Layer) on crewAI#4877.
 
-**A fifth real case, deliberately left OUT of `examples.jsonl` -- worth naming explicitly, because
-it's the format working as designed, not a gap.** babyblueviper1 posted a reciprocal verification
-back to safal207 on 2026-08-25T16:20:39Z (running his CML fixture through invinoveritas's own JCS
-path, both legs byte-identical) -- a real claim, with real evidence, but as of this draft safal207
-has not yet replied to confirm it. Per rule 1 above, that means it does **not** get a ledger entry
-yet. This is the format doing its job: a claim sits as a claim, visible and evidenced, until an
-independent party actually verifies it -- it does not get counted just because it was made in good
-faith by a track record we trust. The entry gets added the moment a real `verified_by` exists, not
-before.
-
-## v1 update: edges (`edge-schema.json`, `edges.jsonl`)
-
-**A real gap in v0, caught the honest way -- Pavlo and Merlini posted the requirement while v0
-was being drafted, and it was missed on first announcement because the thread wasn't re-checked
-right before posting.** Corrected same pass, not defended as-is.
-
-v0's `schema.json` records ONE claim. It cannot represent what this conversation actually needed:
-a foundation discovery/audit/method *deliberately applied* to a Vertice surface (Pavlo, msg 3343/
-3345), or the reverse -- a Vertice/commercial surface that *enabled* foundation work to exist at
-all (Merlini, msg 3344: "the dinamic.eth scaffolds, the boiler kit, ai.verticecriativo.pt gave the
-opening to build some of it"). Those are causal edges between two pieces of work, not properties
-of a single entry -- Pavlo's own framing: "contribution follows the reproduced causal edge, not
-repository location or commit authorship."
-
-`edge-schema.json` adds exactly that, with the rules specified in-thread kept precise:
-
-- **`edge_type` is a closed enum** (Pavlo's explicit ask): `dependency` | `verified_application` |
-  `enabling_provenance`. Only `verified_application` can ever count toward a Vertice split.
-  `dependency` and `enabling_provenance` are recorded for an honest, bidirectional causal graph
-  and never sized -- Merlini was explicit he's not asking to size the enabling direction, only to
-  keep the record honest that provenance runs both ways.
-- **`counts_toward_vertice_split` is never a stored field.** It's derived: true iff
-  `edge_type == "verified_application"` AND `edge_verified_by` is non-empty AND all three evidence
-  fields below are present. Every other edge_type is unconditionally false. See the schema's own
-  `x-derivation-rule`.
-- **A `verified_application` edge needs three specific evidence refs** (Pavlo, msg 3345, kept
-  close to verbatim): the exact foundation contribution being applied, the exact Vertice surface/
-  feature/release/claim it was applied to, and the independent verifier who reproduced *that
-  causal link* -- not just the original claim, but that the application actually happened and
-  actually caused the target.
-
-One real example in `edges.jsonl` -- a `dependency` edge (invinoveritas using trustless-ai's
-serializer-binding rule; using a rule isn't a verified application of a specific discovery, so it
-stays unsized). **No `verified_application` or `enabling_provenance` example exists yet, and none
-is fabricated here** -- Merlini's dinamic.eth/boiler-kit/ai.verticecriativo.pt case is real but I
-don't have the exact references (which specific foundation work, which specific surface, on what
-date) to construct a real entry rather than an invented-looking one. That's an open item for
-Merlini to fill in with the real specifics if he wants a worked example of his own case.
+**A fifth real case, deliberately left OUT -- worth naming explicitly, because it's the format
+working as designed, not a gap.** babyblueviper1 posted a reciprocal verification back to
+safal207 on 2026-08-25T16:20:39Z (running his CML fixture through invinoveritas's own JCS path,
+both legs byte-identical) -- a real claim, with real evidence, but as of this draft safal207 has
+not yet replied to confirm it. Per rule 2 above, that means it does not get a ledger entry yet.
 
 ## Open questions for review (not resolved by this draft)
 
-- **Where does this live?** Explicitly not decided here -- `$id` in `schema.json` is a placeholder.
-  Likely a trustless-ai org repo, since the whole point is that it isn't owned by invinoveritas or
-  Vertice specifically.
-- **Does `verified_by` need its own evidence field**, or is a name in the array enough (with the
-  underlying verification's own evidence living in a separate entry)? Left simple for v0 -- an
-  entry that verifies another claim can itself be a `type: "verify"` row with its own `evidence`,
-  which is how the safal207 examples above are actually structured, rather than requiring
-  verification evidence to live nested inside the claim it verifies.
+- **Where does this live?** Still explicitly not decided -- `$id` in both schema files stays a
+  placeholder. Likely a trustless-ai org repo, since the whole point is that it isn't owned by
+  invinoveritas or Vertice specifically.
 - **Multi-surface entries** (work that touches both a commons repo and a company's product surface
-  in one PR) aren't modeled -- `surface` is a single string. Worth deciding whether that needs
-  splitting into two entries or a real array field once a real case shows up.
+  in one PR) aren't modeled -- `surface` is a single object, not an array. Worth deciding whether
+  that needs splitting into two entries once a real case shows up.
+- **`verified_by` fully moving to evidence-bearing refs** -- v2 allows but doesn't require the
+  richer `{name, evidence_ref}` form. Whether that should tighten further (require evidence_ref
+  once available, or always) is open.
 - **What operates the reference instance, and where.** Explicitly out of scope for this draft --
   that's the vendor/build lane, a separate conversation once this format itself is settled.

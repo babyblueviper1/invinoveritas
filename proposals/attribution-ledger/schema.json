@@ -2,11 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "TBD -- draft only, not yet placed. Explicitly NOT under api.babyblueviper.com/schema -- the whole point of this format is that it isn't owned by any one party (invinoveritas included). Final $id/home is a group decision once this draft is reviewed, per damon:general 2026-08-25 (Merlini: 'format open, operation vendored').",
   "title": "Attribution ledger entry -- claim / actor / verified-by / timestamp",
-  "description": "Generalizes the pattern already run by hand in Damon's v0.3.x companion doc §13 (each row: what was found/said/built, by whom, confirmed by whom, checked against the record rather than the claim). A ledger entry records ONE unit of attributable work and is only trustworthy once independently reproduced -- an entry with no verified_by is a self-assertion, not a ledger row, and downstream consumers (e.g. a Vertice-surface value-sharing formula) MUST NOT treat unverified entries as counting.",
+  "description": "v2 (2026-08-25, Pavlo's mechanical-not-prose-only round): adds entry_id (deterministic, content-addressed -- same pattern this repo already uses for decision_ref/artifact_hash, see services/proof_signing.py::sign_payload) and a structured surface classification, replacing v1's free-text surface string. Generalizes Damon's own v0.3.x companion doc §13 pattern into a machine-checkable format. Entries are only trustworthy once independently reproduced -- an entry with no verified_by is a self-assertion, not a ledger row.",
   "type": "object",
-  "required": ["claim", "actor", "verified_by", "timestamp", "surface", "type", "evidence"],
+  "required": ["entry_id", "claim", "actor", "verified_by", "timestamp", "surface", "type", "evidence"],
   "additionalProperties": false,
   "properties": {
+    "entry_id": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Deterministic, content-addressed identity -- 'sha256:' + hex(sha256(canonical_bytes)), where canonical_bytes is the RFC 8785 JCS encoding of every OTHER field in this object (claim, actor, verified_by, timestamp, surface, type, evidence), sorted keys, entry_id itself excluded from the preimage to avoid circularity. Same construction this repo already uses for decision_ref/artifact_hash (services/proof_signing.py::sign_payload) -- reused rather than invented, per Pavlo's ask that edges reference an exact identity rather than a free-form id/commit/hash string. Two independently-authored entries with byte-identical content necessarily share an entry_id; that's intentional, not a collision bug -- it means the same claim was recorded twice, which is itself useful signal, not an error to prevent."
+    },
     "claim": {
       "type": "string",
       "minLength": 1,
@@ -19,19 +24,46 @@
     },
     "verified_by": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "oneOf": [
+          {"type": "string", "minLength": 1, "description": "Name only -- v1-compatible, acceptable when no separate verification artifact exists yet."},
+          {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "evidence_ref": {"type": "string", "description": "A URL, commit, or recompute reference for THIS verifier's own confirmation -- distinct from the claim's own `evidence` field, which documents the original claim, not the act of verifying it."}
+            },
+            "description": "Preferred form once a real verification artifact exists (Pavlo's ask: 'verification should eventually resolve to evidence-bearing verification refs, not only names'). Both forms are valid in v2 -- the bare-string form is not deprecated, since not every real verification produces its own separate citable artifact (e.g. a reviewer confirming a claim by reading code directly, with the confirmation itself only recorded as this ledger row)."
+          }
+        ]
+      },
       "minItems": 1,
-      "description": "Who independently reproduced or confirmed the claim -- REQUIRED, non-empty. This is the field that makes an entry a ledger row rather than a self-assertion (the whole point of 'verified-by edge, not claim edge', damon:general 2026-08-25). Can include the actor's own later self-verification ONLY if at least one OTHER party is also listed -- an actor cannot be the sole verified_by for their own claim."
+      "description": "Who independently reproduced or confirmed the claim -- REQUIRED, non-empty. This is the field that makes an entry a ledger row rather than a self-assertion. An actor cannot be the sole verified_by for their own claim -- at least one entry in this array must name someone other than `actor`."
     },
     "timestamp": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 UTC. When the claim was made, not when it was verified (verification timing is implicit in verified_by's own entries if it needs its own row)."
+      "description": "ISO 8601 UTC, an actual event timestamp (Pavlo's ask, v2: tighten examples to real times, not round/approximate ones). When the claim was made, not when it was verified."
     },
     "surface": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Which repo/product/commons area this entry is about -- e.g. 'trustless-ai/recompute-kit', 'vertice/agentmarketescrow', 'trustless-ai-companion-doc'. This is the field a value-sharing formula reads to answer 'was this verified work done ON this specific surface' (damon:general 2026-08-25, Merlini: '\"counts\" has to be triggered by verified work done on the surface'). A commons-repo entry and a named company's product-surface entry are NEVER conflated by inference -- the surface string is explicit, always, no default."
+      "type": "object",
+      "required": ["classification", "identifier"],
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": ["commons", "vertice_product", "vendor", "external"],
+          "description": "Closed enum (Pavlo's ask, v2) so vertice_product/commons/vendor/external can never be conflated by inference. `commons`: a trustless-ai-owned or group-owned surface (e.g. this ledger's own format, agent-ercs, recompute-kit). `vertice_product`: a Vertice-owned product surface (e.g. AgentMarketEscrow). `vendor`: a third-party vendor/build relationship's own surface (e.g. invinoveritas's own repo/product, when the entry is about invinoveritas's own work rather than something done ON a Vertice or commons surface). `external`: any other party's surface entirely (e.g. crewAI, w3c-cg -- real interop work that isn't owned by anyone in this ledger's own group)."
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The specific repo/product/artifact within that classification -- e.g. 'trustless-ai/recompute-kit', 'vertice/agentmarketescrow', 'invinoveritas', 'crewAIInc/crewAI#4877'."
+        }
+      },
+      "description": "Structured, never free text (v2) -- this is the field a value-sharing formula reads to answer 'was this verified work done ON this specific Vertice surface,' and a free-text string left that answerable only by inference, which is exactly the conflation risk Pavlo flagged."
     },
     "type": {
       "type": "string",
@@ -40,11 +72,12 @@
     },
     "evidence": {
       "type": "object",
-      "description": "What makes this entry independently reproducible rather than asserted -- the recompute question, not a trust question (damon:general 2026-08-25: 'that's not a trust question, it's a recompute question'). At least one of the fields below MUST be present; which one depends on the entry's type.",
+      "additionalProperties": false,
+      "description": "What makes this entry independently reproducible rather than asserted. At least one of the fields below MUST be present; which one depends on the entry's type.",
       "properties": {
         "commit": {
           "type": "string",
-          "description": "Git commit SHA, when the contribution has one. Absent for pure discovery/audit/verification work that never touched a diff -- absence here is NOT a gap, it's the exact case this ledger exists to make first-class (git-shaped where a commit exists, not where one doesn't)."
+          "description": "Full immutable commit SHA (not abbreviated -- Pavlo's ask, v2), when the contribution has one. Absent for pure discovery/audit/verification work that never touched a diff -- absence here is NOT a gap, it's the exact case this ledger exists to make first-class."
         },
         "url": {
           "type": "string",
@@ -58,6 +91,11 @@
         "hash": {
           "type": "string",
           "description": "A content hash the claim can be checked against, when applicable (e.g. a vectors file's own sha256)."
+        },
+        "accessibility": {
+          "type": "string",
+          "enum": ["publicly_resolvable", "requires_group_access", "not_independently_resolvable"],
+          "description": "Explicit classification of whether a stranger can actually open/check the evidence above (Pavlo's ask, v2) -- a URL behind a private group's access, or a reference to a conversation with no public record, is real evidence but not equally checkable by everyone, and that distinction should be stated rather than left to be discovered."
         }
       },
       "minProperties": 1
