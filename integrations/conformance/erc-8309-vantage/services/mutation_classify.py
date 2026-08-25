@@ -104,3 +104,35 @@ def tally(results: list, total_mutants: int) -> dict:
             f"mutant tally {counts} sums to {total}, expected {total_mutants}. A mutant is in a "
             f"state nobody named -- fix the classifier rather than the count.")
     return counts
+
+
+def summarize(counts: dict) -> dict:
+    """The SERIALIZED summary, derived from the four independent counts and nothing else.
+
+    WHY THIS IS A FUNCTION RATHER THAN A DICT LITERAL IN EACH GATE (2026-08-25, found by Merlini
+    on a clean clone of public main c97e3fc2). Both gates hand-built their own summary as
+
+        {"applied": applied, "killed": killed, "survived": applied - killed, "not_applied": ...}
+
+    which dropped VACUOUS entirely and derived survived by SUBTRACTION -- the exact collapse this
+    round removed, inside the artifact built to close it, duplicated identically in two files. It
+    read correct only because vacuous == 0; one vacuous mutant and the summary said "survived: 1"
+    while tally() correctly held VACUOUS:1, SURVIVED:0, and the console printed "SURVIVING mutants
+    are normative MUSTs with no enforcing vector -- real gaps" for a mutant that proved nothing.
+
+    Two copies of a rule is two chances to break it. The counting was never wrong -- the
+    SERIALIZATION was -- so the fix is to make the serialized form a function of the counts, in one
+    place, with a test. `applied_derived` is named for what it is: every other number is counted.
+    """
+    for s in STATES:
+        if s not in counts:
+            raise AssertionError(
+                f"summary is missing state {s!r}. A state that is not serialized cannot be read, "
+                f"and an unread state is how a vacuous mutant passes for a survivor.")
+    return {
+        KILLED.lower(): counts[KILLED],
+        SURVIVED.lower(): counts[SURVIVED],
+        VACUOUS.lower(): counts[VACUOUS],
+        NOT_APPLIED.lower(): counts[NOT_APPLIED],
+        "applied_derived": counts[KILLED] + counts[SURVIVED] + counts[VACUOUS],
+    }

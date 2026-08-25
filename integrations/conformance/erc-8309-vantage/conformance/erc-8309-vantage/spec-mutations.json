@@ -145,7 +145,7 @@
       "must": "\"not found\" without an inspected-set commitment is nonconformant",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.11s"
+      "suite_result": "1 failed, 44 passed in 0.12s"
     },
     {
       "clause": "\u00a75 V2",
@@ -165,7 +165,7 @@
       "must": "V2 is a digest over the SORTED signatures -- a set commitment, never ingest-order dependent",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.11s"
+      "suite_result": "1 failed, 44 passed in 0.12s"
     },
     {
       "clause": "\u00a73",
@@ -205,7 +205,7 @@
       "must": "no false green: a failed/auto resolution MUST NOT surface as agreement",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.11s"
+      "suite_result": "1 failed, 44 passed in 0.12s"
     },
     {
       "clause": "\u00a74.2",
@@ -247,7 +247,7 @@
       "must": "no evaluation carries finality unless the profile declares a finality rule",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.12s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a76a",
@@ -267,7 +267,7 @@
       "must": "supersession neither rewrites nor invalidates the superseded claim",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 44 passed in 0.12s"
+      "suite_result": "1 failed, 44 passed in 0.11s"
     },
     {
       "clause": "\u00a76 Q2",
@@ -337,9 +337,10 @@
   "schema": "erc-8309-vantage-authority-companion/spec-mutations",
   "spec_version": "0.3.3",
   "summary": {
-    "applied": 16,
+    "applied_derived": 16,
     "killed": 16,
     "not_applied": 0,
-    "survived": 0
+    "survived": 0,
+    "vacuous": 0
   }
 }

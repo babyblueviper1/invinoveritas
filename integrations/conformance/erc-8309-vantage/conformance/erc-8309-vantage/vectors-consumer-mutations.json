@@ -107,10 +107,11 @@
   "schema": "erc-8309-vantage-authority-companion/vectors-consumer-mutations",
   "spec_version": "0.3.3",
   "summary": {
-    "applied": 4,
+    "applied_derived": 4,
     "killed": 4,
     "not_applied": 0,
-    "survived": 0
+    "survived": 0,
+    "vacuous": 0
   },
   "surface": {
     "conformance_suite": "tests/test_vantage_vectors_consumer.py",

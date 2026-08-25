@@ -202,8 +202,9 @@ def main() -> int:
                 "wrong way'. Discharged by the definition-derived leg existing and being "
                 "independently reproducible, scoped to v0.1's demonstration object only.",
         },
-        "summary": {"applied": applied, "killed": killed, "survived": applied - killed,
-                    "not_applied": len(results) - applied},
+        # Serialized from the four independent counts, never hand-built here -- see
+        # mutation_classify.summarize() for what this used to be and why it was wrong on BOTH gates.
+        "summary": mc.summarize(counts),
         # Reported in Pavlo's exact two-part form. The wrong-serializer obligation has TWO halves
         # and only one is discharged; collapsing them into "done" is the same digit-collapse that
         # made 16/16 read as coverage it did not have, one level down.
@@ -251,8 +252,12 @@ def main() -> int:
         f.write("\n")
     if not json_only:
         print(f"\n  {killed}/{applied} KILLED -> {os.path.relpath(OUT, ROOT)}")
-        if applied - killed:
+        # Survived and vacuous mean opposite things -- see the note in vantage_spec_mutations.py.
+        if counts[mc.SURVIVED]:
             print("  SURVIVING mutants are normative MUSTs with no enforcing vector -- real gaps.")
+        if counts[mc.VACUOUS]:
+            print(f"  {counts[mc.VACUOUS]} VACUOUS mutant(s): the claim was never evaluated "
+                  f"(broken file / collection / setup). NOT a kill and NOT a gap -- fix the mutant.")
     return 0 if killed == applied == len(MUTANTS) else 1
 
 

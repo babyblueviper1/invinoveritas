@@ -122,3 +122,37 @@ def test_vacuous_is_its_own_state_never_folded_into_survived():
     assert mc.VACUOUS in mc.STATES and mc.SURVIVED in mc.STATES
     assert mc.VACUOUS != mc.SURVIVED
     assert len(set(mc.STATES)) == 4
+
+
+def test_summary_serializes_all_four_states_never_derives_survived():
+    """The COUNTING was never wrong -- the SERIALIZATION was.
+
+    Found by Merlini on a clean clone of public main c97e3fc2 (2026-08-25): both gates hand-built
+    their JSON summary as {"applied", "killed", "survived": applied - killed, "not_applied"}, which
+    dropped VACUOUS and derived survived by subtraction. It read correct only because vacuous == 0.
+    This is the regression test whose absence let a sound tally() ship behind an unsound summary.
+    """
+    counts = mc.tally(
+        [{"status": mc.KILLED}, {"status": mc.VACUOUS}, {"status": mc.NOT_APPLIED}], 3)
+    s = mc.summarize(counts)
+
+    # The old formula's exact failure: applied - killed == 1 would have said "survived: 1" for a
+    # mutant that proved nothing, while reporting no vacuous count at all.
+    assert s["vacuous"] == 1, "VACUOUS must be serialized, not silently absorbed"
+    assert s["survived"] == 0, "a vacuous mutant is NOT a survivor -- it proved nothing"
+    assert s["killed"] == 1 and s["not_applied"] == 1
+
+    # Every state tally() knows how to count must survive into the serialized form. A state that is
+    # not serialized cannot be read, and an unread state is how a vacuous mutant passes for a gap.
+    for state in mc.STATES:
+        assert state.lower() in s, f"state {state} counted but not serialized"
+
+
+def test_summary_refuses_counts_missing_a_state():
+    """Fail closed on an incomplete tally rather than emitting a summary with a silent hole."""
+    try:
+        mc.summarize({mc.KILLED: 1, mc.SURVIVED: 0, mc.NOT_APPLIED: 0})  # VACUOUS absent
+    except AssertionError as e:
+        assert "VACUOUS" in str(e)
+    else:
+        raise AssertionError("summarize accepted counts with a missing state")

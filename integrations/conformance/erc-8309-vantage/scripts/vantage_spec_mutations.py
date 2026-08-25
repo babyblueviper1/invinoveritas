@@ -307,9 +307,9 @@ def main() -> int:
         "implementation_under_test": "services/vantage_resolution.py",
         "conformance_suite": "tests/test_vantage_resolution.py",
         "declared_expectation": "conformant",
-        "summary": {"applied": applied, "killed": killed,
-                    "survived": applied - killed,
-                    "not_applied": len(results) - applied},
+        # Serialized from the four independent counts, never hand-built here -- see
+        # mutation_classify.summarize() for what this used to be and why it was wrong on BOTH gates.
+        "summary": mc.summarize(counts),
         "mutants": results,
     }
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -318,8 +318,15 @@ def main() -> int:
         f.write("\n")
     if not json_only:
         print(f"\n  {killed}/{applied} KILLED -> {os.path.relpath(OUT, ROOT)}")
-        if applied - killed:
+        # Branch survived vs vacuous: they mean OPPOSITE things. A survivor is a real coverage gap
+        # (a normative MUST nothing enforces); a vacuous mutant proved nothing at all and the gate
+        # learned nothing from it. Printing the survivor message for a vacuous mutant would report
+        # a gap that does not exist while hiding one that does.
+        if counts[mc.SURVIVED]:
             print("  SURVIVING mutants are normative MUSTs with no enforcing vector -- real gaps.")
+        if counts[mc.VACUOUS]:
+            print(f"  {counts[mc.VACUOUS]} VACUOUS mutant(s): the claim was never evaluated "
+                  f"(broken file / collection / setup). NOT a kill and NOT a gap -- fix the mutant.")
     return 0 if killed == applied and applied == len(MUTANTS) else 1
 
 
