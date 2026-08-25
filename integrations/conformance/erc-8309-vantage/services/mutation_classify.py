@@ -13,9 +13,13 @@ Every rung exists because of a specific way the previous version was wrong:
 VACUOUS is its own state, never folded into SURVIVED. "The mutation proved nothing" and "the
 suite failed to catch it" are different facts about different things, and collapsing them is the
 same digit-collapse that made 16/16 read as coverage it did not have. Discovered the hard way:
-M6 was recorded KILLED for a week because its replacement string emitted a real newline into a
-bytes literal (re.sub processes escapes in the replacement), producing a SyntaxError -- pytest
-reported a collection error, the gate saw not-green, and scored a kill. The mutant never tested
+M6 was recorded KILLED for 22.5 hours because its replacement string emitted a real newline into
+a bytes literal (re.sub processes escapes in the replacement), producing a SyntaxError -- pytest
+reported a collection error, the gate saw not-green, and scored a kill.
+(This line said "for a week" until 2026-08-25. It was 22.5 hours. I wrote the original from
+impression rather than from the timestamps, and the exaggeration ran in the direction that made
+the find sound better -- the same failure this whole round is about, in the file explaining it.
+Corrected here after correcting it publicly rather than quietly dropping the number.) The mutant never tested
 the trailing-byte claim. It broke the file.
 
 MAPPED TESTS, not any test (Pavlo). A call-phase failure anywhere in the suite can certify a MUST

@@ -220,24 +220,6 @@ def run_suite(workdir: str) -> tuple[bool, str]:
     return p.returncode == 0, out.strip().splitlines()[-1] if out.strip() else ""
 
 
-def _red_is_a_real_failure(tail: str) -> bool:
-    """A mutant counts as KILLED only if a test ASSERTED its way to red.
-
-    Found 2026-08-24 by Pavlo, who noticed M6 was recorded as "1 error" rather than "1 failed" and
-    asked whether the red was actually caused by the violation. It was not. M6's replacement string
-    contained a backslash-n, and re.sub PROCESSES ESCAPES IN THE REPLACEMENT -- so it emitted a real
-    newline into the middle of a bytes literal, producing an unterminated string and a SyntaxError.
-    pytest reported a collection error, the gate saw not-green, and counted it KILLED. The mutant
-    never tested the JCS trailing-byte claim; it broke the file.
-
-    That is the vacuous-digest defect of §9 one level up, inside the gate whose whole job is to
-    prove tests are load-bearing: ANY mutation that fails to parse kills every mutant trivially, so
-    a gate that accepts an error as a kill can report 100% while testing nothing. The fix is
-    structural rather than M6-specific -- every mutant now has to earn its red the same way.
-    """
-    return "failed" in tail
-
-
 def main() -> int:
     json_only = "--json-only" in sys.argv
     original = open(SRC).read()
