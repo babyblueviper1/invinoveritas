@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "TBD -- draft only, not yet placed. Explicitly NOT under api.babyblueviper.com/schema -- the whole point of this format is that it isn't owned by any one party (invinoveritas included). Final $id/home is a group decision once this draft is reviewed, per damon:general 2026-08-25 (Merlini: 'format open, operation vendored').",
+  "title": "Attribution ledger entry -- claim / actor / verified-by / timestamp",
+  "description": "Generalizes the pattern already run by hand in Damon's v0.3.x companion doc §13 (each row: what was found/said/built, by whom, confirmed by whom, checked against the record rather than the claim). A ledger entry records ONE unit of attributable work and is only trustworthy once independently reproduced -- an entry with no verified_by is a self-assertion, not a ledger row, and downstream consumers (e.g. a Vertice-surface value-sharing formula) MUST NOT treat unverified entries as counting.",
+  "type": "object",
+  "required": ["claim", "actor", "verified_by", "timestamp", "surface", "type", "evidence"],
+  "additionalProperties": false,
+  "properties": {
+    "claim": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What was found, proved, audited, verified, or built -- in enough detail that a stranger reading only this field understands the unit of work without following a link. Not a summary of a conversation; a statement of the specific contribution."
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Who did the work this entry claims. A stable handle (GitHub username, group-known name), not a display name that can drift. The person credited here did NOT necessarily type a commit -- see `type`."
+    },
+    "verified_by": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1,
+      "description": "Who independently reproduced or confirmed the claim -- REQUIRED, non-empty. This is the field that makes an entry a ledger row rather than a self-assertion (the whole point of 'verified-by edge, not claim edge', damon:general 2026-08-25). Can include the actor's own later self-verification ONLY if at least one OTHER party is also listed -- an actor cannot be the sole verified_by for their own claim."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC. When the claim was made, not when it was verified (verification timing is implicit in verified_by's own entries if it needs its own row)."
+    },
+    "surface": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Which repo/product/commons area this entry is about -- e.g. 'trustless-ai/recompute-kit', 'vertice/agentmarketescrow', 'trustless-ai-companion-doc'. This is the field a value-sharing formula reads to answer 'was this verified work done ON this specific surface' (damon:general 2026-08-25, Merlini: '\"counts\" has to be triggered by verified work done on the surface'). A commons-repo entry and a named company's product-surface entry are NEVER conflated by inference -- the surface string is explicit, always, no default."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["find", "prove", "audit", "verify", "build"],
+      "description": "The five contribution types named explicitly in damon:general 2026-08-25 (Pavlo/Merlini), each first-class regardless of whether it produced a commit. 'find' = discovered a gap/bug/defect. 'prove' = constructed a demonstration or proof the claim holds. 'audit' = reviewed existing work against a spec/claim. 'verify' = independently reproduced someone else's result. 'build' = implemented/shipped the artifact itself (the only type that typically has a `commit` field)."
+    },
+    "evidence": {
+      "type": "object",
+      "description": "What makes this entry independently reproducible rather than asserted -- the recompute question, not a trust question (damon:general 2026-08-25: 'that's not a trust question, it's a recompute question'). At least one of the fields below MUST be present; which one depends on the entry's type.",
+      "properties": {
+        "commit": {
+          "type": "string",
+          "description": "Git commit SHA, when the contribution has one. Absent for pure discovery/audit/verification work that never touched a diff -- absence here is NOT a gap, it's the exact case this ledger exists to make first-class (git-shaped where a commit exists, not where one doesn't)."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "A PR, issue comment, or published artifact URL a third party can open and check directly."
+        },
+        "recompute": {
+          "type": "string",
+          "description": "A stated procedure (or reference to one) that lets a stranger reproduce the claim independently -- e.g. 'recompute sha256 over the JCS-canonicalized preimage, compare to the published digest'."
+        },
+        "hash": {
+          "type": "string",
+          "description": "A content hash the claim can be checked against, when applicable (e.g. a vectors file's own sha256)."
+        }
+      },
+      "minProperties": 1
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional. Context that doesn't belong in `claim` itself -- e.g. a correction to an earlier entry, a caveat on scope."
+    }
+  }
+}
