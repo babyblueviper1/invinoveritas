@@ -198,6 +198,8 @@ Registry/distribution assets:
 - Flowise npm package: `flowise-invinoveritas@0.7.0`
 - ADK integration: short-term guide + example shipped at [`integrations/adk/`](integrations/adk/) (client, ADK Tool wrapping pattern, working quickstart that registers → checks balance → picks a marketplace offer via paid `/reason`). Medium-term: official `invinoveritas` ADK Tool/Skill package for one-line install + spend caps + L402 fallback.
 - Vercel AI SDK `toolApproval` reference: [`integrations/vercel-ai-sdk/`](integrations/vercel-ai-sdk/) — a `toolApproval` function composing an independent `/review` verdict as a complement to `@ai-sdk/policy-opa`'s deterministic Rego policy (OPA for hard rules, `/review` for the judgment-call cases OPA can't resolve). Live-verified against the real API, not mocked.
+- LlamaIndex human-in-the-loop reference: [`integrations/llamaindex/`](integrations/llamaindex/) — `review_gate.py` auto-approves on a clean high-confidence `/review` verdict and escalates via LlamaIndex's own `InputRequiredEvent`/`HumanResponseEvent` pair only when uncertain. Both branches live-verified against the real API.
+- smolagents pre-execution gate: [`integrations/smolagents/`](integrations/smolagents/) — `GovernedToolCallingAgent` overrides `execute_tool_call` to gate every tool call on an independent `/review` verdict before it runs, raising `ReviewBlocked` on a confident reject. Live-verified, fail-open/fail-closed behavior both confirmed.
 
 Attribution: external listings should link to source-tagged registration URLs such as `https://api.babyblueviper.com/register?src=mcp_registry` or send `X-Invino-Integration` on `/register` and `/topup`. `/stats.acquisition` reports 7-day registrations, settled top-ups, and funded sats by source.
 
