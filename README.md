@@ -1,6 +1,7 @@
-# invinoveritas v1.12.1
+# invinoveritas v1.13.0
 
 [![invinoveritas conformance](https://img.shields.io/endpoint?url=https://api.babyblueviper.com/badge/conformance/invinoveritas.json)](https://api.babyblueviper.com/conformance)
+[![MCP Queen operational grade](https://mcpqueen.com/badge/com.babyblueviper/invinoveritas.svg)](https://mcpqueen.com/s/com.babyblueviper/invinoveritas)
 
 The pre-trade review your autonomous trading agent calls before it risks real capital — the same gate we run our own important decisions through.
 
@@ -97,7 +98,14 @@ curl -s -X POST https://api.babyblueviper.com/review \
   -d '{"artifact":"rm -rf /var/data/prod --no-preserve-root","artifact_type":"shell_command"}'
 ```
 
-Returns a verdict (`approve` / `approve_with_concerns` / `reject`) plus a signed, independently-recomputable proof — verify it yourself, no trust required, at `/verify-proof` or offline via `pip install invinoveritas-verify`. Swap `artifact_type` for `trade`, `onchain_action`, `code_diff`, `plan`, or leave it as `general` — same call shape for anything you're about to do that you can't undo.
+Returns a verdict (`approve` / `approve_with_concerns` / `reject`) plus a signed, independently-recomputable proof — verify it yourself, no trust required, at `/verify-proof` or offline via `pip install invinoveritas-verify`. Swap `artifact_type` for `trade`, `onchain_action`, `code_diff`, `plan`, or leave it as `general` — same call shape for anything you're about to do that you can't undo. A self-building known-bad-address registry (`GET /review/known-bad`, free, no auth) forces a byte-reproducible reject on any address a prior real verdict already rejected — deterministic, independent of the judgment model, not an LLM call end to end.
+
+**Choose your own privacy/evidentiary tradeoff with `confidentiality_tier`** (optional, only meaningful with `sign=true` — different tiers carry different legal weight, since "provably checkable by a third party" and "content never disclosed" pull in opposite directions):
+- `hash_only` (default, unchanged from every prior policy version) — the signed proof carries only `artifact_hash`, your content is never disclosed anywhere. Strongest privacy; weakest standalone evidentiary value (a skeptic with no independent copy of your content can only confirm "this hash got this verdict," not what the hash corresponds to, without your own later cooperation).
+- `partial_disclosure` — pass `disclosed_summary` (a real, human-readable description you choose to make public), bound cryptographically into `decision_ref` so it can't be swapped after issuance. A third party gets real checkable context without needing your cooperation, short of full content exposure.
+- `full_disclosure` — sets `full_disclosure_requested: true` in the proof, recording your intent to have this verdict published to the public `/ledger` track record — the strongest evidentiary tier (independently verifiable with zero cooperation from us or you). Honest scope: this records the request; actual `/ledger` publication is still a separate, curated step on our side, not yet self-serve.
+
+A fourth tier — a formal ZK proof that the underlying policy ran correctly without revealing the policy *or* the content at all — is real, deliberate future work tied to [ERC-8354 (Confidential Agent Policy Verdicts)](https://ethereum-magicians.org/t/erc-8354-confidential-agent-policy-verdicts/29088), not yet built. Tiers 1–3 aren't superseded by it: `full_disclosure` (max transparency) and a future ZK tier (max privacy) sit at opposite ends of the same spectrum, not a ladder — which one a caller wants depends on whether they're trying to build public trust or protect proprietary content, not which is "better."
 
 For general reasoning instead:
 
@@ -190,8 +198,6 @@ Registry/distribution assets:
 - Flowise npm package: `flowise-invinoveritas@0.7.0`
 - ADK integration: short-term guide + example shipped at [`integrations/adk/`](integrations/adk/) (client, ADK Tool wrapping pattern, working quickstart that registers → checks balance → picks a marketplace offer via paid `/reason`). Medium-term: official `invinoveritas` ADK Tool/Skill package for one-line install + spend caps + L402 fallback.
 - Vercel AI SDK `toolApproval` reference: [`integrations/vercel-ai-sdk/`](integrations/vercel-ai-sdk/) — a `toolApproval` function composing an independent `/review` verdict as a complement to `@ai-sdk/policy-opa`'s deterministic Rego policy (OPA for hard rules, `/review` for the judgment-call cases OPA can't resolve). Live-verified against the real API, not mocked.
-- LlamaIndex human-in-the-loop reference: [`integrations/llamaindex/`](integrations/llamaindex/) — `review_gate.py` auto-approves on a clean high-confidence `/review` verdict and escalates via LlamaIndex's own `InputRequiredEvent`/`HumanResponseEvent` pair only when uncertain. Both branches live-verified against the real API.
-- smolagents pre-execution gate: [`integrations/smolagents/`](integrations/smolagents/) — `GovernedToolCallingAgent` overrides `execute_tool_call` to gate every tool call on an independent `/review` verdict before it runs, raising `ReviewBlocked` on a confident reject. Live-verified, fail-open/fail-closed behavior both confirmed.
 
 Attribution: external listings should link to source-tagged registration URLs such as `https://api.babyblueviper.com/register?src=mcp_registry` or send `X-Invino-Integration` on `/register` and `/topup`. `/stats.acquisition` reports 7-day registrations, settled top-ups, and funded sats by source.
 
@@ -245,7 +251,7 @@ Discovery endpoints:
 | `POST /reason` | Paid or free-allowance reasoning |
 | `POST /decision` | Paid or free-allowance structured decision |
 | `POST /memory/store` | Persistent memory |
-| `POST /review` | **The front door** — capital-scale-aware verdict before an irreversible action; `sign=true` returns a portable signed proof |
+| `POST /review` | **The front door** — capital-scale-aware verdict before an irreversible action; `sign=true` returns a portable signed proof; `confidentiality_tier` (`hash_only` default / `partial_disclosure` / `full_disclosure`) chooses the privacy-vs-evidentiary tradeoff |
 | `POST /verify-proof` | Free, no-auth — verify a counterparty's signed proof (agent-to-agent trust handshake) |
 | `GET /ledger` | Free — the public, signed, on-chain-outcome-linked verdict track record |
 | `POST /ledger/submit` | 150 sats — propose your own `/review(sign=true)` proof as a featured public ledger entry; publishes immediately, no human review (the cryptographic check against our own key IS the gate); same Nostr relay broadcast + Bitcoin OpenTimestamps anchor (~15 min) as every other entry |
