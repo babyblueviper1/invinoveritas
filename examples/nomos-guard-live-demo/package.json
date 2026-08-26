@@ -1,0 +1,9 @@
+{
+  "name": "nomos-guard-live-demo",
+  "private": true,
+  "description": "Live demonstration of Allan Sendagi's published nomos-guard MCP policy gateway actually intercepting real tool calls -- the still-open half of the Article-12 mediation-guard BUILD_QUEUE item (our own standalone SPEC-002 Phase-5 reproduction was shipped 2026-08-18; this closes the other half using his real, hosted, production engine directly, no fixture replay needed).",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "nomos-guard": "^1.0.0"
+  }
+}
