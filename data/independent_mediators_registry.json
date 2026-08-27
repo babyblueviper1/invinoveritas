@@ -1,0 +1,11 @@
+{
+  "_doc": "Public independent-mediator registry. Keyed by stable NON-SECRET mediator_id. Used by services/proof_signing.py to elevate source_class to independent_mediator when the calling Bearer key maps to one of these ids (mapping lives in the gitignored data/independent_mediators_keys.json). Registration is a manual, human-verified trust decision (distinct infrastructure, distinct calling IP/client, a real product with its own runtime gate), NOT a caller-supplied flag. Git history of THIS file is the as-of record a verifier can check against registry_snapshot_sha256. Never put an api_key or Bearer token in this file.",
+  "osuite": {
+    "mediator_id": "osuite",
+    "name": "OSuite",
+    "contact": "jw_ond (X, Telegram)",
+    "registered_at": "2026-07-18",
+    "evidence": "Real live integration account (label 'osuite-checkpoint', created 2026-07-13, 17 calls). Verified 2026-07-18 that calls genuinely originate from OSuite's own infrastructure, not ours: nginx access log shows the most recent /review call (2026-07-18T08:45:49Z) from IP 104.43.193.12 (Microsoft Azure, Des Moines datacenter -- confirmed distinct from this VPS's own provider), User-Agent 'node' (a real backend client, not this fleet's own Python-based scripts). platform_revenue_ledger's 'internal' classification on these calls is a FUNDING axis, not a caller-identity axis (this account was credited a 30,000-sat prototyping grant rather than paying with real deposited sats -- confirmed via core/auth.py's classification logic: managed=False for this api_key/agent_id on every current check, classification only stayed 'internal' because treasury_amount was 0, unrelated to who is calling). OSuite's own public product claim (action envelope reviewed by OSuite before execution, binding approval to an action fingerprint) matches the structural bar: an independent runtime sitting between the agent and execution, not something the reviewed agent controls.",
+    "public_claim_source": "https://x.com/jw_ond/status/2078409858651721850"
+  }
+}

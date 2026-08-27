@@ -30,7 +30,13 @@ Thumbs.db
 .vscode/
 
 # Runtime data — never commit, ever
-data/
+data/*
+# Exception: explicitly public, non-secret registries meant to be independently checkable
+# (git history IS the as-of audit trail a verifier checks a content hash against — see the
+# file's own _doc field). Never add a broad data/ carve-out here, one file at a time only.
+# (git ignores a file inside an excluded directory even if negated below the parent pattern
+# unless the parent uses data/* rather than data/ -- that's why this changed from data/.)
+!data/independent_mediators_registry.json
 *.db
 *.db-journal
 *.db-wal
