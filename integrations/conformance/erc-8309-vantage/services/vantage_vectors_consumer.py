@@ -51,7 +51,7 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from vantage_resolution import SERIALIZER_BINDINGS, encode_for  # noqa: E402
+from vantage_resolution import SERIALIZER_BINDINGS, _ENCODERS, encode_for  # noqa: E402
 
 
 class VectorRejected(Exception):
@@ -135,6 +135,27 @@ def _require_wrong_serializer_rejected(binding_set: dict) -> None:
     Earned, not asserted: the conforming bytes are recomputed under the BOUND serializer from the
     demonstration object and compared. A set whose failure_digest equals the conforming digest is
     not adversarial at all.
+
+    UPGRADED 2026-08-26 (the LF byte-contract landed in trustless-ai/recompute-kit's
+    encode-json-utf8-lf.v0, closing the block this offer -- msg 3233 -- had been waiting on).
+    Before this, "differs from the conforming digest" was the entire test, and an arbitrary bogus
+    value (the test suite's own placeholder was 64 zero-hex-chars) passed it -- adversarial-LOOKING,
+    not adversarial. Now the OTHER serializer in _ENCODERS is recomputed from the SAME
+    demonstration_object and failure_digest must equal THAT, not merely differ from conforming.
+    This proves failure_digest is genuinely the wrong-serializer's real output on this object,
+    not an arbitrary distinguishable value.
+
+    HONEST SCOPE LIMIT, disclosed rather than silently assumed away: `encode_json_utf8_lf` in
+    vantage_resolution.py is the simplified, Python-native local form (sort_keys + compact
+    separators + trailing LF via json.dumps) -- it is byte-identical to the full
+    encode-json-utf8-lf.v0 byte-exact domain contract (ECMAScript number rendering, UTF-16
+    surrogate-safe key ordering, negative-zero/out-of-range domain errors) for ordinary
+    demonstration objects (plain nested dict/str/int/bool/null, no floats needing ECMAScript-
+    specific rendering, no non-ASCII keys needing UTF-16 sort), but this function does NOT
+    independently re-derive it via the landed v0 reference encoder's abstract-value model
+    (ObjectValue/F64Value/IntegerValue) -- that would need a plain-JSON adapter this module does
+    not yet have. A demonstration_object that exercises one of the v0 domain's edge cases would
+    not be caught by this upgrade specifically; it would still need the full adapter.
     """
     schema = binding_set.get("schema")
     bound = SERIALIZER_BINDINGS.get(schema)
@@ -159,11 +180,33 @@ def _require_wrong_serializer_rejected(binding_set: dict) -> None:
             "wrong-serializer-digest-REJECTED",
             "no failure_digest present; the set cannot demonstrate that a wrong-serializer digest "
             "is distinguishable from the conforming one.")
-    if str(failure).lower().removeprefix("sha256:") == conforming:
+    failure_norm = str(failure).lower().removeprefix("sha256:")
+    if failure_norm == conforming:
+        # Distinct clause name from the equality check below, on purpose (found via this
+        # module's own mutation gate, 2026-08-26): both checks used to raise the same clause
+        # string, so disabling EITHER one individually left the other still catching this
+        # specific test input and the mutant SURVIVED -- a real coverage collapse the gate itself
+        # caught, the same class of defect this whole module exists to prevent one level up.
         raise VectorRejected(
-            "wrong-serializer-digest-REJECTED",
+            "failure-equals-conforming-digest",
             "failure_digest EQUALS the digest recomputed under the bound serializer. The set is "
             "not adversarial: it would accept wrong-serializer bytes as conforming.")
+
+    other_names = [name for name in _ENCODERS if name != bound]
+    if len(other_names) != 1:
+        raise VectorRejected(
+            "no-default-serializer",
+            f"expected exactly one alternate serializer besides {bound!r} in the registry, found "
+            f"{other_names!r} -- the equality check needs a single unambiguous wrong serializer.")
+    wrong_serializer = _ENCODERS[other_names[0]](obj)
+    wrong_digest = hashlib.sha256(wrong_serializer).hexdigest()
+    if failure_norm != wrong_digest:
+        raise VectorRejected(
+            "wrong-serializer-digest-REJECTED",
+            f"failure_digest does not equal the real {other_names[0]!r} digest of this "
+            f"demonstration_object (recomputed sha256:{wrong_digest}). A digest that merely "
+            f"differs from conforming is not earned -- it must BE the actual wrong-serializer "
+            f"output, or the vector proves nothing about which serializer was used.")
 
     declared = binding_set.get("conforming_digest")
     if declared is not None and str(declared).lower().removeprefix("sha256:") != conforming:

@@ -54,7 +54,7 @@ MUTANTS = [
 
     ("V3-wrong-serializer-digest-accepted", "§5 / §9",
      "a digest produced under the unbound serializer MUST be rejected",
-     r'    if str\(failure\)\.lower\(\)\.removeprefix\("sha256:"\) == conforming:',
+     r'    if failure_norm == conforming:',
      "    if False:"),
 
     # Not one of the three, but the collapse Pavlo specifically warned about: if the inventory
@@ -64,6 +64,17 @@ MUTANTS = [
      "'needs a conforming set' and 'no denominator yet' MUST stay distinct states",
      r'            inventory\[schema\] = "needs a conforming set"',
      '            inventory[schema] = "no denominator yet"'),
+
+    # Added 2026-08-26 once the LF byte-contract landed (trustless-ai/recompute-kit's
+    # encode-json-utf8-lf.v0) and the equality check below became buildable, closing the "we
+    # offered this publicly" gap on msg 3233. V3 above only guards "failure_digest must not equal
+    # the conforming digest" -- it says nothing about whether failure_digest is the REAL
+    # wrong-serializer output versus an arbitrary distinguishable value. This mutant disables that
+    # separate, later guard specifically.
+    ("V5-wrong-serializer-digest-not-earned", "§5 / §9 (LF-contract upgrade)",
+     "failure_digest MUST equal the real alternate-serializer digest, not merely differ from conforming",
+     r'    if failure_norm != wrong_digest:\n        raise VectorRejected\(',
+     '    if False:\n        raise VectorRejected('),
 ]
 
 
@@ -75,6 +86,7 @@ EXPECTED_KILL_TESTS = {
     'V2-adversarial-pair-optional': ['test_non_list_vectors_field_is_rejected_as_a_missing_pair'],
     'V3-wrong-serializer-digest-accepted': ['test_failure_digest_equal_to_the_conforming_one_is_rejected'],
     'V4-inventory-state-collapse': ['test_a_failing_set_reads_as_needs_one_not_as_absent'],
+    'V5-wrong-serializer-digest-not-earned': ['test_a_merely_different_digest_is_no_longer_sufficient'],
 }
 
 

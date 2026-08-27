@@ -20,7 +20,7 @@ SERVICES = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "servic
 if SERVICES not in sys.path:
     sys.path.insert(0, SERVICES)
 
-from vantage_resolution import SERIALIZER_BINDINGS, encode_for  # noqa: E402
+from vantage_resolution import SERIALIZER_BINDINGS, encode_json_utf8_lf, encode_for  # noqa: E402
 from vantage_vectors_consumer import (  # noqa: E402
     check_binding_set, golden_set_inventory,
 )
@@ -35,12 +35,20 @@ def _conforming_digest():
     return hashlib.sha256(encode_for(SCHEMA, DEMO)).hexdigest()
 
 
+def _real_wrong_serializer_digest():
+    # SCHEMA is bound to rfc8785-jcs (encode_for); the ONE other registered serializer is
+    # encode-json-utf8-lf -- this is the digest a genuinely-earned failure_digest must equal
+    # post-2026-08-26 (a merely-different bogus value no longer passes, see the dedicated test
+    # below for the upgrade this fixture default now has to satisfy).
+    return hashlib.sha256(encode_json_utf8_lf(DEMO)).hexdigest()
+
+
 def _set(**over):
     d = {
         "schema": SCHEMA,
         "demonstration_object": DEMO,
         "conforming_digest": "sha256:" + _conforming_digest(),
-        "failure_digest": "sha256:" + ("0" * 64),
+        "failure_digest": "sha256:" + _real_wrong_serializer_digest(),
         "vectors": [
             {"serializer": "rfc8785-jcs", "bytes_hex": encode_for(SCHEMA, DEMO).hex()},
             {"serializer": "encode-json-utf8-lf", "bytes_hex": "7b7d0a"},
@@ -105,9 +113,32 @@ def test_a_pair_naming_one_serializer_twice_is_not_a_pair():
 
 def test_failure_digest_equal_to_the_conforming_one_is_rejected():
     """The decisive case: a set whose 'failure' digest is the conforming digest would accept
-    wrong-serializer bytes. Rejection is EARNED by recomputing under the bound serializer."""
-    assert "wrong-serializer-digest-REJECTED" in _clauses(
+    wrong-serializer bytes. Rejection is EARNED by recomputing under the bound serializer.
+
+    Distinct clause from the wrong-serializer-digest-REJECTED check below on purpose (found via
+    this module's own mutation gate, 2026-08-26): the two guards used to share one clause name,
+    so disabling either alone left the other still catching this exact input and the mutant
+    survived undetected."""
+    assert "failure-equals-conforming-digest" in _clauses(
         _set(failure_digest="sha256:" + _conforming_digest()))
+
+
+def test_a_merely_different_digest_is_no_longer_sufficient():
+    """THE 2026-08-26 UPGRADE, made testable: before it, "differs from conforming" was the whole
+    check, so an arbitrary bogus value (this test's own prior fixture default, 64 zero-hex-chars)
+    passed as if it were adversarial. It differs from conforming, but it is not the real
+    encode-json-utf8-lf digest of DEMO -- a set whose failure_digest is neither the conforming
+    digest NOR the real wrong-serializer digest proves nothing about which serializer was used,
+    and must be rejected now that the real alternate serializer is available to check against."""
+    assert "wrong-serializer-digest-REJECTED" in _clauses(_set(failure_digest="sha256:" + "0" * 64))
+
+
+def test_the_real_wrong_serializer_digest_is_accepted():
+    """The positive case for the same upgrade: a failure_digest that IS the genuine
+    encode-json-utf8-lf output of the same demonstration_object is earned, not asserted, and must
+    pass."""
+    rep = check_binding_set(_set(failure_digest="sha256:" + _real_wrong_serializer_digest()))
+    assert rep.ok, rep.as_dict()
 
 
 def test_rejection_must_be_earned_not_asserted():

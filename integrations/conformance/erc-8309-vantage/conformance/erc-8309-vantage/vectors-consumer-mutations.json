@@ -36,7 +36,7 @@
       "must": "bytes_hex is REQUIRED as the normative hashable carrier",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 13 passed in 0.05s"
+      "suite_result": "1 failed, 15 passed in 0.06s"
     },
     {
       "clause": "\u00a710 / v0.1 pair",
@@ -56,7 +56,7 @@
       "must": "a binding's vector set MUST carry the adversarial pair",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 13 passed in 0.05s"
+      "suite_result": "1 failed, 15 passed in 0.05s"
     },
     {
       "clause": "\u00a75 / \u00a79",
@@ -76,7 +76,7 @@
       "must": "a digest produced under the unbound serializer MUST be rejected",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 13 passed in 0.05s"
+      "suite_result": "1 failed, 15 passed in 0.05s"
     },
     {
       "clause": "\u00a710 inventory",
@@ -96,7 +96,27 @@
       "must": "'needs a conforming set' and 'no denominator yet' MUST stay distinct states",
       "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
       "status": "KILLED",
-      "suite_result": "1 failed, 13 passed in 0.05s"
+      "suite_result": "1 failed, 15 passed in 0.06s"
+    },
+    {
+      "clause": "\u00a75 / \u00a79 (LF-contract upgrade)",
+      "evidence": {
+        "collateral_failures": [],
+        "exception_classes": [
+          "AssertionError"
+        ],
+        "killed_by": [
+          "test_a_merely_different_digest_is_no_longer_sufficient"
+        ]
+      },
+      "expected_kill_tests": [
+        "test_a_merely_different_digest_is_no_longer_sufficient"
+      ],
+      "id": "V5-wrong-serializer-digest-not-earned",
+      "must": "failure_digest MUST equal the real alternate-serializer digest, not merely differ from conforming",
+      "reason": "call-phase failure in a mapped enforcing test (assertion, or an exception the test treats as the violated behaviour)",
+      "status": "KILLED",
+      "suite_result": "1 failed, 15 passed in 0.05s"
     }
   ],
   "other_surfaces": {
@@ -107,8 +127,8 @@
   "schema": "erc-8309-vantage-authority-companion/vectors-consumer-mutations",
   "spec_version": "0.3.3",
   "summary": {
-    "applied_derived": 4,
-    "killed": 4,
+    "applied_derived": 5,
+    "killed": 5,
     "not_applied": 0,
     "survived": 0,
     "vacuous": 0
