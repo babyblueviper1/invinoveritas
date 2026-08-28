@@ -5,6 +5,17 @@ eth-magicians RVR thread (https://ethereum-magicians.org/t/recomputable-verifica
 to test our own verdict shape against RVR's six-field model on a real artifact, not in the
 abstract.
 
+**CORRECTED 2026-08-28** per @pipavlo82's real, direct catch (post #10 on the same thread) after
+he actually checked the committed artifact rather than taking the README's word for it: (1) the
+disclosed `policy_commitment_inputs` field was NOT the literal hash preimage -- it omitted
+`policy_version` and included `rubric_doc_path` (a pointer, not a hashed input); the true 4-field
+preimage is now documented explicitly in `verdict_proof.json` and independently re-verified to
+recompute the exact same `policy_commitment` hash. (2) The README claimed the ML-DSA-65 PQ
+companion signature was "independently checkable from the committed artifact" but the committed
+JSON only had the Nostr/Schnorr material -- the real `pq_pubkey` is now included (the full
+signature hex is fetchable live rather than embedded, noted honestly in the json). Both fixed
+before re-replying to him -- see the thread for the full exchange.
+
 ## What this is
 
 A real `/review` call (artifact_type=trade, sign=true, confidentiality_tier=full_disclosure) on a
@@ -19,7 +30,7 @@ response (`independent_verification_before_publishing` in the json, all checks t
 |---|---|---|
 | `claimDigest` | `artifact_hash` | sha256 of the raw submitted artifact text |
 | `evidenceSetDigest` | *(no exact analog)* | `context`/`concerns` are passed in but not separately hashed today -- a real, named gap, not glossed over |
-| `verificationProfileDigest` | `policy_commitment` | sha256(JCS(`policy_commitment_inputs`)) -- already a real content-addressed digest over `policy_version`/`rubric_sha256`/`conformance_suite_repo`/`conformance_suite_commit` |
+| `verificationProfileDigest` | `policy_commitment` | sha256(JCS({policy_version, rubric_sha256, conformance_suite_repo, conformance_suite_commit})) -- the disclosed `policy_commitment_inputs` field is metadata, not this exact preimage; see the correction note above |
 | `outcome` | `verdict` | `approve` / `approve_with_concerns` / `reject` |
 | `reasonCode` | `issues[].category` + `.severity` | structured list, not a single closed enum |
 | `resultDigest` | `decision_ref` | sha256(JCS(the full preimage object listed in `decision_ref_preimage_fields`)) -- covers artifact_hash, policy_commitment, verdict, and more in one binding |
@@ -38,9 +49,11 @@ trust in us required):**
    `conformance_suite_commit` in the json).
 3. `decision_ref` -- sha256(JCS(the disclosed preimage object)); recomputable straight from the
    proof's own fields.
-4. The Nostr event id + schnorr signature over it (and the ML-DSA-65 post-quantum companion
-   signature over the same event id) -- standard NIP-01, checkable against our published
-   `verifier_pubkey` with zero trust required. This is what `verify_proof` actually checks.
+4. The Nostr event id + schnorr signature over it -- standard NIP-01, checkable against our
+   published `verifier_pubkey` with zero trust required. This is what `verify_proof` actually
+   checks. A separate ML-DSA-65 post-quantum companion signature also covers the same event id --
+   `pq_pubkey` is included in `verdict_proof.json`, but the full signature hex (~3.3KB) is fetched
+   live via `/verify-proof` or the offline verifier rather than embedded in this file.
 
 **Only honestly VERIFIED, not REPRODUCED (the LLM judgment call itself):**
 The `verdict`/`confidence`/`issues` content is a judgment, not a deterministic procedure. A third
