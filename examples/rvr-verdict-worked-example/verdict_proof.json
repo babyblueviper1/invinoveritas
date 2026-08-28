@@ -1,0 +1,49 @@
+{
+  "artifact_submitted": "Proposed trade: BUY 0.01 BTC-PERP on Hyperliquid at market, notional ~$800 (0.01 BTC @ ~$79,500), 3x leverage, stop-loss at -2% ($778), take-profit at +4% ($827). Thesis: mean-reversion long after a 1.5% 15-minute wick-down with no corresponding move on a reference venue (Coinbase spot), consistent with a local liquidity-driven dislocation rather than a real repriced move.",
+  "artifact_type": "trade",
+  "verdict": "approve_with_concerns",
+  "confidence": 0.91,
+  "issues": [
+    {"severity": "medium", "category": "position_sizing", "attribution": "agentive"},
+    {"severity": "medium", "category": "drawdown_risk", "attribution": "agentive"},
+    {"severity": "medium", "category": "fee_drag", "attribution": "systemic"},
+    {"severity": "medium", "category": "regime_risk", "attribution": "systemic"},
+    {"severity": "low", "category": "safety", "attribution": "ambiguous"},
+    {"severity": "low", "category": "correlation_risk", "attribution": "agentive"}
+  ],
+  "proof_payload": {
+    "artifact_hash": "8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f",
+    "decision_ref": "sha256:76c38b150e16527c1e02fa98717622d7a8428f565ae7383c4d4547a2b07a1909",
+    "policy_version": "invinoveritas.review.v12",
+    "policy_commitment": "sha256:fb6cbc3b42fe53305dc6771f468d3f6167499255ca86444a933c479f9c0dbaf0",
+    "policy_commitment_inputs": {
+      "rubric_sha256": "bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180",
+      "conformance_suite_repo": "babyblueviper1/preaction-governance-conformance",
+      "conformance_suite_commit": "e90948ed3eb9d36eb1d0997ea4d02045e28a405a",
+      "rubric_doc_path": "docs/policy_spec/invinoveritas.review.v12.md"
+    },
+    "source_class": "agent_reported",
+    "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) -- it is not an absence/completeness claim.",
+    "verifier_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "verify_url": "https://api.babyblueviper.com/verify-proof"
+  },
+  "signed_event": {
+    "id": "c899910492c47e9088098634aafa199e76437d35ba6859de663b8b76d503046a",
+    "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "created_at": 1787913913,
+    "kind": 30078,
+    "tags": [
+      ["d", "invinoveritas-proof-8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f-1787913913-73a66c0a"],
+      ["t", "invinoveritas"],
+      ["t", "proof"],
+      ["schema", "invinoveritas.verdict_proof.v1"]
+    ],
+    "content": "{\"artifact_hash\":\"8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f\",\"artifact_type\":\"trade\",\"confidence\":0.91,\"confidentiality_tier\":\"full_disclosure\",\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"context_provenance\":\"caller_asserted_unverified\",\"decision_ref\":\"sha256:76c38b150e16527c1e02fa98717622d7a8428f565ae7383c4d4547a2b07a1909\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"engine_generation\":1,\"full_disclosure_requested\":true,\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:fb6cbc3b42fe53305dc6771f468d3f6167499255ca86444a933c479f9c0dbaf0\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"e90948ed3eb9d36eb1d0997ea4d02045e28a405a\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v12.md\",\"rubric_sha256\":\"bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180\"},\"policy_version\":\"invinoveritas.review.v12\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"review_prompt_template_hash\":\"13a72a4c1e3a99b969ac46b724eceef6620716292f2b730f19915cdd469c1e31\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"e823a7c0bd68326eef1f156143739fa1647e497a9f703f6cf8af425397291c06\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) — it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"approve_with_concerns\",\"verified_at\":1787913913,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid ⇒ invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  ·  pip install invinoveritas-verify  — recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+    "sig": "86eb631753d46e8c84bfde52f1e0a7732570bb13951087fdc357312479e71dc235ead720e9597d3e3b4f1492a82557b69b0a414c4946bf1fceed276ca4357599"
+  },
+  "independent_verification_before_publishing": {
+    "tool": "invinoveritas verify_proof (MCP)",
+    "checks": {"id_integrity": true, "signature_valid": true, "issued_by_invinoveritas": true, "decision_ref_recomputes": true, "artifact_hash_matches": true},
+    "note": "Verified independently before committing this file -- not just trusting the /review response."
+  }
+}
