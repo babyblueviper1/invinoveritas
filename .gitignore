@@ -42,4 +42,7 @@ data/*
 *.db-wal
 *.db-shm
 *.jsonl
+# Attribution-ledger validator conformance fixtures -- committed test data, not
+# generated output; same one-file-at-a-time negation convention as above.
+!proposals/attribution-ledger/fixtures/*.jsonl
 *.log

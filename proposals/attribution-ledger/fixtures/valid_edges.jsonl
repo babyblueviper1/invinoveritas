@@ -1,0 +1,1 @@
+{"edge_type": "dependency", "source_entry": "sha256:6602690ca7c2cd96e250724e21a202d740004ebf9e6dab0c2eb07ced06aa5d57", "target": "sha256:092cb53f40e512f75a65676470ceb0b9883cbc559fdd4e17a67695691f7e647a", "timestamp": "2026-08-29T20:00:00Z", "evidence": {"note": "fixture -- both endpoints real"}}
