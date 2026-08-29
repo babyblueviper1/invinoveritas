@@ -1,0 +1,15 @@
+# Full transitive dependency closure, pinned exact -- resolves Pavlo's scope note
+# (damon:general msg 3737): "the requirements pin the direct dependencies but not
+# their transitive closure." Verified by installing ONLY this file into a fresh
+# venv and running the full test suite (19/19 pass) -- not just resolved on paper.
+# requirements.txt stays as the direct-dependency declaration (what validate.py
+# actually imports); this file is the reproducible install for CI / a clean
+# checkout that wants byte-identical dependency resolution, not just compatible
+# versions.
+attrs==26.1.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+referencing==0.37.0
+rfc8785==0.1.4
+rpds-py==0.30.0
+typing_extensions==4.15.0

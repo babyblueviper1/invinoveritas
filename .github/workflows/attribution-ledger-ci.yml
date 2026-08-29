@@ -1,0 +1,35 @@
+name: Attribution ledger — validate + test
+
+# Runs the reference validator's own test suite against a fully-pinned dependency
+# closure (requirements-lock.txt) on every push/PR that touches this proposal --
+# closes the CI gap named in damon:general msg 3737 (Pavlo's review of v2): "the
+# attribution-ledger suite is not yet wired into GitHub CI." Also runs the CLI
+# itself against the real examples.jsonl/edges.jsonl, so a future edit that
+# forgets to recompute an entry_id fails the build, not just the local pytest run.
+on:
+  push:
+    paths:
+      - 'proposals/attribution-ledger/**'
+      - '.github/workflows/attribution-ledger-ci.yml'
+  pull_request:
+    paths:
+      - 'proposals/attribution-ledger/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: proposals/attribution-ledger
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-lock.txt pytest
+      - run: python -m pytest tests/test_validate.py -v
+      - name: Validate the real published ledger
+        run: python validate.py --entries examples.jsonl --edges edges.jsonl
