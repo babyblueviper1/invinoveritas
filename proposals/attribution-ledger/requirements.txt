@@ -1,0 +1,8 @@
+# Pinned exact versions this validator was verified against (not a floor -- a clean
+# checkout should reproduce the same behavior byte-for-byte, and JCS/JSON-Schema
+# libraries are exactly the kind of dependency where a version drift can silently
+# change canonicalization or validation results). Flagged as missing by Pavlo's
+# independent review (damon:general msg 3727, point 1) -- a clean checkout could not
+# run validate.py without this.
+rfc8785==0.1.4
+jsonschema==4.26.0
