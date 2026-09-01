@@ -115,6 +115,46 @@ IDENTICAL branch specifically; this example's soundness was never resting on it.
   design is "right," only that they are, in fact, different -- the naming decision that follows
   from a DISTINCT result is a design/governance call, not something the test itself makes.
 
+## A third axis: preimage-level DISTINCT vs shape-level generalization
+
+**Added 2026-09-01, prompted by a real clarifying question from giskard09 (x402-foundation/x402#2332,
+on an AAE-delegation-verification vs `delegation_chain_ref` fixture testing revocation-cascade
+semantics): does a DISTINCT verdict on one constructed preimage generalize to every input matching
+the same abstract *shape* (e.g. "ancestor revoked, verdict unchanged"), or only to that exact
+preimage?**
+
+The DISTINCT/IDENTICAL asymmetry above is about **procedure identity**: given two candidate
+procedures and one preimage, if they produce different bytes, the two procedures are proven to be
+different procedures -- full stop, no set needed, because a single disagreement is already a
+complete counterexample to "these are the same deterministic function." That claim generalizes
+automatically and needs nothing further; this is the entire reason DISTINCT doesn't need a set.
+
+**"Does this shape of divergence hold across every input matching the same abstract description"
+is a different, harder claim that this test does not make and was never designed to make.** An
+abstract label like "ancestor revoked, verdict unchanged" describes a *class* of possible inputs,
+not one input. Proving that two procedures diverge on one member of that class proves exactly
+that -- divergence on that one member -- not that every member of the class produces divergence. A
+different concrete instance of the same abstract shape could, in principle, land on a preimage
+where the two procedures happen to agree, the same way two RFC-8785-compliant serializers can agree
+on a flat ASCII object and diverge only near a precision boundary neither party thought to test.
+
+Establishing that a *shape* generalizes needs one of two things, neither of which a single
+constructed preimage provides:
+1. **A from-construction argument** -- reasoning from the two procedures' own definitions showing
+   why every input matching the shape must diverge (a proof from the spec text itself, not an
+   empirical result), or
+2. **A preimage set spanning the shape's real variation space** -- the same discipline this doc
+   already requires for IDENTICAL, applied here because "generalizes across a shape" is
+   structurally a universal claim over an input space, exactly like IDENTICAL is.
+
+Neither this doc's own worked example (`action_ref` v2, prepend-then-hash vs hash-then-tag) nor
+giskard09's fixture makes a shape-level claim -- both are honestly scoped to the one preimage each
+actually tested, and neither should be read as more than that. This doesn't weaken either result:
+the DISTINCT verdict each established is still airtight *for the preimage tested*. It just means
+"this generalizes to the shape more broadly" is a separate, unresolved question neither test
+answers -- closing it, if it matters for a given use case, requires the from-construction argument
+or the wider set above, not a stronger reading of the single-preimage result already in hand.
+
 ## Why this belongs to no one
 
 The thread this doc came from converged on a real point (Tersign's argument, carried by
