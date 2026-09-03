@@ -72,6 +72,31 @@ bypassed, before the action it would have governed. That's a real, disclosed gap
 "authentic signed record" and "proof this ran pre-action" -- closeable only with an independent
 mediation-point integration, which doesn't exist yet for trade-type verdicts.
 
+## v17 refresh (2026-09-03) -- the predicted non-reproducibility, confirmed live
+
+Pavlo (eth-magicians RVR thread, now formalized as ERC-8404) asked for a real signed artifact
+under our current policy version, since `verdict_proof.json` below is pinned to
+`invinoveritas.review.v12` and the live server has since moved to
+`invinoveritas.review.v17`. `verdict_proof_v17.json` is the same exact artifact text run through
+`/review` again today, independently re-verified via `/verify-proof` before being committed here
+(all checks `true`, including a live Bitcoin freshness-beacon check across 3 independent
+explorers, `mempool`/`blockstream`/`emzy`, all `ok_match`).
+
+**v12 -> v17, what actually changed (checked against the live code, not asserted):**
+`decision_ref_preimage_fields` gained `action_binding_tool_hash`/`action_binding_args_hash`/
+`action_binding_agent_id`/`action_binding_nonce` (v13-v15, optional tool-call bindings) and
+`freshness_beacon_hash` (v16, closes a backdating gap). v17 itself changes no preimage field at
+all -- it bumps because a beacon-present proof now enforces (a provable lie about the beacon
+fails the proof, `valid=False`), where v16 only disclosed. Review criteria / rubric bytes
+(`rubric_sha256`) are byte-identical all the way back to v12.
+
+**The line 65-66 prediction above, now confirmed on a real second call, not just
+argued:** the exact same artifact text that got `approve_with_concerns`/0.91 under v12 got
+`reject`/0.93 under v17 today. `artifact_hash` matches byte-for-byte across both files
+(`8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f`) -- same input, genuinely
+different judgment. That is exactly the REPRODUCED/VERIFIED split this README already claimed in
+the abstract, now demonstrated on the same real artifact rather than merely predicted.
+
 ## Verify it yourself
 
 ```

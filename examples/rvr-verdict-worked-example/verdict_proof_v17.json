@@ -1,0 +1,153 @@
+{
+  "artifact_submitted": "Proposed trade: BUY 0.01 BTC-PERP on Hyperliquid at market, notional ~$800 (0.01 BTC @ ~$79,500), 3x leverage, stop-loss at -2% ($778), take-profit at +4% ($827). Thesis: mean-reversion long after a 1.5% 15-minute wick-down with no corresponding move on a reference venue (Coinbase spot), consistent with a local liquidity-driven dislocation rather than a real repriced move.",
+  "artifact_type": "trade",
+  "verdict": "reject",
+  "confidence": 0.93,
+  "issues": [
+    {
+      "severity": "blocker",
+      "category": "position_sizing",
+      "description": "Risk cannot be assessed at the operating account scale: equity, free collateral, existing BTC/correlated positions, and the account-level leverage or trade-notional cap are absent. A 3x position-level leverage label does not bound account risk; $267 initial margin can be a trivial allocation on a large account or consume nearly all usable collateral on a small or already-loaded account.",
+      "suggested_fix": "Require current equity, free collateral, open correlated exposure, and mandate limits; reject unless $800 notional and worst-case stopped loss fit the configured per-trade and aggregate-risk caps.",
+      "attribution": "agentive"
+    },
+    {
+      "severity": "blocker",
+      "category": "missing_check",
+      "description": "The entry thesis is based on a transient 15-minute cross-venue observation, but no current Hyperliquid mark, contemporaneous Coinbase spot timestamp, basis calculation, or signal-validity window is supplied. A market order can therefore enter after the wick has already reverted, or during a real repricing that Coinbase has not yet reflected.",
+      "suggested_fix": "Immediately before submission, require timestamped Hyperliquid and Coinbase prices from synchronized feeds, a still-open divergence above a defined threshold, and invalidate the trade if the signal is stale or the reference venue confirms the move.",
+      "attribution": "agentive"
+    },
+    {
+      "severity": "high",
+      "category": "safety",
+      "description": "A market buy has no stated execution-price or slippage bound, and a stop loss is not a guaranteed -2% loss during a fast continuation or gap. The realized loss can exceed the planned ~$16 gross risk, particularly if the local-liquidity explanation is wrong and the book is thin or rapidly repricing.",
+      "suggested_fix": "Use a bounded IOC limit buy with a maximum entry deviation, then verify a live reduce-only stop trigger is accepted before treating the position as protected.",
+      "attribution": "ambiguous"
+    },
+    {
+      "severity": "high",
+      "category": "regime_risk",
+      "description": "The absence of an observed Coinbase spot move does not by itself establish a Hyperliquid-specific liquidity dislocation: perpetual basis, funding, index composition, feed latency, and venue-specific liquidation flow can produce apparent divergence. The proposal has no confirmation that this condition has positive out-of-sample, fee-adjusted expectancy.",
+      "suggested_fix": "Gate entry on a tested, timestamp-synchronized divergence rule using the relevant perpetual/index basis and require documented net expectancy after fees and slippage.",
+      "attribution": "systemic"
+    },
+    {
+      "severity": "medium",
+      "category": "fee_drag",
+      "description": "The stated 2:1 gross reward/risk does not establish positive net expectancy. Both-side taker fees, spread, market-order impact, and stop execution slippage reduce the realized payoff, while this short-horizon mean-reversion setup may have a materially lower win rate than the gross ratio implies.",
+      "suggested_fix": "Calculate expected value using the account's actual maker/taker fee tier, estimated entry and stop slippage, and validated setup win rate; trade only if net expectancy remains positive.",
+      "attribution": "systemic"
+    },
+    {
+      "severity": "medium",
+      "category": "correctness",
+      "description": "The price arithmetic is inconsistent: 2% below a $79,500 entry is $77,910, not $77,800. A $77,800 stop is approximately 2.14% below entry and increases gross loss from about $15.90 to about $17.00 for 0.01 BTC.",
+      "suggested_fix": "Set the stop to $77,910 for a true 2% stop, or explicitly define the intended $77,800 stop and resize using its actual 2.14% distance.",
+      "attribution": "agentive"
+    },
+    {
+      "severity": "medium",
+      "category": "drawdown_risk",
+      "description": "No current drawdown or circuit-breaker state is supplied, so a normal stopped trade cannot be checked against remaining daily or strategy loss capacity. Entering near a drawdown threshold can cause an otherwise small loss to breach the breaker or stack with open losses.",
+      "suggested_fix": "Require current realized and unrealized drawdown plus remaining circuit-breaker budget, and skip the trade if worst-case loss including slippage exceeds that remaining budget.",
+      "attribution": "agentive"
+    }
+  ],
+  "proof_payload": {
+    "schema": "invinoveritas.verdict_proof.v1",
+    "platform": "invinoveritas",
+    "artifact_hash": "8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f",
+    "artifact_type": "trade",
+    "verdict": "reject",
+    "confidence": 0.93,
+    "summary_hash": "eb2410992a0e805a7f406195057df8e2a2217f019cc97508736cd7924c0fcc59",
+    "verified_at": 1788447413,
+    "policy_version": "invinoveritas.review.v17",
+    "policy_commitment": "sha256:4f09fa9bd2acc638aaed6c833a863c20763fe14a092d5604c2009146415e73aa",
+    "policy_commitment_inputs": {
+      "rubric_sha256": "bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180",
+      "conformance_suite_repo": "babyblueviper1/preaction-governance-conformance",
+      "conformance_suite_commit": "e90948ed3eb9d36eb1d0997ea4d02045e28a405a",
+      "rubric_doc_path": "docs/policy_spec/invinoveritas.review.v12.md"
+    },
+    "engine_generation": 1,
+    "review_model_hash": "deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669",
+    "review_prompt_template_hash": "13a72a4c1e3a99b969ac46b724eceef6620716292f2b730f19915cdd469c1e31",
+    "context_provenance": "caller_asserted_unverified",
+    "source_class": "agent_reported",
+    "registry_as_of": null,
+    "registry_snapshot_sha256": null,
+    "decision_ref_preimage_fields": [
+      "artifact_hash",
+      "artifact_type",
+      "policy_version",
+      "verdict",
+      "source_class",
+      "vantage_limitation",
+      "related_decision_ref",
+      "intended_audience",
+      "confidentiality_tier",
+      "disclosed_summary",
+      "intended_verifier",
+      "policy_commitment",
+      "verified_at",
+      "registry_as_of",
+      "registry_snapshot_sha256",
+      "action_binding_tool_hash",
+      "action_binding_args_hash",
+      "action_binding_agent_id",
+      "action_binding_nonce",
+      "freshness_beacon_hash"
+    ],
+    "decision_ref_preimage_rule": "every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.",
+    "verify_url": "https://api.babyblueviper.com/verify-proof",
+    "verifier_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "verify_offline": "npm i invinoveritas-verify  ·  pip install invinoveritas-verify  — recompute this proof on your own machine against verifier_pubkey; you never have to call us.",
+    "independent_nodes": [
+      "https://invinoveritas-castra.babyblueviper.workers.dev/verify",
+      "https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run"
+    ],
+    "verify_how": "Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid ⇒ invinoveritas issued this, untampered. No trust required.",
+    "key_id": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "verifier_keys": "https://api.babyblueviper.com/.well-known/verifier-keys.json",
+    "conformance_suite": "https://github.com/babyblueviper1/preaction-governance-conformance",
+    "vantage_limitation": "source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) — it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.",
+    "confidentiality_tier": "full_disclosure",
+    "full_disclosure_requested": true,
+    "freshness_beacon": {
+      "source": "bitcoin",
+      "height": 965335,
+      "hash": "000000000000000000010684344616e48765a778c7380066ef0064c23d4edea8",
+      "block_time": 1788447285
+    },
+    "freshness_beacon_hash": "sha256:b7dfdbf3276e76fe989e5afd002967705478b80df4ebedb1725406d23f08ce5b",
+    "decision_ref": "sha256:fd54fc11f98353f8357716dbebd676e1e86f7f2fb14410fc70731f45523ebb10"
+  },
+  "signed_event": {
+    "id": "c573e7124eedff4d364ced76acfcb6e12402feeab8a37fc8b1380a6f08b6e220",
+    "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+    "created_at": 1788447413,
+    "kind": 30078,
+    "tags": [
+      [
+        "d",
+        "invinoveritas-proof-8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f-1788447413-2ad9f74c"
+      ],
+      [
+        "t",
+        "invinoveritas"
+      ],
+      [
+        "t",
+        "proof"
+      ],
+      [
+        "schema",
+        "invinoveritas.verdict_proof.v1"
+      ]
+    ],
+    "content": "{\"artifact_hash\":\"8a2f048f6d269923a91825beae44e397df0fb73cdb0a386ca6908ebb4c5fb19f\",\"artifact_type\":\"trade\",\"confidence\":0.93,\"confidentiality_tier\":\"full_disclosure\",\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"context_provenance\":\"caller_asserted_unverified\",\"decision_ref\":\"sha256:fd54fc11f98353f8357716dbebd676e1e86f7f2fb14410fc70731f45523ebb10\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\",\"action_binding_tool_hash\",\"action_binding_args_hash\",\"action_binding_agent_id\",\"action_binding_nonce\",\"freshness_beacon_hash\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"engine_generation\":1,\"freshness_beacon\":{\"block_time\":1788447285,\"hash\":\"000000000000000000010684344616e48765a778c7380066ef0064c23d4edea8\",\"height\":965335,\"source\":\"bitcoin\"},\"freshness_beacon_hash\":\"sha256:b7dfdbf3276e76fe989e5afd002967705478b80df4ebedb1725406d23f08ce5b\",\"full_disclosure_requested\":true,\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:4f09fa9bd2acc638aaed6c833a863c20763fe14a092d5604c2009146415e73aa\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"e90948ed3eb9d36eb1d0997ea4d02045e28a405a\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v12.md\",\"rubric_sha256\":\"bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180\"},\"policy_version\":\"invinoveritas.review.v17\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"review_prompt_template_hash\":\"13a72a4c1e3a99b969ac46b724eceef6620716292f2b730f19915cdd469c1e31\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"eb2410992a0e805a7f406195057df8e2a2217f019cc97508736cd7924c0fcc59\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) — it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. Sufficient as standalone evidence for a reversible action; for an irreversible or privileged action, treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"reject\",\"verified_at\":1788447413,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid ⇒ invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  ·  pip install invinoveritas-verify  — recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+    "sig": "2cd90544c5d598f0eb96fa22bc74fbfdfd4f4588d3061e554c6664c7693a93661afe05bd9fe062b6ffdc20786cbedb2ed7110f444369601238a88d9184663f82"
+  }
+}
