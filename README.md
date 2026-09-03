@@ -190,7 +190,7 @@ Autonomous agents should discover invinoveritas in this order:
 Registry/distribution assets:
 
 - Official MCP Registry: `server.json`
-- Smithery: `smithery.yaml`
+- Smithery: [smithery.ai/servers/babyblueviper1/invinoveritas](https://smithery.ai/servers/babyblueviper1/invinoveritas) (config: `smithery.yaml`)
 - Glama: `glama.json`
 - Dify plugin draft: `integrations/dify/invinoveritas/`
 - Activepieces npm package: `invinoveritas-activepieces-piece@0.6.0`
