@@ -25,11 +25,11 @@ Install (copy-paste, any client — Claude Code/Cursor/VS Code/Cline/Windsurf/Cl
 Agent Card: https://api.babyblueviper.com/.well-known/agent-card.json
 Roadmap: https://api.babyblueviper.com/roadmap
 
-## Residence & Edge-idea Bounty
+## Residence
 
 **Residence (supporting infra)** — `GET /residence/me` bundles a tenant's identity, wallet, memory, mailbox, and a deterministic reputation score (derived from real on-platform activity: tenure, funding, lifetime paid calls, review track-record, memory depth) into one view. `GET /residence/{agent_id}` is the public view (no wallet). This is plumbing under the verification layer — the internal agent payment graph made legible per tenant — not the headline product.
 
-**Edge-idea bounty** — revenue-share on *ideas*, never pooled capital. Bring a trading-edge hypothesis via `POST /bounty/submit`; if it survives our governed backtest gate (Monte-Carlo permutation test p ≤ 0.05 + deflated Sharpe ≥ 0), earn a flat sat bounty. Three tiers, auto-detected from the submission: **parameter** (a tuning grid on an existing strategy family — 5,000 sats), **code** (a novel signal function, evaluated in our hardened Docker sandbox — 25,000 sats), **concept** (a free-text idea — 2,000 sats). Coder auto-screens parameter submissions through its existing MCPT/deflated-Sharpe pipeline; the operator releases the payout (`POST /bounty/{id}/validate`). Your capital is never pooled — you are paid for the idea. *(Parameter tier live; code-tier sandbox evaluation in progress.)*
+*(The Edge-idea bounty program that used to live here is retired as of 2026-09-06 — it predates the verification-layer focus above and never converted after months of running. `/bounty/submit` now returns 410.)*
 
 ## Markets / Trading Intelligence
 

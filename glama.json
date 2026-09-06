@@ -96,6 +96,10 @@
       "description": "Publish a CURRENTLY-certified /conformance verifier's live grade as a permanent, invinoveritas-SIGNED public ledger entry \u2014 same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min) as every other entry. The grading itself stays FREE and neutral (GET /conformance.json) \u2014 this does not buy a better result, it publishes whatever the live registry already measured, verbatim, honestly labeled 'certified AS OF this measurement' not 'currently certified'. Only callable when the named verifier currently shows certified:true. Re-calling on an unchanged snapshot returns the existing entry instead of re-charging. Accepts: name (verifier name, required), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, certified_as_of, bitcoin_anchor}. 250 sats, Bearer-authenticated."
     },
     {
+      "name": "validate",
+      "description": "EdgeProof \u2014 paid backtest reality-check. Submit a strategy's realized returns (or trade rows) \u2014 NOT the strategy itself \u2014 and get a verdict: likely_real / borderline / overfit_or_noise. Scored with the Deflated Sharpe Ratio (haircut for the number of variants tried), a sign-flip permutation test against a coin-flip null, and purged k-fold out-of-sample decay. Include 'coin' and 'ts'/'timestamp' on each trade row to also get a concentration jackknife (does the total sign flip once you exclude the single best trade or single dominant coin) and a BTC-regime overlay (does the sign differ inside vs outside a BTC melt-up window) under a 'concentration_and_regime' key \u2014 the same mechanical audit this platform's own trading tapes are held to. Inputs are not retained beyond a redacted audit hash."
+    },
+    {
       "name": "reason",
       "description": "Deep strategic reasoning for autonomous agents. Provide a natural language question, scenario, or problem; returns a detailed analysis with insights, risks, and recommendations. Use when you need thoughtful analysis before making a decision or taking action. Accepts: question (string). Returns: reasoning text. ~100 sats per call."
     },
@@ -170,14 +174,6 @@
     {
       "name": "execute",
       "description": "Paid secure-code-execution for Python jobs (data pipelines, backtests, repo analysis, scraping). Optional persistent per-agent workspace (use_workspace=true), Restrictive or Permissive (hardened container) modes, full audit trails and cryptographic proofs. 700+ sats per job."
-    },
-    {
-      "name": "bounty_submit",
-      "description": "Submit a trading-edge idea to the governed edge-idea bounty. Paid a flat sats bounty for the IDEA if it survives the same backtest gate (Monte-Carlo permutation p-value + Deflated Sharpe) our own live strategies are held to \u2014 no capital pooled, you keep your funds, we buy the idea. Tiers auto-detected from spec: parameter, code, or concept. Free to submit; survivable ideas pay a flat bounty."
-    },
-    {
-      "name": "bounty_get",
-      "description": "Status of a bounty submission you made: tier, gate verdict (mcpt_p / dsr), and payout state. Accepts: bounty_id (string). Free."
     },
     {
       "name": "residence_me",
