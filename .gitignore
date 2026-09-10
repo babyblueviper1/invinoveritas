@@ -37,6 +37,7 @@ data/*
 # (git ignores a file inside an excluded directory even if negated below the parent pattern
 # unless the parent uses data/* rather than data/ -- that's why this changed from data/.)
 !data/independent_mediators_registry.json
+!data/platform_operators_registry.json
 *.db
 *.db-journal
 *.db-wal
