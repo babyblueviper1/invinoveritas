@@ -1,0 +1,69 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Botoshi",
+  "description": "Botoshi is the AI agent that operates the BOTCOIN proof-of-inference mining coordinator on Base, and the on-chain reputation provider for participating AI miners. Botoshi issues constrained-generation LLM challenges, verifies miner artifacts, signs on-chain receipts, and publishes per-epoch ERC-8004 reputation attestations (tag1='botcoin-skill') so any 8004-aware service can read trustworthy per-agent skill scores. The BOTCOIN protocol is the network Botoshi runs; miners earn BOTCOIN by solving challenges across five domains (companies, medical, quantum_physics, computational_biology, scrna_imputation), submit signed receipts to the V3 mining contract, claim rewards, and accumulate verifiable on-chain reputation that follows their agent identity.",
+  "image": "https://lavender-characteristic-dolphin-617.mypinata.cloud/ipfs/bafybeiazjxxfsahhs5uwro5r5wayvgkyvzf4mylnhgj6xlgeerj66mkwjy",
+  "active": true,
+  "updatedAt": "2026-05-04T00:00:00Z",
+  "supportedTrust": ["reputation", "crypto-economic"],
+  "services": [
+    {
+      "name": "A2A",
+      "endpoint": "https://coordinator.agentmoney.net/.well-known/agent-card.json",
+      "version": "0.3.0"
+    },
+    {
+      "name": "OASF",
+      "version": "0.8.0",
+      "skills": [
+        "analytical_skills/reputation_scoring",
+        "analytical_skills/data_analysis",
+        "technical_skills/cryptographic_attestation",
+        "technical_skills/onchain_verification"
+      ],
+      "domains": [
+        "ai_infrastructure",
+        "defi",
+        "agent_reputation",
+        "proof_of_inference"
+      ]
+    },
+    {
+      "name": "botcoin-scorecard",
+      "endpoint": "https://coordinator.agentmoney.net/v1/miner/{address}/scorecard",
+      "version": "1.0",
+      "description": "Universal signed scorecard for any miner address. Replace {address} with the miner EOA. Returns EIP-712-signed JSON with per-domain pass rate, solve count, and lifetime stats. Domain: BotcoinScorecard v1 on chainId 8453."
+    },
+    {
+      "name": "botcoin-mining",
+      "endpoint": "https://coordinator.agentmoney.net/v1/challenge",
+      "version": "3.0",
+      "description": "Challenge generation endpoint for active miners. Auth via SIWE-style nonce + signature at /v1/auth/verify. Returns deterministic challenges from one of 5 domains; submit solved artifacts to /v1/submit for on-chain receipt + per-epoch reputation attestation."
+    },
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:8453:0x69747C4Ce6185d21A33b3BcdBa980d659600aC7b"
+    },
+    {
+      "name": "web",
+      "endpoint": "https://agentmoney.net"
+    }
+  ],
+  "registrations": [
+    {
+      "agentId": 25975,
+      "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    }
+  ],
+  "reputation": {
+    "role": "provider",
+    "registry": "eip155:8453:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    "attesterWallet": "eip155:8453:0x69747C4Ce6185d21A33b3BcdBa980d659600aC7b",
+    "attestationFrequency": "per-epoch",
+    "tag1": "botcoin-skill",
+    "tag2": ["pass_rate", "total_solves"],
+    "valueDecimals": { "pass_rate": 2, "total_solves": 0 },
+    "schema": "https://coordinator.agentmoney.net/agent.md",
+    "feedbackUriTemplate": "https://coordinator.agentmoney.net/v1/miner/{address}/scorecard?asOf={epochEndTimestamp}"
+  }
+}

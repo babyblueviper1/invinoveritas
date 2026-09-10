@@ -1,0 +1,27 @@
+{
+ "retrieved_at_utc": "2026-09-10T13:52:33.012628+00:00",
+ "rpc_endpoint": "https://mainnet.base.org",
+ "block_range_checked": [
+  "0x30c24ce",
+  "0x30c2c9e"
+ ],
+ "eth_getlogs_request": {
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getLogs",
+  "params": [
+   {
+    "address": "0xB61BC7487424172CB9fa9dD381a9eC06C7067dCd",
+    "fromBlock": "0x30c24ce",
+    "toBlock": "latest",
+    "topics": [
+     null,
+     null,
+     null,
+     "0x00000000000000000000000039484e5fdeedaf0916c53d9c3bf380d3f307eb5d"
+    ]
+   }
+  ]
+ },
+ "note": "topics[3] filters the 4th indexed topic to this specific miner address (0x39484e5fdEedaf0916c53d9C3Bf380d3F307eB5d), zero-padded to 32 bytes. Raw response in eth_getlogs_raw_response.json in this same directory. Event ABI/topic0 not independently decoded this pass -- log count + tx hashes are the evidence, not decoded event semantics."
+}
