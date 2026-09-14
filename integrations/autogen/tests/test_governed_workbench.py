@@ -102,6 +102,8 @@ async def test_missing_api_key_fails_open(_patch_httpx):
     result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
     assert result.is_error is False
     assert "5" in result.to_text()
+    assert gw.last_review_unavailable["error"] == "review_unavailable"
+    assert gw.last_review_unavailable["reason"] == "no_api_key"
 
 
 @pytest.mark.asyncio
@@ -113,6 +115,36 @@ async def test_network_error_fails_open(_patch_httpx):
     result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
     assert result.is_error is False, "a /review-side network failure must never block the real tool"
     assert "5" in result.to_text()
+    assert gw.last_review_unavailable["error"] == "review_unavailable"
+    assert gw.last_review_unavailable["reason"] == "timeout"
+
+
+@pytest.mark.asyncio
+async def test_timeout_and_malformed_share_marker_not_reason(_patch_httpx):
+    """Negative control matching recompute-kit#13's dimensionality: two real
+    causes, same review_unavailable marker, different reason. A present-vs-
+    absent reason field would not have caught the collapse."""
+    def timeout_handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("simulated timeout")
+
+    def malformed_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": "success", "verdict": "not-a-real-verdict"})
+
+    gw_t = GovernedWorkbench(_workbench(), api_key="test-key", mode="gate")
+    _patch_httpx(httpx.MockTransport(timeout_handler))
+    r_t = await gw_t.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+
+    gw_m = GovernedWorkbench(_workbench(), api_key="test-key", mode="gate")
+    _patch_httpx(httpx.MockTransport(malformed_handler))
+    r_m = await gw_m.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+
+    assert r_t.is_error is False and r_m.is_error is False
+    a, b = gw_t.last_review_unavailable, gw_m.last_review_unavailable
+    assert a["error"] == b["error"] == "review_unavailable"
+    assert a["review_unavailable"] is True and b["review_unavailable"] is True
+    assert a["reason"] == "timeout"
+    assert b["reason"] == "malformed_response"
+    assert a["reason"] != b["reason"]
 
 
 @pytest.mark.asyncio
@@ -122,6 +154,8 @@ async def test_http_error_status_fails_open(_patch_httpx):
     result = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
     assert result.is_error is False, "an HTTP error from /review must fail open, not raise/block"
     assert "5" in result.to_text()
+    assert gw.last_review_unavailable["error"] == "review_unavailable"
+    assert gw.last_review_unavailable["reason"] == "http_error"
 
 
 @pytest.mark.asyncio
@@ -325,3 +359,53 @@ async def test_advisory_reject_does_not_emit_not_reached(_patch_httpx):
     result = await outer.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
     assert result.is_error is False
     assert markers == []
+
+
+def _mock_client_sequence(verdicts: list[str]):
+    """Like _mock_client, but returns a different verdict on each successive request --
+    simulates the underlying authority/policy state changing between two separate
+    tool-call attempts (per github.com/microsoft/autogen#7405, nsolland 2026-09-14:
+    "approve under policy version A, revoke or narrow authority before execution,
+    then assert that the tool is never called and the decision terminates as
+    denied/escalated rather than consuming the stale approval")."""
+    calls: list[str] = list(verdicts)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        verdict = calls.pop(0) if calls else verdicts[-1]
+        return httpx.Response(
+            200,
+            json={
+                "status": "success", "type": "structured_review", "verdict": verdict,
+                "confidence": 0.9, "summary": "test verdict", "issues": [],
+            },
+        )
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_narrowed_authority_between_calls_is_never_consumed_as_stale_approval(_patch_httpx):
+    """The regression nsolland asked for (autogen#7405 / langgraph#8102), adapted to how
+    GovernedWorkbench actually works: it holds NO persisted verdict to go stale in the
+    first place -- call_tool() does `verdict = await self._review(...)` immediately
+    followed by delegating to the inner tool, every single invocation, with nothing
+    cached in between. So the failure this test rules out isn't "a stored approval gets
+    reused after authority narrows" (there is no store) -- it's the sharper adjacent
+    claim: a SECOND, separate call_tool() for the identical tool+arguments must reflect
+    the CURRENT verdict, never an earlier one silently carried forward.
+
+    Simulates authority narrowing between two back-to-back calls by having the review
+    endpoint return approve, then reject, for the identical request shape."""
+    _patch_httpx(_mock_client_sequence(["approve", "reject"]))
+    gw = GovernedWorkbench(_workbench(), api_key="test-key", mode="gate")
+
+    first = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c1")
+    assert first.is_error is False, "call under policy A (approve) must execute"
+    assert "5" in first.to_text()
+
+    second = await gw.call_tool("add", {"a": 2, "b": 3}, CancellationToken(), call_id="c2")
+    assert second.is_error is True, (
+        "call after authority narrows (reject) must be denied -- if this executed, "
+        "it would mean an earlier approve was silently reused instead of a fresh check"
+    )
+    assert "BLOCKED" in second.to_text()
+    assert "5" not in second.to_text(), "the real tool must never have run on the narrowed-authority call"
