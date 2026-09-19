@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invinoveritas-verify"
+version = "0.4.0"
+description = "Portable, offline, zero-dependency verifier for invinoveritas verdict proofs — verify one proof, recompute the WHOLE public ledger, or assemble a recomputable compliance bundle, without trusting the API or us."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["invinoveritas", "verification", "agent", "proof", "nostr", "nip-01", "schnorr", "trustless"]
+authors = [{ name = "invinoveritas" }]
+# Zero runtime dependencies BY DESIGN: BIP-340 schnorr verification is pure-stdlib (hashlib). A verifier
+# that shipped a crypto dependency would be self-defeating — there is nothing here to trust but the code.
+dependencies = []
+
+[project.urls]
+Homepage = "https://api.babyblueviper.com"
+"Track record (the ledger)" = "https://api.babyblueviper.com/ledger"
+"How to verify" = "https://api.babyblueviper.com/.well-known/agent-handshake"
+
+[project.scripts]
+invinoveritas-verify = "invinoveritas_verify:_main"
+invinoveritas-recompute-ledger = "recompute_ledger:main"
+invinoveritas-compliance-export = "compliance_export:main"
+
+[tool.setuptools]
+py-modules = ["invinoveritas_verify", "recompute_ledger", "compliance_export"]
