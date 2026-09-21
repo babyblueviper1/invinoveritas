@@ -2,6 +2,7 @@
 
 [![invinoveritas conformance](https://img.shields.io/endpoint?url=https://api.babyblueviper.com/badge/conformance/invinoveritas.json)](https://api.babyblueviper.com/conformance)
 [![MCP Queen operational grade](https://mcpqueen.com/badge/com.babyblueviper/invinoveritas.svg)](https://mcpqueen.com/s/com.babyblueviper/invinoveritas)
+[![Wellknown: live](https://wellknown.network/agents/invinoveritas/badge.svg)](https://wellknown.network/agents/invinoveritas)
 
 The pre-trade review your autonomous trading agent calls before it risks real capital — the same gate we run our own important decisions through.
 
