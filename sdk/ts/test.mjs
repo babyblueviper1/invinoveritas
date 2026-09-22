@@ -122,6 +122,20 @@ await test("offline: event id recompute matches", async () => {
   assert.equal(nostrEventId(SAMPLE).toLowerCase(), String(SAMPLE.id).toLowerCase());
 });
 
+await test("offline: strict NIP-01 -- coerced-type fields must not verify", async () => {
+  for (const [f, v] of [
+    ["created_at", String(SAMPLE.created_at)], ["kind", String(SAMPLE.kind)],
+    ["pubkey", SAMPLE.pubkey.toUpperCase()], ["created_at", SAMPLE.created_at + 0.5],
+    ["kind", true], ["created_at", null],
+  ]) {
+    const ev = clone(SAMPLE); ev[f] = v;
+    const r = verifyProofLocal(ev);
+    assert.equal(r.valid, false, `${f}=${String(v)} verified`);
+    assert.equal(r.checks.id_integrity, false);
+  }
+  assert.equal(verifyProofLocal(SAMPLE).valid, true);
+});
+
 if (process.argv.includes("--live")) {
   await test("LIVE: preflight our own reference provider", async () => {
     const rep = await preflightVerify("https://api.babyblueviper.com");

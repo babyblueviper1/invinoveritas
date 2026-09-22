@@ -103,11 +103,17 @@ def schnorr_verify(msg32: bytes, pubkey32: bytes, sig64: bytes) -> bool:
 # ── NIP-01 event id + invinoveritas proof verification ───────────────────────────────────────────────
 def nostr_event_id(event: dict) -> str:
     """Recompute the canonical NIP-01 event id from the signed fields."""
-    serial = json.dumps(
-        [0, str(event["pubkey"]).lower(), int(event["created_at"]), int(event["kind"]),
-         event.get("tags", []) or [], str(event["content"])],
-        separators=(",", ":"), ensure_ascii=False,
-    )
+    # STRICT NIP-01 (2026-09-21, pipavlo82 on trustless-ai/recompute-kit#48): hash EXACTLY the supplied typed/cased values.
+    # No str()/int()/.lower() normalization: a string created_at/kind or an uppercase pubkey is not the object that was
+    # signed, so it must not verify as if it were. Raises ValueError (verify_proof reports "malformed event").
+    pk, created, kind, tags, content = event["pubkey"], event["created_at"], event["kind"], event.get("tags", []), event["content"]
+    if not (isinstance(pk, str) and len(pk) == 64 and all(c in "0123456789abcdef" for c in pk)):
+        raise ValueError("pubkey must be 64 lowercase hex characters")
+    if type(created) is not int or type(kind) is not int:
+        raise ValueError("created_at and kind must be JSON integers")
+    if not isinstance(tags, list) or not isinstance(content, str):
+        raise ValueError("tags must be a list and content a string")
+    serial = json.dumps([0, pk, created, kind, tags, content], separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(serial.encode("utf-8")).hexdigest()
 
 
@@ -152,7 +158,7 @@ def verify_proof(event: dict, expect_pubkey: str = PUBLISHED_PUBKEY) -> dict:
             schema = json.loads(str(event["content"])).get("schema", "")
         except Exception:
             schema = ""
-        checks["is_proof_event"] = (int(event["kind"]) == PROOF_KIND
+        checks["is_proof_event"] = (type(event["kind"]) is int and event["kind"] == PROOF_KIND
                                     and isinstance(schema, str) and schema.startswith(SCHEMA_PREFIX))
     except Exception as exc:
         out["error"] = f"malformed event: {type(exc).__name__}: {exc}"

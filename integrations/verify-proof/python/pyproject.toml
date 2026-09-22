@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invinoveritas-verify"
-version = "0.4.0"
+version = "0.4.1"
 description = "Portable, offline, zero-dependency verifier for invinoveritas verdict proofs — verify one proof, recompute the WHOLE public ledger, or assemble a recomputable compliance bundle, without trusting the API or us."
 readme = "README.md"
 requires-python = ">=3.8"

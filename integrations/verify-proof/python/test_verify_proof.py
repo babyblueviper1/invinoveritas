@@ -55,6 +55,26 @@ def test_event_id_recompute_matches():
     assert V.nostr_event_id(SAMPLE).lower() == str(SAMPLE["id"]).lower()
 
 
+def test_strict_nip01_no_coercion_of_signed_coordinates():
+    """pipavlo82 (recompute-kit#48, 2026-09-21): a verifier must hash EXACTLY the supplied typed/cased NIP-01 fields. A string
+    created_at/kind or an UPPERCASE pubkey is not the object that was signed and must not verify."""
+    for field, bad in (("created_at", str(SAMPLE["created_at"])), ("kind", str(SAMPLE["kind"])),
+                       ("pubkey", SAMPLE["pubkey"].upper()), ("created_at", float(SAMPLE["created_at"])),
+                       ("kind", True), ("created_at", None)):
+        ev = copy.deepcopy(SAMPLE)
+        ev[field] = bad
+        r = V.verify_proof(ev)
+        assert r["valid"] is False, (field, bad, r)
+        assert r["checks"]["id_integrity"] is False, (field, bad)
+    assert V.verify_proof(SAMPLE)["valid"] is True   # the genuine, exactly-typed proof still verifies
+
+
+def test_tags_must_be_a_list_and_content_a_string():
+    ev = copy.deepcopy(SAMPLE)
+    ev["tags"] = "x"
+    assert V.verify_proof(ev)["valid"] is False
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     passed = 0

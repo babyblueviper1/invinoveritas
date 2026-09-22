@@ -198,10 +198,13 @@ function _toHex(bytes) {
  * @param {Object} ev @returns {string} hex id
  */
 export function nostrEventId(ev) {
-  const serial = JSON.stringify([
-    0, String(ev.pubkey).toLowerCase(), Number(ev.created_at), Number(ev.kind),
-    ev.tags || [], String(ev.content),
-  ]);
+  // STRICT NIP-01 (2026-09-21, pipavlo82 on trustless-ai/recompute-kit#48): hash EXACTLY the supplied typed/cased values, no
+  // String()/Number()/toLowerCase() normalization. A string created_at/kind or an uppercase pubkey is not the object that was signed.
+  const tags = ev.tags === undefined ? [] : ev.tags;
+  if (typeof ev.pubkey !== 'string' || !/^[0-9a-f]{64}$/.test(ev.pubkey)) throw new Error('pubkey must be 64 lowercase hex characters');
+  if (!Number.isSafeInteger(ev.created_at) || !Number.isSafeInteger(ev.kind)) throw new Error('created_at and kind must be JSON integers');
+  if (!Array.isArray(tags) || typeof ev.content !== 'string') throw new Error('tags must be an array and content a string');
+  const serial = JSON.stringify([0, ev.pubkey, ev.created_at, ev.kind, tags, ev.content]);
   return _toHex(sha256(new TextEncoder().encode(serial)));
 }
 
@@ -241,7 +244,7 @@ export function verifyProofLocal(proof, opts = {}) {
     checks.issued_by_invinoveritas = !!pin && String(proof.pubkey).trim().toLowerCase() === pin;
     let schema = "";
     try { schema = (JSON.parse(String(proof.content)).schema) || ""; } catch (_) { schema = ""; }
-    checks.is_proof_event = Number(proof.kind) === PROOF_KIND
+    checks.is_proof_event = Number.isSafeInteger(proof.kind) && proof.kind === PROOF_KIND
       && typeof schema === "string" && schema.startsWith(SCHEMA_PREFIX);
   } catch (e) {
     out.error = `malformed event: ${e}`;
