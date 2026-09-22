@@ -62,3 +62,5 @@ Live reference provider (serves the block + header + `/verify-proof` + a public 
 - `PUBLISHED_PUBKEY` → the reference verifier's key (re-derive: `GET /.well-known/agent-handshake`)
 
 Node 18+ / browsers / workers. The online primitives use global `fetch`; `verifyProofLocal` uses [`@noble/curves`](https://github.com/paulmillr/noble-curves) (audited) for the schnorr check. Ships typed (`index.d.ts`). MIT.
+
+**Known cross-language divergence (disclosed, low impact):** `verifyProofLocal`/`nostrEventId` take an already-`JSON.parse`'d object, so by the time this library sees a value, JS's parser has already collapsed an integral-valued float literal (e.g. `1781569676.0`) into a plain safe integer — indistinguishable from `1781569676`. The Python package (`invinoveritas-verify` on PyPI) sees the raw text and correctly rejects the float. Same signed bytes hash identically either way, so nothing forged ever verifies — this is a verdict-parity gap on an edge case, not a security issue. Pinned as a test (`test.mjs`, "KNOWN cross-language divergence"). Found by an external reviewer testing the published packages directly; thank you.

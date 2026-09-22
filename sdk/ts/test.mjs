@@ -136,6 +136,24 @@ await test("offline: strict NIP-01 -- coerced-type fields must not verify", asyn
   assert.equal(verifyProofLocal(SAMPLE).valid, true);
 });
 
+await test("offline: KNOWN cross-language divergence -- an integral-valued float literal in created_at is indistinguishable from an int after JSON.parse", async () => {
+  // Found by MattyIceMatrix (trustless-ai/recompute-kit#48, testing the PUBLISHED 0.4.1/1.1.2 packages, not just source review):
+  // raw JSON `"created_at": 1781569676.0` -- Python's json.loads keeps it a float, so it correctly fails strict-typing and rejects.
+  // JS's JSON.parse collapses 1781569676.0 to the plain number 1781569676; Number.isSafeInteger() then passes, and re-serializing
+  // it (JSON.stringify) also drops the ".0", so the recomputed hash matches the original signed bytes and this verifies VALID here.
+  // Same input bytes, different verdict per language. Impact is low -- the hashed value is identical either way, so nothing forged
+  // ever verifies -- but it is a real, disclosed parity gap, not a silent one. Root cause: verifyProofLocal/nostrEventId take an
+  // ALREADY-PARSED object; by the time this library sees the value, the raw literal's int-vs-float distinction is already gone.
+  // Closing it for real needs a raw-JSON-text-aware entry point across the whole call chain (a real, scoped follow-up -- see
+  // BUILD_QUEUE.md), not a quick patch to this function. This test PINS the current, disclosed behavior so a future change to it
+  // is a deliberate decision, not an accidental regression.
+  const rawText = readFileSync(new URL("./sample_proof.json", import.meta.url), "utf8")
+    .replace(`"created_at":${SAMPLE.created_at}`, `"created_at":${SAMPLE.created_at}.0`);
+  const parsed = JSON.parse(rawText);
+  assert.equal(Number.isSafeInteger(parsed.created_at), true, "JS collapsed the .0 literal into a safe integer, as expected");
+  assert.equal(verifyProofLocal(parsed).valid, true, "disclosed divergence: JS currently accepts this; Python correctly rejects it");
+});
+
 if (process.argv.includes("--live")) {
   await test("LIVE: preflight our own reference provider", async () => {
     const rep = await preflightVerify("https://api.babyblueviper.com");

@@ -99,4 +99,6 @@ If a proof's `pubkey` ≠ that key, it is **not** an invinoveritas verdict.
 - **`invinoveritas`** (PyPI) — the full Python SDK, incl. the *online* verify-before-pay client (`preflight_verify`, `verify_proof`) and now `verify_proof_local` (the same offline check).
 - **`invinoveritas-verify`** (npm) — the JavaScript/TypeScript twin.
 
+**Known cross-language divergence (disclosed, low impact):** on raw JSON with an integral-valued float `created_at` literal (e.g. `1781569676.0`), this package correctly rejects it (Python's `json.loads` keeps the float type, out of the strict-typing scope). The npm twin's `JSON.parse` collapses that literal into a plain integer before its verifier ever sees it, so it currently verifies such an event — see `invinoveritas-verify`'s own README for the same disclosure. The hashed bytes are identical either way, so nothing forged verifies in either language; this is a verdict-parity gap on an edge case, not a security issue.
+
 Public track record: https://api.babyblueviper.com/ledger

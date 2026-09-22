@@ -1,6 +1,6 @@
 {
   "name": "invinoveritas-verify",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Verify-before-pay / demand-a-proof primitives for x402 + agent-to-agent commerce. Check a provider's verifiable track record before you pay it; confirm a proof an agent attached to its output — online (verifyAttachedProof) or fully OFFLINE/trustless (verifyProofLocal), without trusting the presenter or us.",
   "type": "module",
   "main": "index.js",
