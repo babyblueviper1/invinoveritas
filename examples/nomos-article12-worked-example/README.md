@@ -3,9 +3,16 @@
 A joint pair with Allan Sendagi (SafeHaven/NOMOS) — **both halves shipped**
 as of 2026-08-15.
 
-Article 12 of the EU AI Act requires human oversight to be **real and
-specific to this action**, not a standing org-level sign-off somewhere in
-the handbook. Two independently recomputable attestations can sit on the
+> **Correction (2026-09-24).** An earlier version of this README said Article 12 of the EU AI Act requires
+> action-specific human oversight. That was wrong: **Article 12** is record-keeping (automatic logging of events);
+> **human oversight is Article 14**, and neither article prescribes signatures, a named approver per transfer, or a
+> USD threshold. The "USD 50,000 threshold" below is this synthetic example's own policy parameter, not a legal figure.
+> The folder name and the signed `review_response.json` keep the original wording because re-signing would break the
+> proof. High-risk obligations now apply from 2 Dec 2027 (Annex III) / 2 Aug 2028 (Annex I), per Regulation (EU) 2026/1744.
+> Prompted by arian-gogani's public correction on mitre-atlas/atlas-data#20.
+
+The example asks for human oversight to be **real and specific to this action** (the spirit of Article 14),
+not a standing org-level sign-off somewhere in the handbook, and for the evidence of it to be kept (Article 12). Two independently recomputable attestations can sit on the
 same underlying transfer and answer **different questions**:
 
 | Layer | Who | Question | Status |
@@ -15,7 +22,7 @@ same underlying transfer and answer **different questions**:
 
 Those are not the same claim. A fully-authorized-but-bad transfer is in
 scope for `/review` and structurally out of scope for the authority-gate.
-A reasonable transfer that nobody authorized is the reverse. Article 12
+A reasonable transfer that nobody authorized is the reverse. Real oversight
 needs both.
 
 Allan confirmed (2026-08-15) the technical property that makes this
@@ -174,4 +181,10 @@ advisory input for an irreversible action — but that guard's current
 default is advisory and this exercise didn't run it. Turning that from a
 declared capability into a demonstrated block (a live, still-synthetic
 agent action actually intercepted and escalated) is the natural next
-build, not a new idea — open on our side.
+build, not a new idea.
+
+Our half of that milestone is now in
+[`examples/nomos-article12-mediation-guard/`](../nomos-article12-mediation-guard/):
+standalone SPEC-002 NomosGuard, the same USD 87,450 request, Enforce mode
+Phase 5 **BLOCK** against the sealed `amount_minor < 5,000,000` constraint.
+His live engine flipping from Advisory to Enforce is still his side.
