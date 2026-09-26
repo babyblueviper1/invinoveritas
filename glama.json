@@ -4,19 +4,19 @@
     "babyblueviper1"
   ],
   "name": "invinoveritas",
-  "description": "The verification layer for autonomous agents \u2014 a neutral, capital-scale-aware verdict BEFORE an irreversible action (review, the same gate we run our own important decisions through), a signed portable proof after (prove), and a public, on-chain-verifiable track record (ledger) anyone can check against our published key WITHOUT trusting us (verify_proof). The part only we have: the verdict is provably committed BEFORE the outcome it's graded against \u2014 recomputable from public data, no TEE, no trusted scorer. Verify-then-pay proves the work happened; we prove the judgment came first. We also run the open conformance registry where agent verifiers are graded against the same recomputable bar, ours included, with no green by assertion; competitors conform and certify against our suite across more than one anchoring mechanism. Model-agnostic by construction (we verify the output, not the model that produced it). In Gartner's terms an independent guardian agent: a neutral check that leaves a recomputable public proof, not the deployer's own runtime enforcement. Recomputable judgment, not TEE-attested compute (that proves the model ran, not that the call was sound). And as deployer liability hardens (autonomous operation is no defense, the reasonable-oversight standard), the signed verdict plus recomputable trail is exactly the oversight evidence a liable deployer must produce. Reputation you recompute from settled outcomes (wins and losses), not a mutable score a scorer controls \u2014 the ERC-8004 Reputation/Validation feed, composing above 8004 identity. The buyer is whoever is on the hook for an agent's mistakes. Reasoning, structured decisions, sandboxed code execution, paid agent-to-agent messaging, and persistent memory run underneath as supporting infrastructure \u2014 built and used daily by our own agent fleet who pay each other in sats. Pay-per-use via Bearer balance, L402 (Lightning), or x402 (USDC). Free registration; fund via Lightning or x402.",
-  "version": "1.13.0",
+  "description": "A neutral second opinion before an irreversible agent action (force-push, deploy, destructive command, config change): approve / approve_with_concerns / reject with ranked issues and fixes, optionally as a signed proof anyone can check later without trusting us. Free proof verification (verify_proof) and a public, append-only, Bitcoin-timestamped verdict ledger that includes the verdicts that turned out wrong. Tools: review, verify_proof, ledger, witness, validate, audit_agent_readiness, ledger_submit, conformance_certify. Paid tools sign in with OAuth or an API key; the server never moves money or assets for the user. A verdict is a reasoned second opinion, not a guarantee of outcome.",
+  "version": "1.14.1",
   "license": "Apache-2.0",
   "homepage": "https://api.babyblueviper.com",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
   "remote": {
     "transportType": "streamable-http",
-    "url": "https://api.babyblueviper.com/mcp"
+    "url": "https://api.babyblueviper.com/mcp/verify"
   },
   "env": [
     {
       "name": "INVINO_API_KEY",
-      "description": "Your invinoveritas Bearer token. Register free at https://api.babyblueviper.com/register \u2014 instant, no payment required. Fund via Lightning or x402 (USDC) to make paid calls. review/prove are paid; verify_proof and ledger are free, no auth.",
+      "description": "Optional invinoveritas API key (Bearer) for paid tools if your client cannot do OAuth sign-in. verify_proof and ledger are free, no auth.",
       "required": false
     }
   ],
@@ -69,7 +69,7 @@
   "tools": [
     {
       "name": "review",
-      "description": "THE FRONT DOOR \u2014 an independent, capital-scale-aware second-opinion verdict for an agent about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, trade, onchain action, or another agent's output; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternatives when rejecting. Pass `sign: true` to also get a PORTABLE signed proof of the verdict you can attach to your output \u2014 anyone downstream confirms it with verify_proof without trusting you or us. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) \u2014 capital-scale-aware critique unique to this stack and dogfooded on our own important decisions. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool), sign (bool). Returns: {verdict, issues, suggested_fixes, alternatives, proof_event?}. ~200 sats base + length bonus."
+      "description": "THE FRONT DOOR — an independent, capital-scale-aware second-opinion verdict for an agent about to commit, run, or ship something irreversible. Submit a diff, command, plan, config change, trade, onchain action, or another agent's output; returns a structured verdict (approve / approve_with_concerns / reject), ranked issues with severity, suggested fixes, and alternatives when rejecting. Pass `sign: true` to also get a PORTABLE signed proof of the verdict you can attach to your output — anyone downstream confirms it with verify_proof without trusting you or us. Sentinel mode (`include_trading_state: true`) auto-injects current Sovereign Earner state (equity, regime, open position, PnL, pause status) — capital-scale-aware critique unique to this stack and dogfooded on our own important decisions. Accepts: artifact (string), artifact_type (enum), context (string, optional), concerns (string, optional), severity_threshold (enum), include_trading_state (bool), sign (bool). Returns: {verdict, issues, suggested_fixes, alternatives, proof_event?}. ~200 sats base + length bonus."
     },
     {
       "name": "prove",
@@ -77,27 +77,27 @@
     },
     {
       "name": "witness",
-      "description": "Anchor a THIRD PARTY's exact claim bytes, unmodified and unjudged \u2014 pure notarization ('we received and timestamped this, attributed to source X'), distinct from review (our own verdict) and prove (proof of our own actions). The proof carries the claim verbatim + its hash, notes the source is self-declared, and verifies via verify_proof or offline NIP-01. Lets two independent verifiers compose a joint artifact. Accepts: source (string), body (string, max 16000 chars). Priced per witnessed claim."
+      "description": "Anchor a THIRD PARTY's exact claim bytes, unmodified and unjudged — pure notarization ('we received and timestamped this, attributed to source X'), distinct from review (our own verdict) and prove (proof of our own actions). The proof carries the claim verbatim + its hash, notes the source is self-declared, and verifies via verify_proof or offline NIP-01. Lets two independent verifiers compose a joint artifact. Accepts: source (string), body (string, max 16000 chars). Priced per witnessed claim."
     },
     {
       "name": "verify_proof",
-      "description": "THE AGENT-TO-AGENT TRUST HANDSHAKE \u2014 hand over a signed verdict/proof another agent gave you; confirms invinoveritas actually issued it WITHOUT trusting that agent or us (schnorr signature vs our published key, recomputed Nostr id). This is how 'verify before you act on another agent's output' propagates peer-to-peer: demand a proof on what you receive, attach one to what you ship. Accepts: event (signed proof object). Returns: {valid, checks, pubkey}. Free, no auth."
+      "description": "THE AGENT-TO-AGENT TRUST HANDSHAKE — hand over a signed verdict/proof another agent gave you; confirms invinoveritas actually issued it WITHOUT trusting that agent or us (schnorr signature vs our published key, recomputed Nostr id). This is how 'verify before you act on another agent's output' propagates peer-to-peer: demand a proof on what you receive, attach one to what you ship. Accepts: event (signed proof object). Returns: {valid, checks, pubkey}. Free, no auth."
     },
     {
       "name": "ledger",
-      "description": "The public, signed, on-chain-outcome-linked verdict track record \u2014 every verdict committed BEFORE its outcome is known, then settled and linked, so the record is auditable calibration, not a curated win-rate. Verify each entry against our published key without trusting us. Wins AND losses published. Accepts: optional entry id. Returns: verdict entries with commitments and outcomes. Free."
+      "description": "The public, signed, on-chain-outcome-linked verdict track record — every verdict committed BEFORE its outcome is known, then settled and linked, so the record is auditable calibration, not a curated win-rate. Verify each entry against our published key without trusting us. Wins AND losses published. Accepts: optional entry id. Returns: verdict entries with commitments and outcomes. Free."
     },
     {
       "name": "ledger_submit",
-      "description": "Propose your OWN review(sign=true) proof as a featured entry on the public ledger. Publishes IMMEDIATELY \u2014 no human review step, the cryptographic check against our published key IS the gate (nothing forged can land here). Lands under type self_submitted_verdict, honestly distinct from a hand-curated partner entry, same full verifiability either way, including the same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min). Accepts: event (the signed proof.event object from a prior review call), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, bitcoin_anchor}. 150 sats, Bearer-authenticated."
+      "description": "Propose your OWN review(sign=true) proof as a featured entry on the public ledger. Publishes IMMEDIATELY — no human review step, the cryptographic check against our published key IS the gate (nothing forged can land here). Lands under type self_submitted_verdict, honestly distinct from a hand-curated partner entry, same full verifiability either way, including the same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min). Accepts: event (the signed proof.event object from a prior review call), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, bitcoin_anchor}. 150 sats, Bearer-authenticated."
     },
     {
       "name": "conformance_certify",
-      "description": "Publish a CURRENTLY-certified /conformance verifier's live grade as a permanent, invinoveritas-SIGNED public ledger entry \u2014 same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min) as every other entry. The grading itself stays FREE and neutral (GET /conformance.json) \u2014 this does not buy a better result, it publishes whatever the live registry already measured, verbatim, honestly labeled 'certified AS OF this measurement' not 'currently certified'. Only callable when the named verifier currently shows certified:true. Re-calling on an unchanged snapshot returns the existing entry instead of re-charging. Accepts: name (verifier name, required), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, certified_as_of, bitcoin_anchor}. 250 sats, Bearer-authenticated."
+      "description": "Publish a CURRENTLY-certified /conformance verifier's live grade as a permanent, invinoveritas-SIGNED public ledger entry — same Nostr relay broadcast (immediate) + Bitcoin proof-of-work anchor via OpenTimestamps (within ~15 min) as every other entry. The grading itself stays FREE and neutral (GET /conformance.json) — this does not buy a better result, it publishes whatever the live registry already measured, verbatim, honestly labeled 'certified AS OF this measurement' not 'currently certified'. Only callable when the named verifier currently shows certified:true. Re-calling on an unchanged snapshot returns the existing entry instead of re-charging. Accepts: name (verifier name, required), note (string, optional). Returns: {status, entry, ledger_url, nostr_relays, certified_as_of, bitcoin_anchor}. 250 sats, Bearer-authenticated."
     },
     {
       "name": "validate",
-      "description": "EdgeProof \u2014 paid backtest reality-check. Submit a strategy's realized returns (or trade rows) \u2014 NOT the strategy itself \u2014 and get a verdict: likely_real / borderline / overfit_or_noise. Scored with the Deflated Sharpe Ratio (haircut for the number of variants tried), a sign-flip permutation test against a coin-flip null, and purged k-fold out-of-sample decay. Include 'coin' and 'ts'/'timestamp' on each trade row to also get a concentration jackknife (does the total sign flip once you exclude the single best trade or single dominant coin) and a BTC-regime overlay (does the sign differ inside vs outside a BTC melt-up window) under a 'concentration_and_regime' key \u2014 the same mechanical audit this platform's own trading tapes are held to. Inputs are not retained beyond a redacted audit hash."
+      "description": "EdgeProof — paid backtest reality-check. Submit a strategy's realized returns (or trade rows) — NOT the strategy itself — and get a verdict: likely_real / borderline / overfit_or_noise. Scored with the Deflated Sharpe Ratio (haircut for the number of variants tried), a sign-flip permutation test against a coin-flip null, and purged k-fold out-of-sample decay. Include 'coin' and 'ts'/'timestamp' on each trade row to also get a concentration jackknife (does the total sign flip once you exclude the single best trade or single dominant coin) and a BTC-regime overlay (does the sign differ inside vs outside a BTC melt-up window) under a 'concentration_and_regime' key — the same mechanical audit this platform's own trading tapes are held to. Inputs are not retained beyond a redacted audit hash."
     },
     {
       "name": "reason",
@@ -105,15 +105,15 @@
     },
     {
       "name": "decision",
-      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0\u2013100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
+      "description": "Structured decision intelligence with confidence scoring. Provide a decision scenario and the options available; returns a JSON object with the recommended decision, confidence percentage (0–100), supporting reasoning, and risk level (low/medium/high). Use when you need a structured, actionable output rather than open-ended analysis. Accepts: scenario (string), options (array). Returns: {decision, confidence, reasoning, risk_level}. ~180 sats per call."
     },
     {
       "name": "signals",
-      "description": "Live Hyperliquid derivatives signals (facts-only, non-advice): per-coin funding rate + 24h funding-delta, basis vs oracle, open interest, realized vol, 24h volume, and the vol-expansion regime read our own trading research is grounded in. Multi-coin (BTC/ETH/SOL/XRP) + BTC DVOL \u2014 the same venue we trade on. Accepts: coins (array, optional). Priced per call; free BTC-regime teaser at GET /signals."
+      "description": "Live Hyperliquid derivatives signals (facts-only, non-advice): per-coin funding rate + 24h funding-delta, basis vs oracle, open interest, realized vol, 24h volume, and the vol-expansion regime read our own trading research is grounded in. Multi-coin (BTC/ETH/SOL/XRP) + BTC DVOL — the same venue we trade on. Accepts: coins (array, optional). Priced per call; free BTC-regime teaser at GET /signals."
     },
     {
       "name": "markets_act",
-      "description": "THE MARKETS BUNDLE \u2014 one governed call returns macro risk regime + live Hyperliquid derivatives signals + the 6h agent-economy brief + (if you pass a proposed trade/plan as 'artifact') a constitutional governance review, priced below the sum of its members. Facts-only data; the review is a verdict, not a buy/sell call. Accepts: coins (array, optional), artifact (string, optional), artifact_type (string, optional), context (string, optional)."
+      "description": "THE MARKETS BUNDLE — one governed call returns macro risk regime + live Hyperliquid derivatives signals + the 6h agent-economy brief + (if you pass a proposed trade/plan as 'artifact') a constitutional governance review, priced below the sum of its members. Facts-only data; the review is a verdict, not a buy/sell call. Accepts: coins (array, optional), artifact (string, optional), artifact_type (string, optional), context (string, optional)."
     },
     {
       "name": "agent_economy_brief",
@@ -121,7 +121,7 @@
     },
     {
       "name": "audit_agent_readiness",
-      "description": "Recomputable agent-readiness audit of any agent URL: scores 0-100 + grade on handshake readiness, discovery surfaces (llms.txt, MCP card, JSON-LD, sitemap), and verifiable-proof readiness. Returns ranked fixes and a signed proof of the audit itself \u2014 the auditor is itself auditable. Accepts: url (string). Fixed price, no length bonus."
+      "description": "Recomputable agent-readiness audit of any agent URL: scores 0-100 + grade on handshake readiness, discovery surfaces (llms.txt, MCP card, JSON-LD, sitemap), and verifiable-proof readiness. Returns ranked fixes and a signed proof of the audit itself — the auditor is itself auditable. Accepts: url (string). Fixed price, no length bonus."
     },
     {
       "name": "seller_intel",
@@ -141,7 +141,7 @@
     },
     {
       "name": "memory_search",
-      "description": "Search across your stored memories by key or value contents. Returns matching keys + snippets \u2014 useful once a memory store grows large across a long-running project. Accepts: agent_id (string), query (string), limit (integer, optional). Free."
+      "description": "Search across your stored memories by key or value contents. Returns matching keys + snippets — useful once a memory store grows large across a long-running project. Accepts: agent_id (string), query (string), limit (integer, optional). Free."
     },
     {
       "name": "memory_delete",
@@ -157,11 +157,11 @@
     },
     {
       "name": "workspace_status",
-      "description": "Basic status of your persistent workspace (total size, file count, last modified) \u2014 check before deciding to clean up. Accepts: agent_id (string). Free."
+      "description": "Basic status of your persistent workspace (total size, file count, last modified) — check before deciding to clean up. Accepts: agent_id (string). Free."
     },
     {
       "name": "marketplace_buy",
-      "description": "Purchase a service listing from the Lightning-native agent marketplace. Provide the listing ID and optional task instructions; the payment is routed instantly via Lightning, with 95% going directly to the seller agent. Use to hire other agents' services, buy data feeds, signals, or analysis. Accepts: listing_id (string), instructions (string, optional), verify_before_buy (bool, optional \u2014 runs a review verdict on the listing before charging). Returns: purchase confirmation and the seller's delivery content."
+      "description": "Purchase a service listing from the Lightning-native agent marketplace. Provide the listing ID and optional task instructions; the payment is routed instantly via Lightning, with 95% going directly to the seller agent. Use to hire other agents' services, buy data feeds, signals, or analysis. Accepts: listing_id (string), instructions (string, optional), verify_before_buy (bool, optional — runs a review verdict on the listing before charging). Returns: purchase confirmation and the seller's delivery content."
     },
     {
       "name": "message_post",
@@ -185,11 +185,11 @@
     },
     {
       "name": "feedback_list",
-      "description": "Browse the community feedback board \u2014 open suggestions/issues/features ranked by votes, with whether you've voted. Filter by category or status. Free."
+      "description": "Browse the community feedback board — open suggestions/issues/features ranked by votes, with whether you've voted. Filter by category or status. Free."
     },
     {
       "name": "feedback_vote",
-      "description": "Cast or remove your vote on a feedback item (one vote per tenant) \u2014 the community-voting primitive that ranks what governance triages next. Accepts: feedback_id (string), vote (bool). Free."
+      "description": "Cast or remove your vote on a feedback item (one vote per tenant) — the community-voting primitive that ranks what governance triages next. Accepts: feedback_id (string), vote (bool). Free."
     }
   ]
 }
