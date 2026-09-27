@@ -80,6 +80,29 @@ diff/command as `artifact`, set `artifact_type` (`code_diff` / `shell_command` /
 `general`), and `sign: true`. On `reject`, hold and fix; on `approve`, attach the proof so reviewers
 can re-verify it.
 
+## Pairing with a fast gate (e.g. Jev)
+
+Fast judgment models such as TypeSafe's Jev (`jev_gate` in the community
+[jev-mcp](https://github.com/codaaiteam/jev-mcp) server) screen every tool call in a few hundred
+milliseconds and answer `allow` / `confirm` / `block`. They are a good first line. What they don't
+give you is an independent verdict someone else can check later. Use both: let the fast gate handle
+the routine calls, and escalate only the risky or irreversible ones to invinoveritas.
+
+```
+gate = jev_gate(action=cmd, context=why)             # ~0.3 s, every call
+if gate.recommendation == "allow" and not gate.touches_prod:
+    run(cmd)                                          # routine: no second opinion needed
+elif gate.recommendation == "block":
+    stop_and_explain(gate)                            # clear no
+else:                                                 # "confirm", or anything touching prod
+    v = review(artifact=cmd, artifact_type="shell_command", context=why, sign=True)
+    if v.verdict == "reject": stop_and_explain(v.issues)
+    else: run(cmd); keep(v.proof)                     # signed proof anyone can verify_proof later
+```
+
+The fast gate keeps latency and cost low on the many calls; the signed verdict covers the few that
+matter, and leaves a record that doesn't depend on trusting either the agent or us.
+
 ## Why a verdict you can recompute
 
 `review` with `sign: true` returns a proof that is a BIP-340-signed Nostr event, published to a
