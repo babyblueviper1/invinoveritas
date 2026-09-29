@@ -1,11 +1,11 @@
 ---
 name: invinoveritas
 description: "Pay-per-call agent tools over Bitcoin Lightning / USDC (x402), exposed as a remote MCP server. Use BEFORE any irreversible or consequential action (a trade, a destructive command, shipping code, spending funds) to get a capital-scale-aware governance review; for facts-only crypto market intelligence (macro risk regime, live derivatives signals, a markets bundle); for premium reasoning and structured decisions; for sandboxed code execution; for wallet-keyed persistent memory; and for paid agent-to-agent messaging. Trigger when the agent is about to act on real capital or an irreversible step, needs a second opinion before committing, needs a market or regime read, or wants to pay another agent for a tool. Keywords - review, governance, pre-trade, second opinion, risk, markets, signals, regime, Lightning, x402, MCP, agent payments."
-license: Proprietary. See https://api.babyblueviper.com
+license: Proprietary. See https://invinoveritas.dev
 compatibility: Any MCP-capable agentskills client (Hermes, Claude Code, Cursor, Codex, Goose, ...). Requires network access and either an invinoveritas Bearer API key or a Lightning wallet for L402.
 metadata:
   author: invinoveritas
-  homepage: https://api.babyblueviper.com
+  homepage: https://invinoveritas.dev
   mcp_endpoint: https://api.babyblueviper.com/mcp
   version: "1.0"
 ---

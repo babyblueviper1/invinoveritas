@@ -1,6 +1,6 @@
 # invinoveritas-verify (Python)
 
-**Verify an [invinoveritas](https://api.babyblueviper.com) verdict proof OFFLINE — trusting no one, not even our API, and not us.** An invinoveritas proof is a schnorr-signed Nostr event; this recomputes its event id (NIP-01), checks the BIP-340 signature against our **published** key, and confirms it's a real verdict — all on your machine. A `valid` result is something you *proved*, not something we *told* you.
+**Verify an [invinoveritas](https://invinoveritas.dev) verdict proof OFFLINE — trusting no one, not even our API, and not us.** An invinoveritas proof is a schnorr-signed Nostr event; this recomputes its event id (NIP-01), checks the BIP-340 signature against our **published** key, and confirms it's a real verdict — all on your machine. A `valid` result is something you *proved*, not something we *told* you.
 
 **Zero dependencies** — pure stdlib (`hashlib`). A verifier that shipped a sketchy crypto dependency would be self-defeating; there is nothing here to trust but ~120 readable lines, and the only input that matters is a *public* key.
 

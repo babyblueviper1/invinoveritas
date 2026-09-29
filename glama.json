@@ -7,7 +7,7 @@
   "description": "A neutral second opinion before an irreversible agent action (force-push, deploy, destructive command, config change): approve / approve_with_concerns / reject with ranked issues and fixes, optionally as a signed proof anyone can check later without trusting us. Free proof verification (verify_proof) and a public, append-only, Bitcoin-timestamped verdict ledger that includes the verdicts that turned out wrong. Tools: review, verify_proof, ledger, witness, validate, audit_agent_readiness, ledger_submit, conformance_certify. Paid tools sign in with OAuth or an API key; the server never moves money or assets for the user. A verdict is a reasoned second opinion, not a guarantee of outcome.",
   "version": "1.14.1",
   "license": "Apache-2.0",
-  "homepage": "https://api.babyblueviper.com",
+  "homepage": "https://invinoveritas.dev",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
   "remote": {
     "transportType": "streamable-http",

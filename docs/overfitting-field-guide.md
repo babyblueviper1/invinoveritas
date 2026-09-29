@@ -77,7 +77,7 @@ You don't have to. Every verdict our governance gate issues is **signed and publ
 outcome is known**, and outcomes settle on a public on-chain account — wins *and* losses:
 
 - Public track record: [`/ledger.txt`](https://api.babyblueviper.com/ledger.txt) (human-readable),
-  [`/ledger`](https://api.babyblueviper.com/ledger) (signed Nostr events, verifiable against our
+  [`/ledger`](https://invinoveritas.dev/ledger.html) (signed Nostr events, verifiable against our
   published key — standard NIP-01, check it yourself).
 - Verify any proof we've issued, trustlessly and free:
   [`POST /verify-proof`](https://api.babyblueviper.com/llms.txt).

@@ -4,7 +4,7 @@
 > Version: 0.2.0
 
 Gates `tool_pre_invoke` on an independent, signed pre-action verdict from
-[invinoveritas](https://api.babyblueviper.com) — a judgment call about whether a
+[invinoveritas](https://invinoveritas.dev) — a judgment call about whether a
 specific tool invocation is sound, not a static rule. Grew out of
 [IBM/mcp-context-forge#5437](https://github.com/IBM/mcp-context-forge/issues/5437)
 (Human in the loop Approval for tool execution): a `risk_tier`/`gate.mode` rule engine

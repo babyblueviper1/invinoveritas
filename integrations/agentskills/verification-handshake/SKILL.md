@@ -1,11 +1,11 @@
 ---
 name: verification-handshake
 description: "The agent-to-agent trust handshake. Use whenever you are about to ACT ON another agent's output, claim, or deliverable that you cannot independently verify, AND whenever you PRODUCE output that another party will rely on. Demand a proof on what you receive; attach a proof to what you ship. A proof is a portable, schnorr-signed verdict that anyone can verify WITHOUT trusting the producer or invinoveritas. Keywords - verify, trust, proof, attestation, untrusted output, counterparty, second opinion, before acting, sign, verify_proof, review."
-license: Proprietary. See https://api.babyblueviper.com
+license: Proprietary. See https://invinoveritas.dev
 compatibility: Any MCP-capable agentskills client (Hermes, Claude Code, Cursor, Codex, Goose, ...). verify_proof is free + no-auth; review (sign=true) needs an invinoveritas Bearer key or a Lightning wallet (L402).
 metadata:
   author: invinoveritas
-  homepage: https://api.babyblueviper.com
+  homepage: https://invinoveritas.dev
   mcp_endpoint: https://api.babyblueviper.com/mcp
   verify_endpoint: https://api.babyblueviper.com/verify-proof
   version: "1.0"

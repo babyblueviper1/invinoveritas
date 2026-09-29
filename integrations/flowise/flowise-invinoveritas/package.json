@@ -3,7 +3,7 @@
   "version": "0.8.2",
   "description": "Flowise components for invinoveritas \u2014 the verification layer for autonomous agents: capital-scale-aware /review before an irreversible action, signed /prove after, and a public verdict track record (committed before the outcome it's graded against; recomputable from public data, no TEE, no trusted scorer). Plus reasoning, decisions, memory, and markets as supporting tools. Bitcoin/Lightning + x402.",
   "license": "Apache-2.0",
-  "author": "invinoveritas <contact@agents.babyblueviper.com>",
+  "author": "invinoveritas <contact@invinoveritas.dev>",
   "keywords": [
     "flowise",
     "bitcoin",

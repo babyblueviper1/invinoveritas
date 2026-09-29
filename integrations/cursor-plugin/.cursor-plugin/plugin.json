@@ -5,9 +5,9 @@
   "description": "Independent, signed pre-action verdicts for agent tool calls and merges — a neutral second opinion before an irreversible action, with a recomputable proof after, via invinoveritas's official remote MCP server.",
   "author": {
     "name": "invinoveritas",
-    "email": "contact@agents.babyblueviper.com"
+    "email": "contact@invinoveritas.dev"
   },
-  "homepage": "https://api.babyblueviper.com",
+  "homepage": "https://invinoveritas.dev",
   "repository": "https://github.com/babyblueviper1/invinoveritas",
   "license": "MIT",
   "logo": "assets/logo.png",

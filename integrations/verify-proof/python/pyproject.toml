@@ -16,7 +16,7 @@ authors = [{ name = "invinoveritas" }]
 dependencies = []
 
 [project.urls]
-Homepage = "https://api.babyblueviper.com"
+Homepage = "https://invinoveritas.dev"
 "Track record (the ledger)" = "https://api.babyblueviper.com/ledger"
 "How to verify" = "https://api.babyblueviper.com/.well-known/agent-handshake"
 

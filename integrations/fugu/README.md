@@ -10,7 +10,7 @@ The one role an orchestrator **cannot** self-staff is an **independent** verifie
 pool. You can't sign your own homework, and an opaque pool grading itself is the same optimist
 that produced the work. This adapter is that gate: it runs Fugu as the engine, then — before any
 irreversible step — gets a neutral, capital/risk-aware verdict from
-[invinoveritas](https://api.babyblueviper.com) (`/review`) plus a **portable, schnorr-signed
+[invinoveritas](https://invinoveritas.dev) (`/review`) plus a **portable, schnorr-signed
 proof** anyone re-checks for free (`/verify-proof`), with no trust in Fugu *or* us.
 
 Why it matters more for an orchestrator than a single model:

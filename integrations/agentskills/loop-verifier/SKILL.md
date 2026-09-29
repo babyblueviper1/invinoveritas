@@ -1,11 +1,11 @@
 ---
 name: loop-verifier
 description: "The independent gate for your agent loop or swarm. Use when you run an autonomous or scheduled agent loop OR a cheap-volume / open-weight / open-source agent swarm (Claude Code /loop, scheduled tasks, hooks, Codex Automations, CI-triggered agents, cron'd agents, open-source agent frameworks like CrewAI / LangGraph / AutoGen, hundreds of parallel sub-agents) and need an objective verifier that is NOT the agent that did the work — before the loop merges, deploys, trades, pays, publishes, or SAVES A RESULT AS A REUSABLE SKILL. Turns an independent judgment verdict into an exit code your loop can gate on, plus a portable signed proof attached to whatever the loop ships or saves — so a confident-but-wrong output never gets kept as a skill and replayed forever. The engine can be the cheapest model you like; the gate has to be one that isn't the engine. Keywords - loop, gate, verifier, swarm, sub-agent, parallel agents, skill, save skill, open-weight, open-source, open model, cheap model, CrewAI, LangGraph, AutoGen, autonomous, unattended, automation, CI, maker checker, self-grading, second opinion, before merge, before deploy, before save, sign, proof."
-license: Proprietary. See https://api.babyblueviper.com
+license: Proprietary. See https://invinoveritas.dev
 compatibility: Any agentskills client or plain bash/CI. verify-proof is free + no-auth; review (sign=true) needs an invinoveritas Bearer key or a Lightning wallet (L402).
 metadata:
   author: invinoveritas
-  homepage: https://api.babyblueviper.com
+  homepage: https://invinoveritas.dev
   mcp_endpoint: https://api.babyblueviper.com/mcp
   verify_endpoint: https://api.babyblueviper.com/verify-proof
   version: "1.1"

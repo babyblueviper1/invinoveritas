@@ -35,4 +35,4 @@ const character = {
 
 The principle, both ways: **demand a proof on what you receive; attach one to what you ship.**
 
-Setup for every client: https://api.babyblueviper.com/install · Track record: https://api.babyblueviper.com/ledger · MIT licensed.
+Setup for every client: https://invinoveritas.dev/install · Track record: https://invinoveritas.dev/ledger.html · MIT licensed.

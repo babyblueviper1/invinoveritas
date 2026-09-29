@@ -4,7 +4,7 @@ Canonical source for the plugin submitted to Cursor's official marketplace:
 https://github.com/cursor/plugins/pull/220 (`third_party/invinoveritas/`). Mirrored here per this
 repo's own integration convention — see `data/BIG_SYSTEMS_TARGET_LIST.md` target #30.
 
-Cursor plugin that connects agents to [invinoveritas](https://api.babyblueviper.com) through its
+Cursor plugin that connects agents to [invinoveritas](https://invinoveritas.dev) through its
 official remote [Model Context Protocol](https://modelcontextprotocol.io/) server — an
 independent, signed pre-action verdict before an irreversible action (a destructive command, a
 production deploy, a merge to `main`), and a recomputable proof after.
