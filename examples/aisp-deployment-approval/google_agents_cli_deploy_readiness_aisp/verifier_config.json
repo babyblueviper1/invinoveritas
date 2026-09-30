@@ -1,0 +1,12 @@
+{
+  "expected_audience": "agents-cli-production-deployer",
+  "expected_domain": {
+    "profile": "aisp.deployment_approval_response.v1",
+    "skill_id": "google_agents_cli_deploy_readiness_aisp",
+    "operation": "agents-cli.deploy",
+    "plan_schema": "agents-cli.effective_deployment_plan.v1"
+  },
+  "trusted_public_keys": null,
+  "replay_store": ".aisp_state/approval_nonces.json",
+  "require_immutable_artifact": false
+}

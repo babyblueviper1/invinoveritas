@@ -305,6 +305,86 @@ def verify_payload(
     return dae.verify_approval(plan, approval, expected_audience=expected_audience)
 
 
+class FileReplayGuard:
+    """Single-host, file-backed max_uses store: {nonce: uses} under an exclusive flock, rewritten
+    atomically. Replaces the per-process dict for the dispatch path so a second dispatch of the same
+    approval is refused across processes on one host. NOT a production replay store: that needs a
+    durable store shared by every verifier instance (said here, not implied)."""
+
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+
+    def check_and_record(self, nonce: str, max_uses: int) -> bool:
+        import fcntl
+        import os
+        if not nonce:
+            return False
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(str(self.path) + ".lock", "a+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                used = json.loads(self.path.read_text()) if self.path.exists() else {}
+            except (OSError, ValueError):
+                return False                       # unreadable store: fail closed
+            if used.get(nonce, 0) >= int(max_uses or 1):
+                return False
+            used[nonce] = used.get(nonce, 0) + 1
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(used, sort_keys=True))
+            os.replace(tmp, self.path)
+            return True
+
+
+# Trusted verifier configuration: what an approval must be FOR. These expectations come from the
+# verifier's own config (this Skill Folder), never from the approval being checked.
+DEFAULT_VERIFIER_CONFIG: dict[str, Any] = {
+    "expected_audience": "agents-cli-production-deployer",
+    "expected_domain": dict(dae.DOMAIN_CONTEXT),   # profile, skill_id, operation, plan_schema
+    "trusted_public_keys": None,                   # None = signer authority not established
+    "replay_store": None,                          # path for FileReplayGuard; None = replay not enforced
+    "require_immutable_artifact": False,
+}
+
+
+def load_verifier_config(path: str | None) -> dict[str, Any]:
+    cfg = {**DEFAULT_VERIFIER_CONFIG, "expected_domain": dict(DEFAULT_VERIFIER_CONFIG["expected_domain"])}
+    if path:
+        user = _load_json(path)
+        for k, v in user.items():
+            if k not in cfg:
+                raise ValueError(f"unknown verifier config key {k!r}")
+            cfg[k] = {**cfg[k], **v} if k == "expected_domain" else v
+    return cfg
+
+
+def build_deploy_argv(flags: dict[str, Any] | None) -> list[str]:
+    """Deterministic `agents-cli deploy` argv from a flag dict (click dest names or --spellings):
+    sorted by flag name, True -> bare flag, False/None -> omitted, else `--flag value`."""
+    argv: list[str] = []
+    for k in sorted(flags or {}, key=lambda x: x.lstrip("-").replace("_", "-")):
+        v = (flags or {})[k]
+        name = k if k.startswith("--") else "--" + k.replace("_", "-")
+        if v is True:
+            argv.append(name)
+        elif v is False or v is None:
+            continue
+        else:
+            argv += [name, str(v)]
+    return argv
+
+
+def run_agents_cli(values: dict[str, Any], argv: list[str]) -> dict[str, Any]:
+    """The only production dispatch target: `agents-cli deploy <argv>`. The binary is
+    $AGENTS_CLI_BIN (default `agents-cli`), so a test can substitute a recording stub.
+    No shell, no fallback."""
+    import os
+    import subprocess
+    cmd = [os.environ.get("AGENTS_CLI_BIN", "agents-cli"), "deploy", *argv]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    return {"cmd": cmd, "returncode": proc.returncode,
+            "stdout_tail": proc.stdout[-2000:], "stderr_tail": proc.stderr[-2000:]}
+
+
 def dispatch_deploy(
     approved_plan: dict[str, Any],
     approval: dict[str, Any],
@@ -315,59 +395,95 @@ def dispatch_deploy(
     defaults_mode: str = "create",
     expected_audience: str | None = "agents-cli-production-deployer",
     require_immutable_artifact: bool = False,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """The actual gate: call `dispatch_fn` only after approval AND binding pass.
+    """The gate: `dispatch_fn(values, argv)` is called at most once, and only after every check passes.
 
-    Two independent checks, both required, evaluated before `dispatch_fn` is
-    ever touched:
-      1. `verify_payload` — is this a valid, non-expired, non-replayed,
-         signature-matching approval for `approved_plan`?
-      2. `check_deploy_binding` — does a fresh re-resolve of the CURRENT
-         flags/manifest still match `approved_plan` on every execution-relevant
-         field, and is no unmapped execution-affecting flag present live?
-
-      3. (strict, `require_immutable_artifact=True`) the matched artifact is
-         pinned by digest (`@sha256:`), not by a mutable tag or source label.
-
-    On refusal, `dispatch_fn` is never called (zero dispatch calls) and a
-    `DispatchRefused` is raised carrying the failing report.
-
-    On success, `dispatch_fn` receives the execution-relevant field values
-    read back off the fresh live re-resolve (`report["live_execution_slice"]`)
-    — not the approved plan and not the caller's raw `flags` — so the values
-    dispatch acts on are exactly the ones the binding check just confirmed,
-    not independently re-derived.
+    Checks, in order, all before `dispatch_fn` is touched:
+      1. approval verification (plan digest, approved scope, signature, expiry, decision, audience);
+      2. domain expectations from TRUSTED verifier config (`config["expected_domain"]`: profile,
+         skill_id, operation, plan_schema) -- a correctly signed approval for another operation or
+         skill is refused;
+      3. signer authority: if `config["trusted_public_keys"]` is set, the approval's key must be in it;
+         if not set, the result reports `signer_authority: "not_established"` (a valid signature under
+         the envelope's own key does not show the signer may approve deployment);
+      4. `check_deploy_binding` on a snapshot of the live flags/manifest (execution fields match, no
+         unmapped execution-affecting flag);
+      5. strict mode: the matched artifact is pinned by digest;
+      6. replay: if `config["replay_store"]` is set, the approval's nonce is consumed here, at the
+         dispatch point, so a failed earlier check never burns it; if not set, the result reports
+         `replay: "not_enforced"`.
+    `dispatch_fn` receives the execution values read back off the live re-resolve and the argv built
+    from the same flag snapshot the binding check confirmed (never re-read from the caller).
     """
-    verify_report = verify_payload(
-        approved_plan, approval, expected_audience=expected_audience
-    )
-    if not verify_report.get("valid"):
-        raise DispatchRefused(
-            "approval did not verify", {"verify": verify_report}
-        )
-    bind_report = check_deploy_binding(
-        approved_plan, flags, manifest, defaults_mode=defaults_mode
-    )
+    import copy
+    cfg = config if config is not None else {
+        **DEFAULT_VERIFIER_CONFIG, "expected_audience": expected_audience,
+        "require_immutable_artifact": require_immutable_artifact}
+    flags_snapshot = copy.deepcopy(flags or {})
+    manifest_snapshot = copy.deepcopy(manifest)
+
+    verify_report = dae.verify_approval(approved_plan, approval, expected_audience=cfg.get("expected_audience"))
+    checks = verify_report["checks"]
+    for k, want in (cfg.get("expected_domain") or {}).items():
+        checks[f"{k}_matches"] = approval.get(k) == want
+    keys = cfg.get("trusted_public_keys")
+    if keys is not None:
+        checks["signer_authorized"] = str(approval.get("public_key", "")).lower() in {x.lower() for x in keys}
+    verify_report = {"valid": all(checks.values()), "checks": checks,
+                     "signer_authority": "trusted_key_list" if keys is not None else "not_established",
+                     "replay": "enforced_at_dispatch" if cfg.get("replay_store") else "not_enforced"}
+    if not verify_report["valid"]:
+        raise DispatchRefused("approval did not verify", {"verify": verify_report})
+
+    bind_report = check_deploy_binding(approved_plan, flags_snapshot, manifest_snapshot, defaults_mode=defaults_mode)
     if not bind_report["bound"]:
-        raise DispatchRefused(
-            "live re-resolve does not bind to the approved plan",
-            {"verify": verify_report, "bind": bind_report},
-        )
+        raise DispatchRefused("live re-resolve does not bind to the approved plan",
+                              {"verify": verify_report, "bind": bind_report})
     artifact_report = immutable_artifact_identity(bind_report["live_execution_slice"])
-    if require_immutable_artifact and not artifact_report["immutable"]:
-        raise DispatchRefused(
-            "strict mode: artifact identity is not immutable",
-            {"verify": verify_report, "bind": bind_report, "artifact": artifact_report},
-        )
-    dispatch_result = dispatch_fn(dict(bind_report["live_execution_slice"]))
+    if cfg.get("require_immutable_artifact") and not artifact_report["immutable"]:
+        raise DispatchRefused("strict mode: artifact identity is not immutable",
+                              {"verify": verify_report, "bind": bind_report, "artifact": artifact_report})
+    if cfg.get("replay_store"):
+        if not FileReplayGuard(cfg["replay_store"]).check_and_record(approval.get("nonce", ""),
+                                                                    approval.get("max_uses", 1)):
+            raise DispatchRefused("approval already used (replay)",
+                                  {"verify": {**verify_report, "checks": {**checks, "not_replayed": False}},
+                                   "bind": bind_report})
+    values = dict(bind_report["live_execution_slice"])
+    argv = build_deploy_argv(flags_snapshot)
+    dispatch_result = dispatch_fn(values, argv)
     return {
         "dispatched": True,
-        "dispatched_values": bind_report["live_execution_slice"],
+        "dispatched_values": values,
+        "dispatched_argv": argv,
         "verify": verify_report,
         "bind": bind_report,
         "artifact": artifact_report,
         "dispatch_result": dispatch_result,
     }
+
+
+def _cmd_dispatch(args: argparse.Namespace) -> int:
+    """The skill's deploy tool binding. Exit 0 = dispatched exactly once; 3 = refused, nothing ran."""
+    cfg = load_verifier_config(args.config)
+    if args.strict:
+        cfg["require_immutable_artifact"] = True
+    plan = _load_json(args.plan)
+    approval = _load_json(args.approval)
+    flags = _load_json(args.flags) if args.flags else {}
+    manifest = _load_manifest(args.manifest)
+    try:
+        out = dispatch_deploy(plan, approval, flags, manifest, run_agents_cli,
+                              defaults_mode=args.defaults_mode, config=cfg)
+    except DispatchRefused as exc:
+        json.dump({"dispatched": False, "refused": str(exc), "detail": exc.detail},
+                  sys.stdout, indent=2, sort_keys=True, default=str)
+        sys.stdout.write("\n")
+        return 3
+    json.dump(out, sys.stdout, indent=2, sort_keys=True, default=str)
+    sys.stdout.write("\n")
+    return 0 if out["dispatch_result"].get("returncode") == 0 else 4
 
 
 def _cmd_resolve(args: argparse.Namespace) -> int:
@@ -622,6 +738,20 @@ def main() -> int:
         default="create",
     )
 
+    p_disp = sub.add_parser(
+        "dispatch",
+        help="THE deploy tool binding: verify approval + trusted config, bind live flags, consume the "
+             "nonce, then run agents-cli deploy once. Exit 0 dispatched, 3 refused (nothing ran).",
+    )
+    p_disp.add_argument("--plan", required=True, help="already-approved plan JSON")
+    p_disp.add_argument("--approval", required=True, help="the preserved, unmodified approval envelope JSON")
+    p_disp.add_argument("--flags", help="JSON object of current cmd_deploy.py-style flags")
+    p_disp.add_argument("--manifest", help="Path to current agents-cli-manifest.yaml or .json")
+    p_disp.add_argument("--config", help="trusted verifier config JSON (expected_domain, expected_audience, "
+                                         "trusted_public_keys, replay_store, require_immutable_artifact)")
+    p_disp.add_argument("--strict", action="store_true", help="require a digest-pinned image")
+    p_disp.add_argument("--defaults-mode", choices=("create", "explicit_only"), default="create")
+
     ap.add_argument("--demo", action="store_true",
                     help="run the composition: resolve, refuse-incomplete, "
                          "supplement, build, verify, tamper, deploy-bind")
@@ -637,6 +767,8 @@ def main() -> int:
         return _cmd_build(args)
     if args.cmd == "deploy-check":
         return _cmd_deploy_check(args)
+    if args.cmd == "dispatch":
+        return _cmd_dispatch(args)
     ap.error(f"unknown command {args.cmd}")
     return 2
 

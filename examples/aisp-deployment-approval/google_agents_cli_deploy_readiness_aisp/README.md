@@ -132,6 +132,56 @@ zero real cloud calls):
 cd scripts && python3 -m unittest test_deploy_binding -v
 ```
 
+### The skill's deploy node uses the gate (2026-09-30)
+
+The AISP `deploy` node no longer describes "deploy-check, then separately run agents-cli deploy". Its
+only deploy step is the `deploy_dispatch` tool:
+
+```
+python3 scripts/approval_verifier.py dispatch --plan P --approval A --flags F --manifest M --config verifier_config.json
+```
+
+`dispatch` is the only path that runs `agents-cli deploy`. Exit 0 means it dispatched exactly once; exit 3
+means it refused and nothing ran. The node asserts `deploy_result.dispatched == true`, and a refusal routes to
+`blocked` with no shell fallback. `enforced_by` is now the supported form `deploy.step1:sys.assert`.
+
+Before dispatching, `dispatch` checks in this order:
+1. the approval (plan digest, approved scope, signature, expiry, decision, audience);
+2. the domain expectations `profile`, `skill_id`, `operation` and `plan_schema`, read from
+   `verifier_config.json` (trusted verifier config, never from the approval being checked);
+3. the signer against `trusted_public_keys`, if set;
+4. the binding of the live flags/manifest (execution fields match, and no unmapped execution-affecting flag);
+5. in strict mode, a digest-pinned image;
+6. the approval nonce, which is consumed last, so a failed earlier check does not burn it.
+
+`agents-cli deploy` then runs once, with argv built from the same flag snapshot the binding check confirmed.
+
+Boundaries, stated rather than implied:
+- **Signer authority.** With `trusted_public_keys: null` (the default), the result says
+  `signer_authority: "not_established"`. A valid signature under the envelope's own key does not show that the
+  signer may approve deployment. Set a key list, or connect a host identity policy, to establish it.
+- **Replay.** `replay_store` is a single-host file store under an exclusive lock. With it set, a second dispatch of
+  one approval is refused across processes on that host. A production deployment needs a durable store shared by
+  every verifier instance. If `replay_store` is unset, the result says `replay: "not_enforced"`.
+- **From-source.** A from-source plan has no `source_revision`, and the approval builder refuses an incomplete
+  plan, so no valid approval exists for it. At dispatch, live flags that drop `--image` under an image-approved
+  plan are refused, strict or not.
+- **Artifact identity.** The digest check applies to the reference that is passed. It does not verify the bytes a
+  real deployment backend fetches.
+
+`scripts/test_skill_dispatch.py` (13 tests) reads the command from `aisp.aisop.json` and runs it as a
+subprocess, with `$AGENTS_CLI_BIN` pointing at a recording stub. **Mocked:** the deploy target (a stub that
+appends its argv; no cloud call, no real agents-cli), and the human decision (approvals are built with the
+TEST-ONLY fixture key; no `sys.io.confirm` interaction and no AISOP runtime are exercised). It shows:
+- zero stub calls on a tampered approval, an execution-input drift, a correctly signed approval for another
+  operation or another skill, an untrusted signer, a replay, a strict-mode mutable tag, and a from-source drift;
+- exactly one call, with the complete checked argv, on a valid approval;
+- that a failed check leaves the approval usable once.
+
+```bash
+cd scripts && python3 -m unittest test_skill_dispatch test_deploy_binding -v   # 33 tests
+```
+
 ## What is a prototype (honest coverage)
 
 `resolve_agents_cli_plan.py` is an adapter over the **public**

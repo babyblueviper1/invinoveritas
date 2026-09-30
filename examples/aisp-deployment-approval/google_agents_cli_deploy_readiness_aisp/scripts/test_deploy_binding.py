@@ -158,7 +158,7 @@ class TestDispatchGate(unittest.TestCase):
     def setUp(self):
         self.calls: list[dict] = []
 
-    def _dispatch_fn(self, values: dict) -> str:
+    def _dispatch_fn(self, values: dict, argv=None) -> str:
         self.calls.append(values)
         return "dispatched-ok"
 
@@ -226,7 +226,7 @@ class TestStrictArtifactIdentity(unittest.TestCase):
     def setUp(self):
         self.calls: list[dict] = []
 
-    def _dispatch_fn(self, values: dict) -> str:
+    def _dispatch_fn(self, values: dict, argv=None) -> str:
         self.calls.append(values)
         return "dispatched-ok"
 

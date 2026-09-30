@@ -51,7 +51,7 @@
           },
           {
             "rule": "When the human decision is approve, deployment must not proceed unless the attached approval evidence validates against the current effective deployment plan.",
-            "enforced_by": "verified{Evidence valid?}:no->blocked, and redundantly by deploy.step1:sys.assert immediately before the irreversible action"
+            "enforced_by": "deploy.step1:sys.assert"
           }
         ],
         "discovery": {
@@ -95,6 +95,21 @@
             "kind": "data",
             "mode": "read_only",
             "when": "cross-language recomputation of the v2 fixtures"
+          },
+          {
+            "id": "deploy_dispatch",
+            "path": "scripts/approval_verifier.py",
+            "kind": "script",
+            "mode": "read_and_execute",
+            "when": "deploy: the only path that runs agents-cli deploy (subcommand dispatch)",
+            "requires_tools": ["code"]
+          },
+          {
+            "id": "verifier_config",
+            "path": "verifier_config.json",
+            "kind": "data",
+            "mode": "read_only",
+            "when": "deploy: trusted expectations for the approval (domain, audience, signer keys, replay store); never taken from the approval itself"
           }
         ]
       },
@@ -127,9 +142,9 @@
         },
         "deploy": {
           "step1": "sys.assert('approval_verification.valid == true', 'The deployment approval does not authorize the current effective plan')",
-          "step2": "Call scripts/approval_verifier.py deploy-check with the already-approved plan object and the current live cli_flags/manifest. Re-resolve a fresh plan from that live state and compare every execution-relevant field (deployment_target, gcp_project, region, service_name, service_account, resource_sizing, network_exposure, secret_policy_digest, source_revision). If any field diverges, refuse (fail closed). Do not treat the original flags as authoritative without this bind — a native agents-cli deploy --plan-json does not exist yet.",
-          "step3": "sys.assert('deploy_check.bound == true', 'Live flags/manifest no longer resolve to the approved execution-relevant plan')",
-          "step4": "Only then run agents-cli deploy with those same live flags. Do not re-resolve ad hoc in the shell after this check.",
+          "step2": "Run the deploy_dispatch tool, and only it: python3 scripts/approval_verifier.py dispatch --plan <effective_plan as JSON> --approval <the preserved, unmodified approval payload as JSON> --flags <cli_flags as JSON> --manifest <manifest path> --config verifier_config.json. The tool re-verifies the approval against the trusted config, re-resolves the live flags/manifest and compares every execution-relevant field, consumes the approval nonce, and then runs agents-cli deploy exactly once with argv built from the same flags it checked. Exit 0 = dispatched; exit 3 = refused, nothing ran. Pass its JSON result through unchanged as deploy_result; do not reinterpret it.",
+          "step3": "sys.assert('deploy_result.dispatched == true', 'The deploy gate refused; nothing was deployed')",
+          "step4": "Never run agents-cli deploy any other way, and never retry after a refusal: a refusal routes to blocked. A native agents-cli deploy --plan-json does not exist yet; this tool is the adapter-level substitute.",
           "output_mapping": "deploy_result"
         },
         "cancelled": {
