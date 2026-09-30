@@ -52,13 +52,8 @@ def _ws_fetch_event(relay_url: str, event_id: str, timeout: float = 6.0) -> dict
     return _ws_fetch_ids(relay_url, [event_id], timeout=timeout).get(event_id)
 
 
-def _ws_fetch_ids(relay_url: str, event_ids: list, timeout: float = 15.0) -> dict:
-    """One connection, one REQ for many ids; return {id: raw event} for what the relay served.
-    Batching is what keeps a full-ledger run inside a CI time limit: one connection per event
-    per relay took over 10 minutes on a 269-entry ledger (vlc-1#16)."""
-    ids = [i for i in dict.fromkeys(event_ids) if i]
-    if not ids:
-        return {}
+def _ws_connect(relay_url: str, timeout: float):
+    """Open + handshake a relay WebSocket; return (sock, leftover_buf) or (None, b'') on failure."""
     u = urlparse(relay_url if "://" in relay_url else "wss://" + relay_url)
     host = u.hostname
     port = u.port or (443 if u.scheme == "wss" else 80)
@@ -66,41 +61,77 @@ def _ws_fetch_ids(relay_url: str, event_ids: list, timeout: float = 15.0) -> dic
     raw = socket.create_connection((host, port), timeout=min(timeout, 8.0))
     sock = ssl.create_default_context().wrap_socket(raw, server_hostname=host) if u.scheme == "wss" else raw
     sock.settimeout(timeout)
+    key = base64.b64encode(os.urandom(16)).decode()
+    handshake = (
+        f"GET {path} HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n"
+    )
+    sock.sendall(handshake.encode())
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        chunk = sock.recv(4096)
+        if not chunk:
+            sock.close()
+            return None, b""
+        resp += chunk
+    if b" 101 " not in resp.split(b"\r\n", 1)[0]:
+        sock.close()
+        return None, b""
+    return sock, resp.split(b"\r\n\r\n", 1)[1]
+
+
+def _ws_req(sock, buf: bytes, req: list, timeout: float) -> list:
+    """Send a REQ, collect EVENTs until EOSE/CLOSED/timeout. Returns the raw event dicts."""
+    _ws_send(sock, json.dumps(req))
+    deadline = time.time() + timeout
+    got: list = []
+    while time.time() < deadline:
+        try:
+            msg, buf = _ws_read_frame(sock, buf)
+        except (socket.timeout, ConnectionError, OSError):
+            break
+        if msg is None:
+            continue
+        try:
+            data = json.loads(msg)
+        except Exception:
+            continue
+        if data and data[0] == "EVENT" and len(data) >= 3 and isinstance(data[2], dict):
+            got.append(data[2])
+        elif data and data[0] in ("EOSE", "CLOSED"):
+            break
+    return got
+
+
+def _ws_fetch_ids(relay_url: str, event_ids: list, timeout: float = 15.0) -> dict:
+    """One connection, one REQ for many ids; return {id: raw event} for what the relay served.
+    Batching is what keeps a full-ledger run inside a CI time limit: one connection per event
+    per relay took over 10 minutes on a 269-entry ledger (vlc-1#16)."""
+    ids = [i for i in dict.fromkeys(event_ids) if i]
+    if not ids:
+        return {}
+    sock, buf = _ws_connect(relay_url, timeout)
+    if sock is None:
+        return {}
     try:
-        key = base64.b64encode(os.urandom(16)).decode()
-        handshake = (
-            f"GET {path} HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-            f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n"
-        )
-        sock.sendall(handshake.encode())
-        resp = b""
-        while b"\r\n\r\n" not in resp:
-            chunk = sock.recv(4096)
-            if not chunk:
-                return {}
-            resp += chunk
-        if b" 101 " not in resp.split(b"\r\n", 1)[0]:
-            return {}
-        _ws_send(sock, json.dumps(["REQ", "s", {"ids": ids, "limit": len(ids)}]))
-        deadline = time.time() + timeout
-        buf = resp.split(b"\r\n\r\n", 1)[1]
-        got: dict = {}
-        while time.time() < deadline:
-            try:
-                msg, buf = _ws_read_frame(sock, buf)
-            except (socket.timeout, ConnectionError, OSError):
-                break
-            if msg is None:
-                continue
-            try:
-                data = json.loads(msg)
-            except Exception:
-                continue
-            if data and data[0] == "EVENT" and len(data) >= 3 and isinstance(data[2], dict):
-                got[str(data[2].get("id", ""))] = data[2]
-            elif data and data[0] in ("EOSE", "CLOSED"):
-                break
-        return got
+        events = _ws_req(sock, buf, ["REQ", "s", {"ids": ids, "limit": len(ids)}], timeout)
+        return {str(ev.get("id", "")): ev for ev in events}
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+def _ws_fetch_filter(relay_url: str, nostr_filter: dict, timeout: float = 15.0) -> list:
+    """One connection, one arbitrary-filter REQ (kind/author/tag, not just ids); return every raw
+    event the relay serves before EOSE/CLOSED/timeout. Used for the broadcast-head discovery query
+    below, which — unlike the per-verdict fetch above — doesn't know an event id in advance."""
+    sock, buf = _ws_connect(relay_url, timeout)
+    if sock is None:
+        return []
+    try:
+        return _ws_req(sock, buf, ["REQ", "h", nostr_filter], timeout)
     finally:
         try:
             sock.close()
@@ -226,6 +257,8 @@ def _verify_chain(entries: list[dict], ledger_url: str) -> list[dict]:
             }
             res["checks"] = checks
             res["status"] = "verified" if all(checks.values()) else "FAILED"
+            res["recomputed_head_hash"] = recomputed_head_hash
+            res["chain_head_relays"] = doc.get("chain_head_relays") or []
             # Advance the chain using our OWN recomputed head (not the server's claim) so a
             # tampered middle entry breaks continuity for everything after it, visibly.
             prev_head = recomputed_head_hash
@@ -237,6 +270,74 @@ def _verify_chain(entries: list[dict], ledger_url: str) -> list[dict]:
             prev_head = claimed.get("head_hash", prev_head)
         results.append(res)
     return results
+
+
+def _fetch_broadcast_head_claims(relays: list, expect_pubkey: str, timeout: float = 15.0) -> list:
+    """Discover invinoveritas.ledger_chain_head.v1 events on `relays` WITHOUT knowing an event id in
+    advance — a broad (kind, author) query, filtered client-side by the content payload's schema.
+    This is the same discovery mechanism a third-party capture used to find our head broadcasts on
+    2 of 6 relays with no cooperation from us (vlc-1#16) — recompute_ledger.py should use it too, not
+    just the id-keyed per-verdict fetch above, or a dropped newest entry / consistent rewrite from
+    genesis would pass silently (the chain-only check above can't see it: it only walks entries the
+    /ledger index still lists). Returns verified claims (id_recomputed + issued_by + sig all hold),
+    newest `entry` first."""
+    req = {"kinds": [30078], "authors": [expect_pubkey], "#t": ["invinoveritas"], "limit": 500}
+    seen: dict = {}
+    for relay in relays:
+        try:
+            for ev in _ws_fetch_filter(relay, req, timeout):
+                seen[str(ev.get("id", ""))] = ev
+        except Exception:
+            continue
+    claims = []
+    for eid, ev in seen.items():
+        try:
+            payload = json.loads(ev.get("content", "") or "{}")
+        except Exception:
+            continue
+        if payload.get("schema") != "invinoveritas.ledger_chain_head.v1":
+            continue
+        try:
+            id_ok = eid and nostr_event_id(ev) == eid
+            pk_ok = str(ev.get("pubkey", "")).lower() == expect_pubkey
+            sig_ok = schnorr_verify(bytes.fromhex(eid), bytes.fromhex(str(ev.get("pubkey", ""))),
+                                     bytes.fromhex(str(ev.get("sig", ""))))
+        except Exception:
+            continue
+        if not (id_ok and pk_ok and sig_ok):
+            continue
+        claims.append({"entry": payload.get("entry"), "head_hash": payload.get("head_hash"),
+                        "content_hash": payload.get("content_hash"),
+                        "prev_head_hash": payload.get("prev_head_hash"), "event_id": eid})
+    claims.sort(key=lambda c: c.get("entry") if isinstance(c.get("entry"), int) else -1, reverse=True)
+    return claims
+
+
+def _check_broadcast_head(chain_results: list, broadcast_claims: list) -> dict:
+    """Compare the newest independently-verified broadcast head claim against what THIS run's own
+    chain walk reached. A dropped newest entry (the /ledger index truncated) or a consistent rewrite
+    from genesis both still recompute a clean local chain — the only way to catch either is a signed
+    head from outside the index agreeing with the local recompute, which is what this checks."""
+    local_by_entry = {r["entry"]: r.get("recomputed_head_hash") for r in chain_results
+                       if r.get("recomputed_head_hash")}
+    if not broadcast_claims:
+        return {"status": "no_claim_found", "note": "no verifiable broadcast head claim found on the "
+                "queried relays -- this run could not rule out truncation or a consistent rewrite"}
+    newest = broadcast_claims[0]
+    claimed_entry = newest.get("entry")
+    local_max = max(local_by_entry) if local_by_entry else None
+    if local_max is None or (isinstance(claimed_entry, int) and claimed_entry > local_max):
+        return {"status": "TRUNCATION_SUSPECTED", "claimed_entry": claimed_entry, "local_max_entry": local_max,
+                "note": f"relays hold a signed head naming entry {claimed_entry}, but this run's "
+                f"independently recomputed chain only reaches entry {local_max} -- a dropped newest "
+                f"entry or a truncated index would look exactly like this"}
+    if local_by_entry.get(claimed_entry) != newest.get("head_hash"):
+        return {"status": "MISMATCH", "claimed_entry": claimed_entry,
+                "note": f"relays hold a signed head for entry {claimed_entry} that does not match what "
+                f"this run independently recomputed for that entry -- possible rewrite"}
+    return {"status": "matches", "claimed_entry": claimed_entry,
+            "note": f"newest broadcast head (entry {claimed_entry}) matches the independently "
+            f"recomputed chain -- no truncation or rewrite detected"}
 
 
 def _entry_event_id(entry: dict):
@@ -326,6 +427,15 @@ def main() -> int:
     chain_results = _verify_chain(entries, args.ledger)
     chain_failed = [r for r in chain_results if r["status"] == "FAILED"]
 
+    # Broadcast-head cross-check: a dropped newest entry or a consistent rewrite from genesis both
+    # still recompute a clean chain above (that check only walks what the /ledger index lists) — this
+    # is the only check in this script that can catch either, by agreeing (or not) with a signed head
+    # discovered independently on public relays (vlc-1#16).
+    head_relays = sorted({r for cr in chain_results for r in (cr.get("chain_head_relays") or [])})
+    broadcast_claims = _fetch_broadcast_head_claims(head_relays, expect, timeout=20) if head_relays else []
+    head_check = _check_broadcast_head(chain_results, broadcast_claims)
+    head_check_failed = head_check["status"] in ("TRUNCATION_SUSPECTED", "MISMATCH")
+
     if args.json:
         print(json.dumps({
             "ledger": args.ledger, "expected_pubkey": expect, "served_pubkey": served_pubkey,
@@ -335,8 +445,9 @@ def main() -> int:
             "chain": {"total": len(chain_results),
                       "verified": len([r for r in chain_results if r["status"] == "verified"]),
                       "failed": len(chain_failed), "results": chain_results},
+            "broadcast_head_check": head_check,
         }, indent=2))
-        return 1 if (failed or chain_failed) else 0
+        return 1 if (failed or chain_failed or head_check_failed) else 0
 
     print(f"Recomputing {len(entries)} verdicts from {args.ledger}")
     print(f"Expected verifier key: {expect}")
@@ -379,8 +490,15 @@ def main() -> int:
             print(f"  ✗ {len(chain_failed)} chain link(s) FAILED — either a tampered record or a broken "
                   f"history. This should never happen; investigate.")
 
+    print(f"\nBroadcast head cross-check ({len(head_relays)} relay(s) queried, "
+          f"{len(broadcast_claims)} verified claim(s) found): {head_check['status']}")
+    print(f"  {head_check['note']}")
+    if head_check_failed:
+        print("  ✗ this is exactly what a dropped newest entry or a consistent rewrite from genesis "
+              "would look like — investigate before trusting the chain result above.")
+
     print("\nYou trusted no one: the bytes came from public relays, the math ran here.")
-    return 1 if (failed or chain_failed) else 0
+    return 1 if (failed or chain_failed or head_check_failed) else 0
 
 
 if __name__ == "__main__":
