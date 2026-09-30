@@ -118,6 +118,13 @@ supplement only the honestly-absent fields, build, verify, tamper):
 python3 scripts/approval_verifier.py --demo
 ```
 
+Strict artifact identity (`dispatch_deploy(..., require_immutable_artifact=True)`):
+a matched mutable tag (`:abc123`, `:latest`) can be re-pushed after approval, so
+strict mode refuses unless the image is pinned by digest (`<repo>@sha256:<64 hex>`);
+a from-source deploy (no `--image`) has no immutable identity and also refuses.
+Outside strict mode the result still reports `artifact.immutable`. Tests:
+`TestStrictArtifactIdentity`.
+
 Run the deploy-binding + dispatch-gate suite (stubbed deployment target,
 zero real cloud calls):
 

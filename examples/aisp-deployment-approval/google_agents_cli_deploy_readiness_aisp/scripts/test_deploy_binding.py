@@ -218,6 +218,49 @@ class TestDispatchGate(unittest.TestCase):
         )
 
 
+class TestStrictArtifactIdentity(unittest.TestCase):
+    """Strict mode: a matched mutable tag is not an immutable artifact identity."""
+
+    DIGEST_IMAGE = "us-central1-docker.pkg.dev/company-prod/support-agent/img@sha256:" + "ab" * 32
+
+    def setUp(self):
+        self.calls: list[dict] = []
+
+    def _dispatch_fn(self, values: dict) -> str:
+        self.calls.append(values)
+        return "dispatched-ok"
+
+    def _approval(self, plan):
+        key = dae.PrivateKey(bytes.fromhex(dae.FIXED_TEST_SIGNING_KEY_HEX))
+        return dae.build_approval_response(plan, approver="alice@example.com", signing_key=key)
+
+    def test_mutable_tag_refuses_in_strict_mode_zero_calls(self):
+        _result, plan = _approved_plan()  # BASE_FLAGS uses a :abc tag
+        with self.assertRaises(av.DispatchRefused) as ctx:
+            av.dispatch_deploy(plan, self._approval(plan), BASE_FLAGS, None,
+                               self._dispatch_fn, require_immutable_artifact=True)
+        self.assertEqual(self.calls, [])
+        self.assertFalse(ctx.exception.detail["artifact"]["immutable"])
+
+    def test_mutable_tag_is_reported_even_outside_strict_mode(self):
+        _result, plan = _approved_plan()
+        outcome = av.dispatch_deploy(plan, self._approval(plan), BASE_FLAGS, None, self._dispatch_fn)
+        self.assertFalse(outcome["artifact"]["immutable"])
+
+    def test_digest_pinned_image_dispatches_in_strict_mode(self):
+        flags = dict(BASE_FLAGS, **{"--image": self.DIGEST_IMAGE})
+        _result, plan = _approved_plan(flags)
+        outcome = av.dispatch_deploy(plan, self._approval(plan), flags, None,
+                                     self._dispatch_fn, require_immutable_artifact=True)
+        self.assertTrue(outcome["artifact"]["immutable"])
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[0]["source_revision"], self.DIGEST_IMAGE)
+
+    def test_from_source_deploy_refuses_in_strict_mode(self):
+        self.assertFalse(av.immutable_artifact_identity({"source_revision": None})["immutable"])
+        self.assertFalse(av.immutable_artifact_identity({"source_revision": "img@sha256:short"})["immutable"])
+
+
 class TestUnmappedFlagsAreNamed(unittest.TestCase):
     def test_named_execution_unmapped_flags_exist(self):
         named = set(resolver.UNMAPPED_EXECUTION_CLI_FLAGS)

@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -118,6 +119,25 @@ class PlanDivergenceError(ValueError):
             "deploy refused: " + "; ".join(reasons) + ". "
             "The approval digest does not bind to what would execute."
         )
+
+
+_IMMUTABLE_IMAGE_RE = re.compile(r"^[^\s@]+@sha256:[0-9a-f]{64}$")
+
+
+def immutable_artifact_identity(execution_slice: dict[str, Any]) -> dict[str, Any]:
+    """Is the artifact being deployed pinned by content, not by a mutable name?
+
+    `source_revision` comes only from `--image` (see the resolver). A tag such as
+    `...:abc123` or `:latest` can be re-pushed after approval, so a matched tag
+    does not establish what runs. Only a digest reference (`<repo>@sha256:<64 hex>`)
+    does. A from-source deploy has no first-class artifact identity at all.
+    """
+    ref = execution_slice.get("source_revision")
+    if ref in (None, ""):
+        return {"immutable": False, "reason": "no --image: from-source deploy has no immutable artifact identity"}
+    if not isinstance(ref, str) or not _IMMUTABLE_IMAGE_RE.match(ref):
+        return {"immutable": False, "reason": f"image not pinned by digest: {ref!r}"}
+    return {"immutable": True, "reason": None}
 
 
 class DispatchRefused(ValueError):
@@ -294,6 +314,7 @@ def dispatch_deploy(
     *,
     defaults_mode: str = "create",
     expected_audience: str | None = "agents-cli-production-deployer",
+    require_immutable_artifact: bool = False,
 ) -> dict[str, Any]:
     """The actual gate: call `dispatch_fn` only after approval AND binding pass.
 
@@ -304,6 +325,9 @@ def dispatch_deploy(
       2. `check_deploy_binding` — does a fresh re-resolve of the CURRENT
          flags/manifest still match `approved_plan` on every execution-relevant
          field, and is no unmapped execution-affecting flag present live?
+
+      3. (strict, `require_immutable_artifact=True`) the matched artifact is
+         pinned by digest (`@sha256:`), not by a mutable tag or source label.
 
     On refusal, `dispatch_fn` is never called (zero dispatch calls) and a
     `DispatchRefused` is raised carrying the failing report.
@@ -329,12 +353,19 @@ def dispatch_deploy(
             "live re-resolve does not bind to the approved plan",
             {"verify": verify_report, "bind": bind_report},
         )
+    artifact_report = immutable_artifact_identity(bind_report["live_execution_slice"])
+    if require_immutable_artifact and not artifact_report["immutable"]:
+        raise DispatchRefused(
+            "strict mode: artifact identity is not immutable",
+            {"verify": verify_report, "bind": bind_report, "artifact": artifact_report},
+        )
     dispatch_result = dispatch_fn(dict(bind_report["live_execution_slice"]))
     return {
         "dispatched": True,
         "dispatched_values": bind_report["live_execution_slice"],
         "verify": verify_report,
         "bind": bind_report,
+        "artifact": artifact_report,
         "dispatch_result": dispatch_result,
     }
 
