@@ -35,6 +35,7 @@ import ssl
 import struct
 import sys
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
@@ -48,11 +49,21 @@ DEFAULT_LEDGER = "https://api.babyblueviper.com/ledger"
 # ── minimal Nostr relay fetch over a stdlib WebSocket (no external deps) ──────────────────────────────
 def _ws_fetch_event(relay_url: str, event_id: str, timeout: float = 6.0) -> dict | None:
     """Open a WebSocket to a Nostr relay, REQ one event by id, return the raw event dict (or None)."""
+    return _ws_fetch_ids(relay_url, [event_id], timeout=timeout).get(event_id)
+
+
+def _ws_fetch_ids(relay_url: str, event_ids: list, timeout: float = 15.0) -> dict:
+    """One connection, one REQ for many ids; return {id: raw event} for what the relay served.
+    Batching is what keeps a full-ledger run inside a CI time limit: one connection per event
+    per relay took over 10 minutes on a 269-entry ledger (vlc-1#16)."""
+    ids = [i for i in dict.fromkeys(event_ids) if i]
+    if not ids:
+        return {}
     u = urlparse(relay_url if "://" in relay_url else "wss://" + relay_url)
     host = u.hostname
     port = u.port or (443 if u.scheme == "wss" else 80)
     path = u.path or "/"
-    raw = socket.create_connection((host, port), timeout=timeout)
+    raw = socket.create_connection((host, port), timeout=min(timeout, 8.0))
     sock = ssl.create_default_context().wrap_socket(raw, server_hostname=host) if u.scheme == "wss" else raw
     sock.settimeout(timeout)
     try:
@@ -66,27 +77,30 @@ def _ws_fetch_event(relay_url: str, event_id: str, timeout: float = 6.0) -> dict
         while b"\r\n\r\n" not in resp:
             chunk = sock.recv(4096)
             if not chunk:
-                return None
+                return {}
             resp += chunk
         if b" 101 " not in resp.split(b"\r\n", 1)[0]:
-            return None
-        sub = "s"
-        _ws_send(sock, json.dumps(["REQ", sub, {"ids": [event_id]}]))
+            return {}
+        _ws_send(sock, json.dumps(["REQ", "s", {"ids": ids, "limit": len(ids)}]))
         deadline = time.time() + timeout
         buf = resp.split(b"\r\n\r\n", 1)[1]
+        got: dict = {}
         while time.time() < deadline:
-            msg, buf = _ws_read_frame(sock, buf)
+            try:
+                msg, buf = _ws_read_frame(sock, buf)
+            except (socket.timeout, ConnectionError, OSError):
+                break
             if msg is None:
                 continue
             try:
                 data = json.loads(msg)
             except Exception:
                 continue
-            if data and data[0] == "EVENT" and len(data) >= 3:
-                return data[2]
-            if data and data[0] == "EOSE":
-                return None
-        return None
+            if data and data[0] == "EVENT" and len(data) >= 3 and isinstance(data[2], dict):
+                got[str(data[2].get("id", ""))] = data[2]
+            elif data and data[0] in ("EOSE", "CLOSED"):
+                break
+        return got
     finally:
         try:
             sock.close()
@@ -170,13 +184,37 @@ def _verify_chain(entries: list[dict], ledger_url: str) -> list[dict]:
     results = []
     prev_head = _genesis_head_hash()
     base = ledger_url.rsplit("/ledger", 1)[0]
+
+    def fetch(n):
+        # The API rate-limits; back off on 429 rather than report a link as unverifiable.
+        delay = 1.0
+        for attempt in range(6):
+            try:
+                with urllib.request.urlopen(f"{base}/ledger/{n}", timeout=20) as r:
+                    return n, json.load(r), None
+            except urllib.error.HTTPError as exc:
+                if exc.code != 429 or attempt == 5:
+                    return n, None, exc
+                try:
+                    delay = max(delay, float(exc.headers.get("Retry-After") or 0))
+                except ValueError:
+                    pass
+                time.sleep(delay)
+                delay = min(delay * 2, 30.0)
+            except Exception as exc:  # recorded per entry below
+                return n, None, exc
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        docs = {n: (d, x) for n, d, x in pool.map(fetch, [e.get("entry") for e in chained])}
     for e in chained:
         n = e.get("entry")
         claimed = e.get("chain") or {}
         res = {"entry": n, "status": "unverified", "checks": {}}
         try:
-            with urllib.request.urlopen(f"{base}/ledger/{n}", timeout=20) as r:
-                doc = json.load(r)
+            doc, exc = docs[n]
+            if exc is not None:
+                raise exc
             record = doc.get("record")
             recomputed_content_hash = hashlib.sha256(_canon_json(record)).hexdigest()
             recomputed_head_hash = hashlib.sha256(
@@ -201,18 +239,49 @@ def _verify_chain(entries: list[dict], ledger_url: str) -> list[dict]:
     return results
 
 
+def _entry_event_id(entry: dict):
+    return entry.get("event_id") or (entry.get("commitment_proof") or {}).get("event_id")
+
+
+def _prefetch(entries: list[dict], chunk: int = 100) -> dict:
+    """{relay: {event_id: raw event}}: every relay any entry names, queried once per chunk of ids,
+    relays in parallel. The bytes are still the relay's; nothing here trusts our API."""
+    from concurrent.futures import ThreadPoolExecutor
+    by_relay: dict = {}
+    for e in entries:
+        eid = _entry_event_id(e)
+        for relay in (e.get("commitment_proof") or {}).get("relays") or []:
+            if eid:
+                by_relay.setdefault(relay, []).append(eid)
+
+    def one(relay):
+        ids, got = by_relay[relay], {}
+        for i in range(0, len(ids), chunk):
+            try:
+                got.update(_ws_fetch_ids(relay, ids[i:i + chunk]))
+            except Exception:
+                pass
+        return relay, got
+
+    with ThreadPoolExecutor(max_workers=max(1, min(8, len(by_relay)))) as pool:
+        return dict(pool.map(one, list(by_relay)))
+
+
 # ── recompute one entry from relay-served bytes ───────────────────────────────────────────────────────
-def _recompute_entry(entry: dict, expect_pubkey: str) -> dict:
+def _recompute_entry(entry: dict, expect_pubkey: str, cache: dict | None = None) -> dict:
     eid = entry.get("event_id") or (entry.get("commitment_proof") or {}).get("event_id")
     cp = entry.get("commitment_proof") or {}
     relays = cp.get("relays") or []
     res = {"entry": entry.get("entry"), "event_id": eid, "status": "unverified",
            "relay": None, "checks": {}}
     for relay in relays:
-        try:
-            ev = _ws_fetch_event(relay, eid)
-        except Exception:
-            ev = None
+        if cache is not None:
+            ev = (cache.get(relay) or {}).get(eid)
+        else:
+            try:
+                ev = _ws_fetch_event(relay, eid)
+            except Exception:
+                ev = None
         if not ev:
             continue
         try:
@@ -247,7 +316,8 @@ def main() -> int:
     entries = ledger.get("entries") or ledger.get("track_record") or []
     served_pubkey = (ledger.get("verifier_pubkey") or "").strip().lower()
 
-    results = [_recompute_entry(e, expect) for e in entries]
+    cache = _prefetch(entries)
+    results = [_recompute_entry(e, expect, cache) for e in entries]
     verified = [r for r in results if r["status"] == "verified"]
     failed = [r for r in results if r["status"] == "FAILED"]
     relay_gone = [r for r in results if r["status"] == "relay_unavailable"]
