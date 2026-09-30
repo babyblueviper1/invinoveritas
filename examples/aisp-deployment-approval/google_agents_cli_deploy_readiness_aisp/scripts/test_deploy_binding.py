@@ -10,6 +10,7 @@ from __future__ import annotations
 import unittest
 
 import approval_verifier as av
+import deployment_approval_example as dae
 import resolve_agents_cli_plan as resolver
 
 
@@ -121,6 +122,100 @@ class TestDeployBinding(unittest.TestCase):
         sa = next(d for d in diffs if d["field"] == "service_account")
         self.assertTrue(sa["approved_present"])
         self.assertFalse(sa["live_present"])
+
+
+class TestUnsupportedExecutionFlagRefuses(unittest.TestCase):
+    """A live execution-affecting flag with no field to diverge from must
+    still refuse `bound`, not silently pass because nothing compared unequal."""
+
+    def test_unmapped_execution_flag_present_refuses_even_with_matching_fields(self):
+        _result, plan = _approved_plan()
+        live = dict(BASE_FLAGS)
+        live["--update-env-vars"] = "FEATURE_FLAG=on"
+        report = av.check_deploy_binding(plan, live, None)
+        self.assertEqual(report["divergences"], [])  # nothing to diverge from
+        self.assertIn("update_env_vars", report["unsupported_execution_flags"])
+        self.assertFalse(report["bound"], report)
+        with self.assertRaises(av.PlanDivergenceError) as ctx:
+            av.assert_deploy_bound(plan, live, None)
+        self.assertIn("update_env_vars", str(ctx.exception))
+
+    def test_control_flag_present_does_not_affect_bound(self):
+        """no_wait etc. are control-flow, not execution-affecting -- must not refuse."""
+        _result, plan = _approved_plan()
+        live = dict(BASE_FLAGS)
+        live["--no-wait"] = True
+        report = av.check_deploy_binding(plan, live, None)
+        self.assertEqual(report["unsupported_execution_flags"], [])
+        self.assertTrue(report["bound"], report)
+
+
+class TestDispatchGate(unittest.TestCase):
+    """The actual dispatch gate: does check-then-dispatch really block dispatch,
+    or only report a status a caller could ignore? Uses a stub deployment
+    target so no real cloud call is needed, per optimization2026's ask."""
+
+    def setUp(self):
+        self.calls: list[dict] = []
+
+    def _dispatch_fn(self, values: dict) -> str:
+        self.calls.append(values)
+        return "dispatched-ok"
+
+    def _valid_approval(self, plan):
+        # Live issuance (real time.time() / fresh nonce), like the demo's real-verify
+        # path -- the fixed v2 fixture timestamps are for byte-reproducible vectors
+        # only and would already read as expired against a live clock.
+        key = dae.PrivateKey(bytes.fromhex(dae.FIXED_TEST_SIGNING_KEY_HEX))
+        return dae.build_approval_response(plan, approver="alice@example.com", signing_key=key)
+
+    def test_invalid_approval_zero_dispatch_calls(self):
+        _result, plan = _approved_plan()
+        approval = self._valid_approval(plan)
+        tampered = dict(approval)
+        tampered["plan_sha256"] = "sha256:" + "0" * 64  # forged digest
+        with self.assertRaises(av.DispatchRefused):
+            av.dispatch_deploy(plan, tampered, BASE_FLAGS, None, self._dispatch_fn)
+        self.assertEqual(self.calls, [])
+
+    def test_execution_input_mismatch_zero_dispatch_calls(self):
+        _result, plan = _approved_plan()
+        approval = self._valid_approval(plan)
+        drifted = dict(BASE_FLAGS)
+        drifted["--service-account"] = SA_B
+        with self.assertRaises(av.DispatchRefused) as ctx:
+            av.dispatch_deploy(plan, approval, drifted, None, self._dispatch_fn)
+        self.assertEqual(self.calls, [])
+        self.assertIn("bind", ctx.exception.detail)
+        self.assertFalse(ctx.exception.detail["bind"]["bound"])
+
+    def test_matching_valid_inputs_dispatch_with_same_validated_values(self):
+        _result, plan = _approved_plan()
+        approval = self._valid_approval(plan)
+        outcome = av.dispatch_deploy(plan, approval, BASE_FLAGS, None, self._dispatch_fn)
+        self.assertTrue(outcome["dispatched"])
+        self.assertEqual(len(self.calls), 1)
+        dispatched_values = self.calls[0]
+        # Every value dispatch received matches what the live re-resolve
+        # confirmed, and matches the approved plan on the same fields.
+        for field, value in dispatched_values.items():
+            self.assertEqual(plan.get(field), value, field)
+        self.assertEqual(outcome["dispatched_values"], dispatched_values)
+
+    def test_unsupported_execution_flag_cannot_reach_dispatch(self):
+        """The gap named directly: an execution-affecting input the adapter
+        cannot account for must refuse, not silently produce a successful
+        strict-path dispatch just because it matches on the fields it knows."""
+        _result, plan = _approved_plan()
+        approval = self._valid_approval(plan)
+        live = dict(BASE_FLAGS)
+        live["--update-env-vars"] = "SOME_VAR=malicious"
+        with self.assertRaises(av.DispatchRefused) as ctx:
+            av.dispatch_deploy(plan, approval, live, None, self._dispatch_fn)
+        self.assertEqual(self.calls, [])
+        self.assertIn(
+            "update_env_vars", ctx.exception.detail["bind"]["unsupported_execution_flags"]
+        )
 
 
 class TestUnmappedFlagsAreNamed(unittest.TestCase):

@@ -40,6 +40,24 @@ execution-relevant field. Any divergence refuses the deploy (fail closed).
 That is "resolve effective plan -> approve that plan -> deploy consumes
 the same resolved values", prototyped locally. Approving a projection
 and then running a different flag set is the gap this closes.
+
+Dispatch gate (2026-09-30, optimization2026's execution-input-binding
+follow-up on google/agents-cli#48): `check_deploy_binding` matching does
+not by itself prove the *dispatch* consumes the checked values instead of
+re-resolving independently, and an execution-affecting flag agents-cli
+supports but this adapter does not map (`UNMAPPED_EXECUTION_CLI_FLAGS`,
+e.g. `--update-env-vars`, `--port`) was previously invisible to `bound`
+entirely -- it never appears in `EXECUTION_RELEVANT_FIELDS`, so it could
+not diverge, so a strict-path deploy could silently succeed with an
+unaccounted-for mutation live. `check_deploy_binding` now also fails
+`bound` when any `UNMAPPED_EXECUTION_CLI_FLAGS` entry is present in the
+live flags/manifest, reported as `unsupported_execution_flags` -- refusal,
+not an unconditional `bound: true`. `dispatch_deploy` is the actual gate:
+it only invokes the caller's `dispatch_fn` after both approval verification
+and the (now-strict) binding check pass, and it hands `dispatch_fn` the
+values read back off the matched live re-resolve, not the approved plan
+and not the caller's raw flags -- so dispatch cannot be reached with a
+value the binding check never actually confirmed live.
 """
 from __future__ import annotations
 
@@ -81,16 +99,33 @@ _ABSENT = object()
 
 
 class PlanDivergenceError(ValueError):
-    """Approved plan and live re-resolve disagree on an execution-relevant field."""
+    """Approved plan and live re-resolve disagree on an execution-relevant field,
+    or an execution-affecting flag this adapter does not map is present live."""
 
     def __init__(self, report: dict[str, Any]):
         self.report = report
         fields = [d["field"] for d in report.get("divergences", [])]
+        unsupported = report.get("unsupported_execution_flags", [])
+        reasons = []
+        if fields:
+            reasons.append(f"execution-relevant field(s) {fields} diverge")
+        if unsupported:
+            reasons.append(
+                f"unsupported execution-affecting flag(s) {unsupported} are "
+                "present live and cannot be verified against the approval"
+            )
         super().__init__(
-            "deploy refused: approved plan diverges from a fresh re-resolve "
-            f"on execution-relevant field(s) {fields}. "
+            "deploy refused: " + "; ".join(reasons) + ". "
             "The approval digest does not bind to what would execute."
         )
+
+
+class DispatchRefused(ValueError):
+    """dispatch_deploy declined to call dispatch_fn; nothing was invoked."""
+
+    def __init__(self, reason: str, detail: dict[str, Any]):
+        self.detail = detail
+        super().__init__(f"deploy dispatch refused: {reason}")
 
 
 def merge_supplements(
@@ -200,16 +235,24 @@ def check_deploy_binding(
 
     Does not apply supplements: execution inputs must come from flags/manifest,
     and policy/evidence fields are not in the comparison set.
-    `bound` is True only when every execution-relevant field matches.
+    `bound` is True only when every execution-relevant field matches AND no
+    execution-affecting flag this adapter does not map (`unsupported_execution_flags`)
+    is present live -- an unmapped execution-affecting input cannot silently
+    produce `bound: True` just because it has nowhere to diverge from.
     """
     fresh = resolver.resolve_agents_cli_plan(
         flags, manifest, defaults_mode=defaults_mode
     )
     diffs = compare_execution_fields(approved_plan, fresh.plan)
+    unsupported = [
+        name for name in fresh.unmapped_cli_flags_present
+        if name in resolver.UNMAPPED_EXECUTION_CLI_FLAGS
+    ]
     return {
-        "bound": not diffs,
+        "bound": not diffs and not unsupported,
         "execution_relevant_fields": list(resolver.EXECUTION_RELEVANT_FIELDS),
         "divergences": diffs,
+        "unsupported_execution_flags": unsupported,
         "approved_execution_slice": _field_slice(approved_plan),
         "live_execution_slice": _field_slice(fresh.plan),
         "live_unmapped_cli_flags_present": fresh.unmapped_cli_flags_present,
@@ -240,6 +283,60 @@ def verify_payload(
 ) -> dict[str, Any]:
     """Deterministic verification — the sys.assert input. Never a bare bool."""
     return dae.verify_approval(plan, approval, expected_audience=expected_audience)
+
+
+def dispatch_deploy(
+    approved_plan: dict[str, Any],
+    approval: dict[str, Any],
+    flags: dict[str, Any] | None,
+    manifest: dict[str, Any] | None,
+    dispatch_fn,
+    *,
+    defaults_mode: str = "create",
+    expected_audience: str | None = "agents-cli-production-deployer",
+) -> dict[str, Any]:
+    """The actual gate: call `dispatch_fn` only after approval AND binding pass.
+
+    Two independent checks, both required, evaluated before `dispatch_fn` is
+    ever touched:
+      1. `verify_payload` — is this a valid, non-expired, non-replayed,
+         signature-matching approval for `approved_plan`?
+      2. `check_deploy_binding` — does a fresh re-resolve of the CURRENT
+         flags/manifest still match `approved_plan` on every execution-relevant
+         field, and is no unmapped execution-affecting flag present live?
+
+    On refusal, `dispatch_fn` is never called (zero dispatch calls) and a
+    `DispatchRefused` is raised carrying the failing report.
+
+    On success, `dispatch_fn` receives the execution-relevant field values
+    read back off the fresh live re-resolve (`report["live_execution_slice"]`)
+    — not the approved plan and not the caller's raw `flags` — so the values
+    dispatch acts on are exactly the ones the binding check just confirmed,
+    not independently re-derived.
+    """
+    verify_report = verify_payload(
+        approved_plan, approval, expected_audience=expected_audience
+    )
+    if not verify_report.get("valid"):
+        raise DispatchRefused(
+            "approval did not verify", {"verify": verify_report}
+        )
+    bind_report = check_deploy_binding(
+        approved_plan, flags, manifest, defaults_mode=defaults_mode
+    )
+    if not bind_report["bound"]:
+        raise DispatchRefused(
+            "live re-resolve does not bind to the approved plan",
+            {"verify": verify_report, "bind": bind_report},
+        )
+    dispatch_result = dispatch_fn(dict(bind_report["live_execution_slice"]))
+    return {
+        "dispatched": True,
+        "dispatched_values": bind_report["live_execution_slice"],
+        "verify": verify_report,
+        "bind": bind_report,
+        "dispatch_result": dispatch_result,
+    }
 
 
 def _cmd_resolve(args: argparse.Namespace) -> int:

@@ -64,6 +64,26 @@ agents-cli deploy   (only if deploy-check reports bound=true)
 `modify` returns to resolve. A previous approval must not carry over.
 `reject`, a failed verify, or a failed deploy-check stops without deploy.
 
+`deploy-check` matching does not by itself prove *dispatch* consumes the
+checked values rather than re-resolving independently, and an
+execution-affecting flag this adapter does not map (`--update-env-vars`,
+`--port`, `--agent-identity`, `--build-args`, `--cluster-name`) previously
+had nowhere to diverge from and so never affected `bound`. Two fixes
+(2026-09-30, direct response to optimization2026's execution-input-binding
+follow-up): `deploy-check`'s `bound` now also fails when any of those
+unmapped execution-affecting flags is present live
+(`unsupported_execution_flags`); and `dispatch_deploy(plan, approval, flags,
+manifest, dispatch_fn)` in `approval_verifier.py` is the actual gate a
+caller composes against — it only invokes `dispatch_fn` after both
+`verify_payload` and the (now-strict) `check_deploy_binding` pass, and
+hands `dispatch_fn` the values read back off the matched live re-resolve,
+not the approved plan and not the caller's raw flags. See
+`scripts/test_deploy_binding.py::TestDispatchGate` for the stubbed-target
+proof: zero dispatch calls on an invalid approval or an execution-input
+mismatch, exactly one dispatch call with the matched validated values on a
+clean approve, and an unmapped execution-affecting flag still refuses even
+when every mapped field matches.
+
 There is no native `agents-cli deploy --plan-json`. The deploy-check is
 the adapter-level substitute: the human approved a resolved plan, and
 deploy is refused unless a *fresh* resolve of the live flags/manifest
@@ -96,6 +116,13 @@ supplement only the honestly-absent fields, build, verify, tamper):
 
 ```bash
 python3 scripts/approval_verifier.py --demo
+```
+
+Run the deploy-binding + dispatch-gate suite (stubbed deployment target,
+zero real cloud calls):
+
+```bash
+cd scripts && python3 -m unittest test_deploy_binding -v
 ```
 
 ## What is a prototype (honest coverage)
