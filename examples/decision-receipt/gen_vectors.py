@@ -10,6 +10,7 @@ salted commitment: c(v) = sha256(salt + "|" + v). The reveal opens them. See SPE
 import copy
 import hashlib
 import json
+import sys
 
 SALT = "5a" * 32
 CTX = "deploy build 4f2a to the canary pool; error budget 0.4% left; last canary 3 days ago"
@@ -34,15 +35,26 @@ def binding_args(rv):
 
 
 def record(rv, gate):
+    out = _record(rv, gate)
+    if "accepted_review_issuers" in rv:      # v0.2 only; v0 vectors never carry it, so they regenerate byte-identical
+        out["review_issuers_commitment"] = c(jcs(sorted(rv["accepted_review_issuers"])))
+    return out
+
+
+def _record(rv, gate):
     return {"question_commitment": c(rv["question"]), "options_commitment": c(jcs(rv["options"])),
             "choice_commitment": c(rv["choice"]), "context_commitment": c(rv["context_sha256"]),
             "gate_policy_commitment": c(jcs(sorted(rv["irreversible_options"]))),
             "gated": rv["choice"] in rv["irreversible_options"], "gate": gate}
 
 
-def review(rv, verdict="approve", choice=None, ref="r1"):
+ISSUER_A = "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"   # the invinoveritas verdict key (published at /ledger)
+ISSUER_B = "b" * 64
+
+
+def review(rv, verdict="approve", choice=None, ref="r1", issuer=None):
     args = binding_args(dict(rv, choice=choice or rv["choice"]))
-    return {"artifact_hash": rv["context_sha256"], "verdict": verdict, "decision_ref": "sha256:" + sha(ref),
+    return {**({"issuer_pubkey": issuer} if issuer else {}), "artifact_hash": rv["context_sha256"], "verdict": verdict, "decision_ref": "sha256:" + sha(ref),
             "action_binding_tool_hash": "sha256:" + sha("decision_receipt"),
             "action_binding_args_hash": "sha256:" + sha(jcs(args))}
 
@@ -106,8 +118,24 @@ def main():
     v("n9", "record says not gated, but the committed policy gates the choice", [
         {"record": dict(record(canary, {"status": "not_gated", "executable": True}), gated=False),
          "reveal": canary, "review": None}], "reject", "gated_flag_mismatch")
-    json.dump({"suite": "decision-record-v0", "commitment": "sha256(salt + '|' + value)",
-               "review_tool": "decision_receipt", "vectors": V}, __import__("sys").stdout, indent=1)
+    if "--v02" in sys.argv:
+        # v0.2: the deployer commits to who may give the approving review. Same 14 v0 vectors, plus three.
+        pol = dict(canary, accepted_review_issuers=[ISSUER_A])
+        okp = {"status": "cleared", "executable": True}
+        v("p6", "v0.2: gated choice cleared by an approving review from a listed issuer", [
+            {"record": record(pol, dict(okp, review_decision_ref=review(pol, issuer=ISSUER_A)["decision_ref"])),
+             "reveal": pol, "review": review(pol, issuer=ISSUER_A)}], "accept")
+        v("n10", "v0.2: an approving review that covers this input and decision, from an issuer not in the committed list", [
+            {"record": record(pol, okp), "reveal": pol, "review": review(pol, issuer=ISSUER_B)}],
+          "reject", "review_issuer_not_permitted")
+        v("n12", "v0.2: an approving review that names no issuer, under a committed issuer list", [
+            {"record": record(pol, okp), "reveal": pol, "review": review(pol)}], "reject", "review_issuer_not_permitted")
+        widened = dict(pol, accepted_review_issuers=[ISSUER_A, ISSUER_B])       # list widened after the fact
+        v("n11", "v0.2: the revealed accepted_review_issuers do not open review_issuers_commitment", [
+            {"record": record(pol, okp), "reveal": widened, "review": review(widened, issuer=ISSUER_B)}],
+          "reject", "commitment_mismatch")
+    json.dump({"suite": "decision-record-v0.2" if "--v02" in sys.argv else "decision-record-v0", "commitment": "sha256(salt + '|' + value)",
+               "review_tool": "decision_receipt", "vectors": V}, sys.stdout, indent=1)
     print()
 
 

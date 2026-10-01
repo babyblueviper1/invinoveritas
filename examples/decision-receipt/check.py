@@ -27,6 +27,11 @@ def check_set(items):
         opened = {"question_commitment": c(rv["question"]), "options_commitment": c(jcs(rv["options"])),
                   "choice_commitment": c(rv["choice"]), "context_commitment": c(rv["context_sha256"]),
                   "gate_policy_commitment": c(jcs(sorted(rv["irreversible_options"])))}
+        policy = rv.get("accepted_review_issuers")           # v0.2: the deployer's committed list of acceptable review issuers
+        if "review_issuers_commitment" in rec or policy is not None:
+            if policy is None or not isinstance(policy, list):
+                return "reject", "commitment_mismatch"
+            opened["review_issuers_commitment"] = c(jcs(sorted(policy)))
         if any(rec.get(k) != v for k, v in opened.items()):
             return "reject", "commitment_mismatch"
         if rv["choice"] not in rv["options"]:
@@ -45,6 +50,8 @@ def check_set(items):
         if (review.get("action_binding_tool_hash") != "sha256:" + sha("decision_receipt")
                 or review.get("action_binding_args_hash") != "sha256:" + sha(jcs(args))):
             return "reject", "review_binding_mismatch"
+        if policy is not None and review.get("issuer_pubkey") not in policy:      # v0.2; absent policy = v0 (any issuer)
+            return "reject", "review_issuer_not_permitted"
         if review.get("verdict") not in APPROVING:
             return "reject", "executable_without_approval"
         if review.get("decision_ref") in used:
