@@ -10,8 +10,10 @@
 // Vendor options (default: look the vendor up in Coinbase's public x402 directory, which the vendor doesn't control):
 //   --vendor 0xADDRESS "Label"     use this payout address as the vendor record, as if from your vendor database
 //   --vendor-record record.json    a saved record: {"payTo", "label", "source", "checked_at"}
-//   --vendor-source paycheck       ask Lumière PayCheck (lumierepaycheck.org, free check-payment API), which monitors
+//   --vendor-source paycheck       use only Lumière PayCheck (lumierepaycheck.org, free check-payment API), which monitors
 //                                  x402 endpoints continuously (payout-wallet history, paid delivery tests, OFAC)
+// By default the directory record (or --vendor-record) is cross-checked with PayCheck too, so the reviewer sees two
+// independent sources; --no-paycheck turns that off. --vendor (your own vendor database) is used alone.
 // Env: INVINOVERITAS_KEY (free: POST https://api.babyblueviper.com/register, then fund it), PAYER_KEY (pay only:
 // a Base wallet holding a little USDC; no ETH needed, the facilitator pays gas), DEMO_URL (default /regime, 2.5 cents).
 import { readFileSync } from 'node:fs';
@@ -88,10 +90,23 @@ if (!req) throw new Error('no payable USDC-on-Base requirement in the 402');
 say(`   The vendor's invoice (HTTP 402): pay ${Number(req.amountAtomic) / 1e6} USDC to ${req.payTo} on Base`);
 
 const record = await vendorRecord(req);
+// Second independent source: PayCheck's live monitoring, unless it already is the source, the record is the payer's
+// own vendor database, or --no-paycheck. A PayCheck outage leaves the record as it is (the reviewer sees one source).
+if (record && !record.from_monitor && !record.from_vendor_db && !rest.includes('--no-paycheck')) {
+  try {
+    say("   Cross-checking with Lumière PayCheck (independent monitor of x402 endpoints) ...");
+    const pc = await paycheckRecord(req);
+    record.paycheck = { ...pc.paycheck, observed_payTo_matches_record: pc.payTo ? pc.payTo.toLowerCase() === record.payTo?.toLowerCase() : null };
+  } catch (e) {
+    say(`   PayCheck unavailable (${e.message}); continuing with one source.`);
+  }
+}
 const match = record?.payTo ? record.payTo.toLowerCase() === req.payTo.toLowerCase() : false;
 say(!record ? '2. Vendor record: NOT CHECKED. The only evidence for the payout address is the invoice itself.'
   : `2. Vendor record (${record.label}): ${record.payTo ?? 'none (the monitor has no observed payout address for this endpoint)'}, from ${record.from_vendor_db ? 'the vendor database' : record.from_monitor ? 'Lumière PayCheck' : "Coinbase's x402 directory"} (${record.checked_at})\n   `
-    + (record.paycheck ? `PayCheck: ${record.paycheck.allow ? 'allow' : 'DENY'} (grade ${record.paycheck.grade}, ${record.paycheck.verdict}; ${(record.paycheck.reasons ?? []).join('; ')}; OFAC screened: ${record.paycheck.sanctions?.screened ? 'yes, not listed' : 'no'})\n   ` : '')
+    + (record.paycheck ? `Independent monitor (Lumière PayCheck): wallet seen ${record.paycheck.observed_payTo ?? 'none'}`
+      + (record.paycheck.observed_payTo_matches_record === true ? ' (same as the record)' : record.paycheck.observed_payTo_matches_record === false ? ' (DIFFERENT from the record)' : '')
+      + `; ${record.paycheck.allow ? 'allow' : 'DENY'} (grade ${record.paycheck.grade}, ${record.paycheck.verdict}; ${(record.paycheck.reasons ?? []).join('; ')}; OFAC: ${record.paycheck.sanctions?.screened ? (record.paycheck.sanctions.sanctioned ? 'LISTED' : 'not listed') : 'not screened'})\n   ` : '')
     + (match ? 'MATCHES the address the server asks for' : `DOES NOT MATCH the address the server asks for (${req.payTo})`));
 
 const evidence = {

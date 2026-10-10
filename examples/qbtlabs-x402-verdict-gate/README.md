@@ -44,8 +44,9 @@ The vendor is our own paid `/regime` endpoint, so a paid run pays us about 2.5 c
 x402 v2 server). The vendor record is what the agent checks the invoice's payout address against: a source the vendor
 doesn't control. By default it's Coinbase's public x402 directory; in production it's your own vendor database.
 
-**Independent payee data: Lumière PayCheck.** `node live_demo.mjs verdict --vendor-source paycheck` takes the vendor
-record from [Lumière PayCheck](https://lumierepaycheck.org) ([API](https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md)),
+**Independent payee data: Lumière PayCheck.** By default the demo cross-checks the directory's vendor record with
+PayCheck, so the reviewer sees two independent sources (`--no-paycheck` turns it off; `--vendor-source paycheck` uses it
+alone). It takes data from [Lumière PayCheck](https://lumierepaycheck.org) ([API](https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md)),
 which monitors x402 endpoints continuously: payout-wallet history, paid delivery tests and OFAC screening. Its
 `check-payment` answer goes into the evidence (`recipient_record.independent_monitor`, hashed into the verdict), so the
 reviewer weighs third-party data about the payee instead of the payer's word. First run (2026-10-10, against our own
