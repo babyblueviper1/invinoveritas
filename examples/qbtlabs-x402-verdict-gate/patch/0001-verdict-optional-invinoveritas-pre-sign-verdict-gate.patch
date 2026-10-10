@@ -1,34 +1,46 @@
-From 2a63ae7c05255bfe9228e52b25af2a6ba9dd631a Mon Sep 17 00:00:00 2001
+From fe5d429778bf93d1925f49b4af7090eeb10ecb13 Mon Sep 17 00:00:00 2001
 From: babyblueviper1 <babyblueviperbusiness@gmail.com>
-Date: Sat, 10 Oct 2026 13:01:34 -0300
+Date: Sat, 10 Oct 2026 19:38:05 +0000
 Subject: [PATCH] verdict: optional invinoveritas pre-sign verdict gate +
  post-settlement execution check
 
-- src/verdict: createVerdictGate (POST /review over the exact EIP-3009 fields, offline BIP-340 proof
-  verification, proceedOn/freshness/fail-closed policy, nonce = verdict decision_ref),
-  verifyExecutionLocal/Remote, signGatedAuthorization, createVerdictPaymentFetch
-- signer: optional preSign hook (runs after PolicyEngine.check, before vault decrypt); nonce accepts bytes32 hex
-- package.json: ./verdict export
-- 33 tests on recorded real verdicts + the real Base settlement 0x2afb35e2; no network
+Includes QBT-Labs/x402 #14 (exact USD to atomic) and #15 (x402 v2 payment-required, offered entry echoed as accepted),
+which the gate's payment fetch builds on. Tested on Base mainnet: 0xa186db4ba79d6b9581cdb7a3134593038bc5ae186ab526eefaa6b349a274f84a.
 ---
  package.json                                  |   4 +
+ src/__tests__/amount.test.ts                  |  23 ++
  .../exhibit3_approve_settled.json             |  95 +++++
  .../invinoveritas/exhibit3_reject.json        |  49 +++
- src/__tests__/verdict.test.ts                 | 347 ++++++++++++++++++
- src/signer/server.ts                          |  21 ++
+ src/__tests__/payment-fetch.test.ts           |  18 +
+ src/__tests__/payment-required.test.ts        |  70 ++++
+ src/__tests__/verdict.test.ts                 | 365 ++++++++++++++++++
+ src/amount.ts                                 |  14 +
+ src/chains/evm.ts                             |   3 +-
+ src/client.ts                                 | 110 ++++--
+ src/facilitator.ts                            |   3 +-
+ src/index.ts                                  |   1 +
+ src/middleware/express.ts                     |   3 +-
+ src/middleware/hono.ts                        |   3 +-
+ src/pricing.ts                                |   3 +-
+ src/signer/server.ts                          |  21 +
  src/signer/types.ts                           |  16 +-
+ src/transport/payment-fetch.ts                |  16 +-
  src/verdict/README.md                         | 108 ++++++
  src/verdict/execution.ts                      | 121 ++++++
- src/verdict/fetch.ts                          |  75 ++++
- src/verdict/gate.ts                           | 291 +++++++++++++++
+ src/verdict/fetch.ts                          |  89 +++++
+ src/verdict/gate.ts                           | 291 ++++++++++++++
  src/verdict/index.ts                          |  16 +
  src/verdict/jcs.ts                            |  33 ++
  src/verdict/proof.ts                          | 131 +++++++
  src/verdict/sign.ts                           |  29 ++
- 14 files changed, 1335 insertions(+), 1 deletion(-)
+ src/verify.ts                                 |   3 +-
+ 27 files changed, 1597 insertions(+), 41 deletions(-)
+ create mode 100644 src/__tests__/amount.test.ts
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
+ create mode 100644 src/__tests__/payment-required.test.ts
  create mode 100644 src/__tests__/verdict.test.ts
+ create mode 100644 src/amount.ts
  create mode 100644 src/verdict/README.md
  create mode 100644 src/verdict/execution.ts
  create mode 100644 src/verdict/fetch.ts
@@ -53,6 +65,35 @@ index e15c854..1b0b5ba 100644
      }
    },
    "bin": {
+diff --git a/src/__tests__/amount.test.ts b/src/__tests__/amount.test.ts
+new file mode 100644
+index 0000000..3b0576a
+--- /dev/null
++++ b/src/__tests__/amount.test.ts
+@@ -0,0 +1,23 @@
++import { usdToAtomic } from '../amount.js';
++
++describe('usdToAtomic', () => {
++  it('is exact where Math.ceil(usd * 1e6) overshoots by one unit', () => {
++    expect(Math.ceil(4.03 * 1_000_000)).toBe(4030001); // the old behaviour
++    expect(usdToAtomic(4.03)).toBe(4_030_000n);
++    expect(usdToAtomic(8.05)).toBe(8_050_000n);
++  });
++  it('matches integer cents for every cent price up to $1,000, and every $0.0001 step up to $10', () => {
++    for (let c = 1; c <= 100_000; c++) expect(usdToAtomic(c / 100)).toBe(BigInt(c) * 10_000n);
++    for (let c = 1; c <= 100_000; c++) expect(usdToAtomic(c / 10_000)).toBe(BigInt(c) * 100n);
++  });
++  it('still rounds a genuinely sub-unit price up, never down', () => {
++    expect(usdToAtomic(0.0000001)).toBe(1n);
++    expect(usdToAtomic(0.0000015)).toBe(2n);
++    expect(usdToAtomic(0)).toBe(0n);
++  });
++  it('rejects negative and non-finite amounts', () => {
++    expect(() => usdToAtomic(-1)).toThrow();
++    expect(() => usdToAtomic(NaN)).toThrow();
++    expect(() => usdToAtomic(Infinity)).toThrow();
++  });
++});
 diff --git a/src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json b/src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
 new file mode 100644
 index 0000000..a4184f8
@@ -211,12 +252,115 @@ index 0000000..46bca55
 + }
 +}
 \ No newline at end of file
+diff --git a/src/__tests__/payment-fetch.test.ts b/src/__tests__/payment-fetch.test.ts
+index 0571e19..8de0762 100644
+--- a/src/__tests__/payment-fetch.test.ts
++++ b/src/__tests__/payment-fetch.test.ts
+@@ -257,4 +257,22 @@ describe('createPaymentFetch', () => {
+ 
+     expect(onPaymentSent).toHaveBeenCalledWith('https://api.example.com/url-input', 0.001);
+   });
++
++  it('reads x402 v2 requirements from the PAYMENT-REQUIRED header and sends PAYMENT-SIGNATURE too', async () => {
++    const v2 = { x402Version: 2, error: 'X-PAYMENT header required', accepts: [{ network: 'eip155:8453', amount: '1080424', payTo: '0xRecipientAddress1234567890123456789012' }] };
++    const res402 = makeResponse(402, { x402Version: 2, error: 'X-PAYMENT header required' });
++    (res402 as any).headers = new Headers({ 'PAYMENT-REQUIRED': Buffer.from(JSON.stringify(v2)).toString('base64') });
++    mockFetch.mockResolvedValueOnce(res402).mockResolvedValueOnce(makeResponse(200, { ok: true }));
++    mockParsePaymentRequired.mockReturnValue({ ...makeParsedRequirements(), amountAtomic: '1080424' });
++    mockSignPayment.mockResolvedValue(makeSignedPayment());
++    mockBuildPaymentPayload.mockReturnValue('base64-payment-header');
++
++    const res = await createPaymentFetch({ privateKey: PRIVATE_KEY })('https://api.example.com/v2');
++    expect(res.status).toBe(200);
++    expect(mockParsePaymentRequired).toHaveBeenCalledWith(v2);
++    expect((mockSignPayment.mock.calls.at(-1)?.[0] as any).amountAtomic).toBe('1080424');
++    const headers = (mockFetch.mock.calls[1][1] as RequestInit).headers as Headers;
++    expect(headers.get('X-PAYMENT')).toBe('base64-payment-header');
++    expect(headers.get('PAYMENT-SIGNATURE')).toBe('base64-payment-header');
++  });
+ });
+diff --git a/src/__tests__/payment-required.test.ts b/src/__tests__/payment-required.test.ts
+new file mode 100644
+index 0000000..6b1d099
+--- /dev/null
++++ b/src/__tests__/payment-required.test.ts
+@@ -0,0 +1,70 @@
++import { describe, it, expect } from '@jest/globals';
++import { verifyTypedData } from 'viem';
++import { buildPaymentPayloadWithAuthorization, parsePaymentRequired, signPayment } from '../client.js';
++
++const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
++const PAY_TO = '0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9';
++
++// Shape of a live x402 v2 402 (api.babyblueviper.com/review, 2026-10-10), trimmed: a non-EVM option first.
++const v2 = {
++  x402Version: 2,
++  error: 'X-PAYMENT header required',
++  accepts: [
++    { scheme: 'exact', network: 'xrpl:0', amount: '769560', asset: 'XRP', payTo: 'rhFHztjS63h6fs5vXgTotuL7jsuryUvDSF' },
++    { scheme: 'exact', network: 'eip155:8453', asset: BASE_USDC, amount: '1080424', payTo: PAY_TO, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } },
++  ],
++};
++
++describe('parsePaymentRequired', () => {
++  it('still parses an x402 v1 body', () => {
++    expect(parsePaymentRequired({
++      error: 'Payment Required', price: 0.001,
++      accepts: [{ network: 'eip155:84532', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', payTo: PAY_TO, maxAmountRequired: '1000' }],
++    })).toMatchObject({ price: 0.001, payTo: PAY_TO, network: 'eip155:84532', chainId: 84532, amountAtomic: '1000' });
++  });
++  it('parses an x402 v2 body: any error text, `amount`, and skips requirements it cannot pay', () => {
++    const r = parsePaymentRequired(v2);
++    expect(r).toMatchObject({ price: 1.080424, payTo: PAY_TO, network: 'eip155:8453', chainId: 8453, amountAtomic: '1080424' });
++    expect(r!.accepted).toBe(v2.accepts.find((a: any) => a.amount === '1080424'));
++  });
++  it('skips a non-USDC asset and a non-exact scheme on an EVM chain', () => {
++    expect(parsePaymentRequired({ x402Version: 2, accepts: [
++      { scheme: 'exact', network: 'eip155:8453', asset: '0x0000000000000000000000000000000000000001', amount: '5', payTo: PAY_TO },
++      { scheme: 'upto', network: 'eip155:8453', asset: BASE_USDC, amount: '5', payTo: PAY_TO },
++    ] })).toBeNull();
++  });
++  it('returns null for a body that is neither v1 nor v2, or has nothing payable', () => {
++    expect(parsePaymentRequired({ error: 'unknown', accepts: v2.accepts })).toBeNull();
++    expect(parsePaymentRequired({ x402Version: 2, accepts: [] })).toBeNull();
++    expect(parsePaymentRequired({ x402Version: 2, accepts: [{ network: 'eip155:8453', payTo: PAY_TO, amount: '1.5' }] })).toBeNull();
++  });
++});
++
++describe('signPayment amountAtomic', () => {
++  it('signs exactly the stated atomic amount, and the signature verifies over it', async () => {
++    const privateKey = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
++    const s = await signPayment({ privateKey, to: PAY_TO, amount: 999, amountAtomic: '1080424', chainId: 8453 });
++    expect(s.value).toBe('1080424');
++    const ok = await verifyTypedData({
++      address: s.from as `0x${string}`,
++      domain: { name: 'USD Coin', version: '2', chainId: 8453n, verifyingContract: BASE_USDC },
++      types: { TransferWithAuthorization: [
++        { name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' },
++        { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' },
++      ] },
++      primaryType: 'TransferWithAuthorization',
++      message: { from: s.from as `0x${string}`, to: PAY_TO, value: 1080424n, validAfter: BigInt(s.validAfter), validBefore: BigInt(s.validBefore), nonce: s.nonce as `0x${string}` },
++      signature: s.signature as `0x${string}`,
++    });
++    expect(ok).toBe(true);
++  });
++  it('echoes the offered requirement as `accepted` (v2 servers check maxTimeoutSeconds, extra) only when it matches', () => {
++    const offered = { scheme: 'exact', network: 'eip155:8453', asset: BASE_USDC, amount: '24897', payTo: PAY_TO,
++      maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } };
++    const auth = { from: PAY_TO, to: PAY_TO, value: '24897', validAfter: '0', validBefore: '9', nonce: '0x' + '11'.repeat(32) };
++    const dec = (h: string) => JSON.parse(Buffer.from(h, 'base64').toString()).accepted;
++    expect(dec(buildPaymentPayloadWithAuthorization({ signature: '0x', authorization: auth, chainId: 8453, accepted: offered }))).toEqual(offered);
++    const other = dec(buildPaymentPayloadWithAuthorization({ signature: '0x', authorization: { ...auth, value: '1' }, chainId: 8453, accepted: offered }));
++    expect(other).toEqual({ scheme: 'exact', network: 'eip155:8453', asset: BASE_USDC, amount: '1', payTo: PAY_TO });
++  });
++});
 diff --git a/src/__tests__/verdict.test.ts b/src/__tests__/verdict.test.ts
 new file mode 100644
-index 0000000..1787083
+index 0000000..c95243d
 --- /dev/null
 +++ b/src/__tests__/verdict.test.ts
-@@ -0,0 +1,347 @@
+@@ -0,0 +1,365 @@
 +/**
 + * invinoveritas verdict gate tests. Every proof here is a real signed verdict recorded from invinoveritas
 + * (pilot exhibit 3, 2026-10-08), and the settlement receipt is the real Base transaction 0x2afb35e2...
@@ -563,7 +707,360 @@ index 0000000..1787083
 +    const sent = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
 +    expect(sent.payload.authorization).toMatchObject({ to: payTo, value: '5000000' });
 +  });
++
++  it('pays an x402 v2 server: requirements from the PAYMENT-REQUIRED header, exact amount, offered entry echoed', async () => {
++    const offered = { scheme: 'exact', network: 'eip155:8453', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo,
++      amount: '24897', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } };
++    const pr = Buffer.from(JSON.stringify({ x402Version: 2, error: 'X-PAYMENT header required', accepts: [offered] })).toString('base64');
++    let sig = '';
++    jest.spyOn(globalThis, 'fetch').mockImplementation((async (_i: any, init?: RequestInit) => {
++      const h = new Headers(init?.headers);
++      if (h.get('PAYMENT-SIGNATURE')) { sig = h.get('PAYMENT-SIGNATURE')!; return new Response('{"ok":true}', { status: 200 }); }
++      return new Response('{}', { status: 402, headers: { 'PAYMENT-REQUIRED': pr } });
++    }) as any);
++    const gate = createVerdictGate({ fetch: (async () => new Response('{}')) as unknown as typeof fetch, reviewAboveAtomic: 10_000_000n });
++    const res = await createVerdictPaymentFetch({ privateKey: pk, gate })('https://api.example.com/regime');
++    expect(res.status).toBe(200);
++    const sent = JSON.parse(Buffer.from(sig, 'base64').toString('utf8'));
++    expect(sent.payload.authorization).toMatchObject({ to: payTo, value: '24897' });
++    expect(sent.accepted).toEqual(offered);
++  });
 +});
+diff --git a/src/amount.ts b/src/amount.ts
+new file mode 100644
+index 0000000..43d8ea6
+--- /dev/null
++++ b/src/amount.ts
+@@ -0,0 +1,14 @@
++/**
++ * USD -> USDC atomic units (6 decimals).
++ *
++ * `Math.ceil(usd * 1_000_000)` overshoots by one unit whenever the float product lands just above an integer,
++ * e.g. 4.03 * 1_000_000 = 4030000.0000000005 -> 4030001. Over cent prices up to $1,000 that is 3,038 of 100,000.
++ * Here a product within 1e-6 of an integer is that integer; a genuinely sub-unit remainder still rounds up,
++ * so a price is never under-charged.
++ */
++export function usdToAtomic(usd: number): bigint {
++  if (!Number.isFinite(usd) || usd < 0) throw new Error(`invalid USD amount: ${usd}`);
++  const scaled = usd * 1_000_000;
++  const nearest = Math.round(scaled);
++  return BigInt(Math.abs(scaled - nearest) < 1e-6 ? nearest : Math.ceil(scaled));
++}
+diff --git a/src/chains/evm.ts b/src/chains/evm.ts
+index 07b1566..21743ef 100644
+--- a/src/chains/evm.ts
++++ b/src/chains/evm.ts
+@@ -8,6 +8,7 @@ import { getConfig, USDC_CONTRACTS } from '../config.js';
+ 
+ export type { EvmPaymentPayload, SignEIP3009Options, SignEIP3009Result } from '../types/evm.types.js';
+ import type { EvmPaymentPayload, SignEIP3009Options, SignEIP3009Result } from '../types/evm.types.js';
++import { usdToAtomic } from '../amount.js';
+ 
+ /**
+  * Verify EVM payment signature.
+@@ -48,7 +49,7 @@ function verifyBasic(
+   }
+ 
+   const paidAmount = BigInt(authorization.value);
+-  const requiredAmount = BigInt(Math.ceil(expectedAmount * 1_000_000));
++  const requiredAmount = usdToAtomic(expectedAmount);
+ 
+   if (paidAmount < requiredAmount) {
+     return { valid: false, error: `Insufficient: ${paidAmount} < ${requiredAmount}` };
+diff --git a/src/client.ts b/src/client.ts
+index 4de3e67..1f35a4a 100644
+--- a/src/client.ts
++++ b/src/client.ts
+@@ -5,6 +5,7 @@
+ import { privateKeyToAccount } from 'viem/accounts';
+ import { createWalletClient, http } from 'viem';
+ import { baseSepolia, base } from 'viem/chains';
++import { usdToAtomic } from './amount.js';
+ 
+ const USDC_CONTRACTS: Record<number, `0x${string}`> = {
+   8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base mainnet
+@@ -17,6 +18,8 @@ interface SignPaymentParams {
+   amount: number;
+   chainId?: number;
+   validForSeconds?: number;
++  /** Exact amount in atomic USDC units (6 decimals), e.g. from an x402 v2 `accepts[].amount`. Overrides `amount`. */
++  amountAtomic?: string;
+ }
+ 
+ export interface SignedPayment {
+@@ -44,6 +47,7 @@ function randomNonce(): `0x${string}` {
+  */
+ export async function signPayment(params: SignPaymentParams): Promise<SignedPayment> {
+   const { privateKey, to, amount, chainId = 84532, validForSeconds = 300 } = params;
++  const exact = params.amountAtomic !== undefined ? BigInt(params.amountAtomic) : undefined;
+ 
+   const account = privateKeyToAccount(privateKey);
+   const chain = chainId === 8453 ? base : baseSepolia;
+@@ -53,7 +57,7 @@ export async function signPayment(params: SignPaymentParams): Promise<SignedPaym
+     throw new Error(`Unsupported chain: ${chainId}`);
+   }
+ 
+-  const value = BigInt(Math.ceil(amount * 1_000_000));
++  const value = usdToAtomic(amount);
+   const validAfter = BigInt(0);
+   const validBefore = BigInt(Math.floor(Date.now() / 1000) + validForSeconds);
+   const nonce = randomNonce();
+@@ -88,7 +92,7 @@ export async function signPayment(params: SignPaymentParams): Promise<SignedPaym
+     message: {
+       from: account.address,
+       to,
+-      value,
++      value: exact ?? value,
+       validAfter,
+       validBefore,
+       nonce,
+@@ -98,7 +102,7 @@ export async function signPayment(params: SignPaymentParams): Promise<SignedPaym
+   return {
+     from: account.address,
+     to,
+-    value: value.toString(),
++    value: (exact ?? value).toString(),
+     validAfter: validAfter.toString(),
+     validBefore: validBefore.toString(),
+     nonce,
+@@ -110,7 +114,25 @@ export async function signPayment(params: SignPaymentParams): Promise<SignedPaym
+ /**
+  * Build payment payload for x402 header
+  */
+-export function buildPaymentPayload(signedPayment: SignedPayment): string {
++/**
++ * x402 v2 servers match `accepted` against the requirement they offered (maxTimeoutSeconds, extra, ...), so echo
++ * the server's entry when it is for the same payee and amount that was signed; otherwise build the minimal block.
++ */
++function acceptedBlock(
++  fallback: { scheme: string; network: string; asset: string; amount: string; payTo: string },
++  offered?: PaymentRequirementEntry,
++): Record<string, unknown> {
++  if (
++    offered &&
++    String(offered.payTo).toLowerCase() === fallback.payTo.toLowerCase() &&
++    String(offered.amount ?? offered.maxAmountRequired) === fallback.amount
++  ) {
++    return { ...offered };
++  }
++  return fallback;
++}
++
++export function buildPaymentPayload(signedPayment: SignedPayment, offered?: PaymentRequirementEntry): string {
+   const asset = signedPayment.network === 'eip155:84532'
+     ? '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+     : '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+@@ -131,14 +153,10 @@ export function buildPaymentPayload(signedPayment: SignedPayment): string {
+       },
+       signature: signedPayment.signature,
+     },
+-    // Also include accepted for compatibility
+-    accepted: {
+-      scheme: 'exact',
+-      network: signedPayment.network,
+-      asset,
+-      amount: signedPayment.value,
+-      payTo: signedPayment.to,
+-    },
++    accepted: acceptedBlock(
++      { scheme: 'exact', network: signedPayment.network, asset, amount: signedPayment.value, payTo: signedPayment.to },
++      offered,
++    ),
+   };
+   return Buffer.from(JSON.stringify(payload)).toString('base64');
+ }
+@@ -204,6 +222,8 @@ export function buildPaymentPayloadWithAuthorization(params: {
+     nonce: string;
+   };
+   chainId: number;
++  /** The requirement entry from the server's 402 (`parsePaymentRequired(...).accepted`); echoed when it matches. */
++  accepted?: PaymentRequirementEntry;
+ }): string {
+   const { signature, authorization, chainId } = params;
+   const network = `eip155:${chainId}`;
+@@ -218,41 +238,65 @@ export function buildPaymentPayloadWithAuthorization(params: {
+       authorization,
+       signature,
+     },
+-    accepted: {
+-      scheme: 'exact',
+-      network,
+-      asset,
+-      amount: authorization.value,
+-      payTo: authorization.to,
+-    },
++    accepted: acceptedBlock(
++      { scheme: 'exact', network, asset, amount: authorization.value, payTo: authorization.to },
++      params.accepted,
++    ),
+   };
+   return Buffer.from(JSON.stringify(payload)).toString('base64');
+ }
+ 
++/** One entry of an x402 `accepts` list (v1 uses `maxAmountRequired`, v2 uses `amount`). */
++export interface PaymentRequirementEntry {
++  network: string;
++  asset?: string;
++  payTo: string;
++  scheme?: string;
++  amount?: string;
++  maxAmountRequired?: string;
++  [extra: string]: unknown;
++}
++
+ /**
+- * Parse 402 response and extract payment requirements
++ * Parse a 402 body (or a decoded v2 `PAYMENT-REQUIRED` header) and pick the first requirement this client can pay:
++ * scheme `exact` (or unstated), USDC on Base or Base Sepolia. Accepts x402 v1 (`error: 'Payment Required'`,
++ * `maxAmountRequired`) and v2 (`x402Version: 2`, any error text, `amount`). Returns null when nothing is payable.
+  */
+ export function parsePaymentRequired(response: {
++  x402Version?: number;
+   error?: string;
+   price?: number;
+-  accepts?: Array<{ network: string; asset: string; payTo: string; maxAmountRequired: string }>;
++  accepts?: PaymentRequirementEntry[];
+ }): {
+   price: number;
+   payTo: string;
+   network: string;
+   chainId: number;
++  /** Exact amount in atomic USDC units, as the server stated it. */
++  amountAtomic?: string;
++  /** The chosen `accepts` entry, verbatim, to echo back as `accepted` (x402 v2). */
++  accepted: PaymentRequirementEntry;
+ } | null {
+-  if (response.error !== 'Payment Required' || !response.accepts?.length) {
+-    return null;
+-  }
+-
+-  const accept = response.accepts[0];
+-  const chainId = parseInt(accept.network.split(':')[1] || '84532');
++  if (!response || !Array.isArray(response.accepts) || !response.accepts.length) return null;
++  if (response.x402Version !== 2 && response.error !== 'Payment Required') return null;
+ 
+-  return {
+-    price: response.price ?? parseInt(accept.maxAmountRequired) / 1_000_000,
+-    payTo: accept.payTo,
+-    network: accept.network,
+-    chainId,
+-  };
++  for (const accept of response.accepts) {
++    if (accept.scheme !== undefined && accept.scheme !== 'exact') continue;
++    const [ns, ref] = String(accept.network ?? '').split(':');
++    const chainId = parseInt(ref || '84532');
++    if (ns !== 'eip155' || !USDC_CONTRACTS[chainId]) continue;
++    if (accept.asset && accept.asset.toLowerCase() !== USDC_CONTRACTS[chainId].toLowerCase()) continue;
++    const raw = accept.amount ?? accept.maxAmountRequired;
++    const amountAtomic = raw !== undefined && /^[0-9]+$/.test(String(raw)) ? String(raw) : undefined;
++    if (amountAtomic === undefined && response.price === undefined) continue;
++    return {
++      price: response.price ?? Number(amountAtomic) / 1_000_000,
++      payTo: accept.payTo,
++      network: accept.network,
++      chainId,
++      ...(amountAtomic !== undefined ? { amountAtomic } : {}),
++      accepted: accept,
++    };
++  }
++  return null;
+ }
+diff --git a/src/facilitator.ts b/src/facilitator.ts
+index dd2fa84..91f8fe3 100644
+--- a/src/facilitator.ts
++++ b/src/facilitator.ts
+@@ -8,6 +8,7 @@
+ import type { PaymentPayload } from './verify.js';
+ import { getConfig, getActiveChains, USDC_CONTRACTS, PAYAI_SOLANA_FEE_PAYER } from './config.js';
+ import { getToolPrice } from './pricing.js';
++import { usdToAtomic } from './amount.js';
+ 
+ 
+ /**
+@@ -27,7 +28,7 @@ export function buildFacilitatorRequirements(toolName: string): {
+   const cfg = getConfig();
+   const chains = getActiveChains();
+   const pricing = getToolPrice(toolName);
+-  const amountMicro = Math.ceil(pricing.price * 1_000_000).toString();
++  const amountMicro = usdToAtomic(pricing.price).toString();
+ 
+   const accepts: Array<{
+     scheme: string;
+diff --git a/src/index.ts b/src/index.ts
+index e4e0449..1e3ec1a 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -41,6 +41,7 @@ export type { PricingTier, ToolPricing } from './pricing.js';
+ 
+ // Verification
+ export { parsePaymentHeader, verifyPayment } from './verify.js';
++export { usdToAtomic } from './amount.js';
+ export type { PaymentPayload } from './verify.js';
+ 
+ // Middleware
+diff --git a/src/middleware/express.ts b/src/middleware/express.ts
+index 5c96b5e..2534f9e 100644
+--- a/src/middleware/express.ts
++++ b/src/middleware/express.ts
+@@ -15,6 +15,7 @@ import { getToolPrice, DEFAULT_TIERS } from '../pricing.js';
+ import type { PricingTier } from '../pricing.js';
+ import { parsePaymentHeader, verifyPayment } from '../verify.js';
+ import { buildFacilitatorRequirements, settleWithFacilitator } from '../facilitator.js';
++import { usdToAtomic } from '../amount.js';
+ 
+ export interface ExpressX402Options {
+   /** Exact price in USD. Ignored when toolName is provided. */
+@@ -42,7 +43,7 @@ function buildRequirementsForPrice(priceUsd: number): {
+ } {
+   const cfg = getConfig();
+   const chains = getActiveChains();
+-  const amountMicro = Math.ceil(priceUsd * 1_000_000).toString();
++  const amountMicro = usdToAtomic(priceUsd).toString();
+   const accepts: Array<{
+     scheme: string;
+     network: string;
+diff --git a/src/middleware/hono.ts b/src/middleware/hono.ts
+index b30b79c..3c53482 100644
+--- a/src/middleware/hono.ts
++++ b/src/middleware/hono.ts
+@@ -19,6 +19,7 @@ import { getToolPrice, DEFAULT_TIERS } from '../pricing.js';
+ import type { PricingTier } from '../pricing.js';
+ import { parsePaymentHeader, verifyPayment } from '../verify.js';
+ import { buildFacilitatorRequirements, settleWithFacilitator } from '../facilitator.js';
++import { usdToAtomic } from '../amount.js';
+ 
+ export interface HonoX402Options {
+   /** Exact price in USD. Ignored when toolName is provided. */
+@@ -46,7 +47,7 @@ function buildRequirementsForPrice(priceUsd: number): {
+ } {
+   const cfg = getConfig();
+   const chains = getActiveChains();
+-  const amountMicro = Math.ceil(priceUsd * 1_000_000).toString();
++  const amountMicro = usdToAtomic(priceUsd).toString();
+   const accepts: Array<{
+     scheme: string;
+     network: string;
+diff --git a/src/pricing.ts b/src/pricing.ts
+index 16e2282..f8d93b9 100644
+--- a/src/pricing.ts
++++ b/src/pricing.ts
+@@ -3,6 +3,7 @@
+  */
+ 
+ import { getConfig, getActiveChains, USDC_CONTRACTS } from './config.js';
++import { usdToAtomic } from './amount.js';
+ 
+ export type PricingTier = 'free' | 'read' | 'analysis' | 'write';
+ 
+@@ -68,7 +69,7 @@ export function buildPaymentRequirements(priceUsd: number): {
+   const chains = getActiveChains();
+   const accepts: Array<{ network: string; asset: string; maxAmountRequired: string; payTo: string }> = [];
+ 
+-  const maxAmountRequired = Math.ceil(priceUsd * 1_000_000).toString();
++  const maxAmountRequired = usdToAtomic(priceUsd).toString();
+ 
+   for (const chain of chains) {
+     const asset = USDC_CONTRACTS[chain];
 diff --git a/src/signer/server.ts b/src/signer/server.ts
 index 4355728..cd39fbe 100644
 --- a/src/signer/server.ts
@@ -643,6 +1140,48 @@ index f015346..8deb31f 100644
  }
  
  export const DEFAULT_SOCKET_PATH = '/tmp/x402-signer.sock';
+diff --git a/src/transport/payment-fetch.ts b/src/transport/payment-fetch.ts
+index 3b3551e..d72da85 100644
+--- a/src/transport/payment-fetch.ts
++++ b/src/transport/payment-fetch.ts
+@@ -38,6 +38,18 @@ export function createPaymentFetch(options: PaymentFetchOptions): typeof fetch {
+       throw new Error('Failed to parse 402 response');
+     }
+ 
++    // x402 v2 servers may put the requirements in a base64 PAYMENT-REQUIRED header instead of the body.
++    if (!Array.isArray(body?.accepts)) {
++      const header = response.headers?.get?.('PAYMENT-REQUIRED');
++      if (header) {
++        try {
++          body = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
++        } catch {
++          log('Failed to decode PAYMENT-REQUIRED header');
++        }
++      }
++    }
++
+     const requirements = parsePaymentRequired(body);
+     log('Parsed requirements:', JSON.stringify(requirements));
+     
+@@ -57,15 +69,17 @@ export function createPaymentFetch(options: PaymentFetchOptions): typeof fetch {
+       privateKey,
+       to: requirements.payTo as `0x${string}`,
+       amount: requirements.price,
++      amountAtomic: requirements.amountAtomic,
+       chainId: chainId ?? requirements.chainId,
+     });
+     log('Payment signed, from:', signedPayment.from);
+ 
+-    const paymentHeader = buildPaymentPayload(signedPayment);
++    const paymentHeader = buildPaymentPayload(signedPayment, requirements.accepted);
+     log('Payment header length:', paymentHeader.length);
+ 
+     const retryHeaders = new Headers(init?.headers);
+     retryHeaders.set('X-PAYMENT', paymentHeader);
++    if (body?.x402Version === 2) retryHeaders.set('PAYMENT-SIGNATURE', paymentHeader);
+ 
+     log('Retrying with payment...');
+     const retryResponse = await fetch(input, {
 diff --git a/src/verdict/README.md b/src/verdict/README.md
 new file mode 100644
 index 0000000..3dd9b1e
@@ -886,10 +1425,10 @@ index 0000000..ba935b7
 +}
 diff --git a/src/verdict/fetch.ts b/src/verdict/fetch.ts
 new file mode 100644
-index 0000000..7711c55
+index 0000000..c6029ca
 --- /dev/null
 +++ b/src/verdict/fetch.ts
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,89 @@
 +/**
 + * A drop-in variant of createPaymentFetch that runs the verdict gate before signing each x402 payment.
 + */
@@ -900,6 +1439,7 @@ index 0000000..7711c55
 +import type { ExecutionVerification } from './execution.js';
 +import { signGatedAuthorization } from './sign.js';
 +import { signEIP3009 } from '../chains/evm.js';
++import { usdToAtomic } from '../amount.js';
 +
 +export interface VerdictPaymentFetchOptions {
 +  privateKey: `0x${string}`;
@@ -932,10 +1472,21 @@ index 0000000..7711c55
 +    const first = await fetch(input, init);
 +    if (first.status !== 402) return first;
 +
-+    const body = (await first.json().catch(() => null)) as any;
++    let body = (await first.json().catch(() => null)) as any;
++    // x402 v2 servers may put the requirements in a base64 PAYMENT-REQUIRED header instead of the body.
++    if (!Array.isArray(body?.accepts)) {
++      const header = first.headers.get('PAYMENT-REQUIRED');
++      if (header) {
++        try {
++          body = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
++        } catch {
++          /* fall through to the parse error below */
++        }
++      }
++    }
 +    const req = body ? parsePaymentRequired(body) : null;
 +    if (!req) throw new Error('Failed to parse payment requirements from 402 response');
-+    const atomic = body.accepts?.[0]?.maxAmountRequired ?? String(Math.ceil(req.price * 1_000_000));
++    const atomic = req.amountAtomic ?? String(usdToAtomic(req.price));
 +
 +    const decision = await gate.check({
 +      chainId: req.chainId, from, to: req.payTo, amountAtomic: atomic,
@@ -952,7 +1503,9 @@ index 0000000..7711c55
 +      : await signEIP3009({ privateKey, to: a.to, value: BigInt(a.amount_atomic), validAfter: Number(a.valid_after),
 +          validBefore: Number(a.valid_before), chainId: req.chainId });
 +    const headers = new Headers(init?.headers);
-+    headers.set('X-PAYMENT', buildPaymentPayloadWithAuthorization({ ...signed, chainId: req.chainId }));
++    const payment = buildPaymentPayloadWithAuthorization({ ...signed, chainId: req.chainId, accepted: req.accepted });
++    headers.set('X-PAYMENT', payment);
++    if (body?.x402Version === 2) headers.set('PAYMENT-SIGNATURE', payment);
 +    const paid = await fetch(input, { ...init, headers });
 +
 +    const tx = settlementTx(paid);
@@ -1495,6 +2048,27 @@ index 0000000..e0ce790
 +  if (drift.length) throw new Error(`signed authorization does not match the verdict's bound args: ${drift.join(', ')}`);
 +  return result;
 +}
+diff --git a/src/verify.ts b/src/verify.ts
+index 70c79c0..7cd083a 100644
+--- a/src/verify.ts
++++ b/src/verify.ts
+@@ -6,6 +6,7 @@ import { verifyPayment as verifyEvmPayment, type EvmPaymentPayload } from './cha
+ import { verifyPayment as verifySolanaPayment, type SolanaPaymentPayload } from './chains/solana.js';
+ import { verifyCardanoPayment, type CardanoPaymentPayload } from './chains/cardano.js';
+ import { getConfig } from './config.js';
++import { usdToAtomic } from './amount.js';
+ 
+ export interface PaymentPayload {
+   x402Version: number;
+@@ -77,7 +78,7 @@ export async function verifyPayment(
+     const result = await verifyCardanoPayment(
+       payment.payload as CardanoPaymentPayload,
+       cfg.cardano?.address ?? '',
+-      BigInt(Math.ceil(expectedAmount * 1_000_000)),
++      usdToAtomic(expectedAmount),
+       'ADA',
+     );
+     return { valid: result.valid, error: result.error };
 -- 
 2.43.0
 

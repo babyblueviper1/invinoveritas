@@ -344,4 +344,22 @@ describe('createVerdictPaymentFetch', () => {
     const sent = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
     expect(sent.payload.authorization).toMatchObject({ to: payTo, value: '5000000' });
   });
+
+  it('pays an x402 v2 server: requirements from the PAYMENT-REQUIRED header, exact amount, offered entry echoed', async () => {
+    const offered = { scheme: 'exact', network: 'eip155:8453', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo,
+      amount: '24897', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } };
+    const pr = Buffer.from(JSON.stringify({ x402Version: 2, error: 'X-PAYMENT header required', accepts: [offered] })).toString('base64');
+    let sig = '';
+    jest.spyOn(globalThis, 'fetch').mockImplementation((async (_i: any, init?: RequestInit) => {
+      const h = new Headers(init?.headers);
+      if (h.get('PAYMENT-SIGNATURE')) { sig = h.get('PAYMENT-SIGNATURE')!; return new Response('{"ok":true}', { status: 200 }); }
+      return new Response('{}', { status: 402, headers: { 'PAYMENT-REQUIRED': pr } });
+    }) as any);
+    const gate = createVerdictGate({ fetch: (async () => new Response('{}')) as unknown as typeof fetch, reviewAboveAtomic: 10_000_000n });
+    const res = await createVerdictPaymentFetch({ privateKey: pk, gate })('https://api.example.com/regime');
+    expect(res.status).toBe(200);
+    const sent = JSON.parse(Buffer.from(sig, 'base64').toString('utf8'));
+    expect(sent.payload.authorization).toMatchObject({ to: payTo, value: '24897' });
+    expect(sent.accepted).toEqual(offered);
+  });
 });

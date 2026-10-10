@@ -8,15 +8,26 @@ bound to the exact EIP-3009 payment fields before the key signs**, plus a check 
 settled transfer carried that verdict (the EIP-3009 nonce is the verdict's `decision_ref`).
 
 - `src/verdict/`: the module (TypeScript, ESM). It needs no new dependencies, using the `@noble/*` and `viem` already in `@qbtlabs/x402`.
-- `src/__tests__/verdict.test.ts`: 38 tests on real recorded verdicts and the real Base settlement
+- `src/__tests__/verdict.test.ts`: 39 tests on real recorded verdicts and the real Base settlement
   [0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7). No network.
 - `patch/0001-*.patch`: the same change as one commit against `QBT-Labs/x402@f736392`. It also adds an optional `preSign`
   hook to the isolated signer, which runs after `PolicyEngine.check()` and before the vault decrypts, and a `./verdict` package export.
+  It includes the two client fixes the gate's payment fetch builds on (exact USD to atomic amounts; paying x402 v2 servers),
+  which are also open as QBT-Labs/x402 #14 and #15.
 
 ```sh
 git clone https://github.com/QBT-Labs/x402 && cd x402 && git checkout f736392
-git am /path/to/patch/0001-*.patch && npm ci && npm test   # 258 passed, 18 skipped
+git am /path/to/patch/0001-*.patch && npm ci && npm test   # 270 passed, 18 skipped
 ```
+
+**Live on Base mainnet (2026-10-10).** `createVerdictPaymentFetch` paid a live x402 v2 server
+(`GET https://api.babyblueviper.com/regime`, 0.024897 USDC). The first review rejected it: the only evidence for the
+payout address was the 402 of the server being paid, which the reviewer named as possible address poisoning, so nothing
+was signed. With the recipient record checked against an independent source (Coinbase's x402 Bazaar catalog lists the
+same `payTo`), the verdict was `approve` (verified offline, 6 s), the payment settled
+([0xa186db4b…f84a](https://basescan.org/tx/0xa186db4ba79d6b9581cdb7a3134593038bc5ae186ab526eefaa6b349a274f84a)), and
+`verifyExecution` passed 6/6 offline against the chain: the on-chain nonce is the verdict's `decision_ref` and the
+transfer matches the approved one.
 
 ---
 

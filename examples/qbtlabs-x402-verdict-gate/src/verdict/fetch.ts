@@ -8,6 +8,7 @@ import type { GateDecision, VerdictGate } from './gate.js';
 import type { ExecutionVerification } from './execution.js';
 import { signGatedAuthorization } from './sign.js';
 import { signEIP3009 } from '../chains/evm.js';
+import { usdToAtomic } from '../amount.js';
 
 export interface VerdictPaymentFetchOptions {
   privateKey: `0x${string}`;
@@ -40,10 +41,21 @@ export function createVerdictPaymentFetch(options: VerdictPaymentFetchOptions): 
     const first = await fetch(input, init);
     if (first.status !== 402) return first;
 
-    const body = (await first.json().catch(() => null)) as any;
+    let body = (await first.json().catch(() => null)) as any;
+    // x402 v2 servers may put the requirements in a base64 PAYMENT-REQUIRED header instead of the body.
+    if (!Array.isArray(body?.accepts)) {
+      const header = first.headers.get('PAYMENT-REQUIRED');
+      if (header) {
+        try {
+          body = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+        } catch {
+          /* fall through to the parse error below */
+        }
+      }
+    }
     const req = body ? parsePaymentRequired(body) : null;
     if (!req) throw new Error('Failed to parse payment requirements from 402 response');
-    const atomic = body.accepts?.[0]?.maxAmountRequired ?? String(Math.ceil(req.price * 1_000_000));
+    const atomic = req.amountAtomic ?? String(usdToAtomic(req.price));
 
     const decision = await gate.check({
       chainId: req.chainId, from, to: req.payTo, amountAtomic: atomic,
@@ -60,7 +72,9 @@ export function createVerdictPaymentFetch(options: VerdictPaymentFetchOptions): 
       : await signEIP3009({ privateKey, to: a.to, value: BigInt(a.amount_atomic), validAfter: Number(a.valid_after),
           validBefore: Number(a.valid_before), chainId: req.chainId });
     const headers = new Headers(init?.headers);
-    headers.set('X-PAYMENT', buildPaymentPayloadWithAuthorization({ ...signed, chainId: req.chainId }));
+    const payment = buildPaymentPayloadWithAuthorization({ ...signed, chainId: req.chainId, accepted: req.accepted });
+    headers.set('X-PAYMENT', payment);
+    if (body?.x402Version === 2) headers.set('PAYMENT-SIGNATURE', payment);
     const paid = await fetch(input, { ...init, headers });
 
     const tx = settlementTx(paid);
