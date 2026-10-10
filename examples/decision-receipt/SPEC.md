@@ -83,7 +83,7 @@ The first failure wins:
 
 ## Uniqueness: what a record does not show
 
-Found by Toshikatsu Oga (HORIZON SHIELD / NENRIN), 2026-10-09. Every public field is salted with a fresh salt, so two records for
+Found by Toshikatsu Oga (HORIZON SHIELD / NENRIN), 2026-10-10. Every public field is salted with a fresh salt, so two records for
 the same tool call, one `approve` and one `deny`, share no public field. A holder can keep both and reveal whichever one helps.
 Vectors p7, p8 and n13 are that case, and his own probe is kept unmodified at `probes/two_receipt_probe.py`.
 
