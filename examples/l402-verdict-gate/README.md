@@ -112,6 +112,20 @@ python3 -m l402_verdict_gate.verify tests/fixtures/paid_run_receipt.json   # VAL
 
 The receipt stores a hash of the L402 credential, not the credential, so publishing it gives nobody access.
 
+## Live demo
+
+`live_demo.py` runs two cases against live L402 endpoints (Lightning Faucet), with a real verdict each time:
+
+```sh
+export INVINOVERITAS_KEY=...                   # free: POST https://api.babyblueviper.com/register
+python3 live_demo.py mismatch                  # a trading agent about to pay a joke endpoint -> reject, nothing paid
+LND_MACAROON=pay-only.macaroon LND_TLS_CERT=tls.cert \
+python3 live_demo.py pay                       # a newsletter agent buying a quote -> approve, 10 sats paid, 200, receipt
+```
+
+The first case is the point of the gate: the invoice is real, cheap and payable, so L402 alone would pay it. The verdict
+says the payment doesn't serve the agent's task.
+
 ## Tests
 
 ```sh

@@ -29,6 +29,21 @@ same `payTo`), the verdict was `approve` (verified offline, 6 s), the payment se
 `verifyExecution` passed 6/6 offline against the chain: the on-chain nonce is the verdict's `decision_ref` and the
 transfer matches the approved one.
 
+
+**Run it yourself: `live_demo.mjs`.** In a checkout of QBT-Labs/x402 with the patch applied and built:
+
+```sh
+export INVINOVERITAS_KEY=...                                   # free: POST https://api.babyblueviper.com/register
+node live_demo.mjs reject                                      # no vendor record -> reject, nothing signed
+node live_demo.mjs pay                                         # vendor record from Coinbase's x402 directory -> approve,
+                                                               # pay 2.5 cents (PAYER_KEY: a Base wallet with a little USDC)
+node live_demo.mjs verdict --vendor 0x1111...1111 "Acme Ltd"   # a vendor record that doesn't match the invoice -> reject
+```
+
+The vendor is our own paid `/regime` endpoint, so a paid run pays us about 2.5 cents (set `DEMO_URL` for another
+x402 v2 server). The vendor record is what the agent checks the invoice's payout address against: a source the vendor
+doesn't control. By default it's Coinbase's public x402 directory; in production it's your own vendor database.
+
 ---
 
 Optional module. Nothing in `@qbtlabs/x402` calls it unless you pass a gate in.
