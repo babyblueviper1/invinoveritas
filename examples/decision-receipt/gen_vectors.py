@@ -10,7 +10,11 @@ salted commitment: c(v) = sha256(salt + "|" + v). The reveal opens them. See SPE
 import copy
 import hashlib
 import json
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bip340  # noqa: E402
 
 SALT = "5a" * 32
 CTX = "deploy build 4f2a to the canary pool; error budget 0.4% left; last canary 3 days ago"
@@ -119,7 +123,8 @@ def main():
     v("n9", "record says not gated, but the committed policy gates the choice", [
         {"record": dict(record(canary, {"status": "not_gated", "executable": True}), gated=False),
          "reveal": canary, "review": None}], "reject", "gated_flag_mismatch")
-    if "--v02" in sys.argv or "--v03" in sys.argv:
+    V4 = "--v04" in sys.argv
+    if "--v02" in sys.argv or "--v03" in sys.argv or V4:
         # v0.2: the deployer commits to who may give the approving review. Same 14 v0 vectors, plus three.
         pol = dict(canary, accepted_review_issuers=[ISSUER_A])
         okp = {"status": "cleared", "executable": True}
@@ -135,7 +140,7 @@ def main():
         v("n11", "v0.2: the revealed accepted_review_issuers do not open review_issuers_commitment", [
             {"record": record(pol, okp), "reveal": widened, "review": review(widened, issuer=ISSUER_B)}],
           "reject", "commitment_mismatch")
-    if "--v03" in sys.argv:
+    if "--v03" in sys.argv or V4:
         # v0.3: one choice per decision within a revealed set. Found by Toshikatsu Oga (HORIZON SHIELD / NENRIN),
         # 2026-10-09: with a fresh salt per record, an approve record and a deny record for the same tool call share
         # no public field, so a holder can keep both and reveal whichever helps. These vectors are his case.
@@ -163,7 +168,63 @@ def main():
         v("p9", "v0.3: two different questions on the same context, different choices, are two decisions", [
             {"record": record(appr, free), "reveal": appr, "review": None},
             {"record": record(other_q, free), "reveal": other_q, "review": None}], "accept")
-    suite = "decision-record-v0.3" if "--v03" in sys.argv else "decision-record-v0.2" if "--v02" in sys.argv else "decision-record-v0"
+    if V4:
+        # v0.4: decider-scoped slots. The decider signs one claim per request_id with its own BIP-340 key; the slot is
+        # sha256(tag | decider_pubkey | request_id), whichever account pays. Oga's two-account case (2026-10-10) is n18.
+        SK1 = hashlib.sha256(b"invinoveritas decision-receipt test decider 1").digest()
+        SK2 = hashlib.sha256(b"invinoveritas decision-receipt test decider 2").digest()
+        TAG, SCHEMA, T = "invinoveritas.decision_receipt.slot.decider.v1", "invinoveritas.decision_claim.v1", 1791600000
+        dctx = sha("tool call: delete branch release-2026-10 | call_id=call_42")
+        d4 = {"question": "Allow this tool call?", "options": ["approve", "deny"], "context_sha256": dctx,
+              "irreversible_options": []}
+        dA = dict(d4, salt="b1" * 32, choice="approve")
+        dD = dict(d4, salt="b2" * 32, choice="deny")
+        dA2 = dict(d4, salt="b3" * 32, choice="approve")
+        free = {"status": "not_gated", "executable": True}
+
+        def claim_for(rec, pk, slot, at=T):
+            return {"schema": SCHEMA, "decider_pubkey": pk, "request_slot": slot,
+                    **{k: rec[k] for k in ("question_commitment", "options_commitment", "choice_commitment",
+                                           "context_commitment", "gate_policy_commitment")}, "claimed_at": at}
+
+        def dec(rv, sk, rid, reveal_rid=None, sign_with=None, claim_rec=None):
+            rec = record(rv, free)
+            pk = bip340.pubkey(sk).hex()
+            slot = sha(f"{TAG}|{pk}|{rid}")
+            cl = claim_for(claim_rec or rec, pk, slot)
+            sig = bip340.sign(sign_with or sk, hashlib.sha256(jcs(cl).encode("utf-8")).digest()).hex()
+            rec.update(slot_scope="decider", decider_pubkey=pk, request_slot=slot, decider_claim=cl, decider_sig=sig)
+            return {"record": rec, "reveal": dict(rv, request_id=reveal_rid or rid), "review": None}
+
+        def acct(rv, slot_hex):
+            rec = dict(record(rv, free), slot_scope="account", request_slot=slot_hex)
+            return {"record": rec, "reveal": dict(rv, request_id="call_42"), "review": None}
+
+        v("p10", "v0.4: decider-scoped receipt, claim signed by the decider key, slot derived from decider_pubkey and request_id",
+          [dec(dA, SK1, "call_42")], "accept")
+        v("n15", "v0.4: decider claim signed by a different key than decider_pubkey", [dec(dA, SK1, "call_42", sign_with=SK2)],
+          "reject", "decider_sig_invalid")
+        v("n16", "v0.4: request_slot derived from another request_id than the revealed one",
+          [dec(dA, SK1, "call_43", reveal_rid="call_42")], "reject", "slot_mismatch")
+        v("n17", "v0.4: the signed claim commits to another choice than the record (deny claim, approve record)",
+          [dec(dA, SK1, "call_42", claim_rec=record(dD, free))], "reject", "claim_mismatch")
+        v("n18", "v0.4 (Oga's two-account case): approve and deny for one request_id under one decider key, paid from two accounts",
+          [dec(dA, SK1, "call_42"), dec(dD, SK1, "call_42")], "reject", "decider_equivocation")
+        v("n19", "v0.4: two signed claims for one request_id with the same choice and different salts (one claim per request_id)",
+          [dec(dA, SK1, "call_42"), dec(dA2, SK1, "call_42")], "reject", "decider_equivocation")
+        v("p11", "v0.4: two receipts under one decider key for two request_ids, same choice", [
+            dec(dA, SK1, "call_42"), dec(dA2, SK1, "call_44")], "accept")
+        v("p12", "v0.4 (Oga's two-account case, account-scoped): approve receipt from account A; its slot looks unique",
+          [acct(dA, "a" * 64)], "accept")
+        v("p13", "v0.4 (Oga's two-account case, account-scoped): deny receipt for the same request_id from account B; a different "
+                 "slot, also unique, and nothing public links it to p12", [acct(dD, "c" * 64)], "accept")
+        v("n20", "v0.4: a slot_scope this suite does not define", [
+            {"record": dict(record(dA, free), slot_scope="global", request_slot="e" * 64), "reveal": dA, "review": None}],
+          "reject", "slot_scope_unknown")
+        v("n21", "v0.4: slot_scope decider without a decider signature", [
+            {"record": dict(record(dA, free), slot_scope="decider", request_slot="e" * 64), "reveal": dict(dA, request_id="call_42"),
+             "review": None}], "reject", "decider_binding_missing")
+    suite = "decision-record-v0.4" if V4 else "decision-record-v0.3" if "--v03" in sys.argv else "decision-record-v0.2" if "--v02" in sys.argv else "decision-record-v0"
     json.dump({"suite": suite, "commitment": "sha256(salt + '|' + value)",
                "review_tool": "decision_receipt", "vectors": V}, sys.stdout, indent=1)
     print()

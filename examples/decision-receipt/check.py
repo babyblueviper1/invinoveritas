@@ -5,9 +5,19 @@
 """
 import hashlib
 import json
+import os
+import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bip340  # noqa: E402  (stdlib BIP-340, in this directory)
+
 APPROVING = ("approve", "approve_with_concerns")
+CLAIM_SCHEMA = "invinoveritas.decision_claim.v1"                     # v0.4: what a decider signs
+DECIDER_SLOT_TAG = "invinoveritas.decision_receipt.slot.decider.v1"
+CLAIM_FIELDS = ("question_commitment", "options_commitment", "choice_commitment", "context_commitment",
+                "gate_policy_commitment")
+HEX64, HEX128 = re.compile(r"^[0-9a-f]{64}$"), re.compile(r"^[0-9a-f]{128}$")
 
 
 def sha(s):
@@ -18,10 +28,30 @@ def jcs(v):
     return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+def decider_problem(rec, rv):
+    """v0.4: None if a decider-scoped record's binding holds, else the reject reason."""
+    pk, slot, claim, sig = rec.get("decider_pubkey"), rec.get("request_slot"), rec.get("decider_claim"), rec.get("decider_sig")
+    if not (isinstance(pk, str) and HEX64.match(pk) and isinstance(slot, str) and isinstance(claim, dict)
+            and isinstance(sig, str) and HEX128.match(sig)):
+        return "decider_binding_missing"
+    rid = rv.get("request_id")
+    if not isinstance(rid, str) or sha(f"{DECIDER_SLOT_TAG}|{pk}|{rid}") != slot:
+        return "slot_mismatch"
+    at = claim.get("claimed_at")
+    want = {"schema": CLAIM_SCHEMA, "decider_pubkey": pk, "request_slot": slot,
+            **{k: rec.get(k) for k in CLAIM_FIELDS}, "claimed_at": at}
+    if isinstance(at, bool) or not isinstance(at, int) or claim != want:
+        return "claim_mismatch"
+    if not bip340.verify(bytes.fromhex(pk), hashlib.sha256(jcs(claim).encode("utf-8")).digest(), bytes.fromhex(sig)):
+        return "decider_sig_invalid"
+    return None
+
+
 def check_set(items):
     """(verdict, reason) for an ordered set of {record, reveal, review} items."""
     used = set()
     chosen = {}                                               # v0.3: one choice per decision within a revealed set
+    claims = {}                                               # v0.4: one signed claim per (decider, request slot)
     for it in items:
         rec, rv, review = it["record"], it["reveal"], it.get("review")
         c = lambda v: sha(f"{rv['salt']}|{v}")
@@ -40,6 +70,15 @@ def check_set(items):
         gated = rv["choice"] in rv["irreversible_options"]
         if rec.get("gated") is not gated:
             return "reject", "gated_flag_mismatch"
+        scope = rec.get("slot_scope")
+        if scope == "decider":
+            why = decider_problem(rec, rv)
+            if why:
+                return "reject", why
+            if claims.setdefault((rec["decider_pubkey"], rec["request_slot"]), jcs(rec["decider_claim"])) != jcs(rec["decider_claim"]):
+                return "reject", "decider_equivocation"
+        elif scope not in (None, "account"):
+            return "reject", "slot_scope_unknown"
         key = (rv["context_sha256"], rv["question"], jcs(rv["options"]))  # the same decision, whatever the salt
         if chosen.setdefault(key, rv["choice"]) != rv["choice"]:
             return "reject", "conflicting_choice"
