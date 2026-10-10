@@ -1,0 +1,27 @@
+{
+ "_source": "real 402 from GET https://lightningfaucet.com/api/l402/joke, captured 2026-10-10T18:41:36Z. Not paid.",
+ "url": "https://lightningfaucet.com/api/l402/joke",
+ "www_authenticate": "L402 version=\"0\", token=\"eyJpZGVudGlmaWVyIjoiYmYxYWExMWYzYmI3M2YwMWExMmViNzkyYzM2ZmZiNmQiLCJsb2NhdGlvbiI6ImxpZ2h0bmluZ2ZhdWNldC5jb20iLCJjYXZlYXRzIjpbeyJ0eXBlIjoicGF5bWVudF9oYXNoIiwidmFsdWUiOiJhMzU4ODNjNmNjZGFkOTM5MzFmZDNjY2QwOTlmYjg4NGJhYjgxMDU1OGE1NTE1Yzk1ZmY1ZWZmOTM2MDg3Mjg4In0seyJ0eXBlIjoiZXhwaXJ5IiwidmFsdWUiOjE3OTE2NTgyOTZ9LHsidHlwZSI6InNlcnZpY2UiLCJ2YWx1ZSI6Impva2UifSx7InR5cGUiOiJjYXBhYmlsaXRpZXMiLCJ2YWx1ZSI6WyJzdGFuZGFyZCIsInJhbmRvbSIsInF1b3RlZF9wYXJhbXM6ZmMxODQ1MWUyMGFhNGYxMGEzZGUwYThmMDM5ZmYwNWQiXX1dLCJzaWduYXR1cmUiOiI1MjYyN2I2YWI3Yzg5NWFhNDY0ODg3MjJiNjNmYjEwM2U1OGFmMjU0NjFkOTY1MDc3M2NkYmI4YjBiMjg2NjYwIn0=\", invoice=\"lnbc500n1p4v4phqpp55dvg83kvmtvnjv0a8nxsn8acsjatsyz43f23tj2l7hhljdsgw2yqdp5f35kw6r5de5kueeqgesh2cm9wssy5mmtv5szsum5v9hxgctjvs5scqzysxqzjcsp5s5perzj7mmx9n78y40yzm0y9ax9dz0tvsavhymfsscwqg4jehu9q9qxpqysgq7uwsqvkcv3ffw063qeflxetka5j7yuuqjjnfxk6zp7x05c79rup46fkx08nqc3nn0ykd568fshpd9nscf5jy4p3uuewfahzt2jhj2rgqhkcvw4\"",
+ "body": {
+  "success": false,
+  "error": "payment_required",
+  "message": "Payment required",
+  "price_sats": 50,
+  "description": "Lightning Faucet Joke (standard)",
+  "service": "joke",
+  "invoice": "lnbc500n1p4v4phqpp55dvg83kvmtvnjv0a8nxsn8acsjatsyz43f23tj2l7hhljdsgw2yqdp5f35kw6r5de5kueeqgesh2cm9wssy5mmtv5szsum5v9hxgctjvs5scqzysxqzjcsp5s5perzj7mmx9n78y40yzm0y9ax9dz0tvsavhymfsscwqg4jehu9q9qxpqysgq7uwsqvkcv3ffw063qeflxetka5j7yuuqjjnfxk6zp7x05c79rup46fkx08nqc3nn0ykd568fshpd9nscf5jy4p3uuewfahzt2jhj2rgqhkcvw4",
+  "token": "eyJpZGVudGlmaWVyIjoiYmYxYWExMWYzYmI3M2YwMWExMmViNzkyYzM2ZmZiNmQiLCJsb2NhdGlvbiI6ImxpZ2h0bmluZ2ZhdWNldC5jb20iLCJjYXZlYXRzIjpbeyJ0eXBlIjoicGF5bWVudF9oYXNoIiwidmFsdWUiOiJhMzU4ODNjNmNjZGFkOTM5MzFmZDNjY2QwOTlmYjg4NGJhYjgxMDU1OGE1NTE1Yzk1ZmY1ZWZmOTM2MDg3Mjg4In0seyJ0eXBlIjoiZXhwaXJ5IiwidmFsdWUiOjE3OTE2NTgyOTZ9LHsidHlwZSI6InNlcnZpY2UiLCJ2YWx1ZSI6Impva2UifSx7InR5cGUiOiJjYXBhYmlsaXRpZXMiLCJ2YWx1ZSI6WyJzdGFuZGFyZCIsInJhbmRvbSIsInF1b3RlZF9wYXJhbXM6ZmMxODQ1MWUyMGFhNGYxMGEzZGUwYThmMDM5ZmYwNWQiXX1dLCJzaWduYXR1cmUiOiI1MjYyN2I2YWI3Yzg5NWFhNDY0ODg3MjJiNjNmYjEwM2U1OGFmMjU0NjFkOTY1MDc3M2NkYmI4YjBiMjg2NjYwIn0=",
+  "macaroon": "eyJpZGVudGlmaWVyIjoiYmYxYWExMWYzYmI3M2YwMWExMmViNzkyYzM2ZmZiNmQiLCJsb2NhdGlvbiI6ImxpZ2h0bmluZ2ZhdWNldC5jb20iLCJjYXZlYXRzIjpbeyJ0eXBlIjoicGF5bWVudF9oYXNoIiwidmFsdWUiOiJhMzU4ODNjNmNjZGFkOTM5MzFmZDNjY2QwOTlmYjg4NGJhYjgxMDU1OGE1NTE1Yzk1ZmY1ZWZmOTM2MDg3Mjg4In0seyJ0eXBlIjoiZXhwaXJ5IiwidmFsdWUiOjE3OTE2NTgyOTZ9LHsidHlwZSI6InNlcnZpY2UiLCJ2YWx1ZSI6Impva2UifSx7InR5cGUiOiJjYXBhYmlsaXRpZXMiLCJ2YWx1ZSI6WyJzdGFuZGFyZCIsInJhbmRvbSIsInF1b3RlZF9wYXJhbXM6ZmMxODQ1MWUyMGFhNGYxMGEzZGUwYThmMDM5ZmYwNWQiXX1dLCJzaWduYXR1cmUiOiI1MjYyN2I2YWI3Yzg5NWFhNDY0ODg3MjJiNjNmYjEwM2U1OGFmMjU0NjFkOTY1MDc3M2NkYmI4YjBiMjg2NjYwIn0=",
+  "payment_hash": "a35883c6ccdad93931fd3ccd099fb884bab810558a5515c95ff5eff936087288",
+  "payment_url": "https://lightningfaucet.com/pay/rUnotRoT",
+  "expires_at": "2026-10-10T11:51:36-07:00",
+  "auth_instructions": {
+   "step_1": "Save the token from this response",
+   "step_2": "Pay the invoice using your Lightning wallet",
+   "step_3": "Get the preimage (payment proof) from your wallet",
+   "step_4": "Retry this request with header: Authorization: L402 <token>:<preimage>",
+   "format": "L402 <base64_token>:<64_hex_preimage>",
+   "note": "The token is the base64 string from this response. The preimage is a 64-character hex string returned by your wallet after payment."
+  }
+ }
+}
