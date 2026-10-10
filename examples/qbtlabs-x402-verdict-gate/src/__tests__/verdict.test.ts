@@ -183,6 +183,54 @@ describe('createVerdictGate.check (/review call, mocked)', () => {
     expect(d.allowed).toBe(false);
     expect(d.reason).toMatch(/timeout/);
   });
+  describe('evidence', () => {
+    const ev = {
+      recipient_record: { vendor_id: 'V-0193', payout_address: '0x' + 'b'.repeat(40), verified_via: 'callback + 2-person approval' },
+      policy_decision: { result: 'ALLOW', per_tx_cap_usdc: 5000 },
+      obligation: { invoice: 'INV-1043', amount_usdc: '0.01', status: 'open', idempotency_key: 'INV-1043#1' },
+    };
+    const capture = () => {
+      const box: { sent?: any } = {};
+      const f = (async (_u: string, init: RequestInit) => { box.sent = JSON.parse(String(init.body)); return new Response('{}', { status: 200 }); }) as unknown as typeof fetch;
+      return { box, f };
+    };
+    it('resolves evidence per payment, shows it to the reviewer labelled as asserted, and binds its hash into the args', async () => {
+      const { box, f } = capture(); let seen: any;
+      await createVerdictGate({ fetch: f, now: () => 1_800_000_000, evidence: (i) => { seen = i; return ev; } }).check(intent);
+      expect(seen.to).toBe(intent.to);
+      expect(box.sent.action_binding.args.evidence_sha256).toBe(argsHash(ev));
+      expect(box.sent.artifact).toContain('asserted, not independently verified');
+      expect(box.sent.artifact).toContain(canonicalize(ev));
+      expect(box.sent.artifact).toContain('PRE-SIGN');
+    });
+    it('per-call evidence overrides the resolver', async () => {
+      const { box, f } = capture();
+      const own = { obligation: { invoice: 'X' } };
+      await createVerdictGate({ fetch: f, evidence: () => ev }).check({ ...intent, evidence: own });
+      expect(box.sent.action_binding.args.evidence_sha256).toBe(argsHash(own));
+    });
+    it('without evidence, binds no evidence hash and tells the reviewer none was supplied', async () => {
+      const { box, f } = capture();
+      await createVerdictGate({ fetch: f }).check(intent);
+      expect(box.sent.action_binding.args.evidence_sha256).toBeUndefined();
+      expect(box.sent.artifact).toContain('No evidence was supplied');
+    });
+    it('blocks (whatever the fail mode) when the evidence resolver throws, and never calls the reviewer', async () => {
+      let called = false;
+      const f = (async () => { called = true; return new Response('{}'); }) as unknown as typeof fetch;
+      const d = await createVerdictGate({ fetch: f, failMode: 'open', evidence: () => { throw new Error('vendor db down'); } }).check(intent);
+      expect(d.allowed).toBe(false);
+      expect(d.reason).toMatch(/vendor db down/);
+      expect(called).toBe(false);
+    });
+    it('a verdict bound to other evidence fails args_bound', async () => {
+      const gate = createVerdictGate({ now: () => 1_800_000_000 });
+      const args = { ...gate.bindArgs(intent), evidence_sha256: argsHash(ev) };
+      const d = gate.decide(approve.review_response, args);
+      expect(d.allowed).toBe(false);
+      expect(d.reason).toMatch(/args_bound/);
+    });
+  });
   it('blocks when the reviewer returns a real proof for some other payment', async () => {
     const d = await createVerdictGate({ fetch: respond(200, approve.review_response), failMode: 'open' }).check(intent);
     expect(d.allowed).toBe(false);

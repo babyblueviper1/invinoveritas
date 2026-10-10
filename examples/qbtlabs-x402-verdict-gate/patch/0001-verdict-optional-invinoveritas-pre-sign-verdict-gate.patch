@@ -1,4 +1,4 @@
-From 5505243eb501d1b4cb32e384697736c712b47dcc Mon Sep 17 00:00:00 2001
+From 2a63ae7c05255bfe9228e52b25af2a6ba9dd631a Mon Sep 17 00:00:00 2001
 From: babyblueviper1 <babyblueviperbusiness@gmail.com>
 Date: Sat, 10 Oct 2026 13:01:34 -0300
 Subject: [PATCH] verdict: optional invinoveritas pre-sign verdict gate +
@@ -12,20 +12,20 @@ Subject: [PATCH] verdict: optional invinoveritas pre-sign verdict gate +
 - 33 tests on recorded real verdicts + the real Base settlement 0x2afb35e2; no network
 ---
  package.json                                  |   4 +
- .../exhibit3_approve_settled.json             |  95 ++++++
+ .../exhibit3_approve_settled.json             |  95 +++++
  .../invinoveritas/exhibit3_reject.json        |  49 +++
- src/__tests__/verdict.test.ts                 | 299 ++++++++++++++++++
+ src/__tests__/verdict.test.ts                 | 347 ++++++++++++++++++
  src/signer/server.ts                          |  21 ++
  src/signer/types.ts                           |  16 +-
- src/verdict/README.md                         |  78 +++++
- src/verdict/execution.ts                      | 121 +++++++
- src/verdict/fetch.ts                          |  75 +++++
- src/verdict/gate.ts                           | 253 +++++++++++++++
+ src/verdict/README.md                         | 108 ++++++
+ src/verdict/execution.ts                      | 121 ++++++
+ src/verdict/fetch.ts                          |  75 ++++
+ src/verdict/gate.ts                           | 291 +++++++++++++++
  src/verdict/index.ts                          |  16 +
  src/verdict/jcs.ts                            |  33 ++
- src/verdict/proof.ts                          | 131 ++++++++
+ src/verdict/proof.ts                          | 131 +++++++
  src/verdict/sign.ts                           |  29 ++
- 14 files changed, 1219 insertions(+), 1 deletion(-)
+ 14 files changed, 1335 insertions(+), 1 deletion(-)
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
  create mode 100644 src/__tests__/verdict.test.ts
@@ -213,10 +213,10 @@ index 0000000..46bca55
 \ No newline at end of file
 diff --git a/src/__tests__/verdict.test.ts b/src/__tests__/verdict.test.ts
 new file mode 100644
-index 0000000..07ecdba
+index 0000000..1787083
 --- /dev/null
 +++ b/src/__tests__/verdict.test.ts
-@@ -0,0 +1,299 @@
+@@ -0,0 +1,347 @@
 +/**
 + * invinoveritas verdict gate tests. Every proof here is a real signed verdict recorded from invinoveritas
 + * (pilot exhibit 3, 2026-10-08), and the settlement receipt is the real Base transaction 0x2afb35e2...
@@ -401,6 +401,54 @@ index 0000000..07ecdba
 +    const d = await createVerdictGate({ fetch: hang, timeoutMs: 20 }).check(intent);
 +    expect(d.allowed).toBe(false);
 +    expect(d.reason).toMatch(/timeout/);
++  });
++  describe('evidence', () => {
++    const ev = {
++      recipient_record: { vendor_id: 'V-0193', payout_address: '0x' + 'b'.repeat(40), verified_via: 'callback + 2-person approval' },
++      policy_decision: { result: 'ALLOW', per_tx_cap_usdc: 5000 },
++      obligation: { invoice: 'INV-1043', amount_usdc: '0.01', status: 'open', idempotency_key: 'INV-1043#1' },
++    };
++    const capture = () => {
++      const box: { sent?: any } = {};
++      const f = (async (_u: string, init: RequestInit) => { box.sent = JSON.parse(String(init.body)); return new Response('{}', { status: 200 }); }) as unknown as typeof fetch;
++      return { box, f };
++    };
++    it('resolves evidence per payment, shows it to the reviewer labelled as asserted, and binds its hash into the args', async () => {
++      const { box, f } = capture(); let seen: any;
++      await createVerdictGate({ fetch: f, now: () => 1_800_000_000, evidence: (i) => { seen = i; return ev; } }).check(intent);
++      expect(seen.to).toBe(intent.to);
++      expect(box.sent.action_binding.args.evidence_sha256).toBe(argsHash(ev));
++      expect(box.sent.artifact).toContain('asserted, not independently verified');
++      expect(box.sent.artifact).toContain(canonicalize(ev));
++      expect(box.sent.artifact).toContain('PRE-SIGN');
++    });
++    it('per-call evidence overrides the resolver', async () => {
++      const { box, f } = capture();
++      const own = { obligation: { invoice: 'X' } };
++      await createVerdictGate({ fetch: f, evidence: () => ev }).check({ ...intent, evidence: own });
++      expect(box.sent.action_binding.args.evidence_sha256).toBe(argsHash(own));
++    });
++    it('without evidence, binds no evidence hash and tells the reviewer none was supplied', async () => {
++      const { box, f } = capture();
++      await createVerdictGate({ fetch: f }).check(intent);
++      expect(box.sent.action_binding.args.evidence_sha256).toBeUndefined();
++      expect(box.sent.artifact).toContain('No evidence was supplied');
++    });
++    it('blocks (whatever the fail mode) when the evidence resolver throws, and never calls the reviewer', async () => {
++      let called = false;
++      const f = (async () => { called = true; return new Response('{}'); }) as unknown as typeof fetch;
++      const d = await createVerdictGate({ fetch: f, failMode: 'open', evidence: () => { throw new Error('vendor db down'); } }).check(intent);
++      expect(d.allowed).toBe(false);
++      expect(d.reason).toMatch(/vendor db down/);
++      expect(called).toBe(false);
++    });
++    it('a verdict bound to other evidence fails args_bound', async () => {
++      const gate = createVerdictGate({ now: () => 1_800_000_000 });
++      const args = { ...gate.bindArgs(intent), evidence_sha256: argsHash(ev) };
++      const d = gate.decide(approve.review_response, args);
++      expect(d.allowed).toBe(false);
++      expect(d.reason).toMatch(/args_bound/);
++    });
 +  });
 +  it('blocks when the reviewer returns a real proof for some other payment', async () => {
 +    const d = await createVerdictGate({ fetch: respond(200, approve.review_response), failMode: 'open' }).check(intent);
@@ -597,10 +645,10 @@ index f015346..8deb31f 100644
  export const DEFAULT_SOCKET_PATH = '/tmp/x402-signer.sock';
 diff --git a/src/verdict/README.md b/src/verdict/README.md
 new file mode 100644
-index 0000000..adb8127
+index 0000000..3dd9b1e
 --- /dev/null
 +++ b/src/verdict/README.md
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,108 @@
 +# `@qbtlabs/x402/verdict`: an independent, signed verdict before the signature
 +
 +Optional module. Nothing in `@qbtlabs/x402` calls it unless you pass a gate in.
@@ -626,6 +674,36 @@ index 0000000..adb8127
 +
 +**Fail modes**: `failMode: 'closed'` (the default) blocks when the reviewer is unreachable. `'open'` allows and flags
 +`failOpen: true`. A proof that fails verification **always** blocks: a bad proof is a finding, not an outage.
++
++## Evidence: give the reviewer what your systems already know
++
++An independent reviewer that sees only an address and an amount cannot tie the recipient to anyone, so it rejects. That
++is the right answer for an unknown payee, but your systems usually know more. Pass it per payment (`intent.evidence`) or
++through a resolver (`evidence: async (intent) => ...`) that reads your vendor master, the PolicyEngine result and your
++invoice ledger:
++
++```ts
++const gate = createVerdictGate({
++  apiKey, evidence: async (i) => ({
++    recipient_record: await vendors.byAddress(i.to),          // id, legal name, payout address, how and when verified
++    payment_history: await ledger.historyTo(i.to),            // prior settled payments to this exact address
++    policy_decision: lastPolicyResult,                        // ALLOW, caps, spent today, allowlist version
++    obligation: await invoices.forPayment(i),                 // invoice/PO, amount, approvals, status: open, idempotency key
++  }),
++});
++```
++
++The reviewer is told the evidence is asserted by the payer, not verified by the reviewer, and its `sha256(JCS(evidence))`
++is bound into the signed verdict as `evidence_sha256`, so the record shows what the verdict was based on. If the
++resolver throws, the payment is blocked and no review is requested, whatever the fail mode.
++
++Measured on 2026-10-10 against the live reviewer, three runs per case, using this module's exact request text:
++
++| Case | Without evidence | With evidence |
++|---|---|---|
++| 2,500 USDC supplier invoice, known vendor | reject 3/3 | approve_with_concerns 3/3 |
++| 120 USDC monthly subscription, known vendor | reject 3/3 | approve 1, approve_with_concerns 2 |
++| 48,000 USDC to an address "changed by email", no callback | reject 3/3 | reject 3/3, citing the mismatch with the vendor record |
 +
 +## Integration (client side)
 +
@@ -669,13 +747,13 @@ index 0000000..adb8127
 +
 +## Cost and latency
 +
-+An `onchain_action` review takes about 20 to 60 s and costs about $1 (prepaid sats on a Bearer key, or x402 USDC). That suits
++An `onchain_action` review takes about 20 to 60 s and costs about $1 at list price (prepaid sats on a Bearer key, or x402 USDC; volume pricing on request). That suits
 +treasury-sized, new-recipient or above-threshold payments, not sub-cent API calls. Use `reviewAboveAtomic`, or call
 +the gate only where your policy would otherwise require manual approval.
 +
 +## Tests
 +
-+`src/__tests__/verdict.test.ts` (33 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
++`src/__tests__/verdict.test.ts` (38 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
 +`approve_with_concerns` verdict followed by a 1.00 USDC transfer on Base,
 +[0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7),
 +whose nonce is the verdict's `decision_ref`, plus a signed `reject`. No test touches the network.
@@ -889,10 +967,10 @@ index 0000000..7711c55
 +}
 diff --git a/src/verdict/gate.ts b/src/verdict/gate.ts
 new file mode 100644
-index 0000000..5f61769
+index 0000000..6ca9c26
 --- /dev/null
 +++ b/src/verdict/gate.ts
-@@ -0,0 +1,253 @@
+@@ -0,0 +1,291 @@
 +/**
 + * invinoveritas verdict gate for @qbtlabs/x402: an independent, signed second opinion before a payment is signed.
 + *
@@ -909,7 +987,8 @@ index 0000000..5f61769
 + */
 +
 +import { USDC_CONTRACTS } from '../config.js';
-+import { executionNonce, verifyVerdictProof, type ProofEvent, type ProofVerification, type Verdict } from './proof.js';
++import { canonicalize } from './jcs.js';
++import { argsHash, executionNonce, verifyVerdictProof, type ProofEvent, type ProofVerification, type Verdict } from './proof.js';
 +import { fetchReceipt, verifyExecutionLocal, verifyExecutionRemote, type ExecutionVerification } from './execution.js';
 +
 +export const DEFAULT_BASE_URL = 'https://api.babyblueviper.com';
@@ -930,6 +1009,26 @@ index 0000000..5f61769
 +  purpose?: string;
 +  validAfter?: number;
 +  validBefore?: number;
++  /** Facts from your own systems that justify this payment (see PaymentEvidence). Overrides cfg.evidence for this call. */
++  evidence?: PaymentEvidence;
++}
++
++/**
++ * What your own systems already know about this payment. The reviewer judges the payment against it; without it,
++ * an independent reviewer cannot tie the recipient to anyone and will (correctly) reject. Every field is optional,
++ * and anything you add is passed through. It is labelled to the reviewer as asserted by the payer, not verified,
++ * and its sha256(JCS) is bound into the signed verdict as `evidence_sha256`, so the record shows what the verdict saw.
++ */
++export interface PaymentEvidence {
++  [extra: string]: unknown;
++  /** Your vendor/counterparty record for the recipient: id, legal name, payout address, when and how it was verified. */
++  recipient_record?: Record<string, unknown>;
++  /** Prior payments to this exact address: count, first/last date, all settled. */
++  payment_history?: Record<string, unknown>;
++  /** The PolicyEngine result for this payment: result, caps, spent today, allowlist version. */
++  policy_decision?: Record<string, unknown>;
++  /** What is being paid: invoice/PO id, amount, approvals, status (open/unpaid) and an idempotency key. */
++  obligation?: Record<string, unknown>;
 +}
 +
 +/** The exact arguments the verdict binds (sha256(JCS(args)) is inside the signed proof). */
@@ -945,6 +1044,8 @@ index 0000000..5f61769
 +  nonce_rule: string;
 +  /** Which verdicts let the payer execute, declared before the payment and signed into the record. */
 +  proceed_on: Verdict[];
++  /** sha256(JCS(evidence)) of the evidence the reviewer was shown, when any. */
++  evidence_sha256?: string;
 +  accountable_party?: string;
 +  purpose?: string;
 +}
@@ -982,6 +1083,11 @@ index 0000000..5f61769
 +  severityThreshold?: 'low' | 'medium' | 'high' | 'critical';
 +  /** Extra context for the reviewer (your policy, the agent's task). */
 +  context?: string;
++  /**
++   * Evidence resolver, called per payment before the review (look up your vendor master, PolicyEngine result and
++   * invoice ledger). Strongly recommended: without evidence most payments to an unknown address come back 'reject'.
++   */
++  evidence?: (intent: PaymentIntent) => PaymentEvidence | undefined | Promise<PaymentEvidence | undefined>;
 +  /** Clock, for tests. Unix seconds. */
 +  now?: () => number;
 +}
@@ -1005,7 +1111,7 @@ index 0000000..5f61769
 +  review?: unknown;
 +}
 +
-+function buildArtifact(args: BoundArgs, chainId: number): string {
++function buildArtifact(args: BoundArgs, chainId: number, evidence?: PaymentEvidence): string {
 +  const typed = {
 +    domain: { name: chainId === 84532 ? 'USDC' : 'USD Coin', version: '2', chainId, verifyingContract: args.token },
 +    primaryType: 'TransferWithAuthorization',
@@ -1018,7 +1124,10 @@ index 0000000..5f61769
 +    `x402 payment about to be signed by an agent: ${Number(args.amount_atomic) / 1e6} USDC from ${args.from} to ${args.to} on ${args.chain}.`,
 +    args.purpose ? `Purpose: ${args.purpose}` : 'Purpose: not stated by the caller.',
 +    `Exact EIP-712 typed data to be signed (only the nonce is open, and it is fixed by rule to this verdict's decision_ref): ${JSON.stringify(typed)}`,
-+    `Signer assertions before signing: every field above equals the bound args; nonce == decision_ref; the verdict is one of ${JSON.stringify(args.proceed_on)} and younger than the configured maximum age. Spending limits, recipient allowlists and chain allowlists are enforced separately by the @qbtlabs/x402 policy engine before this review.`,
++    `Review stage: PRE-SIGN. The wallet signs only if this review approves, so the missing signature is expected. Signer assertions before signing: every field above equals the bound args; nonce == decision_ref; the verdict is one of ${JSON.stringify(args.proceed_on)} and younger than the configured maximum age.`,
++    evidence
++      ? `Evidence supplied by the payer's own systems (asserted, not independently verified by the reviewer; its sha256(JCS) is bound into this verdict as evidence_sha256=${args.evidence_sha256}): ${canonicalize(evidence)}`
++      : 'No evidence was supplied: nothing here ties the recipient to a known counterparty, an obligation or a policy decision.',
 +  ].join('\n\n');
 +}
 +
@@ -1076,12 +1185,19 @@ index 0000000..5f61769
 +
 +  /** Pre-sign check. Call after the PolicyEngine allows the payment and before the key signs. */
 +  async function check(intent: PaymentIntent): Promise<GateDecision> {
-+    const args = bindArgs(intent);
++    let args = bindArgs(intent);
 +    if (cfg.reviewAboveAtomic !== undefined && BigInt(args.amount_atomic) < BigInt(cfg.reviewAboveAtomic)) {
 +      return { allowed: true, skipped: true, reason: `below the review threshold of ${cfg.reviewAboveAtomic} atomic units`, args };
 +    }
++    let evidence: PaymentEvidence | undefined;
++    try {
++      evidence = intent.evidence ?? (await cfg.evidence?.(intent));
++    } catch (e) {
++      return { allowed: false, reason: `evidence resolver failed: ${(e as Error).message}`, args };
++    }
++    if (evidence) args = { ...args, evidence_sha256: argsHash(evidence) };
 +    const body = {
-+      artifact: buildArtifact(args, intent.chainId),
++      artifact: buildArtifact(args, intent.chainId, evidence),
 +      artifact_type: 'onchain_action',
 +      sign: true,
 +      action_binding: { tool: GATE_TOOL, agent_id: cfg.agentId ?? 'qbtlabs-x402-agent', args },
@@ -1129,11 +1245,11 @@ index 0000000..5f61769
 +   * Adapter for the isolated signer: `new SignerServer({ ..., preSign: gate.asPreSign() })`.
 +   * `onDecision` receives every decision (keep it: verifyExecution needs it after settlement).
 +   */
-+  function asPreSign(opts: { purpose?: string; onDecision?: (d: GateDecision) => void } = {}) {
++  function asPreSign(opts: { purpose?: string; evidence?: PaymentIntent['evidence']; onDecision?: (d: GateDecision) => void } = {}) {
 +    return async (p: { to: string; amount: string; chainId: number; from: string; validAfter?: number; validBefore?: number }) => {
 +      const d = await check({
 +        chainId: p.chainId, from: p.from, to: p.to, amountAtomic: p.amount,
-+        validAfter: p.validAfter || undefined, validBefore: p.validBefore || undefined, purpose: opts.purpose,
++        validAfter: p.validAfter || undefined, validBefore: p.validBefore || undefined, purpose: opts.purpose, evidence: opts.evidence,
 +      });
 +      opts.onDecision?.(d);
 +      if (!d.allowed) return { allowed: false, reason: d.reason };
@@ -1148,7 +1264,7 @@ index 0000000..5f61769
 +export type VerdictGate = ReturnType<typeof createVerdictGate>;
 diff --git a/src/verdict/index.ts b/src/verdict/index.ts
 new file mode 100644
-index 0000000..e1a2985
+index 0000000..8bfe0ad
 --- /dev/null
 +++ b/src/verdict/index.ts
 @@ -0,0 +1,16 @@
@@ -1159,7 +1275,7 @@ index 0000000..e1a2985
 + */
 +
 +export { createVerdictGate, DEFAULT_BASE_URL, GATE_TOOL } from './gate.js';
-+export type { VerdictGate, VerdictGateConfig, PaymentIntent, BoundArgs, GateDecision } from './gate.js';
++export type { VerdictGate, VerdictGateConfig, PaymentIntent, PaymentEvidence, BoundArgs, GateDecision } from './gate.js';
 +export { verifyVerdictProof, executionNonce, argsHash, nostrEventId, INVINOVERITAS_PUBKEY } from './proof.js';
 +export type { ProofEvent, ProofVerification, ProofChecks, Verdict } from './proof.js';
 +export { verifyExecutionLocal, verifyExecutionRemote, fetchReceipt } from './execution.js';
@@ -1380,5 +1496,5 @@ index 0000000..e0ce790
 +  return result;
 +}
 -- 
-2.47.3
+2.43.0
 

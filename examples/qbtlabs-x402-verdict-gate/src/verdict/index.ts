@@ -5,7 +5,7 @@
  */
 
 export { createVerdictGate, DEFAULT_BASE_URL, GATE_TOOL } from './gate.js';
-export type { VerdictGate, VerdictGateConfig, PaymentIntent, BoundArgs, GateDecision } from './gate.js';
+export type { VerdictGate, VerdictGateConfig, PaymentIntent, PaymentEvidence, BoundArgs, GateDecision } from './gate.js';
 export { verifyVerdictProof, executionNonce, argsHash, nostrEventId, INVINOVERITAS_PUBKEY } from './proof.js';
 export type { ProofEvent, ProofVerification, ProofChecks, Verdict } from './proof.js';
 export { verifyExecutionLocal, verifyExecutionRemote, fetchReceipt } from './execution.js';

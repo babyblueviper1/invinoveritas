@@ -14,7 +14,8 @@
  */
 
 import { USDC_CONTRACTS } from '../config.js';
-import { executionNonce, verifyVerdictProof, type ProofEvent, type ProofVerification, type Verdict } from './proof.js';
+import { canonicalize } from './jcs.js';
+import { argsHash, executionNonce, verifyVerdictProof, type ProofEvent, type ProofVerification, type Verdict } from './proof.js';
 import { fetchReceipt, verifyExecutionLocal, verifyExecutionRemote, type ExecutionVerification } from './execution.js';
 
 export const DEFAULT_BASE_URL = 'https://api.babyblueviper.com';
@@ -35,6 +36,26 @@ export interface PaymentIntent {
   purpose?: string;
   validAfter?: number;
   validBefore?: number;
+  /** Facts from your own systems that justify this payment (see PaymentEvidence). Overrides cfg.evidence for this call. */
+  evidence?: PaymentEvidence;
+}
+
+/**
+ * What your own systems already know about this payment. The reviewer judges the payment against it; without it,
+ * an independent reviewer cannot tie the recipient to anyone and will (correctly) reject. Every field is optional,
+ * and anything you add is passed through. It is labelled to the reviewer as asserted by the payer, not verified,
+ * and its sha256(JCS) is bound into the signed verdict as `evidence_sha256`, so the record shows what the verdict saw.
+ */
+export interface PaymentEvidence {
+  [extra: string]: unknown;
+  /** Your vendor/counterparty record for the recipient: id, legal name, payout address, when and how it was verified. */
+  recipient_record?: Record<string, unknown>;
+  /** Prior payments to this exact address: count, first/last date, all settled. */
+  payment_history?: Record<string, unknown>;
+  /** The PolicyEngine result for this payment: result, caps, spent today, allowlist version. */
+  policy_decision?: Record<string, unknown>;
+  /** What is being paid: invoice/PO id, amount, approvals, status (open/unpaid) and an idempotency key. */
+  obligation?: Record<string, unknown>;
 }
 
 /** The exact arguments the verdict binds (sha256(JCS(args)) is inside the signed proof). */
@@ -50,6 +71,8 @@ export interface BoundArgs {
   nonce_rule: string;
   /** Which verdicts let the payer execute, declared before the payment and signed into the record. */
   proceed_on: Verdict[];
+  /** sha256(JCS(evidence)) of the evidence the reviewer was shown, when any. */
+  evidence_sha256?: string;
   accountable_party?: string;
   purpose?: string;
 }
@@ -87,6 +110,11 @@ export interface VerdictGateConfig {
   severityThreshold?: 'low' | 'medium' | 'high' | 'critical';
   /** Extra context for the reviewer (your policy, the agent's task). */
   context?: string;
+  /**
+   * Evidence resolver, called per payment before the review (look up your vendor master, PolicyEngine result and
+   * invoice ledger). Strongly recommended: without evidence most payments to an unknown address come back 'reject'.
+   */
+  evidence?: (intent: PaymentIntent) => PaymentEvidence | undefined | Promise<PaymentEvidence | undefined>;
   /** Clock, for tests. Unix seconds. */
   now?: () => number;
 }
@@ -110,7 +138,7 @@ export interface GateDecision {
   review?: unknown;
 }
 
-function buildArtifact(args: BoundArgs, chainId: number): string {
+function buildArtifact(args: BoundArgs, chainId: number, evidence?: PaymentEvidence): string {
   const typed = {
     domain: { name: chainId === 84532 ? 'USDC' : 'USD Coin', version: '2', chainId, verifyingContract: args.token },
     primaryType: 'TransferWithAuthorization',
@@ -123,7 +151,10 @@ function buildArtifact(args: BoundArgs, chainId: number): string {
     `x402 payment about to be signed by an agent: ${Number(args.amount_atomic) / 1e6} USDC from ${args.from} to ${args.to} on ${args.chain}.`,
     args.purpose ? `Purpose: ${args.purpose}` : 'Purpose: not stated by the caller.',
     `Exact EIP-712 typed data to be signed (only the nonce is open, and it is fixed by rule to this verdict's decision_ref): ${JSON.stringify(typed)}`,
-    `Signer assertions before signing: every field above equals the bound args; nonce == decision_ref; the verdict is one of ${JSON.stringify(args.proceed_on)} and younger than the configured maximum age. Spending limits, recipient allowlists and chain allowlists are enforced separately by the @qbtlabs/x402 policy engine before this review.`,
+    `Review stage: PRE-SIGN. The wallet signs only if this review approves, so the missing signature is expected. Signer assertions before signing: every field above equals the bound args; nonce == decision_ref; the verdict is one of ${JSON.stringify(args.proceed_on)} and younger than the configured maximum age.`,
+    evidence
+      ? `Evidence supplied by the payer's own systems (asserted, not independently verified by the reviewer; its sha256(JCS) is bound into this verdict as evidence_sha256=${args.evidence_sha256}): ${canonicalize(evidence)}`
+      : 'No evidence was supplied: nothing here ties the recipient to a known counterparty, an obligation or a policy decision.',
   ].join('\n\n');
 }
 
@@ -181,12 +212,19 @@ export function createVerdictGate(cfg: VerdictGateConfig = {}) {
 
   /** Pre-sign check. Call after the PolicyEngine allows the payment and before the key signs. */
   async function check(intent: PaymentIntent): Promise<GateDecision> {
-    const args = bindArgs(intent);
+    let args = bindArgs(intent);
     if (cfg.reviewAboveAtomic !== undefined && BigInt(args.amount_atomic) < BigInt(cfg.reviewAboveAtomic)) {
       return { allowed: true, skipped: true, reason: `below the review threshold of ${cfg.reviewAboveAtomic} atomic units`, args };
     }
+    let evidence: PaymentEvidence | undefined;
+    try {
+      evidence = intent.evidence ?? (await cfg.evidence?.(intent));
+    } catch (e) {
+      return { allowed: false, reason: `evidence resolver failed: ${(e as Error).message}`, args };
+    }
+    if (evidence) args = { ...args, evidence_sha256: argsHash(evidence) };
     const body = {
-      artifact: buildArtifact(args, intent.chainId),
+      artifact: buildArtifact(args, intent.chainId, evidence),
       artifact_type: 'onchain_action',
       sign: true,
       action_binding: { tool: GATE_TOOL, agent_id: cfg.agentId ?? 'qbtlabs-x402-agent', args },
@@ -234,11 +272,11 @@ export function createVerdictGate(cfg: VerdictGateConfig = {}) {
    * Adapter for the isolated signer: `new SignerServer({ ..., preSign: gate.asPreSign() })`.
    * `onDecision` receives every decision (keep it: verifyExecution needs it after settlement).
    */
-  function asPreSign(opts: { purpose?: string; onDecision?: (d: GateDecision) => void } = {}) {
+  function asPreSign(opts: { purpose?: string; evidence?: PaymentIntent['evidence']; onDecision?: (d: GateDecision) => void } = {}) {
     return async (p: { to: string; amount: string; chainId: number; from: string; validAfter?: number; validBefore?: number }) => {
       const d = await check({
         chainId: p.chainId, from: p.from, to: p.to, amountAtomic: p.amount,
-        validAfter: p.validAfter || undefined, validBefore: p.validBefore || undefined, purpose: opts.purpose,
+        validAfter: p.validAfter || undefined, validBefore: p.validBefore || undefined, purpose: opts.purpose, evidence: opts.evidence,
       });
       opts.onDecision?.(d);
       if (!d.allowed) return { allowed: false, reason: d.reason };
