@@ -21,6 +21,7 @@ def jcs(v):
 def check_set(items):
     """(verdict, reason) for an ordered set of {record, reveal, review} items."""
     used = set()
+    chosen = {}                                               # v0.3: one choice per decision within a revealed set
     for it in items:
         rec, rv, review = it["record"], it["reveal"], it.get("review")
         c = lambda v: sha(f"{rv['salt']}|{v}")
@@ -39,6 +40,9 @@ def check_set(items):
         gated = rv["choice"] in rv["irreversible_options"]
         if rec.get("gated") is not gated:
             return "reject", "gated_flag_mismatch"
+        key = (rv["context_sha256"], rv["question"], jcs(rv["options"]))  # the same decision, whatever the salt
+        if chosen.setdefault(key, rv["choice"]) != rv["choice"]:
+            return "reject", "conflicting_choice"
         if not gated or not rec["gate"].get("executable"):
             continue
         if not review:

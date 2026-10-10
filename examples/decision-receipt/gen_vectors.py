@@ -25,8 +25,8 @@ def jcs(v):
     return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def c(v):
-    return sha(f"{SALT}|{v}")
+def c(v, salt=SALT):
+    return sha(f"{salt}|{v}")
 
 
 def binding_args(rv):
@@ -37,14 +37,15 @@ def binding_args(rv):
 def record(rv, gate):
     out = _record(rv, gate)
     if "accepted_review_issuers" in rv:      # v0.2 only; v0 vectors never carry it, so they regenerate byte-identical
-        out["review_issuers_commitment"] = c(jcs(sorted(rv["accepted_review_issuers"])))
+        out["review_issuers_commitment"] = c(jcs(sorted(rv["accepted_review_issuers"])), rv["salt"])
     return out
 
 
 def _record(rv, gate):
-    return {"question_commitment": c(rv["question"]), "options_commitment": c(jcs(rv["options"])),
-            "choice_commitment": c(rv["choice"]), "context_commitment": c(rv["context_sha256"]),
-            "gate_policy_commitment": c(jcs(sorted(rv["irreversible_options"]))),
+    s = rv["salt"]                           # every v0/v0.2 vector uses SALT; v0.3 adds records with their own salts
+    return {"question_commitment": c(rv["question"], s), "options_commitment": c(jcs(rv["options"]), s),
+            "choice_commitment": c(rv["choice"], s), "context_commitment": c(rv["context_sha256"], s),
+            "gate_policy_commitment": c(jcs(sorted(rv["irreversible_options"])), s),
             "gated": rv["choice"] in rv["irreversible_options"], "gate": gate}
 
 
@@ -118,7 +119,7 @@ def main():
     v("n9", "record says not gated, but the committed policy gates the choice", [
         {"record": dict(record(canary, {"status": "not_gated", "executable": True}), gated=False),
          "reveal": canary, "review": None}], "reject", "gated_flag_mismatch")
-    if "--v02" in sys.argv:
+    if "--v02" in sys.argv or "--v03" in sys.argv:
         # v0.2: the deployer commits to who may give the approving review. Same 14 v0 vectors, plus three.
         pol = dict(canary, accepted_review_issuers=[ISSUER_A])
         okp = {"status": "cleared", "executable": True}
@@ -134,7 +135,36 @@ def main():
         v("n11", "v0.2: the revealed accepted_review_issuers do not open review_issuers_commitment", [
             {"record": record(pol, okp), "reveal": widened, "review": review(widened, issuer=ISSUER_B)}],
           "reject", "commitment_mismatch")
-    json.dump({"suite": "decision-record-v0.2" if "--v02" in sys.argv else "decision-record-v0", "commitment": "sha256(salt + '|' + value)",
+    if "--v03" in sys.argv:
+        # v0.3: one choice per decision within a revealed set. Found by Toshikatsu Oga (Horizon Shield, NENRIN),
+        # 2026-10-09: with a fresh salt per record, an approve record and a deny record for the same tool call share
+        # no public field, so a holder can keep both and reveal whichever helps. These vectors are his case.
+        tctx = sha("tool call: transfer 500 USDC to 0x1111111111111111111111111111111111111111")
+        call = {"question": "Allow this tool call?", "options": ["approve", "deny"], "context_sha256": tctx,
+                "irreversible_options": []}
+        appr = dict(call, salt="a1" * 32, choice="approve")
+        deny = dict(call, salt="d0" * 32, choice="deny")
+        free = {"status": "not_gated", "executable": True}
+        v("p7", "v0.3 (Oga): approve record for a tool call, revealed alone", [
+            {"record": record(appr, free), "reveal": appr, "review": None}], "accept")
+        v("p8", "v0.3 (Oga): deny record for the same tool call, other salt, revealed alone (a checker cannot see the other record)", [
+            {"record": record(deny, free), "reveal": deny, "review": None}], "accept")
+        v("n13", "v0.3 (Oga): approve and deny records for one tool call (same context, question, options; different salts) in one set", [
+            {"record": record(appr, free), "reveal": appr, "review": None},
+            {"record": record(deny, free), "reveal": deny, "review": None}], "reject", "conflicting_choice")
+        gcall = dict(call, irreversible_options=["approve"])
+        gappr = dict(gcall, salt="a2" * 32, choice="approve")
+        gdeny = dict(gcall, salt="d2" * 32, choice="deny")
+        gok = {"status": "cleared", "executable": True, "review_decision_ref": review(gappr, ref="r7")["decision_ref"]}
+        v("n14", "v0.3 (Oga): a reviewed, executable approve and a deny for the same gated tool call in one set", [
+            {"record": record(gdeny, free), "reveal": gdeny, "review": None},
+            {"record": record(gappr, gok), "reveal": gappr, "review": review(gappr, ref="r7")}], "reject", "conflicting_choice")
+        other_q = dict(call, salt="e3" * 32, question="Notify the account owner?", choice="deny")
+        v("p9", "v0.3: two different questions on the same context, different choices, are two decisions", [
+            {"record": record(appr, free), "reveal": appr, "review": None},
+            {"record": record(other_q, free), "reveal": other_q, "review": None}], "accept")
+    suite = "decision-record-v0.3" if "--v03" in sys.argv else "decision-record-v0.2" if "--v02" in sys.argv else "decision-record-v0"
+    json.dump({"suite": suite, "commitment": "sha256(salt + '|' + value)",
                "review_tool": "decision_receipt", "vectors": V}, sys.stdout, indent=1)
     print()
 

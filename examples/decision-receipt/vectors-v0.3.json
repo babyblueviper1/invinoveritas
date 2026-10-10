@@ -1,0 +1,1102 @@
+{
+ "suite": "decision-record-v0.3",
+ "commitment": "sha256(salt + '|' + value)",
+ "review_tool": "decision_receipt",
+ "vectors": [
+  {
+   "id": "p1",
+   "description": "ungated choice, executable without review",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "19a83e45ab92f8877a2b0ad82b9a96b4808681b6451ba45a22d192544ce2192b",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "hold"
+     },
+     "review": null
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "p2",
+   "description": "gated choice cleared by an approving review bound to this context and this choice",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true,
+       "review_decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828"
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "p3",
+   "description": "gated choice without a review, recorded as not executable",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "review_required",
+       "executable": false
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": null
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "p4",
+   "description": "gated choice, rejecting review, recorded as not executable",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "review_rejected",
+       "executable": false
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "reject",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "p5",
+   "description": "two gated records, each cleared by its own review",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true,
+       "review_decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828"
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    },
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true,
+       "review_decision_ref": "sha256:db77fd01af957221a4989b64b3770a83a3c56068405b9f0e9408feae57fd17e4"
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:db77fd01af957221a4989b64b3770a83a3c56068405b9f0e9408feae57fd17e4",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "n1",
+   "description": "the revealed choice is not one of the revealed options",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "7e3c29cb0484680634b86876bdb99683567d4ab5624ef67a8a593759700fb7d4",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "rollback_prod"
+     },
+     "review": null
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "choice_not_in_options"
+  },
+  {
+   "id": "n2",
+   "description": "choice_commitment does not open to the revealed choice",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "f2363fce71cbaaf97ecee7b6fa27b8b6cd13c1664f7deaafd1da5316eafc48f2",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "hold"
+     },
+     "review": null
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "commitment_mismatch"
+  },
+  {
+   "id": "n3",
+   "description": "gated choice marked executable with no review",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": null
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "executable_without_review"
+  },
+  {
+   "id": "n4",
+   "description": "the review covers different bytes than the decision's context",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "d62d8164d7bad885d713b6c32e5320d18919c81b51d11735047cc47f8a595afc",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "review_context_mismatch"
+  },
+  {
+   "id": "n5",
+   "description": "the review's action_binding names a different choice",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:4a92d5585367e54d476afca790b42ec2495408348dbd30613c38fe23a3ffd7b5"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "review_binding_mismatch"
+  },
+  {
+   "id": "n6",
+   "description": "rejecting review, record marked executable",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "reject",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "executable_without_approval"
+  },
+  {
+   "id": "n7",
+   "description": "one review clears two records",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    },
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "review_reused"
+  },
+  {
+   "id": "n8",
+   "description": "the revealed irreversible_options do not open gate_policy_commitment",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": null
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "commitment_mismatch"
+  },
+  {
+   "id": "n9",
+   "description": "record says not gated, but the committed policy gates the choice",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary"
+     },
+     "review": null
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "gated_flag_mismatch"
+  },
+  {
+   "id": "p6",
+   "description": "v0.2: gated choice cleared by an approving review from a listed issuer",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true,
+       "review_decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828"
+      },
+      "review_issuers_commitment": "cfe563f1572f9add2d7acb5d93f112fdbdb1361d013185e894f89cb0caba042e"
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary",
+      "accepted_review_issuers": [
+       "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
+      ]
+     },
+     "review": {
+      "issuer_pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "n10",
+   "description": "v0.2: an approving review that covers this input and decision, from an issuer not in the committed list",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      },
+      "review_issuers_commitment": "cfe563f1572f9add2d7acb5d93f112fdbdb1361d013185e894f89cb0caba042e"
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary",
+      "accepted_review_issuers": [
+       "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
+      ]
+     },
+     "review": {
+      "issuer_pubkey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "review_issuer_not_permitted"
+  },
+  {
+   "id": "n12",
+   "description": "v0.2: an approving review that names no issuer, under a committed issuer list",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      },
+      "review_issuers_commitment": "cfe563f1572f9add2d7acb5d93f112fdbdb1361d013185e894f89cb0caba042e"
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary",
+      "accepted_review_issuers": [
+       "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7"
+      ]
+     },
+     "review": {
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "review_issuer_not_permitted"
+  },
+  {
+   "id": "n11",
+   "description": "v0.2: the revealed accepted_review_issuers do not open review_issuers_commitment",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "50d6633b0331c39734969afc79429d6f3aac95e9e994a2d1d897fce54b31c592",
+      "options_commitment": "955e7cd2476114d667ac6ab52e6698f890c44ede837b6616a1334da4ddf54235",
+      "choice_commitment": "6e49e2fc5c1e0a58a502866eb9dedcf3a84b10b78840db9ea9a0a5865fc11fd9",
+      "context_commitment": "69b03258224cff1ec38e82207ef50bf8ae3a34b6819f7af0239690f04a739eaf",
+      "gate_policy_commitment": "31811e23c361d3097af4f07a9890c15d00d62ccb32e90558298751638b2f91e9",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true
+      },
+      "review_issuers_commitment": "cfe563f1572f9add2d7acb5d93f112fdbdb1361d013185e894f89cb0caba042e"
+     },
+     "reveal": {
+      "salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "question": "Next action for this deploy request?",
+      "options": [
+       "hold",
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "context_sha256": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "irreversible_options": [
+       "deploy_canary",
+       "deploy_all"
+      ],
+      "choice": "deploy_canary",
+      "accepted_review_issuers": [
+       "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+       "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+     },
+     "review": {
+      "issuer_pubkey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact_hash": "eeb7c1718cbc0d3169420691271fc491230f8992d407a380b145f32800380e3d",
+      "verdict": "approve",
+      "decision_ref": "sha256:82f3e9c695dc6b8d1b11818d5701919e286de8d47f7c3eb3100c485f79e57828",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:459907361779b4f6ad71d459dd997740ac01e19bf0bf9da5caab997277f5aca8"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "commitment_mismatch"
+  },
+  {
+   "id": "p7",
+   "description": "v0.3 (Oga): approve record for a tool call, revealed alone",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "6be4fb9bda98009e31835c360f1dffc863309892b8981ebcd28793e2cf1a4077",
+      "options_commitment": "b29cf1ad00d3d4a3d8f52ab518d3807e293ba20fdd54890e67ddd3fa802009b8",
+      "choice_commitment": "53a970a41f7781bff61ef53e99a25227bb9fefe7918e242e094270cab8c6d416",
+      "context_commitment": "e75f8e3f9c08e415dc63f62ff4744756a4ad3f8cea734988ea057efc9a3b7193",
+      "gate_policy_commitment": "a9734b190121fd8d037281f0dc7d4b58097adc2efb9a780f7e359462ff64ebbb",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [],
+      "salt": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "choice": "approve"
+     },
+     "review": null
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "p8",
+   "description": "v0.3 (Oga): deny record for the same tool call, other salt, revealed alone (a checker cannot see the other record)",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "614d99b25e25716664a33e7d5b29f645278873a11aa5aa675e171554f2c610ad",
+      "options_commitment": "beeb212f190df490b0f49e0fc5237672ec2db40aadf183c2c6e29bb86b740cb6",
+      "choice_commitment": "93459676959f8466c855737807c1be9e8eaa13da60921c6e0436b35523174d42",
+      "context_commitment": "73a7cc340b889fbcf3a7fff396a1040590da2a1df4fc0a1548cbbfeadece7e27",
+      "gate_policy_commitment": "c4a6d5f07de578d382dc0dbbc475bf89d04015156be7196d0609571fcf37e6dd",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [],
+      "salt": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+      "choice": "deny"
+     },
+     "review": null
+    }
+   ],
+   "expect": "accept"
+  },
+  {
+   "id": "n13",
+   "description": "v0.3 (Oga): approve and deny records for one tool call (same context, question, options; different salts) in one set",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "6be4fb9bda98009e31835c360f1dffc863309892b8981ebcd28793e2cf1a4077",
+      "options_commitment": "b29cf1ad00d3d4a3d8f52ab518d3807e293ba20fdd54890e67ddd3fa802009b8",
+      "choice_commitment": "53a970a41f7781bff61ef53e99a25227bb9fefe7918e242e094270cab8c6d416",
+      "context_commitment": "e75f8e3f9c08e415dc63f62ff4744756a4ad3f8cea734988ea057efc9a3b7193",
+      "gate_policy_commitment": "a9734b190121fd8d037281f0dc7d4b58097adc2efb9a780f7e359462ff64ebbb",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [],
+      "salt": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "choice": "approve"
+     },
+     "review": null
+    },
+    {
+     "record": {
+      "question_commitment": "614d99b25e25716664a33e7d5b29f645278873a11aa5aa675e171554f2c610ad",
+      "options_commitment": "beeb212f190df490b0f49e0fc5237672ec2db40aadf183c2c6e29bb86b740cb6",
+      "choice_commitment": "93459676959f8466c855737807c1be9e8eaa13da60921c6e0436b35523174d42",
+      "context_commitment": "73a7cc340b889fbcf3a7fff396a1040590da2a1df4fc0a1548cbbfeadece7e27",
+      "gate_policy_commitment": "c4a6d5f07de578d382dc0dbbc475bf89d04015156be7196d0609571fcf37e6dd",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [],
+      "salt": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+      "choice": "deny"
+     },
+     "review": null
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "conflicting_choice"
+  },
+  {
+   "id": "n14",
+   "description": "v0.3 (Oga): a reviewed, executable approve and a deny for the same gated tool call in one set",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "04aed2057f88e06a2b8f77066df8ed512202b00bb3c64f60867f4d7a2cde6a48",
+      "options_commitment": "831bd1cb7e5b48cadc5015bc64d9cb3c1ba257d7349e282a723ccccc8ad272f0",
+      "choice_commitment": "66ced059b205a22d08c6b48b55ddb06396c7c784828c1bcee626f602126865a4",
+      "context_commitment": "9db8d313af9bf9cc9e71dace4e8bb33816026ca5e1da963c92b202d38be4f622",
+      "gate_policy_commitment": "c2a39536cd4614ff25d8a99caf3de06a838d718cf0016ec13d94984db54d0bf2",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [
+       "approve"
+      ],
+      "salt": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+      "choice": "deny"
+     },
+     "review": null
+    },
+    {
+     "record": {
+      "question_commitment": "5d6d25a3e6a700a3468274a3984f405a090d44d2189d7b851a9712459dea42e3",
+      "options_commitment": "42d99fd37ac2873536d2b31afdc8e56e1c9e6ec44a65fd2bc5dcaaa12eaf18d4",
+      "choice_commitment": "84a835660acf6384a2946e4195f22acb506eb2b123fe0695474f0226d443714f",
+      "context_commitment": "65330a37d63df414a46d41411715aa0de2b1160c17ff074b3bbb9be6183d9fb5",
+      "gate_policy_commitment": "2237c67a6c8978c4cfd731182f321370eb097652f177f9b0be62ab959fcc6b67",
+      "gated": true,
+      "gate": {
+       "status": "cleared",
+       "executable": true,
+       "review_decision_ref": "sha256:dbb7b294e78f1c47d4a10d160442fb6a276ea0eedd9ca7c7206731f29257b511"
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [
+       "approve"
+      ],
+      "salt": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "choice": "approve"
+     },
+     "review": {
+      "artifact_hash": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "verdict": "approve",
+      "decision_ref": "sha256:dbb7b294e78f1c47d4a10d160442fb6a276ea0eedd9ca7c7206731f29257b511",
+      "action_binding_tool_hash": "sha256:616263502f7dd4141cd51849d2328c606184142db7abd73d09073be2d09bf26d",
+      "action_binding_args_hash": "sha256:34952b9d3d6a5f5753bb0a8b9cecbbb39813d0baf0609e1411291a6ebb2f91a3"
+     }
+    }
+   ],
+   "expect": "reject",
+   "reject_reason": "conflicting_choice"
+  },
+  {
+   "id": "p9",
+   "description": "v0.3: two different questions on the same context, different choices, are two decisions",
+   "records": [
+    {
+     "record": {
+      "question_commitment": "6be4fb9bda98009e31835c360f1dffc863309892b8981ebcd28793e2cf1a4077",
+      "options_commitment": "b29cf1ad00d3d4a3d8f52ab518d3807e293ba20fdd54890e67ddd3fa802009b8",
+      "choice_commitment": "53a970a41f7781bff61ef53e99a25227bb9fefe7918e242e094270cab8c6d416",
+      "context_commitment": "e75f8e3f9c08e415dc63f62ff4744756a4ad3f8cea734988ea057efc9a3b7193",
+      "gate_policy_commitment": "a9734b190121fd8d037281f0dc7d4b58097adc2efb9a780f7e359462ff64ebbb",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Allow this tool call?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [],
+      "salt": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "choice": "approve"
+     },
+     "review": null
+    },
+    {
+     "record": {
+      "question_commitment": "34de23185f5675a2a60e7cabb9dd8a8feac4ea8d16977b061394da3c8661a688",
+      "options_commitment": "d810fc7532442461ff66024df4e7fc37d8a430f1af223674e6d57969a020ecf1",
+      "choice_commitment": "7666223bb8b9f249661bae66ed9fbe32d05c828e67a205470446dcb9c751904f",
+      "context_commitment": "e50a457c604f7b1f9a68db3b0ace6f68ab48bd88a5a5cd3bf02062d7df7d3244",
+      "gate_policy_commitment": "427d93f291ac50f83247750651c3bf9babae031dbb2d6b78e134c8ade603272c",
+      "gated": false,
+      "gate": {
+       "status": "not_gated",
+       "executable": true
+      }
+     },
+     "reveal": {
+      "question": "Notify the account owner?",
+      "options": [
+       "approve",
+       "deny"
+      ],
+      "context_sha256": "979dd1b4014f09ab2d65593139290d06036c0bfb6ce228a05b35460d35de8b71",
+      "irreversible_options": [],
+      "salt": "e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3",
+      "choice": "deny"
+     },
+     "review": null
+    }
+   ],
+   "expect": "accept"
+  }
+ ]
+}

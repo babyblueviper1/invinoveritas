@@ -1,7 +1,10 @@
-# Decision record v0.2
+# Decision record v0.3
 
 v0.2 adds one optional, additive field (`review_issuers_commitment`, below). Every v0 record and the 14 v0 vectors stay valid and
 unchanged: a record without the field behaves exactly as in v0.
+
+v0.3 adds one set-level rule and no field: within a revealed set, one decision has one choice (`conflicting_choice`, below). It also
+states what a record does **not** guarantee about uniqueness. Every v0 and v0.2 vector keeps its verdict.
 
 A record, made **before** an action, of a decision by a fast bounded-choice decider (OpenAI's Decisions
 API, Jev, any classifier that picks one of N fixed answers). It says what the decider was asked, which
@@ -53,6 +56,9 @@ review from a party the deployer never listed cannot clear the gate. It is not a
 party to the transaction is a different question (the evidence-record suite's n7, n13 and n30 ask it of an attestor), and this SPEC
 does not decide it.
 
+5. v0.3, for every record in a set, gated or not: no two records in one revealed set have the same `context_sha256`, question and
+   options with different choices. Two such records are two answers to one decision, whatever their salts.
+
 A gated record with `executable: false` is always valid: recording a refused or unreviewed decision is
 the point. An ungated record may be executable. The gate is only as strict as the committed policy, so a
 principal checks `gate_policy_commitment`, and in v0.2 `review_issuers_commitment`, against its own lists. A principal that requires an
@@ -65,13 +71,34 @@ The first failure wins:
    and a record that carries it without a revealed `accepted_review_issuers`.
 2. The choice is not in the options: `choice_not_in_options`.
 3. `gated` disagrees with the policy: `gated_flag_mismatch`.
-4. For a gated, executable record:
+4. v0.3: the record has the same `context_sha256`, question and options as an earlier record in the set, with a different choice:
+   `conflicting_choice`.
+5. For a gated, executable record:
    - no review: `executable_without_review`;
    - review over other bytes: `review_context_mismatch`;
    - review for another decision: `review_binding_mismatch`;
    - v0.2, review from an issuer outside the committed list, or naming none: `review_issuer_not_permitted`;
    - review not approving: `executable_without_approval`;
    - review already used: `review_reused`.
+
+## Uniqueness: what a record does not show
+
+Found by Toshikatsu Oga (Horizon Shield, NENRIN), 2026-10-09. Every public field is salted with a fresh salt, so two records for
+the same tool call, one `approve` and one `deny`, share no public field. A holder can keep both and reveal whichever one helps.
+Vectors p7, p8 and n13 are that case.
+
+- **What `conflicting_choice` closes:** a revealed set that contains both records rejects.
+- **What it does not close:** a holder who reveals only one record. Nothing in a single record, and nothing a checker can compute from
+  it, shows that it was the only record issued for that decision.
+- **The issuer today (the v0 service at `POST /decision-receipt`):** each request gets a fresh salt and a new signed receipt. It keeps
+  no index on `decider.request_id`, which is committed with the record's salt, so a second request for the same `request_id`, with
+  the same or a different choice, is issued like the first, and the two receipts cannot be linked from their public fields. The service
+  therefore makes **no uniqueness guarantee**. Until it does, a principal that needs one must hold both the decider's own log and
+  every receipt for the call, or obtain the receipt itself, directly from the decider, at the time of the decision.
+- **Planned, not deployed:** one public slot per (holder, `decider.request_id`). A second request for a taken slot is refused, and the
+  slot's receipts are listed at a free public endpoint, so a disputer holding one receipt can check it was the only one. The slot binds
+  to the `request_id` the holder declares, so a principal also has to require that it is the decider's own request id. This SPEC will
+  say so when the service ships it.
 
 ## Run
 
@@ -80,10 +107,15 @@ python3 gen_vectors.py > vectors.json                 # v0, deterministic; regen
 python3 check.py vectors.json                         # 14/14
 python3 gen_vectors.py --v02 > vectors-v0.2.json      # the 14 v0 vectors plus p6, n10, n11, n12
 python3 check.py vectors-v0.2.json                    # 18/18
+python3 gen_vectors.py --v03 > vectors-v0.3.json      # the 18 v0.2 vectors plus p7, p8, p9, n13, n14
+python3 check.py vectors-v0.3.json                    # 23/23
 ```
 
 The vectors use ASCII strings only, where RFC 8785 JCS equals compact sorted-key JSON. The invinoveritas
 service's own test suite checks that the live code produces these vectors' commitments and review binding.
+
+n13 and n14 kill a checker without the v0.3 rule (a v0.2 checker accepts both); p9 kills one that keys the rule on context alone, which
+would reject two different questions asked about the same input.
 
 The four v0.2 vectors kill three broken checkers that the v0 vectors cannot: one that ignores the issuer list (n10, n12), one that
 does not open `review_issuers_commitment` (n11), and one that lets a review with no issuer through (n12).
