@@ -8,7 +8,7 @@ bound to the exact EIP-3009 payment fields before the key signs**, plus a check 
 settled transfer carried that verdict (the EIP-3009 nonce is the verdict's `decision_ref`).
 
 - `src/verdict/`: the module (TypeScript, ESM). It needs no new dependencies, using the `@noble/*` and `viem` already in `@qbtlabs/x402`.
-- `src/__tests__/verdict.test.ts`: 39 tests on real recorded verdicts and the real Base settlement
+- `src/__tests__/verdict.test.ts`: 42 tests on real recorded verdicts and the real Base settlement
   [0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7). No network.
 - `patch/0001-*.patch`: the same change as one commit against `QBT-Labs/x402@f736392`. It also adds an optional `preSign`
   hook to the isolated signer, which runs after `PolicyEngine.check()` and before the vault decrypts, and a `./verdict` package export.
@@ -17,7 +17,7 @@ settled transfer carried that verdict (the EIP-3009 nonce is the verdict's `deci
 
 ```sh
 git clone https://github.com/QBT-Labs/x402 && cd x402 && git checkout f736392
-git am /path/to/patch/0001-*.patch && npm ci && npm test   # 270 passed, 18 skipped
+git am /path/to/patch/0001-*.patch && npm ci && npm test   # 273 passed, 18 skipped
 ```
 
 **Live on Base mainnet (2026-10-10).** `createVerdictPaymentFetch` paid a live x402 v2 server
@@ -43,6 +43,11 @@ node live_demo.mjs verdict --vendor 0x1111...1111 "Acme Ltd"   # a vendor record
 The vendor is our own paid `/regime` endpoint, so a paid run pays us about 2.5 cents (set `DEMO_URL` for another
 x402 v2 server). The vendor record is what the agent checks the invoice's payout address against: a source the vendor
 doesn't control. By default it's Coinbase's public x402 directory; in production it's your own vendor database.
+
+**Tuning what blocks** (operator settings, details in `src/verdict/README.md`): `proceedOn` (stricter with
+`['approve']`; adding `'reject'` gives an advisory shadow mode that blocks nothing and keeps every verdict), `blockOn`
+(block an allowed verdict when the review lists a concern you name, e.g. `address_poisoning`; only ever stricter),
+`concerns` (your own checklist for the reviewer) and `severityThreshold`.
 
 ---
 
@@ -148,7 +153,7 @@ the gate only where your policy would otherwise require manual approval.
 
 ## Tests
 
-`src/__tests__/verdict.test.ts` (39 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
+`src/__tests__/verdict.test.ts` (42 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
 `approve_with_concerns` verdict followed by a 1.00 USDC transfer on Base,
 [0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7),
 whose nonce is the verdict's `decision_ref`, plus a signed `reject`. No test touches the network.

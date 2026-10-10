@@ -41,6 +41,7 @@ class Decision:
     skipped: bool = False
     review: Any = None
     invoice: Optional[bolt11.Invoice] = field(default=None, repr=False)
+    blocked_by: Optional[dict] = None
 
 
 def _post_json(url, body, headers, timeout):
@@ -56,15 +57,22 @@ class VerdictGate:
                  max_cost_sat: Optional[int] = None, network: str = "bc", agent_id: str = "l402-agent",
                  accountable_party: Optional[str] = None, context: Optional[str] = None, pubkey: Optional[str] = None,
                  timeout_s: int = 120, now: Callable[[], float] = time.time,
-                 post_json: Callable = _post_json, tool: str = GATE_TOOL):
+                 post_json: Callable = _post_json, tool: str = GATE_TOOL, concerns: Optional[str] = None,
+                 block_on: Optional[dict] = None, severity_threshold: str = "medium"):
         """review_above_sat: invoices below this many sats pass without a review (decision.skipped). A review costs
         about 1,000 sats and takes 20-60 s, so gate the payments that matter, not every 10-sat call.
-        max_cost_sat: hard ceiling checked locally, like lnget --max-cost; above it nothing is reviewed or paid."""
+        max_cost_sat: hard ceiling checked locally, like lnget --max-cost; above it nothing is reviewed or paid.
+        concerns: your own checklist for the reviewer ("only pay endpoints from our approved list").
+        block_on: {"categories": [...], "severities": [...]} blocks an allowed verdict when the review lists a matching
+        concern (decision.blocked_by). The concern list is not covered by the signature, so it only ever makes the gate
+        stricter. proceed_on including "reject" makes the gate advisory (shadow mode): pays, keeps the verdict.
+        severity_threshold: lowest concern severity the review lists: blocker | high | medium | all."""
         self.api_key, self.base_url = api_key, base_url.rstrip("/")
         self.proceed_on, self.fail_mode = list(proceed_on), fail_mode
         self.max_age, self.review_above_sat, self.max_cost_sat = max_verdict_age_s, review_above_sat, max_cost_sat
         self.network, self.agent_id, self.accountable_party, self.context = network, agent_id, accountable_party, context
         self.pubkey, self.timeout_s, self.now, self._post, self.tool = pubkey, timeout_s, now, post_json, tool
+        self.concerns, self.block_on, self.severity_threshold = concerns, block_on or {}, severity_threshold
 
     # ---- the exact intent the verdict binds -------------------------------------------------------------------
     def bind_args(self, method: str, url: str, challenge: Challenge, purpose: Optional[str], inv: bolt11.Invoice) -> dict:
@@ -153,6 +161,12 @@ class VerdictGate:
             return Decision(False, f"verdict is {age:.0f}s old (max {self.max_age}s)", **base)
         if t >= int(args["invoice_expires_at"]):
             return Decision(False, "invoice expired before it could be paid", **base)
+        cats, sevs = set(self.block_on.get("categories") or ()), set(self.block_on.get("severities") or ())
+        for iss in (res.get("issues") if isinstance(res.get("issues"), list) else []):
+            if isinstance(iss, dict) and (str(iss.get("category")) in cats or str(iss.get("severity")) in sevs):
+                d = Decision(False, f"block_on: concern {iss.get('category')!r} ({iss.get('severity')}) listed in the review", **base)
+                d.blocked_by = iss
+                return d
         return Decision(True, f"verdict {proof['verdict']!r} verified offline", **base)
 
     def check(self, method: str, url: str, challenge: Challenge, purpose: Optional[str] = None) -> Decision:
@@ -165,11 +179,13 @@ class VerdictGate:
         body = {
             "artifact": self._artifact(args), "artifact_type": "onchain_action", "sign": True,
             "action_binding": {"tool": self.tool, "agent_id": self.agent_id, "args": args},
-            "severity_threshold": "medium", "confidentiality_tier": "partial_disclosure",
+            "severity_threshold": self.severity_threshold, "confidentiality_tier": "partial_disclosure",
             "disclosed_summary": f"L402 payment {inv.amount_msat / 1000:g} sats for {method.upper()} {url}",
         }
         if self.context:
             body["context"] = self.context
+        if self.concerns:
+            body["concerns"] = self.concerns
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

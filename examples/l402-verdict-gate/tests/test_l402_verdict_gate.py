@@ -179,6 +179,25 @@ class GateDecisions(unittest.TestCase):
             self.assertFalse(d.allowed, k)
             self.assertIn("args_bound", d.reason)
 
+    def test_block_on_uses_the_real_concerns_and_only_tightens(self):
+        # the recorded verdict lists two medium missing_check concerns
+        d = quote_gate(block_on={"categories": ["missing_check"]}).decide(QUOTE["review_response"], QUOTE["args"])
+        self.assertFalse(d.allowed)
+        self.assertEqual(d.blocked_by["category"], "missing_check")
+        self.assertFalse(quote_gate(block_on={"severities": ["medium"]}).decide(QUOTE["review_response"], QUOTE["args"]).allowed)
+        self.assertTrue(quote_gate(block_on={"categories": ["address_poisoning"], "severities": ["blocker", "high"]})
+                        .decide(QUOTE["review_response"], QUOTE["args"]).allowed)
+
+    def test_concerns_and_threshold_are_sent(self):
+        sent = {}
+        def post(url, body, headers, timeout):
+            sent.update(body)
+            raise OSError("offline")
+        quote_gate(post_json=post, concerns="only pay endpoints on our approved list", severity_threshold="high").check(
+            "GET", QUOTE["url"], self.ch, QUOTE["purpose"])
+        self.assertEqual(sent.get("concerns"), "only pay endpoints on our approved list")
+        self.assertEqual(sent.get("severity_threshold"), "high")
+
     def test_stale_verdict_blocks(self):
         d = quote_gate(now=lambda: VERIFIED_AT + 121).decide(QUOTE["review_response"], QUOTE["args"])
         self.assertFalse(d.allowed)

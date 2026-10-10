@@ -120,6 +120,22 @@ describe('createVerdictGate.decide (policy over a verified verdict)', () => {
     expect(d.allowed).toBe(true);
     expect(d.nonce).toBe(approve.authorization.nonce);
   });
+  it('blockOn blocks an allowed verdict when the review lists a matching concern, and only then', () => {
+    const withIssue = { ...clone(approve.review_response), issues: [
+      { severity: 'high', category: 'address_poisoning', description: 'payee not in the vendor record' },
+      { severity: 'info', category: 'missing_check', description: 'token reputation not checked' }] };
+    const byCategory = createVerdictGate({ now: () => verifiedAt + 2, blockOn: { categories: ['address_poisoning'] } }).decide(withIssue, approve.args);
+    expect(byCategory.allowed).toBe(false);
+    expect(byCategory.blockedBy?.category).toBe('address_poisoning');
+    expect(byCategory.nonce).toBeUndefined();
+    expect(createVerdictGate({ now: () => verifiedAt + 2, blockOn: { severities: ['high'] } }).decide(withIssue, approve.args).allowed).toBe(false);
+    expect(createVerdictGate({ now: () => verifiedAt + 2, blockOn: { categories: ['scam_token'], severities: ['blocker'] } }).decide(withIssue, approve.args).allowed).toBe(true);
+    expect(createVerdictGate({ now: () => verifiedAt + 2 }).decide(withIssue, approve.args).allowed).toBe(true);
+  });
+  it('blockOn never allows: a reject with no matching concern stays blocked', () => {
+    const gate = createVerdictGate({ now: () => contentOf(rejectEvent).verified_at + 2, blockOn: { categories: ['nothing'] } });
+    expect(gate.decide(reject.review_response, reject.args).allowed).toBe(false);
+  });
   it('blocks a real reject verdict', () => {
     const gate = createVerdictGate({ now: () => contentOf(rejectEvent).verified_at + 2 });
     const d = gate.decide(reject.review_response, reject.args);
@@ -230,6 +246,13 @@ describe('createVerdictGate.check (/review call, mocked)', () => {
       expect(d.allowed).toBe(false);
       expect(d.reason).toMatch(/args_bound/);
     });
+  });
+  it('sends concerns and the severity threshold to /review', async () => {
+    let sent: any;
+    const f = (async (_u: any, init?: RequestInit) => { sent = JSON.parse(String(init?.body)); return new Response('{}', { status: 500 }); }) as unknown as typeof fetch;
+    await createVerdictGate({ fetch: f, concerns: 'payee must be in the vendor master', severityThreshold: 'high' }).check(intent);
+    expect(sent.concerns).toBe('payee must be in the vendor master');
+    expect(sent.severity_threshold).toBe('high');
   });
   it('blocks when the reviewer returns a real proof for some other payment', async () => {
     const d = await createVerdictGate({ fetch: respond(200, approve.review_response), failMode: 'open' }).check(intent);

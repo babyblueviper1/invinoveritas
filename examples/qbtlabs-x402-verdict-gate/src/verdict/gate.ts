@@ -106,10 +106,18 @@ export interface VerdictGateConfig {
   agentId?: string;
   /** Who is accountable for the proceed_on rule (bound into the record). */
   accountableParty?: string;
-  /** Only issues at or above this severity count. Default 'medium'. */
-  severityThreshold?: 'low' | 'medium' | 'high' | 'critical';
+  /** Lowest issue severity the reviewer lists: 'blocker' | 'high' | 'medium' | 'all'. Default 'medium'. */
+  severityThreshold?: 'blocker' | 'high' | 'medium' | 'all';
   /** Extra context for the reviewer (your policy, the agent's task). */
   context?: string;
+  /** Your own checklist for the reviewer, e.g. "payee must be in the vendor master; flag any change of bank details". */
+  concerns?: string;
+  /**
+   * Block even an allowed verdict when the review lists a matching concern, e.g.
+   * { categories: ['address_poisoning'], severities: ['blocker', 'high'] }. It can only make the gate stricter: the
+   * concern list is not covered by the verdict's signature, so it is never used to allow a payment.
+   */
+  blockOn?: { categories?: string[]; severities?: string[] };
   /**
    * Evidence resolver, called per payment before the review (look up your vendor master, PolicyEngine result and
    * invoice ledger). Strongly recommended: without evidence most payments to an unknown address come back 'reject'.
@@ -136,6 +144,8 @@ export interface GateDecision {
   proof?: ProofVerification;
   /** Raw /review response, for your audit log. */
   review?: unknown;
+  /** The concern that triggered `blockOn`, when that is why the payment was blocked. */
+  blockedBy?: { category?: string; severity?: string; description?: string; [k: string]: unknown };
 }
 
 function buildArtifact(args: BoundArgs, chainId: number, evidence?: PaymentEvidence): string {
@@ -207,6 +217,12 @@ export function createVerdictGate(cfg: VerdictGateConfig = {}) {
     if (!(age <= maxAge)) {
       return { ...base, allowed: false, reason: `verdict is ${age}s old (max ${maxAge}s)` };
     }
+    const issues: any[] = Array.isArray(res?.issues) ? res.issues : [];
+    const hit = cfg.blockOn && issues.find((i) => i && typeof i === 'object' && (
+      (cfg.blockOn!.categories ?? []).includes(String(i.category)) || (cfg.blockOn!.severities ?? []).includes(String(i.severity))));
+    if (hit) {
+      return { ...base, allowed: false, blockedBy: hit, reason: `blockOn: concern '${hit.category}' (${hit.severity}) listed in the review` };
+    }
     return { ...base, allowed: true, reason: `verdict '${proof.verdict}' verified offline`, nonce: executionNonce(proof.decisionRef!) };
   }
 
@@ -232,6 +248,7 @@ export function createVerdictGate(cfg: VerdictGateConfig = {}) {
       confidentiality_tier: 'partial_disclosure',
       disclosed_summary: `x402 payment ${Number(args.amount_atomic) / 1e6} USDC to ${args.to} on ${args.chain}`,
       ...(cfg.context ? { context: cfg.context } : {}),
+      ...(cfg.concerns ? { concerns: cfg.concerns } : {}),
     };
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs ?? 120_000);

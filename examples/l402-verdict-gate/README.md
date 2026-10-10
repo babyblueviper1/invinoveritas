@@ -51,6 +51,15 @@ json.dump(receipt, open("receipt.json", "w"))                 # verdict + paymen
 `PaymentBlocked` means nothing was paid (`e.decision.reason` says why). `PreimageMismatch` means the wallet returned a
 preimage that does not open the invoice, so the credential is never sent.
 
+## Tuning what blocks
+
+All operator settings, none set by the agent: `proceed_on` (which verdicts allow a payment; `("approve",)` is stricter,
+adding `"reject"` makes the gate advisory, a shadow mode that pays and keeps the verdict in the receipt), `block_on`
+(`{"categories": [...], "severities": [...]}` blocks an allowed verdict when the review lists a matching concern;
+`decision.blocked_by` names it; the concern list isn't covered by the signature, so it only ever makes the gate stricter),
+`concerns` (your own checklist for the reviewer), `severity_threshold` (`blocker`, `high`, `medium` or `all`),
+`review_above_sat`, `max_cost_sat`, `max_verdict_age_s` and `fail_mode`.
+
 ## Wallets
 
 `Wallet` is one method: `pay_invoice(bolt11, max_fee_sat, timeout_s) -> PaymentResult(preimage, amount_msat, fee_msat)`.
@@ -129,7 +138,7 @@ says the payment doesn't serve the agent's task.
 ## Tests
 
 ```sh
-python3 -m unittest discover -s tests -v   # 29 tests, no network
+python3 -m unittest discover -s tests -v   # 31 tests, no network
 python3 demo.py                            # offline walkthrough of the recorded verdict + a full mock loop
 ```
 

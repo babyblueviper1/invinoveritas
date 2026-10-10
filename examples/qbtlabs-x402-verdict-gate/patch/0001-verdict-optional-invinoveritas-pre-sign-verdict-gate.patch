@@ -1,6 +1,6 @@
-From fe5d429778bf93d1925f49b4af7090eeb10ecb13 Mon Sep 17 00:00:00 2001
+From 4140da0f06d94474ea3375353be95ce15a6d1638 Mon Sep 17 00:00:00 2001
 From: babyblueviper1 <babyblueviperbusiness@gmail.com>
-Date: Sat, 10 Oct 2026 19:38:05 +0000
+Date: Sat, 10 Oct 2026 23:00:19 +0000
 Subject: [PATCH] verdict: optional invinoveritas pre-sign verdict gate +
  post-settlement execution check
 
@@ -13,10 +13,10 @@ which the gate's payment fetch builds on. Tested on Base mainnet: 0xa186db4ba79d
  .../invinoveritas/exhibit3_reject.json        |  49 +++
  src/__tests__/payment-fetch.test.ts           |  18 +
  src/__tests__/payment-required.test.ts        |  70 ++++
- src/__tests__/verdict.test.ts                 | 365 ++++++++++++++++++
+ src/__tests__/verdict.test.ts                 | 388 ++++++++++++++++++
  src/amount.ts                                 |  14 +
  src/chains/evm.ts                             |   3 +-
- src/client.ts                                 | 110 ++++--
+ src/client.ts                                 | 110 +++--
  src/facilitator.ts                            |   3 +-
  src/index.ts                                  |   1 +
  src/middleware/express.ts                     |   3 +-
@@ -25,16 +25,16 @@ which the gate's payment fetch builds on. Tested on Base mainnet: 0xa186db4ba79d
  src/signer/server.ts                          |  21 +
  src/signer/types.ts                           |  16 +-
  src/transport/payment-fetch.ts                |  16 +-
- src/verdict/README.md                         | 108 ++++++
+ src/verdict/README.md                         | 118 ++++++
  src/verdict/execution.ts                      | 121 ++++++
- src/verdict/fetch.ts                          |  89 +++++
- src/verdict/gate.ts                           | 291 ++++++++++++++
+ src/verdict/fetch.ts                          |  89 ++++
+ src/verdict/gate.ts                           | 308 ++++++++++++++
  src/verdict/index.ts                          |  16 +
  src/verdict/jcs.ts                            |  33 ++
- src/verdict/proof.ts                          | 131 +++++++
+ src/verdict/proof.ts                          | 131 ++++++
  src/verdict/sign.ts                           |  29 ++
  src/verify.ts                                 |   3 +-
- 27 files changed, 1597 insertions(+), 41 deletions(-)
+ 27 files changed, 1647 insertions(+), 41 deletions(-)
  create mode 100644 src/__tests__/amount.test.ts
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
@@ -357,10 +357,10 @@ index 0000000..6b1d099
 +});
 diff --git a/src/__tests__/verdict.test.ts b/src/__tests__/verdict.test.ts
 new file mode 100644
-index 0000000..c95243d
+index 0000000..2d86b23
 --- /dev/null
 +++ b/src/__tests__/verdict.test.ts
-@@ -0,0 +1,365 @@
+@@ -0,0 +1,388 @@
 +/**
 + * invinoveritas verdict gate tests. Every proof here is a real signed verdict recorded from invinoveritas
 + * (pilot exhibit 3, 2026-10-08), and the settlement receipt is the real Base transaction 0x2afb35e2...
@@ -483,6 +483,22 @@ index 0000000..c95243d
 +    expect(d.allowed).toBe(true);
 +    expect(d.nonce).toBe(approve.authorization.nonce);
 +  });
++  it('blockOn blocks an allowed verdict when the review lists a matching concern, and only then', () => {
++    const withIssue = { ...clone(approve.review_response), issues: [
++      { severity: 'high', category: 'address_poisoning', description: 'payee not in the vendor record' },
++      { severity: 'info', category: 'missing_check', description: 'token reputation not checked' }] };
++    const byCategory = createVerdictGate({ now: () => verifiedAt + 2, blockOn: { categories: ['address_poisoning'] } }).decide(withIssue, approve.args);
++    expect(byCategory.allowed).toBe(false);
++    expect(byCategory.blockedBy?.category).toBe('address_poisoning');
++    expect(byCategory.nonce).toBeUndefined();
++    expect(createVerdictGate({ now: () => verifiedAt + 2, blockOn: { severities: ['high'] } }).decide(withIssue, approve.args).allowed).toBe(false);
++    expect(createVerdictGate({ now: () => verifiedAt + 2, blockOn: { categories: ['scam_token'], severities: ['blocker'] } }).decide(withIssue, approve.args).allowed).toBe(true);
++    expect(createVerdictGate({ now: () => verifiedAt + 2 }).decide(withIssue, approve.args).allowed).toBe(true);
++  });
++  it('blockOn never allows: a reject with no matching concern stays blocked', () => {
++    const gate = createVerdictGate({ now: () => contentOf(rejectEvent).verified_at + 2, blockOn: { categories: ['nothing'] } });
++    expect(gate.decide(reject.review_response, reject.args).allowed).toBe(false);
++  });
 +  it('blocks a real reject verdict', () => {
 +    const gate = createVerdictGate({ now: () => contentOf(rejectEvent).verified_at + 2 });
 +    const d = gate.decide(reject.review_response, reject.args);
@@ -593,6 +609,13 @@ index 0000000..c95243d
 +      expect(d.allowed).toBe(false);
 +      expect(d.reason).toMatch(/args_bound/);
 +    });
++  });
++  it('sends concerns and the severity threshold to /review', async () => {
++    let sent: any;
++    const f = (async (_u: any, init?: RequestInit) => { sent = JSON.parse(String(init?.body)); return new Response('{}', { status: 500 }); }) as unknown as typeof fetch;
++    await createVerdictGate({ fetch: f, concerns: 'payee must be in the vendor master', severityThreshold: 'high' }).check(intent);
++    expect(sent.concerns).toBe('payee must be in the vendor master');
++    expect(sent.severity_threshold).toBe('high');
 +  });
 +  it('blocks when the reviewer returns a real proof for some other payment', async () => {
 +    const d = await createVerdictGate({ fetch: respond(200, approve.review_response), failMode: 'open' }).check(intent);
@@ -1184,10 +1207,10 @@ index 3b3551e..d72da85 100644
      const retryResponse = await fetch(input, {
 diff --git a/src/verdict/README.md b/src/verdict/README.md
 new file mode 100644
-index 0000000..3dd9b1e
+index 0000000..7d2357a
 --- /dev/null
 +++ b/src/verdict/README.md
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,118 @@
 +# `@qbtlabs/x402/verdict`: an independent, signed verdict before the signature
 +
 +Optional module. Nothing in `@qbtlabs/x402` calls it unless you pass a gate in.
@@ -1213,6 +1236,16 @@ index 0000000..3dd9b1e
 +
 +**Fail modes**: `failMode: 'closed'` (the default) blocks when the reviewer is unreachable. `'open'` allows and flags
 +`failOpen: true`. A proof that fails verification **always** blocks: a bad proof is a finding, not an outage.
++
++**Tuning what blocks.** All operator settings, none set by the agent:
++- `proceedOn`: which verdicts allow a payment. `['approve']` is stricter. Adding `'reject'` makes the gate advisory
++  (shadow mode): every payment gets a signed verdict and nothing is blocked, and a paid reject is still visible after
++  settlement (`executed_despite_reject`).
++- `blockOn: { categories?, severities? }`: block an allowed verdict when the review lists a matching concern, e.g.
++  `{ categories: ['address_poisoning'], severities: ['blocker', 'high'] }`; `decision.blockedBy` names it. The concern
++  list is not covered by the verdict's signature, so `blockOn` only ever makes the gate stricter.
++- `concerns`: your own checklist for the reviewer ("payee must be in the vendor master; flag any change of bank details").
++- `severityThreshold`: the lowest concern severity the review lists (`blocker`, `high`, `medium` or `all`).
 +
 +## Evidence: give the reviewer what your systems already know
 +
@@ -1520,10 +1553,10 @@ index 0000000..c6029ca
 +}
 diff --git a/src/verdict/gate.ts b/src/verdict/gate.ts
 new file mode 100644
-index 0000000..6ca9c26
+index 0000000..7cb089f
 --- /dev/null
 +++ b/src/verdict/gate.ts
-@@ -0,0 +1,291 @@
+@@ -0,0 +1,308 @@
 +/**
 + * invinoveritas verdict gate for @qbtlabs/x402: an independent, signed second opinion before a payment is signed.
 + *
@@ -1632,10 +1665,18 @@ index 0000000..6ca9c26
 +  agentId?: string;
 +  /** Who is accountable for the proceed_on rule (bound into the record). */
 +  accountableParty?: string;
-+  /** Only issues at or above this severity count. Default 'medium'. */
-+  severityThreshold?: 'low' | 'medium' | 'high' | 'critical';
++  /** Lowest issue severity the reviewer lists: 'blocker' | 'high' | 'medium' | 'all'. Default 'medium'. */
++  severityThreshold?: 'blocker' | 'high' | 'medium' | 'all';
 +  /** Extra context for the reviewer (your policy, the agent's task). */
 +  context?: string;
++  /** Your own checklist for the reviewer, e.g. "payee must be in the vendor master; flag any change of bank details". */
++  concerns?: string;
++  /**
++   * Block even an allowed verdict when the review lists a matching concern, e.g.
++   * { categories: ['address_poisoning'], severities: ['blocker', 'high'] }. It can only make the gate stricter: the
++   * concern list is not covered by the verdict's signature, so it is never used to allow a payment.
++   */
++  blockOn?: { categories?: string[]; severities?: string[] };
 +  /**
 +   * Evidence resolver, called per payment before the review (look up your vendor master, PolicyEngine result and
 +   * invoice ledger). Strongly recommended: without evidence most payments to an unknown address come back 'reject'.
@@ -1662,6 +1703,8 @@ index 0000000..6ca9c26
 +  proof?: ProofVerification;
 +  /** Raw /review response, for your audit log. */
 +  review?: unknown;
++  /** The concern that triggered `blockOn`, when that is why the payment was blocked. */
++  blockedBy?: { category?: string; severity?: string; description?: string; [k: string]: unknown };
 +}
 +
 +function buildArtifact(args: BoundArgs, chainId: number, evidence?: PaymentEvidence): string {
@@ -1733,6 +1776,12 @@ index 0000000..6ca9c26
 +    if (!(age <= maxAge)) {
 +      return { ...base, allowed: false, reason: `verdict is ${age}s old (max ${maxAge}s)` };
 +    }
++    const issues: any[] = Array.isArray(res?.issues) ? res.issues : [];
++    const hit = cfg.blockOn && issues.find((i) => i && typeof i === 'object' && (
++      (cfg.blockOn!.categories ?? []).includes(String(i.category)) || (cfg.blockOn!.severities ?? []).includes(String(i.severity))));
++    if (hit) {
++      return { ...base, allowed: false, blockedBy: hit, reason: `blockOn: concern '${hit.category}' (${hit.severity}) listed in the review` };
++    }
 +    return { ...base, allowed: true, reason: `verdict '${proof.verdict}' verified offline`, nonce: executionNonce(proof.decisionRef!) };
 +  }
 +
@@ -1758,6 +1807,7 @@ index 0000000..6ca9c26
 +      confidentiality_tier: 'partial_disclosure',
 +      disclosed_summary: `x402 payment ${Number(args.amount_atomic) / 1e6} USDC to ${args.to} on ${args.chain}`,
 +      ...(cfg.context ? { context: cfg.context } : {}),
++      ...(cfg.concerns ? { concerns: cfg.concerns } : {}),
 +    };
 +    const ctrl = new AbortController();
 +    const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs ?? 120_000);
