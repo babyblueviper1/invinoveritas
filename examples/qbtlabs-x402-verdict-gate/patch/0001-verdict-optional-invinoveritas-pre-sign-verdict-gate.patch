@@ -1,0 +1,1384 @@
+From 5505243eb501d1b4cb32e384697736c712b47dcc Mon Sep 17 00:00:00 2001
+From: babyblueviper1 <babyblueviperbusiness@gmail.com>
+Date: Sat, 10 Oct 2026 13:01:34 -0300
+Subject: [PATCH] verdict: optional invinoveritas pre-sign verdict gate +
+ post-settlement execution check
+
+- src/verdict: createVerdictGate (POST /review over the exact EIP-3009 fields, offline BIP-340 proof
+  verification, proceedOn/freshness/fail-closed policy, nonce = verdict decision_ref),
+  verifyExecutionLocal/Remote, signGatedAuthorization, createVerdictPaymentFetch
+- signer: optional preSign hook (runs after PolicyEngine.check, before vault decrypt); nonce accepts bytes32 hex
+- package.json: ./verdict export
+- 33 tests on recorded real verdicts + the real Base settlement 0x2afb35e2; no network
+---
+ package.json                                  |   4 +
+ .../exhibit3_approve_settled.json             |  95 ++++++
+ .../invinoveritas/exhibit3_reject.json        |  49 +++
+ src/__tests__/verdict.test.ts                 | 299 ++++++++++++++++++
+ src/signer/server.ts                          |  21 ++
+ src/signer/types.ts                           |  16 +-
+ src/verdict/README.md                         |  78 +++++
+ src/verdict/execution.ts                      | 121 +++++++
+ src/verdict/fetch.ts                          |  75 +++++
+ src/verdict/gate.ts                           | 253 +++++++++++++++
+ src/verdict/index.ts                          |  16 +
+ src/verdict/jcs.ts                            |  33 ++
+ src/verdict/proof.ts                          | 131 ++++++++
+ src/verdict/sign.ts                           |  29 ++
+ 14 files changed, 1219 insertions(+), 1 deletion(-)
+ create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
+ create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
+ create mode 100644 src/__tests__/verdict.test.ts
+ create mode 100644 src/verdict/README.md
+ create mode 100644 src/verdict/execution.ts
+ create mode 100644 src/verdict/fetch.ts
+ create mode 100644 src/verdict/gate.ts
+ create mode 100644 src/verdict/index.ts
+ create mode 100644 src/verdict/jcs.ts
+ create mode 100644 src/verdict/proof.ts
+ create mode 100644 src/verdict/sign.ts
+
+diff --git a/package.json b/package.json
+index e15c854..1b0b5ba 100644
+--- a/package.json
++++ b/package.json
+@@ -57,6 +57,10 @@
+     "./policy": {
+       "types": "./dist/policy/index.d.ts",
+       "import": "./dist/policy/index.js"
++    },
++    "./verdict": {
++      "types": "./dist/verdict/index.d.ts",
++      "import": "./dist/verdict/index.js"
+     }
+   },
+   "bin": {
+diff --git a/src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json b/src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
+new file mode 100644
+index 0000000..a4184f8
+--- /dev/null
++++ b/src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
+@@ -0,0 +1,95 @@
++{
++ "_source": "invinoveritas pilot exhibit 3, run 20261008T173647Z: a real /review(sign=true) verdict, then a real 1.00 USDC EIP-3009 transfer on Base whose nonce is the verdict's decision_ref. Receipt read from https://mainnet.base.org.",
++ "basescan": "https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7",
++ "tool": "usdc_transfer_eip3009",
++ "agent_id": "invinoveritas_treasury_onchain_pilot",
++ "args": {
++  "chain": "eip155:8453",
++  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
++  "from": "0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9",
++  "to": "0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A",
++  "amount_atomic": "1000000",
++  "valid_after": "1791480947",
++  "valid_before": "1791481607",
++  "nonce_rule": "eip3009_nonce = this verdict's decision_ref",
++  "recipient_control_message": "invinoveritas pilot exhibit 3: the holder of this key controls 0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A and accepts 1.00 USDC from 0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9 at 1791481007",
++  "recipient_control_signature": "b361728243792f499f300a25b5410de241b7811801cc55c52e66acde2309a3282ac5a0f3a37737b4e95504a22b5f254042e67fa4b8e38d671eeb24883bc5f95d1c"
++ },
++ "review_response": {
++  "verdict": "approve_with_concerns",
++  "confidence": 0.89,
++  "proof": {
++   "event": {
++    "id": "a5321b7db8ca0b2ac106a39f5cdef4fb1669d1e9c4d9d621629a2281af019d19",
++    "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
++    "created_at": 1791481057,
++    "kind": 30078,
++    "tags": [
++     [
++      "d",
++      "invinoveritas-proof-4f854d0da47b015440813eebdef54b91c739afaa68dbddbd63d1402ea800e66d-1791481057-3954f553"
++     ],
++     [
++      "t",
++      "invinoveritas"
++     ],
++     [
++      "t",
++      "proof"
++     ],
++     [
++      "schema",
++      "invinoveritas.verdict_proof.v1"
++     ]
++    ],
++    "content": "{\"action_binding_agent_id\":\"invinoveritas_treasury_onchain_pilot\",\"action_binding_args_hash\":\"sha256:30af1bc4a6380c35d85bf4fa400066ab8715586c107637eb35a9e8740a055869\",\"action_binding_nonce\":\"5f8180a99a8b1de524ca8bd099bdc195\",\"action_binding_tool_hash\":\"sha256:6ad7f8f07cc3fc50519d4ed6c51dde5a4cda06b879ba8cfe17aa450377eca887\",\"artifact_hash\":\"4f854d0da47b015440813eebdef54b91c739afaa68dbddbd63d1402ea800e66d\",\"artifact_type\":\"onchain_action\",\"canonicalization_version\":\"rfc8785.v1\",\"confidence\":0.89,\"confidentiality_tier\":\"partial_disclosure\",\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"context_provenance\":\"caller_asserted_unverified\",\"decision_ref\":\"sha256:b1a8be58323f5b5ac0c5bf3d6da21a647399dcf074dc6baf6e870f7bf80f0e95\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\",\"action_binding_tool_hash\",\"action_binding_args_hash\",\"action_binding_agent_id\",\"action_binding_nonce\",\"freshness_beacon_hash\",\"epistemic_basis\",\"external_evidence_hash\",\"canonicalization_version\",\"related_claims_hash\",\"related_claims_result\",\"related_claims_comparison_version\",\"mediator_attestation_hash\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"disclosed_summary\":\"pilot exhibit 3: verdict-bound 1.00 USDC transfer 0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9 -> 0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A on Base\",\"engine_generation\":1,\"epistemic_basis\":null,\"freshness_beacon\":{\"block_time\":1791479935,\"hash\":\"000000000000000000001b89a4d963a7495cdc712eda85a6214f618b59f22a5a\",\"height\":970514,\"source\":\"bitcoin\"},\"freshness_beacon_hash\":\"sha256:cb8820783b7b6f5048d47c3956252ad44771d5469281ee3f624002d5ec187143\",\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:ce58857dea9f9851394bd3126f9aca28b8ef7cc95cc3562ab0e4a863f8be73fe\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"e90948ed3eb9d36eb1d0997ea4d02045e28a405a\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v12.md\",\"rubric_sha256\":\"bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180\"},\"policy_version\":\"invinoveritas.review.v22\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"related_claims_result\":\"not_supplied\",\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"review_prompt_template_hash\":\"13a72a4c1e3a99b969ac46b724eceef6620716292f2b730f19915cdd469c1e31\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"e981a77071f7fe80d16429bf7abdc115ac6f56ba4ebdba8b95ec3b945302acae\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. This note is derived from source_class and artifact_type only: it does not establish that the source classification is true or that execution cannot bypass this check. Treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"approve_with_concerns\",\"verified_at\":1791481056,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
++    "sig": "c5f7ae232baff962434000ed068dd36c7857c753905cda35bc35cb6706ceafc92b6476f4504a7e0cd8476b32da1813d0e9c57f4dbddc3f3d40584ecb0dd1312a"
++   }
++  }
++ },
++ "authorization": {
++  "from": "0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9",
++  "to": "0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A",
++  "value": "1000000",
++  "validAfter": "1791480947",
++  "validBefore": "1791481607",
++  "nonce": "0xb1a8be58323f5b5ac0c5bf3d6da21a647399dcf074dc6baf6e870f7bf80f0e95"
++ },
++ "tx_hash": "0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7",
++ "receipt": {
++  "status": "0x1",
++  "blockNumber": "0x31ebc00",
++  "logs": [
++   {
++    "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
++    "topics": [
++     "0x98de503528ee59b575ef0c0a2576a82497bfc029a5685b209e9ec333479b10a5",
++     "0x000000000000000000000000161dbdd73d025e9aedd4918a67c28e5bf9a87fb9",
++     "0xb1a8be58323f5b5ac0c5bf3d6da21a647399dcf074dc6baf6e870f7bf80f0e95"
++    ],
++    "data": "0x"
++   },
++   {
++    "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
++    "topics": [
++     "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
++     "0x000000000000000000000000161dbdd73d025e9aedd4918a67c28e5bf9a87fb9",
++     "0x000000000000000000000000d34282184c5dd34f3bbef381d3a1e02b315ebb0a"
++    ],
++    "data": "0x00000000000000000000000000000000000000000000000000000000000f4240"
++   }
++  ]
++ },
++ "verify_execution_response_recorded": {
++  "valid": true,
++  "checks": {
++   "proof_valid": true,
++   "args_bound": true,
++   "tx_succeeded": true,
++   "nonce_is_verdict": true,
++   "authorizer_matches": true,
++   "transfer_matches": true
++  },
++  "verdict": "approve_with_concerns"
++ }
++}
+\ No newline at end of file
+diff --git a/src/__tests__/fixtures/invinoveritas/exhibit3_reject.json b/src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
+new file mode 100644
+index 0000000..46bca55
+--- /dev/null
++++ b/src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
+@@ -0,0 +1,49 @@
++{
++ "_source": "invinoveritas pilot exhibit 3, run 20261008T173544Z: a real signed 'reject' verdict; no payment was made.",
++ "tool": "usdc_transfer_eip3009",
++ "agent_id": "invinoveritas_treasury_onchain_pilot",
++ "args": {
++  "chain": "eip155:8453",
++  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
++  "from": "0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9",
++  "to": "0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A",
++  "amount_atomic": "1000000",
++  "valid_after": "1791480885",
++  "valid_before": "1791481545",
++  "nonce_rule": "eip3009_nonce = this verdict's decision_ref",
++  "recipient_control_message": "invinoveritas pilot exhibit 3: the holder of this key controls 0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A and accepts 1.00 USDC from 0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9 at 1791480945",
++  "recipient_control_signature": "96d0dbfb752c15d8db5f2f1ec530bd623d3a96d1f980c471f99af2ef776b62c9388809586a52dd51c06de9547fa67fa55f02082c22bef036a6b77b59563c75a01c"
++ },
++ "review_response": {
++  "verdict": "reject",
++  "confidence": 0.93,
++  "proof": {
++   "event": {
++    "id": "dd9a834141842e8dd2e27cf150c73c9387cd6b42f4d5abee4acc0c54c2244fc0",
++    "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
++    "created_at": 1791480971,
++    "kind": 30078,
++    "tags": [
++     [
++      "d",
++      "invinoveritas-proof-a9233d6427984842887665b03626319157bb46fb71f66e5f4848787424540b65-1791480971-f5448c8f"
++     ],
++     [
++      "t",
++      "invinoveritas"
++     ],
++     [
++      "t",
++      "proof"
++     ],
++     [
++      "schema",
++      "invinoveritas.verdict_proof.v1"
++     ]
++    ],
++    "content": "{\"action_binding_agent_id\":\"invinoveritas_treasury_onchain_pilot\",\"action_binding_args_hash\":\"sha256:5e48e28244242e134ab764f3b42dea32399c7e2557c80567457a7a6e1a203ed8\",\"action_binding_nonce\":\"1c55bb271cdab3327e6fc0e5ae70b895\",\"action_binding_tool_hash\":\"sha256:6ad7f8f07cc3fc50519d4ed6c51dde5a4cda06b879ba8cfe17aa450377eca887\",\"artifact_hash\":\"a9233d6427984842887665b03626319157bb46fb71f66e5f4848787424540b65\",\"artifact_type\":\"onchain_action\",\"canonicalization_version\":\"rfc8785.v1\",\"confidence\":0.93,\"confidentiality_tier\":\"partial_disclosure\",\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"context_provenance\":\"caller_asserted_unverified\",\"decision_ref\":\"sha256:79f0124f5d060953e79060d5174fc3fb525f286fba47e6db3ef3be926468d50e\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\",\"action_binding_tool_hash\",\"action_binding_args_hash\",\"action_binding_agent_id\",\"action_binding_nonce\",\"freshness_beacon_hash\",\"epistemic_basis\",\"external_evidence_hash\",\"canonicalization_version\",\"related_claims_hash\",\"related_claims_result\",\"related_claims_comparison_version\",\"mediator_attestation_hash\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"disclosed_summary\":\"pilot exhibit 3: verdict-bound 1.00 USDC transfer 0x161DbdD73D025E9aEdd4918a67c28e5bf9A87Fb9 -> 0xD34282184C5Dd34f3bBEf381d3A1E02B315ebb0A on Base\",\"engine_generation\":1,\"epistemic_basis\":null,\"freshness_beacon\":{\"block_time\":1791479935,\"hash\":\"000000000000000000001b89a4d963a7495cdc712eda85a6214f618b59f22a5a\",\"height\":970514,\"source\":\"bitcoin\"},\"freshness_beacon_hash\":\"sha256:cb8820783b7b6f5048d47c3956252ad44771d5469281ee3f624002d5ec187143\",\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:ce58857dea9f9851394bd3126f9aca28b8ef7cc95cc3562ab0e4a863f8be73fe\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"e90948ed3eb9d36eb1d0997ea4d02045e28a405a\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v12.md\",\"rubric_sha256\":\"bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180\"},\"policy_version\":\"invinoveritas.review.v22\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"related_claims_result\":\"not_supplied\",\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"review_prompt_template_hash\":\"13a72a4c1e3a99b969ac46b724eceef6620716292f2b730f19915cdd469c1e31\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"ee97537cb5e54166e1c807320dae3dcb049a2af896fbee9f1e8030fde8e46cb6\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. This note is derived from source_class and artifact_type only: it does not establish that the source classification is true or that execution cannot bypass this check. Treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"reject\",\"verified_at\":1791480970,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
++    "sig": "8845c37328399d85229d5fc4cca0159ace925b4ec89978afacfa67d52ee7d8b82d489ac5973ba89fc0453b214815d5d60b426323ef7a850b4fb17d6181744b6e"
++   }
++  }
++ }
++}
+\ No newline at end of file
+diff --git a/src/__tests__/verdict.test.ts b/src/__tests__/verdict.test.ts
+new file mode 100644
+index 0000000..07ecdba
+--- /dev/null
++++ b/src/__tests__/verdict.test.ts
+@@ -0,0 +1,299 @@
++/**
++ * invinoveritas verdict gate tests. Every proof here is a real signed verdict recorded from invinoveritas
++ * (pilot exhibit 3, 2026-10-08), and the settlement receipt is the real Base transaction 0x2afb35e2...
++ * No network calls: /review is mocked with the recorded responses.
++ */
++
++import { readFileSync, mkdtempSync, rmSync } from 'fs';
++import { join } from 'path';
++import { tmpdir } from 'os';
++import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
++import { verifyTypedData } from 'viem';
++import {
++  canonicalize, argsHash, verifyVerdictProof, executionNonce, verifyExecutionLocal, createVerdictGate,
++  signGatedAuthorization, createVerdictPaymentFetch, INVINOVERITAS_PUBKEY, type GateDecision, type ProofEvent,
++} from '../verdict/index.js';
++import { jest } from '@jest/globals';
++import { Vault } from '../vault/index.js';
++import { SignerServer } from '../signer/server.js';
++import { SignerClient } from '../signer/client.js';
++
++const FX = join(process.cwd(), 'src/__tests__/fixtures/invinoveritas');
++const approve = JSON.parse(readFileSync(join(FX, 'exhibit3_approve_settled.json'), 'utf8'));
++const reject = JSON.parse(readFileSync(join(FX, 'exhibit3_reject.json'), 'utf8'));
++const approveEvent: ProofEvent = approve.review_response.proof.event;
++const rejectEvent: ProofEvent = reject.review_response.proof.event;
++const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
++const contentOf = (e: ProofEvent) => JSON.parse(e.content);
++
++describe('JCS (RFC 8785)', () => {
++  it('sorts keys, drops whitespace, keeps strings exact', () => {
++    expect(canonicalize({ b: 1, a: [true, null, 'x'], c: { z: 1.5, y: 'é' } })).toBe('{"a":[true,null,"x"],"b":1,"c":{"y":"é","z":1.5}}');
++  });
++  it('rejects values JCS cannot represent', () => {
++    expect(() => canonicalize({ x: NaN })).toThrow();
++    expect(() => canonicalize({ x: 1n })).toThrow();
++  });
++  it('recomputes the args hash bound in a real verdict', () => {
++    expect(argsHash(approve.args)).toBe(contentOf(approveEvent).action_binding_args_hash);
++  });
++});
++
++describe('verifyVerdictProof (offline)', () => {
++  it('passes every check on a real approve_with_concerns proof', () => {
++    const r = verifyVerdictProof(approveEvent, { args: approve.args, tool: approve.tool });
++    expect(r.checks).toEqual({
++      id_integrity: true, signature_valid: true, issued_by_invinoveritas: true, is_proof_event: true,
++      decision_ref_recomputes: true, args_bound: true, tool_bound: true,
++    });
++    expect(r.valid).toBe(true);
++    expect(r.verdict).toBe('approve_with_concerns');
++    expect(approveEvent.pubkey).toBe(INVINOVERITAS_PUBKEY);
++  });
++  it('passes on a real reject proof (valid proof, negative verdict)', () => {
++    const r = verifyVerdictProof(rejectEvent, { args: reject.args, tool: reject.tool });
++    expect(r.valid).toBe(true);
++    expect(r.verdict).toBe('reject');
++  });
++  it('fails id_integrity when the verdict text is edited', () => {
++    const ev = clone(approveEvent);
++    ev.content = ev.content.replace('"verdict":"approve_with_concerns"', '"verdict":"approve"');
++    const r = verifyVerdictProof(ev);
++    expect(r.checks.id_integrity).toBe(false);
++    expect(r.checks.decision_ref_recomputes).toBe(false);
++    expect(r.valid).toBe(false);
++  });
++  it('fails signature_valid on a flipped signature byte', () => {
++    const ev = clone(approveEvent);
++    ev.sig = (ev.sig[0] === '0' ? '1' : '0') + ev.sig.slice(1);
++    expect(verifyVerdictProof(ev).checks.signature_valid).toBe(false);
++  });
++  it('fails issuer pin against another key', () => {
++    expect(verifyVerdictProof(approveEvent, { pubkey: 'ab'.repeat(32) }).checks.issued_by_invinoveritas).toBe(false);
++  });
++  it('fails args_bound when any bound field differs (amount, recipient)', () => {
++    expect(verifyVerdictProof(approveEvent, { args: { ...approve.args, amount_atomic: '1000001' } }).checks.args_bound).toBe(false);
++    expect(verifyVerdictProof(approveEvent, { args: { ...approve.args, to: '0x' + '1'.repeat(40) } }).checks.args_bound).toBe(false);
++  });
++  it('never throws on garbage', () => {
++    expect(verifyVerdictProof({} as ProofEvent).valid).toBe(false);
++    expect(verifyVerdictProof({ ...approveEvent, created_at: 1.5 } as ProofEvent).valid).toBe(false);
++  });
++});
++
++describe('executionNonce', () => {
++  it('equals the nonce of the real signed authorization', () => {
++    expect(executionNonce(contentOf(approveEvent).decision_ref)).toBe(approve.authorization.nonce);
++  });
++  it('rejects a malformed decision_ref', () => {
++    expect(() => executionNonce('sha256:xyz')).toThrow();
++  });
++});
++
++describe('verifyExecutionLocal (after settlement)', () => {
++  it('matches the recorded /verify-execution result on the real Base tx', () => {
++    const r = verifyExecutionLocal(approveEvent, approve.args, approve.receipt);
++    expect(r.checks).toEqual(approve.verify_execution_response_recorded.checks);
++    expect(r.valid).toBe(true);
++    expect(r.executed_despite_reject).toBe(false);
++  });
++  it('fails nonce_is_verdict for a payment that carried a different verdict', () => {
++    const r = verifyExecutionLocal(rejectEvent, reject.args, approve.receipt);
++    expect(r.checks.nonce_is_verdict).toBe(false);
++    expect(r.valid).toBe(false);
++  });
++  it('fails transfer_matches when the settled amount differs from the bound amount', () => {
++    const rc = clone(approve.receipt);
++    rc.logs[1].data = '0x' + (2_000_000).toString(16).padStart(64, '0');
++    expect(verifyExecutionLocal(approveEvent, approve.args, rc).checks.transfer_matches).toBe(false);
++  });
++  it('fails tx_succeeded on a reverted receipt', () => {
++    expect(verifyExecutionLocal(approveEvent, approve.args, { ...approve.receipt, status: '0x0' }).valid).toBe(false);
++  });
++});
++
++describe('createVerdictGate.decide (policy over a verified verdict)', () => {
++  const verifiedAt = contentOf(approveEvent).verified_at as number;
++  it('allows a fresh approve_with_concerns and returns the decision_ref nonce', () => {
++    const gate = createVerdictGate({ now: () => verifiedAt + 2 });
++    const d = gate.decide(approve.review_response, approve.args);
++    expect(d.allowed).toBe(true);
++    expect(d.nonce).toBe(approve.authorization.nonce);
++  });
++  it('blocks a real reject verdict', () => {
++    const gate = createVerdictGate({ now: () => contentOf(rejectEvent).verified_at + 2 });
++    const d = gate.decide(reject.review_response, reject.args);
++    expect(d.allowed).toBe(false);
++    expect(d.reason).toMatch(/reject/);
++  });
++  it('blocks approve_with_concerns when proceedOn is approve only', () => {
++    const gate = createVerdictGate({ now: () => verifiedAt + 2, proceedOn: ['approve'] });
++    expect(gate.decide(approve.review_response, approve.args).allowed).toBe(false);
++  });
++  it('blocks a stale verdict', () => {
++    const gate = createVerdictGate({ now: () => verifiedAt + 3600 });
++    expect(gate.decide(approve.review_response, approve.args).reason).toMatch(/old/);
++  });
++  it('blocks a real verdict replayed for a different payment, even with failMode open', () => {
++    const gate = createVerdictGate({ now: () => verifiedAt + 2, failMode: 'open' });
++    const d = gate.decide(approve.review_response, { ...approve.args, to: '0x' + '2'.repeat(40) });
++    expect(d.allowed).toBe(false);
++    expect(d.reason).toMatch(/args_bound/);
++  });
++});
++
++describe('createVerdictGate.check (/review call, mocked)', () => {
++  const intent = { chainId: 8453, from: '0x' + 'a'.repeat(40), to: '0x' + 'b'.repeat(40), amountAtomic: 10_000n, purpose: 'GET https://feed.example.com/price/SOL-USDC' };
++  const respond = (status: number, body: unknown) =>
++    (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
++
++  it('sends a signed, action-bound onchain_action review', async () => {
++    let sent: any; let auth: string | null = null;
++    const f = (async (_u: string, init: RequestInit) => {
++      sent = JSON.parse(String(init.body)); auth = new Headers(init.headers).get('Authorization');
++      return new Response('{}', { status: 200 });
++    }) as unknown as typeof fetch;
++    const gate = createVerdictGate({ fetch: f, apiKey: 'test-key', now: () => 1_800_000_000 });
++    await gate.check(intent);
++    expect(auth).toBe('Bearer test-key');
++    expect(sent.sign).toBe(true);
++    expect(sent.artifact_type).toBe('onchain_action');
++    expect(sent.action_binding.tool).toBe('usdc_transfer_eip3009');
++    expect(sent.action_binding.args).toMatchObject({
++      chain: 'eip155:8453', token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', amount_atomic: '10000',
++      valid_after: '1799999940', valid_before: '1800000600', proceed_on: ['approve', 'approve_with_concerns'],
++    });
++    expect(sent.artifact).toContain('TransferWithAuthorization');
++  });
++  it('fail-closed (default) blocks when the reviewer errors', async () => {
++    const d = await createVerdictGate({ fetch: respond(503, {}) }).check(intent);
++    expect(d.allowed).toBe(false);
++    expect(d.reason).toMatch(/503/);
++  });
++  it('fail-open allows, flagged, when the reviewer errors', async () => {
++    const d = await createVerdictGate({ fetch: respond(503, {}), failMode: 'open' }).check(intent);
++    expect(d).toMatchObject({ allowed: true, failOpen: true });
++    expect(d.nonce).toBeUndefined();
++  });
++  it('times out to the fail mode', async () => {
++    const hang = ((_u: string, init: RequestInit) => new Promise((_, rej) => {
++      init.signal?.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })));
++    })) as unknown as typeof fetch;
++    const d = await createVerdictGate({ fetch: hang, timeoutMs: 20 }).check(intent);
++    expect(d.allowed).toBe(false);
++    expect(d.reason).toMatch(/timeout/);
++  });
++  it('blocks when the reviewer returns a real proof for some other payment', async () => {
++    const d = await createVerdictGate({ fetch: respond(200, approve.review_response), failMode: 'open' }).check(intent);
++    expect(d.allowed).toBe(false);
++    expect(d.reason).toMatch(/args_bound/);
++  });
++});
++
++describe('signGatedAuthorization', () => {
++  const pk = generatePrivateKey();
++  const me = privateKeyToAccount(pk).address;
++  const nonce = approve.authorization.nonce as `0x${string}`;
++  const decision = (from: string): GateDecision => ({
++    allowed: true, reason: 'test', nonce,
++    args: { chain: 'eip155:8453', token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', from, to: '0x' + 'b'.repeat(40),
++      amount_atomic: '10000', valid_after: '100', valid_before: '2000000000', nonce_rule: 'x', proceed_on: ['approve'] },
++  });
++  it('signs with nonce = decision_ref and exactly the bound fields', async () => {
++    const r = await signGatedAuthorization(decision(me), pk);
++    expect(r.authorization.nonce).toBe(nonce);
++    const ok = await verifyTypedData({
++      address: me,
++      domain: { name: 'USD Coin', version: '2', chainId: 8453, verifyingContract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
++      types: { TransferWithAuthorization: [
++        { name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' },
++        { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' }] },
++      primaryType: 'TransferWithAuthorization',
++      message: { from: me, to: ('0x' + 'b'.repeat(40)) as `0x${string}`, value: 10000n, validAfter: 100n, validBefore: 2000000000n, nonce },
++      signature: r.signature as `0x${string}`,
++    });
++    expect(ok).toBe(true);
++  });
++  it('refuses when the key is not the bound payer', async () => {
++    await expect(signGatedAuthorization(decision('0x' + 'c'.repeat(40)), pk)).rejects.toThrow(/from/);
++  });
++  it('refuses a blocked or fail-open decision', async () => {
++    await expect(signGatedAuthorization({ allowed: false, reason: 'reject' }, pk)).rejects.toThrow(/blocked/);
++    await expect(signGatedAuthorization({ allowed: true, failOpen: true, reason: 'x' }, pk)).rejects.toThrow(/fail-open/);
++  });
++});
++
++describe('SignerServer preSign hook', () => {
++  let dir: string;
++  const password = 'test-password-123';
++  beforeAll(() => {
++    dir = mkdtempSync(join(tmpdir(), 'x402-verdict-signer-'));
++    new Vault({ vaultPath: join(dir, 'vault.enc') }).init({ password });
++  });
++  afterAll(() => rmSync(dir, { recursive: true, force: true }));
++
++  async function withServer(preSign: any, fn: (c: SignerClient) => Promise<void>) {
++    const socketPath = join(dir, `s${Math.random().toString(36).slice(2)}.sock`);
++    const server = new SignerServer({ socketPath, vaultPath: join(dir, 'vault.enc'), policyPath: join(dir, 'policy.json'), password, preSign } as any);
++    await server.start();
++    try { await fn(new SignerClient({ socketPath })); } finally { await server.stop(); }
++  }
++  const payload = { to: '0x' + 'b'.repeat(40), amount: '10000', chainId: 8453 };
++
++  it('refuses to sign when the hook refuses', async () => {
++    await withServer(async () => ({ allowed: false, reason: "verdict 'reject'" }), async (c) => {
++      await expect(c.sign(payload)).rejects.toThrow(/reject/);
++    });
++  });
++  it('signs with the nonce and window the hook returns', async () => {
++    let seenFrom = '';
++    const nonce = approve.authorization.nonce;
++    await withServer(async (p: any) => { seenFrom = p.from; return { allowed: true, nonce, validAfter: 100, validBefore: 2000000000 }; }, async (c) => {
++      const r = await c.sign(payload);
++      expect(r.authorization?.nonce).toBe(nonce);
++      expect(r.authorization?.validAfter).toBe('100');
++      expect(seenFrom).toMatch(/^0x[0-9a-fA-F]{40}$/);
++    });
++  });
++});
++
++describe('createVerdictPaymentFetch', () => {
++  const pk = generatePrivateKey();
++  const payTo = '0x' + 'b'.repeat(40);
++  const challenge = { error: 'Payment Required', accepts: [{ network: 'eip155:8453', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo, maxAmountRequired: '5000000' }] };
++  afterEach(() => jest.restoreAllMocks());
++
++  function mockApi(onPaid: (h: Headers) => void) {
++    return jest.spyOn(globalThis, 'fetch').mockImplementation((async (_i: any, init?: RequestInit) => {
++      const h = new Headers(init?.headers);
++      if (h.get('X-PAYMENT')) { onPaid(h); return new Response('{"ok":true}', { status: 200 }); }
++      return new Response(JSON.stringify(challenge), { status: 402 });
++    }) as any);
++  }
++
++  it('never signs or sends a payment the gate blocks', async () => {
++    let paid = false;
++    mockApi(() => { paid = true; });
++    const reviewFetch = (async () => new Response(JSON.stringify(reject.review_response), { status: 200 })) as unknown as typeof fetch;
++    const decisions: GateDecision[] = [];
++    const pay = createVerdictPaymentFetch({ privateKey: pk, gate: createVerdictGate({ fetch: reviewFetch }), onDecision: (_u, d) => decisions.push(d) });
++    await expect(pay('https://api.example.com/analytics/SOL')).rejects.toThrow(/blocked/);
++    expect(paid).toBe(false);
++    expect(decisions[0].allowed).toBe(false);
++  });
++
++  it('pays below the review threshold without asking for a verdict, and says so', async () => {
++    let header = '';
++    mockApi((h) => { header = h.get('X-PAYMENT')!; });
++    let reviewed = false;
++    const reviewFetch = (async () => { reviewed = true; return new Response('{}'); }) as unknown as typeof fetch;
++    const decisions: GateDecision[] = [];
++    const gate = createVerdictGate({ fetch: reviewFetch, reviewAboveAtomic: 10_000_000n });
++    const res = await createVerdictPaymentFetch({ privateKey: pk, gate, onDecision: (_u, d) => decisions.push(d) })('https://api.example.com/price/SOL');
++    expect(res.status).toBe(200);
++    expect(reviewed).toBe(false);
++    expect(decisions[0]).toMatchObject({ allowed: true, skipped: true });
++    const sent = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
++    expect(sent.payload.authorization).toMatchObject({ to: payTo, value: '5000000' });
++  });
++});
+diff --git a/src/signer/server.ts b/src/signer/server.ts
+index 4355728..cd39fbe 100644
+--- a/src/signer/server.ts
++++ b/src/signer/server.ts
+@@ -18,12 +18,14 @@ export class SignerServer {
+   private socketPath: string;
+   private password: string;
+   private isRunning = false;
++  private preSign?: SignerConfig['preSign'];
+ 
+   constructor(config: SignerConfig & { password: string }) {
+     this.socketPath = config.socketPath || DEFAULT_SOCKET_PATH;
+     this.password = config.password;
+     this.vault = new Vault({ vaultPath: config.vaultPath });
+     this.policy = new PolicyEngine(config.policyPath);
++    this.preSign = config.preSign;
+ 
+     if (!this.vault.exists()) {
+       throw new Error('Vault not found. Run "x402 vault init" first.');
+@@ -186,6 +188,25 @@ export class SignerServer {
+       };
+     }
+ 
++    // Optional extra pre-sign check (e.g. an independent verdict), still BEFORE decrypting the key
++    if (this.preSign) {
++      let gate;
++      try {
++        gate = await this.preSign({ ...payload, from: this.vault.getAddress() });
++      } catch (error) {
++        return { id, success: false, error: `Pre-sign check failed: ${(error as Error).message}` };
++      }
++      if (!gate.allowed) {
++        return { id, success: false, error: `Pre-sign check refused: ${gate.reason ?? 'no reason given'}` };
++      }
++      payload = {
++        ...payload,
++        ...(gate.nonce !== undefined ? { nonce: gate.nonce } : {}),
++        ...(gate.validAfter !== undefined ? { validAfter: gate.validAfter } : {}),
++        ...(gate.validBefore !== undefined ? { validBefore: gate.validBefore } : {}),
++      };
++    }
++
+     // Decrypt private key
+     const privateKey = this.vault.decrypt(this.password);
+ 
+diff --git a/src/signer/types.ts b/src/signer/types.ts
+index f015346..8deb31f 100644
+--- a/src/signer/types.ts
++++ b/src/signer/types.ts
+@@ -13,7 +13,7 @@ export interface SignPayload {
+   to: string;           // Recipient address
+   amount: string;       // Amount in wei (string to handle big numbers)
+   chainId: number;      // Chain ID (84532 = Base Sepolia, 8453 = Base)
+-  nonce?: number;       // Optional nonce
++  nonce?: number | string; // Optional nonce (a 0x-prefixed bytes32 hex string is accepted)
+   deadline?: number;    // EIP-3009 deadline
+   validAfter?: number;  // EIP-3009 validAfter
+   validBefore?: number; // EIP-3009 validBefore
+@@ -41,6 +41,20 @@ export interface SignerConfig {
+   vaultPath?: string;
+   policyPath?: string;
+   timeout?: number;     // Request timeout in ms
++  /**
++   * Optional extra check run after the policy engine allows a payment and before the key is decrypted,
++   * e.g. the invinoveritas verdict gate (see src/verdict). Returning allowed=false refuses to sign.
++   * Any nonce / validity window it returns is used verbatim for the signature.
++   */
++  preSign?: (payload: SignPayload & { from: string }) => Promise<PreSignResult>;
++}
++
++export interface PreSignResult {
++  allowed: boolean;
++  reason?: string;
++  nonce?: string;
++  validAfter?: number;
++  validBefore?: number;
+ }
+ 
+ export const DEFAULT_SOCKET_PATH = '/tmp/x402-signer.sock';
+diff --git a/src/verdict/README.md b/src/verdict/README.md
+new file mode 100644
+index 0000000..adb8127
+--- /dev/null
++++ b/src/verdict/README.md
+@@ -0,0 +1,78 @@
++# `@qbtlabs/x402/verdict`: an independent, signed verdict before the signature
++
++Optional module. Nothing in `@qbtlabs/x402` calls it unless you pass a gate in.
++
++Your policy engine answers *is this payment inside my rules?* (caps, allowlists, chains). This module adds a second
++question your own process can't answer about itself: *does an independent reviewer, looking at this exact payment,
++sign off on it?* It also leaves a record that a third party can check later without trusting you or the reviewer.
++
++## What it does
++
++**Before signing**
++1. Fix every EIP-3009 field except the nonce: `from`, `to`, `value`, `validAfter`, `validBefore`, token, chain.
++2. Send exactly those fields to invinoveritas `POST /review` (`artifact_type: onchain_action`, `sign: true`, `action_binding.args`).
++3. Verify the returned proof **offline**: BIP-340 signature, pinned issuer key, NIP-01 id, `decision_ref` recompute,
++   `sha256(JCS(args))` equal to the bound args hash, and the tool hash. It uses `@noble/curves` and `@noble/hashes`, which this package already depends on.
++4. Allow only if the verdict is in `proceedOn` and younger than `maxVerdictAgeSeconds`. The nonce to sign with is the
++   verdict's `decision_ref`, so the authorization can't predate the verdict.
++
++**After settlement**
++5. `gate.verifyExecution(decision, txHash)` checks the chain: USDC's `AuthorizationUsed(authorizer, nonce)` log carries
++   the verdict's `decision_ref`, and the `Transfer` matches the bound payer, recipient and amount. This runs offline over an RPC
++   receipt (`{ rpcUrl }`), or through the free `POST /verify-execution` endpoint.
++
++**Fail modes**: `failMode: 'closed'` (the default) blocks when the reviewer is unreachable. `'open'` allows and flags
++`failOpen: true`. A proof that fails verification **always** blocks: a bad proof is a finding, not an outage.
++
++## Integration (client side)
++
++```ts
++import { createVerdictGate, createVerdictPaymentFetch } from '@qbtlabs/x402/verdict';
++
++const gate = createVerdictGate({
++  apiKey: process.env.INVINOVERITAS_KEY,          // free: POST https://api.babyblueviper.com/register
++  failMode: 'closed',                             // reviewer down => no payment
++  proceedOn: ['approve', 'approve_with_concerns'],
++  reviewAboveAtomic: 1_000_000n,                  // only review payments >= 1 USDC
++  accountableParty: 'treasury-ops@yourco',        // signed into the record with the proceed_on rule
++});
++const pay = createVerdictPaymentFetch({ privateKey: AGENT_KEY, gate, rpcUrl: 'https://mainnet.base.org',
++  onDecision: (url, d) => audit.log({ url, allowed: d.allowed, verdict: d.verdict, proof: d.event?.id }),
++  onSettled: (url, tx, r) => audit.log({ url, tx, governed: r instanceof Error ? r.message : r.valid }) });
++const res = await pay('https://feed.example.com/analytics/SOL-USDC');
++```
++
++## Integration (isolated signer)
++
++The signer gets an optional `preSign` hook. It runs after `PolicyEngine.check()` and before the vault is decrypted, so the key is never touched for a blocked payment:
++
++```ts
++const decisions = new Map();
++const signer = new SignerServer({ password, preSign: gate.asPreSign({ onDecision: (d) => decisions.set(d.nonce, d) }) });
++// later, with the settled tx hash and the nonce from the authorization:
++const check = await gate.verifyExecution(decisions.get(nonce), txHash, { rpcUrl: 'https://mainnet.base.org' });
++```
++
++## What a valid result does and doesn't establish
++
++It establishes that the verdict was issued by the published invinoveritas key and hasn't been altered, that it
++committed to these exact payment fields, that the settled authorization was created after the verdict existed, and
++that the settled transfer matches. It does **not** establish that the reviewer saw complete context, that the verdict
++was right, or that the payer couldn't have paid another way without a verdict. Enforcement stays with the payer, and that is
++what this gate provides.
++
++`decision_ref_recomputes` here is a pure hash recompute. The hosted `/verify-proof` also checks the preimage field
++list against the registry for each policy version.
++
++## Cost and latency
++
++An `onchain_action` review takes about 20 to 60 s and costs about $1 (prepaid sats on a Bearer key, or x402 USDC). That suits
++treasury-sized, new-recipient or above-threshold payments, not sub-cent API calls. Use `reviewAboveAtomic`, or call
++the gate only where your policy would otherwise require manual approval.
++
++## Tests
++
++`src/__tests__/verdict.test.ts` (33 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
++`approve_with_concerns` verdict followed by a 1.00 USDC transfer on Base,
++[0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7),
++whose nonce is the verdict's `decision_ref`, plus a signed `reject`. No test touches the network.
+diff --git a/src/verdict/execution.ts b/src/verdict/execution.ts
+new file mode 100644
+index 0000000..ba935b7
+--- /dev/null
++++ b/src/verdict/execution.ts
+@@ -0,0 +1,121 @@
++/**
++ * After settlement: prove a settled payment was governed by a specific prior verdict.
++ *
++ * Mirrors invinoveritas POST /verify-execution (free, no auth) so you can run it either way:
++ *   - verifyExecutionLocal(): offline over a transaction receipt you fetched yourself (any RPC, no trust in us)
++ *   - verifyExecutionRemote(): ask invinoveritas to do the same checks (Base mainnet only)
++ *
++ * Checks: proof_valid, args_bound, nonce_is_verdict (the AuthorizationUsed nonce equals the verdict's decision_ref),
++ * authorizer_matches, transfer_matches (Transfer(from, to, value) of args.token), tx_succeeded.
++ * It does NOT establish that the reviewer had complete context, that the verdict was correct, or that the payer
++ * could not have paid by another route without a verdict. It proves this payment carried this verdict.
++ */
++
++import { executionNonce, verifyVerdictProof, type ProofEvent } from './proof.js';
++
++/** The bound args the check needs (a verdict may bind more fields; all of them are hashed, these are also matched on-chain). */
++export interface ExecutionArgs { token: string; from: string; to: string; amount_atomic: string; [extra: string]: unknown }
++
++export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
++/** AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce) */
++export const AUTH_USED_TOPIC = '0x98de503528ee59b575ef0c0a2576a82497bfc029a5685b209e9ec333479b10a5';
++
++export interface TxLog {
++  address: string;
++  topics: string[];
++  data: string;
++}
++export interface TxReceipt {
++  status: string;
++  blockNumber?: string;
++  logs: TxLog[];
++}
++
++export interface ExecutionVerification {
++  valid: boolean;
++  checks: {
++    proof_valid: boolean;
++    args_bound: boolean;
++    nonce_is_verdict: boolean;
++    authorizer_matches: boolean;
++    transfer_matches: boolean;
++    tx_succeeded: boolean;
++  };
++  verdict?: string;
++  decision_ref?: string;
++  executed_despite_reject: boolean;
++  error?: string;
++}
++
++const addr = (t: string) => '0x' + t.toLowerCase().slice(-40);
++
++export function verifyExecutionLocal(
++  event: ProofEvent,
++  args: ExecutionArgs,
++  receipt: TxReceipt,
++  opts: { pubkey?: string } = {},
++): ExecutionVerification {
++  const proof = verifyVerdictProof(event, { pubkey: opts.pubkey, args });
++  const checks = {
++    proof_valid: proof.checks.id_integrity && proof.checks.signature_valid && proof.checks.issued_by_invinoveritas
++      && proof.checks.is_proof_event && proof.checks.decision_ref_recomputes,
++    args_bound: proof.checks.args_bound === true,
++    nonce_is_verdict: false,
++    authorizer_matches: false,
++    transfer_matches: false,
++    tx_succeeded: false,
++  };
++  const out: ExecutionVerification = {
++    valid: false, checks, verdict: proof.verdict, decision_ref: proof.decisionRef, executed_despite_reject: false,
++  };
++  let want: string;
++  try {
++    want = executionNonce(proof.decisionRef ?? '');
++  } catch (e) {
++    return { ...out, error: `proof has no usable decision_ref: ${(e as Error).message}` };
++  }
++  const token = args.token.toLowerCase();
++  const from = args.from.toLowerCase();
++  const logs = (receipt.logs ?? []).filter((l) => l.address?.toLowerCase() === token);
++  const auth = logs.filter((l) => l.topics?.[0]?.toLowerCase() === AUTH_USED_TOPIC && l.topics.length > 2);
++  const xfer = logs.filter((l) => l.topics?.[0]?.toLowerCase() === TRANSFER_TOPIC && l.topics.length > 2);
++  checks.tx_succeeded = BigInt(receipt.status ?? '0x0') === 1n;
++  checks.nonce_is_verdict = auth.some((l) => l.topics[2].toLowerCase() === want);
++  checks.authorizer_matches = auth.some((l) => addr(l.topics[1]) === from);
++  checks.transfer_matches = xfer.some(
++    (l) => addr(l.topics[1]) === from && addr(l.topics[2]) === args.to.toLowerCase()
++      && BigInt(l.data || '0x0') === BigInt(args.amount_atomic),
++  );
++  out.valid = Object.values(checks).every(Boolean);
++  out.executed_despite_reject = out.valid && out.verdict === 'reject';
++  return out;
++}
++
++/** Fetch a receipt with plain JSON-RPC (no client library). */
++export async function fetchReceipt(rpcUrl: string, txHash: string, fetchImpl: typeof fetch = fetch): Promise<TxReceipt | null> {
++  const res = await fetchImpl(rpcUrl, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [txHash] }),
++  });
++  const body = (await res.json()) as { result?: TxReceipt; error?: unknown };
++  if (body.error) throw new Error(`RPC error: ${JSON.stringify(body.error)}`);
++  return body.result ?? null;
++}
++
++/** Ask invinoveritas to run the same checks (free, no auth). Supported chain: eip155:8453. */
++export async function verifyExecutionRemote(
++  event: ProofEvent,
++  args: ExecutionArgs,
++  txHash: string,
++  opts: { baseUrl?: string; fetch?: typeof fetch } = {},
++): Promise<ExecutionVerification & Record<string, unknown>> {
++  const f = opts.fetch ?? fetch;
++  const res = await f(`${opts.baseUrl ?? 'https://api.babyblueviper.com'}/verify-execution`, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ event, args, tx_hash: txHash }),
++  });
++  if (!res.ok) throw new Error(`/verify-execution returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
++  return (await res.json()) as ExecutionVerification & Record<string, unknown>;
++}
+diff --git a/src/verdict/fetch.ts b/src/verdict/fetch.ts
+new file mode 100644
+index 0000000..7711c55
+--- /dev/null
++++ b/src/verdict/fetch.ts
+@@ -0,0 +1,75 @@
++/**
++ * A drop-in variant of createPaymentFetch that runs the verdict gate before signing each x402 payment.
++ */
++
++import { privateKeyToAccount } from 'viem/accounts';
++import { buildPaymentPayloadWithAuthorization, parsePaymentRequired } from '../client.js';
++import type { GateDecision, VerdictGate } from './gate.js';
++import type { ExecutionVerification } from './execution.js';
++import { signGatedAuthorization } from './sign.js';
++import { signEIP3009 } from '../chains/evm.js';
++
++export interface VerdictPaymentFetchOptions {
++  privateKey: `0x${string}`;
++  gate: VerdictGate;
++  /** Called with every gate decision (allowed or not). Put it in your audit log. */
++  onDecision?: (url: string, decision: GateDecision) => void;
++  /** Called once settlement is visible and checked against the verdict. Never blocks the response. */
++  onSettled?: (url: string, txHash: string, result: ExecutionVerification | Error) => void;
++  /** Passed to gate.verifyExecution: check offline against this RPC instead of calling /verify-execution. */
++  rpcUrl?: string;
++}
++
++function settlementTx(res: Response): string | undefined {
++  const h = res.headers.get('PAYMENT-RESPONSE') ?? res.headers.get('X-PAYMENT-RESPONSE');
++  if (!h) return undefined;
++  try {
++    const j = JSON.parse(Buffer.from(h, 'base64').toString('utf8'));
++    return j.transaction ?? j.txHash ?? undefined;
++  } catch {
++    return undefined;
++  }
++}
++
++export function createVerdictPaymentFetch(options: VerdictPaymentFetchOptions): typeof fetch {
++  const { privateKey, gate, onDecision, onSettled, rpcUrl } = options;
++  const from = privateKeyToAccount(privateKey).address;
++
++  return async function verdictPaymentFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
++    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
++    const first = await fetch(input, init);
++    if (first.status !== 402) return first;
++
++    const body = (await first.json().catch(() => null)) as any;
++    const req = body ? parsePaymentRequired(body) : null;
++    if (!req) throw new Error('Failed to parse payment requirements from 402 response');
++    const atomic = body.accepts?.[0]?.maxAmountRequired ?? String(Math.ceil(req.price * 1_000_000));
++
++    const decision = await gate.check({
++      chainId: req.chainId, from, to: req.payTo, amountAtomic: atomic,
++      purpose: `${init?.method ?? 'GET'} ${url}`,
++    });
++    onDecision?.(url, decision);
++    if (!decision.allowed) throw new Error(`Payment blocked by verdict gate: ${decision.reason}`);
++
++    // Governed: nonce = the verdict's decision_ref. Ungoverned (below threshold, or fail-open): a random nonce, and
++    // onDecision has already told the caller that no verdict covers this payment.
++    const a = decision.args!;
++    const signed = decision.nonce
++      ? await signGatedAuthorization(decision, privateKey)
++      : await signEIP3009({ privateKey, to: a.to, value: BigInt(a.amount_atomic), validAfter: Number(a.valid_after),
++          validBefore: Number(a.valid_before), chainId: req.chainId });
++    const headers = new Headers(init?.headers);
++    headers.set('X-PAYMENT', buildPaymentPayloadWithAuthorization({ ...signed, chainId: req.chainId }));
++    const paid = await fetch(input, { ...init, headers });
++
++    const tx = settlementTx(paid);
++    if (tx && onSettled) {
++      gate.verifyExecution(decision, tx, { rpcUrl }).then(
++        (r) => onSettled(url, tx, r),
++        (e) => onSettled(url, tx, e as Error),
++      );
++    }
++    return paid;
++  };
++}
+diff --git a/src/verdict/gate.ts b/src/verdict/gate.ts
+new file mode 100644
+index 0000000..5f61769
+--- /dev/null
++++ b/src/verdict/gate.ts
+@@ -0,0 +1,253 @@
++/**
++ * invinoveritas verdict gate for @qbtlabs/x402: an independent, signed second opinion before a payment is signed.
++ *
++ * Flow (pre-sign):
++ *   1. Fix every EIP-3009 field except the nonce (from, to, value, validAfter, validBefore, token, chain).
++ *   2. POST /review with those exact fields as action_binding.args (sign=true).
++ *   3. Verify the returned proof OFFLINE (signature, issuer key, decision_ref recompute, args and tool binding).
++ *   4. Allow only if the verdict is in `proceedOn` and fresh; the nonce to sign with is the verdict's decision_ref.
++ * Flow (post-settlement): verifyExecution() proves the settled transfer carried that verdict.
++ *
++ * Optional by construction: nothing in @qbtlabs/x402 calls this unless you pass a gate in.
++ * Fail mode: 'closed' (default) blocks when the reviewer is unreachable; 'open' allows and says so.
++ * A proof that fails verification ALWAYS blocks, whatever the fail mode: a bad proof is a finding, not an outage.
++ */
++
++import { USDC_CONTRACTS } from '../config.js';
++import { executionNonce, verifyVerdictProof, type ProofEvent, type ProofVerification, type Verdict } from './proof.js';
++import { fetchReceipt, verifyExecutionLocal, verifyExecutionRemote, type ExecutionVerification } from './execution.js';
++
++export const DEFAULT_BASE_URL = 'https://api.babyblueviper.com';
++export const GATE_TOOL = 'usdc_transfer_eip3009';
++const NONCE_RULE = "eip3009_nonce = this verdict's decision_ref";
++
++export interface PaymentIntent {
++  chainId: number;
++  /** Payer address (the vault / signer address). */
++  from: string;
++  /** Recipient (payTo). */
++  to: string;
++  /** Amount in atomic USDC units (6 decimals). */
++  amountAtomic: string | bigint;
++  /** Token contract. Defaults to USDC on chainId. */
++  token?: string;
++  /** What the payment buys and why now, e.g. the 402 resource URL and the tool call. Goes into the reviewed artifact. */
++  purpose?: string;
++  validAfter?: number;
++  validBefore?: number;
++}
++
++/** The exact arguments the verdict binds (sha256(JCS(args)) is inside the signed proof). */
++export interface BoundArgs {
++  [extra: string]: unknown;
++  chain: string;
++  token: string;
++  from: string;
++  to: string;
++  amount_atomic: string;
++  valid_after: string;
++  valid_before: string;
++  nonce_rule: string;
++  /** Which verdicts let the payer execute, declared before the payment and signed into the record. */
++  proceed_on: Verdict[];
++  accountable_party?: string;
++  purpose?: string;
++}
++
++export interface VerdictGateConfig {
++  /** API base. Default https://api.babyblueviper.com */
++  baseUrl?: string;
++  /** Bearer key for /review. Omit if `fetch` pays per call over x402 (e.g. createPaymentFetch). */
++  apiKey?: string;
++  /** fetch used for /review (e.g. one that adds your own auth or pays per call). Default: global fetch. */
++  fetch?: typeof fetch;
++  /**
++   * Only review payments at or above this many atomic USDC units (6 decimals). Smaller payments pass ungoverned
++   * (decision.skipped = true, no verdict nonce). Default 0: review everything. A /review costs about $1, so for
++   * sub-cent API calls set this, or gate only new recipients upstream.
++   */
++  reviewAboveAtomic?: string | bigint;
++  /** Verdicts that allow the payment. Default ['approve', 'approve_with_concerns']. */
++  proceedOn?: Verdict[];
++  /** 'closed' (default): block when the reviewer is unreachable. 'open': allow, flagged failOpen. */
++  failMode?: 'closed' | 'open';
++  /** Max seconds between the verdict and signing. Default 120. */
++  maxVerdictAgeSeconds?: number;
++  /** /review timeout. Default 120000 ms (an onchain_action review typically takes 20 to 60 s). */
++  timeoutMs?: number;
++  /** Authorization validity window when the intent sets none. Default 600 s. */
++  authTtlSeconds?: number;
++  /** Pin a verifier key. Default: the published invinoveritas key. */
++  pubkey?: string;
++  /** Agent id bound into the verdict. */
++  agentId?: string;
++  /** Who is accountable for the proceed_on rule (bound into the record). */
++  accountableParty?: string;
++  /** Only issues at or above this severity count. Default 'medium'. */
++  severityThreshold?: 'low' | 'medium' | 'high' | 'critical';
++  /** Extra context for the reviewer (your policy, the agent's task). */
++  context?: string;
++  /** Clock, for tests. Unix seconds. */
++  now?: () => number;
++}
++
++export interface GateDecision {
++  allowed: boolean;
++  reason: string;
++  verdict?: Verdict;
++  confidence?: number;
++  summary?: string;
++  /** True when allowed only because the reviewer was unreachable and failMode is 'open'. */
++  failOpen?: boolean;
++  /** True when the amount is below reviewAboveAtomic, so no review was asked for. */
++  skipped?: boolean;
++  /** Sign the EIP-3009 authorization with exactly these. */
++  nonce?: `0x${string}`;
++  args?: BoundArgs;
++  event?: ProofEvent;
++  proof?: ProofVerification;
++  /** Raw /review response, for your audit log. */
++  review?: unknown;
++}
++
++function buildArtifact(args: BoundArgs, chainId: number): string {
++  const typed = {
++    domain: { name: chainId === 84532 ? 'USDC' : 'USD Coin', version: '2', chainId, verifyingContract: args.token },
++    primaryType: 'TransferWithAuthorization',
++    message: {
++      from: args.from, to: args.to, value: args.amount_atomic, validAfter: args.valid_after,
++      validBefore: args.valid_before, nonce: "<this verdict's decision_ref>",
++    },
++  };
++  return [
++    `x402 payment about to be signed by an agent: ${Number(args.amount_atomic) / 1e6} USDC from ${args.from} to ${args.to} on ${args.chain}.`,
++    args.purpose ? `Purpose: ${args.purpose}` : 'Purpose: not stated by the caller.',
++    `Exact EIP-712 typed data to be signed (only the nonce is open, and it is fixed by rule to this verdict's decision_ref): ${JSON.stringify(typed)}`,
++    `Signer assertions before signing: every field above equals the bound args; nonce == decision_ref; the verdict is one of ${JSON.stringify(args.proceed_on)} and younger than the configured maximum age. Spending limits, recipient allowlists and chain allowlists are enforced separately by the @qbtlabs/x402 policy engine before this review.`,
++  ].join('\n\n');
++}
++
++export function createVerdictGate(cfg: VerdictGateConfig = {}) {
++  const baseUrl = cfg.baseUrl ?? DEFAULT_BASE_URL;
++  const proceedOn = cfg.proceedOn ?? ['approve', 'approve_with_concerns'];
++  const failMode = cfg.failMode ?? 'closed';
++  const maxAge = cfg.maxVerdictAgeSeconds ?? 120;
++  const now = cfg.now ?? (() => Math.floor(Date.now() / 1000));
++  const f = cfg.fetch ?? fetch;
++
++  function bindArgs(intent: PaymentIntent): BoundArgs {
++    const chain = `eip155:${intent.chainId}`;
++    const token = intent.token ?? USDC_CONTRACTS[chain];
++    if (!token) throw new Error(`no USDC contract known for ${chain}; pass intent.token`);
++    const t = now();
++    return {
++      chain, token, from: intent.from, to: intent.to, amount_atomic: BigInt(intent.amountAtomic).toString(),
++      valid_after: String(intent.validAfter ?? t - 60),
++      valid_before: String(intent.validBefore ?? t + (cfg.authTtlSeconds ?? 600)),
++      nonce_rule: NONCE_RULE, proceed_on: proceedOn,
++      ...(cfg.accountableParty ? { accountable_party: cfg.accountableParty } : {}),
++      ...(intent.purpose ? { purpose: intent.purpose } : {}),
++    };
++  }
++
++  const unavailable = (reason: string, args: BoundArgs): GateDecision =>
++    failMode === 'open'
++      ? { allowed: true, failOpen: true, reason: `reviewer unavailable (${reason}); allowed because failMode is 'open'`, args }
++      : { allowed: false, reason: `reviewer unavailable (${reason}); blocked because failMode is 'closed'`, args };
++
++  /** Decide on a payment from an already-obtained /review response (no network). Exposed for tests and replays. */
++  function decide(review: any, args: BoundArgs): GateDecision {
++    const res = review?.result ?? review;
++    const proofBlock = res?.proof ?? review?.proof;
++    const event: ProofEvent | undefined = proofBlock?.event ?? proofBlock;
++    if (!event || typeof event !== 'object' || !('sig' in event)) {
++      return { ...unavailable('response carried no signed proof', args), review };
++    }
++    const proof = verifyVerdictProof(event, { pubkey: cfg.pubkey, args, tool: GATE_TOOL });
++    const base = { verdict: proof.verdict, confidence: res?.confidence, summary: res?.summary, event, proof, args, review };
++    if (!proof.valid) {
++      const failed = Object.entries(proof.checks).filter(([, v]) => !v).map(([k]) => k);
++      return { ...base, allowed: false, reason: `proof failed local verification: ${failed.join(', ') || proof.error}` };
++    }
++    if (!proof.verdict || !proceedOn.includes(proof.verdict)) {
++      return { ...base, allowed: false, reason: `verdict '${proof.verdict}' is not in proceedOn ${JSON.stringify(proceedOn)}` };
++    }
++    const age = now() - Number(proof.verifiedAt);
++    if (!(age <= maxAge)) {
++      return { ...base, allowed: false, reason: `verdict is ${age}s old (max ${maxAge}s)` };
++    }
++    return { ...base, allowed: true, reason: `verdict '${proof.verdict}' verified offline`, nonce: executionNonce(proof.decisionRef!) };
++  }
++
++  /** Pre-sign check. Call after the PolicyEngine allows the payment and before the key signs. */
++  async function check(intent: PaymentIntent): Promise<GateDecision> {
++    const args = bindArgs(intent);
++    if (cfg.reviewAboveAtomic !== undefined && BigInt(args.amount_atomic) < BigInt(cfg.reviewAboveAtomic)) {
++      return { allowed: true, skipped: true, reason: `below the review threshold of ${cfg.reviewAboveAtomic} atomic units`, args };
++    }
++    const body = {
++      artifact: buildArtifact(args, intent.chainId),
++      artifact_type: 'onchain_action',
++      sign: true,
++      action_binding: { tool: GATE_TOOL, agent_id: cfg.agentId ?? 'qbtlabs-x402-agent', args },
++      severity_threshold: cfg.severityThreshold ?? 'medium',
++      confidentiality_tier: 'partial_disclosure',
++      disclosed_summary: `x402 payment ${Number(args.amount_atomic) / 1e6} USDC to ${args.to} on ${args.chain}`,
++      ...(cfg.context ? { context: cfg.context } : {}),
++    };
++    const ctrl = new AbortController();
++    const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs ?? 120_000);
++    let review: unknown;
++    try {
++      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
++      if (cfg.apiKey) headers.Authorization = `Bearer ${cfg.apiKey}`;
++      const res = await f(`${baseUrl}/review`, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
++      if (!res.ok) return unavailable(`/review returned HTTP ${res.status}`, args);
++      review = await res.json();
++    } catch (e) {
++      return unavailable((e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message, args);
++    } finally {
++      clearTimeout(timer);
++    }
++    return decide(review, args);
++  }
++
++  /**
++   * Post-settlement: prove the settled transfer carried this verdict.
++   * With `rpcUrl` (or `receipt`) it runs fully offline against the chain; otherwise it calls /verify-execution.
++   */
++  async function verifyExecution(
++    decision: GateDecision,
++    txHash: string,
++    opts: { rpcUrl?: string; receipt?: Parameters<typeof verifyExecutionLocal>[2] } = {},
++  ): Promise<ExecutionVerification> {
++    if (!decision.event || !decision.args) throw new Error('decision has no verdict to check against');
++    if (opts.receipt || opts.rpcUrl) {
++      const receipt = opts.receipt ?? (await fetchReceipt(opts.rpcUrl!, txHash, f));
++      if (!receipt) throw new Error('transaction not found (not mined yet, or wrong chain)');
++      return verifyExecutionLocal(decision.event, decision.args, receipt, { pubkey: cfg.pubkey });
++    }
++    return verifyExecutionRemote(decision.event, decision.args, txHash, { baseUrl, fetch });
++  }
++
++  /**
++   * Adapter for the isolated signer: `new SignerServer({ ..., preSign: gate.asPreSign() })`.
++   * `onDecision` receives every decision (keep it: verifyExecution needs it after settlement).
++   */
++  function asPreSign(opts: { purpose?: string; onDecision?: (d: GateDecision) => void } = {}) {
++    return async (p: { to: string; amount: string; chainId: number; from: string; validAfter?: number; validBefore?: number }) => {
++      const d = await check({
++        chainId: p.chainId, from: p.from, to: p.to, amountAtomic: p.amount,
++        validAfter: p.validAfter || undefined, validBefore: p.validBefore || undefined, purpose: opts.purpose,
++      });
++      opts.onDecision?.(d);
++      if (!d.allowed) return { allowed: false, reason: d.reason };
++      if (d.failOpen || d.skipped || !d.nonce || !d.args) return { allowed: true, reason: d.reason };
++      return { allowed: true, reason: d.reason, nonce: d.nonce, validAfter: Number(d.args.valid_after), validBefore: Number(d.args.valid_before) };
++    };
++  }
++
++  return { check, decide, bindArgs, verifyExecution, asPreSign, config: { baseUrl, proceedOn, failMode, maxAge } };
++}
++
++export type VerdictGate = ReturnType<typeof createVerdictGate>;
+diff --git a/src/verdict/index.ts b/src/verdict/index.ts
+new file mode 100644
+index 0000000..e1a2985
+--- /dev/null
++++ b/src/verdict/index.ts
+@@ -0,0 +1,16 @@
++/**
++ * @qbtlabs/x402/verdict: optional invinoveritas verdict gate.
++ * An independent, signed verdict bound to the exact EIP-3009 fields before signing, and a check after settlement
++ * that the settled transfer carried that verdict.
++ */
++
++export { createVerdictGate, DEFAULT_BASE_URL, GATE_TOOL } from './gate.js';
++export type { VerdictGate, VerdictGateConfig, PaymentIntent, BoundArgs, GateDecision } from './gate.js';
++export { verifyVerdictProof, executionNonce, argsHash, nostrEventId, INVINOVERITAS_PUBKEY } from './proof.js';
++export type { ProofEvent, ProofVerification, ProofChecks, Verdict } from './proof.js';
++export { verifyExecutionLocal, verifyExecutionRemote, fetchReceipt } from './execution.js';
++export type { ExecutionVerification, ExecutionArgs, TxReceipt, TxLog } from './execution.js';
++export { signGatedAuthorization } from './sign.js';
++export { createVerdictPaymentFetch } from './fetch.js';
++export type { VerdictPaymentFetchOptions } from './fetch.js';
++export { canonicalize } from './jcs.js';
+diff --git a/src/verdict/jcs.ts b/src/verdict/jcs.ts
+new file mode 100644
+index 0000000..992358e
+--- /dev/null
++++ b/src/verdict/jcs.ts
+@@ -0,0 +1,33 @@
++/**
++ * RFC 8785 JSON Canonicalization Scheme (JCS), the subset needed to recompute invinoveritas hashes.
++ *
++ * invinoveritas hashes action arguments and the decision_ref preimage as sha256(JCS(value)). JCS is:
++ * no whitespace, object keys sorted by UTF-16 code units, numbers in ECMAScript Number.prototype.toString
++ * form, strings escaped the way JSON.stringify escapes them. That is exactly JavaScript's native JSON
++ * behaviour once keys are sorted, so this stays small and dependency-free.
++ */
++
++export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
++
++export function canonicalize(value: unknown): string {
++  if (value === null) return 'null';
++  switch (typeof value) {
++    case 'boolean':
++      return value ? 'true' : 'false';
++    case 'number':
++      if (!Number.isFinite(value)) throw new Error('JCS: NaN and Infinity are not representable');
++      return JSON.stringify(value);
++    case 'string':
++      return JSON.stringify(value);
++    case 'bigint':
++      throw new Error('JCS: bigint is not a JSON value; pass it as a decimal string');
++    case 'object': {
++      if (Array.isArray(value)) return '[' + value.map((v) => canonicalize(v)).join(',') + ']';
++      const obj = value as Record<string, unknown>;
++      const keys = Object.keys(obj).filter((k) => obj[k] !== undefined).sort();
++      return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalize(obj[k])).join(',') + '}';
++    }
++    default:
++      throw new Error(`JCS: unsupported type ${typeof value}`);
++  }
++}
+diff --git a/src/verdict/proof.ts b/src/verdict/proof.ts
+new file mode 100644
+index 0000000..ad9d185
+--- /dev/null
++++ b/src/verdict/proof.ts
+@@ -0,0 +1,131 @@
++/**
++ * Offline verification of an invinoveritas verdict proof.
++ *
++ * A verdict proof is a BIP-340 (schnorr) signed Nostr event (NIP-01). Verifying it needs no call to
++ * invinoveritas and no trust in whoever handed it to you:
++ *   1. id_integrity            sha256([0, pubkey, created_at, kind, tags, content]) equals event.id
++ *   2. signature_valid         the schnorr signature over event.id verifies against event.pubkey
++ *   3. issued_by_invinoveritas event.pubkey equals the pinned published key
++ *   4. is_proof_event          kind 30078 and an `invinoveritas.*` schema
++ *   5. decision_ref_recomputes sha256(JCS(preimage)) equals content.decision_ref, where preimage holds every
++ *                              field named in content.decision_ref_preimage_fields (absent ones as null)
++ *   6. args_bound              (when args are given) sha256(JCS(args)) equals content.action_binding_args_hash
++ *   7. tool_bound              (when a tool is given) sha256(tool) equals content.action_binding_tool_hash
++ *
++ * Uses @noble/curves and @noble/hashes, which @qbtlabs/x402 already depends on.
++ */
++
++import { schnorr } from '@noble/curves/secp256k1.js';
++import { sha256 } from '@noble/hashes/sha2.js';
++import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
++import { canonicalize } from './jcs.js';
++
++/** invinoveritas's published verifier key (x-only hex). Re-derive: GET https://api.babyblueviper.com/.well-known/agent-handshake */
++export const INVINOVERITAS_PUBKEY = '6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7';
++export const PROOF_KIND = 30078;
++
++export type Verdict = 'approve' | 'approve_with_concerns' | 'reject';
++
++export interface ProofEvent {
++  id: string;
++  pubkey: string;
++  created_at: number;
++  kind: number;
++  tags: string[][];
++  content: string;
++  sig: string;
++}
++
++export interface ProofChecks {
++  id_integrity: boolean;
++  signature_valid: boolean;
++  issued_by_invinoveritas: boolean;
++  is_proof_event: boolean;
++  decision_ref_recomputes: boolean;
++  args_bound?: boolean;
++  tool_bound?: boolean;
++}
++
++export interface ProofVerification {
++  valid: boolean;
++  checks: ProofChecks;
++  verdict?: Verdict;
++  decisionRef?: string;
++  verifiedAt?: number;
++  content?: Record<string, unknown>;
++  error?: string;
++}
++
++const utf8 = (s: string) => new TextEncoder().encode(s);
++export const sha256Hex = (s: string) => bytesToHex(sha256(utf8(s)));
++
++/** sha256(JCS(args)) in the `sha256:<hex>` form invinoveritas binds into a verdict. */
++export function argsHash(args: unknown): string {
++  return 'sha256:' + sha256Hex(canonicalize(args));
++}
++
++export function nostrEventId(ev: ProofEvent): string {
++  if (typeof ev.pubkey !== 'string' || !/^[0-9a-f]{64}$/.test(ev.pubkey)) throw new Error('pubkey must be 64 lowercase hex');
++  if (!Number.isSafeInteger(ev.created_at) || !Number.isSafeInteger(ev.kind)) throw new Error('created_at and kind must be integers');
++  if (!Array.isArray(ev.tags) || typeof ev.content !== 'string') throw new Error('tags must be an array and content a string');
++  return sha256Hex(JSON.stringify([0, ev.pubkey, ev.created_at, ev.kind, ev.tags, ev.content]));
++}
++
++/**
++ * The EIP-3009 nonce that binds a payment authorization to a verdict: the decision_ref digest as bytes32.
++ * Because it is a hash over the verdict, an authorization carrying it cannot have been signed before the verdict existed,
++ * and the USDC contract's AuthorizationUsed(authorizer, nonce) log records on-chain which verdict the payment carried.
++ */
++export function executionNonce(decisionRef: string): `0x${string}` {
++  const h = (decisionRef.includes(':') ? decisionRef.split(':', 2)[1] : decisionRef).toLowerCase().replace(/^0x/, '');
++  if (!/^[0-9a-f]{64}$/.test(h)) throw new Error('decision_ref is not a 32-byte hex digest');
++  return `0x${h}`;
++}
++
++export function verifyVerdictProof(
++  event: ProofEvent,
++  opts: { pubkey?: string; args?: unknown; tool?: string } = {},
++): ProofVerification {
++  const pin = (opts.pubkey ?? INVINOVERITAS_PUBKEY).toLowerCase();
++  const checks: ProofChecks = {
++    id_integrity: false,
++    signature_valid: false,
++    issued_by_invinoveritas: false,
++    is_proof_event: false,
++    decision_ref_recomputes: false,
++  };
++  const out: ProofVerification = { valid: false, checks };
++  if (!event || typeof event !== 'object') return { ...out, error: 'event must be an object' };
++  for (const k of ['id', 'pubkey', 'created_at', 'kind', 'content', 'sig'] as const) {
++    if (event[k] === undefined || event[k] === null || event[k] === '') return { ...out, error: `missing ${k}` };
++  }
++  let content: Record<string, unknown> = {};
++  try {
++    checks.id_integrity = nostrEventId(event) === String(event.id).toLowerCase();
++    try {
++      checks.signature_valid = schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey));
++    } catch {
++      checks.signature_valid = false;
++    }
++    checks.issued_by_invinoveritas = event.pubkey.toLowerCase() === pin;
++    content = JSON.parse(event.content);
++    checks.is_proof_event =
++      event.kind === PROOF_KIND && typeof content.schema === 'string' && content.schema.startsWith('invinoveritas.');
++    const fields = content.decision_ref_preimage_fields;
++    if (Array.isArray(fields) && typeof content.decision_ref === 'string') {
++      const preimage: Record<string, unknown> = {};
++      for (const f of fields as string[]) preimage[f] = content[f] ?? null;
++      checks.decision_ref_recomputes = 'sha256:' + sha256Hex(canonicalize(preimage)) === content.decision_ref;
++    }
++    if (opts.args !== undefined) checks.args_bound = argsHash(opts.args) === content.action_binding_args_hash;
++    if (opts.tool !== undefined) checks.tool_bound = 'sha256:' + sha256Hex(opts.tool) === content.action_binding_tool_hash;
++  } catch (e) {
++    return { ...out, error: `malformed event: ${(e as Error).message}` };
++  }
++  out.content = content;
++  out.verdict = content.verdict as Verdict;
++  out.decisionRef = content.decision_ref as string;
++  out.verifiedAt = content.verified_at as number;
++  out.valid = Object.values(checks).every(Boolean);
++  return out;
++}
+diff --git a/src/verdict/sign.ts b/src/verdict/sign.ts
+new file mode 100644
+index 0000000..e0ce790
+--- /dev/null
++++ b/src/verdict/sign.ts
+@@ -0,0 +1,29 @@
++/**
++ * Sign the EIP-3009 authorization a verdict allowed, with nonce = decision_ref, refusing any drift from the bound args.
++ */
++
++import { signEIP3009 } from '../chains/evm.js';
++import type { SignEIP3009Result } from '../types/evm.types.js';
++import type { GateDecision } from './gate.js';
++
++export async function signGatedAuthorization(decision: GateDecision, privateKey: string): Promise<SignEIP3009Result> {
++  if (!decision.allowed) throw new Error(`verdict gate blocked this payment: ${decision.reason}`);
++  if (decision.failOpen || !decision.nonce || !decision.args) {
++    throw new Error('no verdict nonce to bind (fail-open decision); sign through your normal path and record it as ungoverned');
++  }
++  const a = decision.args;
++  const chainId = Number(a.chain.split(':')[1]);
++  const result = await signEIP3009({
++    privateKey, to: a.to, value: BigInt(a.amount_atomic), validAfter: Number(a.valid_after),
++    validBefore: Number(a.valid_before), nonce: BigInt(decision.nonce), chainId,
++  });
++  const z = result.authorization;
++  const drift: string[] = [];
++  if (z.from.toLowerCase() !== a.from.toLowerCase()) drift.push('from (the key is not the bound payer)');
++  if (z.to.toLowerCase() !== a.to.toLowerCase()) drift.push('to');
++  if (z.value !== a.amount_atomic) drift.push('value');
++  if (z.validAfter !== a.valid_after || z.validBefore !== a.valid_before) drift.push('validity window');
++  if (z.nonce.toLowerCase() !== decision.nonce.toLowerCase()) drift.push('nonce');
++  if (drift.length) throw new Error(`signed authorization does not match the verdict's bound args: ${drift.join(', ')}`);
++  return result;
++}
+-- 
+2.47.3
+
