@@ -97,10 +97,25 @@ $1 more per payment, plus 100 sats). It also covers the agent re-deciding, not "
 invoice can be paid only once anyway. It's worth adding where one agent key pays many invoices for a principal that
 audits it.
 
+## A real paid run
+
+`paid_run.py` does the whole loop for real: a live `402` from `lightningfaucet.com/api/l402/quote`, a signed verdict
+(`approve_with_concerns`, 17.6 s), a 10-sat Lightning payment from an LND node through `LndRestWallet` (1 sat routing
+fee), the credential presented, and `200` with the quote. 22 s end to end. Its receipt is
+`tests/fixtures/paid_run_receipt.json`, and anyone can check it offline:
+
+```sh
+python3 -m l402_verdict_gate.verify tests/fixtures/paid_run_receipt.json   # VALID: preimage opens the invoice, invoice
+                                                                           # matches the bound fields, verdict signed
+                                                                           # by the pinned key and allowed the payment
+```
+
+The receipt stores a hash of the L402 credential, not the credential, so publishing it gives nobody access.
+
 ## Tests
 
 ```sh
-python3 -m unittest discover -s tests -v   # 27 tests, no network
+python3 -m unittest discover -s tests -v   # 29 tests, no network
 python3 demo.py                            # offline walkthrough of the recorded verdict + a full mock loop
 ```
 
@@ -110,7 +125,7 @@ quote challenge (`tests/fixtures/l402_quote_verdict.json`, recorded with `record
 reused from [`qbtlabs-x402-verdict-gate`](../qbtlabs-x402-verdict-gate). The recorded verdict raised two concerns. One
 was that the credential's scope wasn't checked, so that check is now a free local check. The other was that freshness
 must be enforced at dispatch, which the gate already does. Full-loop tests use a synthetic invoice and a test issuer
-key, because only a real payment reveals a real preimage.
+key; the one real payment is the receipt above (`paid_run_receipt.json`), checked against the real key.
 
 References: [L402 protocol](https://github.com/lightninglabs/L402) ·
 [Aperture](https://github.com/lightninglabs/aperture) · [lnget](https://github.com/lightninglabs/lnget) ·

@@ -1,0 +1,62 @@
+{
+ "_source": "real end-to-end run 2026-10-10 19:14Z: live L402 challenge from lightningfaucet.com/api/l402/quote, real signed invinoveritas verdict (approve_with_concerns, 17.6 s), real 10-sat Lightning payment from an LND node (1 sat routing fee) via LndRestWallet, credential presented, HTTP 200 with the quote. Produced by paid_run.py. The L402 credential itself is not stored, only its sha256.",
+ "receipt": {
+  "schema": "invinoveritas.l402_payment_receipt.v1",
+  "tool": "l402_lightning_payment",
+  "args": {
+   "protocol": "L402",
+   "method": "GET",
+   "url": "https://lightningfaucet.com/api/l402/quote",
+   "invoice": "lnbc100n1p4v4rj9pp54yq26n9856u2gnv4az07jk9d3v59jvkzc8mhtqpxe8jvrgrdlf8qdp4f35kw6r5de5kueeqgesh2cm9wss9zat0w3jjq2rnw3skuerpwfjzjcqzysxqzjcsp5mc9yy8sz6yse6sw8hka2z0qdlym9v4v6vtgmszy43rq39yr0433s9qxpqysgqzdsuqzuhrx9da929spcpt3w6aesrs8p4quxq37vehenpjajvgx9nh6vv9feh43u4974awracm52sytg6e9wp4hx4g2keapl3upt8xnqqkhcysp",
+   "network": "bc",
+   "amount_msat": "10000",
+   "payee_pubkey": "02966a90f51a0874f706d243878b58eafdf15a2369eaf6fbd1f3273159f0d0e130",
+   "payment_hash": "a900ad4ca7a6b8a44d95e89fe958ad8b285932c2c1f7758026c9e4c1a06dfa4e",
+   "invoice_created_at": "1791659589",
+   "invoice_expires_at": "1791660189",
+   "credential_sha256": "e523e6444444b2ad8cf57e02afccbd28c9b891f36c40ea5f8a2e5641746dcf21",
+   "preimage_rule": "pay only the invoice bound here; sha256(preimage) must equal payment_hash",
+   "proceed_on": [
+    "approve",
+    "approve_with_concerns"
+   ],
+   "max_verdict_age_s": "120",
+   "invoice_description": "Lightning Faucet Quote (standard)",
+   "purpose": "Daily-briefing agent needs one inspirational quote for the header of today's team newsletter. Operator budget for this task: 100 sats per call, 500 sats per day; this is the first paid call today. The endpoint is listed in the Lightning Faucet L402 registry (https://lightningfaucet.com/l402-registry/).",
+   "accountable_party": "operator of the daily-briefing agent"
+  },
+  "verdict_event": {
+   "id": "0e4704b83b175f4922ab83bf26bfccd866894a6f8bcac700c905a42a4e58dbde",
+   "pubkey": "6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7",
+   "created_at": 1791659650,
+   "kind": 30078,
+   "tags": [
+    [
+     "d",
+     "invinoveritas-proof-e0c11be7d394b662cb138646011ebee436e1e38f4b2e0cae05d32643bdfa6f55-1791659650-02929a09"
+    ],
+    [
+     "t",
+     "invinoveritas"
+    ],
+    [
+     "t",
+     "proof"
+    ],
+    [
+     "schema",
+     "invinoveritas.verdict_proof.v1"
+    ]
+   ],
+   "content": "{\"action_binding_agent_id\":\"l402-verdict-gate-demo\",\"action_binding_args_hash\":\"sha256:9cd57af1cc59a802fd78f39f26abd6479bf93f6a846b8c2aa8d0e818194e5e2e\",\"action_binding_nonce\":\"4ff4d863ead4068d82bbd408a630683f\",\"action_binding_tool_hash\":\"sha256:e3dd2158254d7502362edf7f254e45ed3f6614b7ba4313f88748b0ca89d998e9\",\"artifact_hash\":\"e0c11be7d394b662cb138646011ebee436e1e38f4b2e0cae05d32643bdfa6f55\",\"artifact_type\":\"onchain_action\",\"canonicalization_version\":\"rfc8785.v1\",\"confidence\":0.9,\"confidentiality_tier\":\"partial_disclosure\",\"conformance_suite\":\"https://github.com/babyblueviper1/preaction-governance-conformance\",\"context_provenance\":\"caller_asserted_unverified\",\"decision_ref\":\"sha256:a35fdde5757972427fdbaf22d5cccee8e7aea8de7d5a6de6c7153cd63fe573f5\",\"decision_ref_preimage_fields\":[\"artifact_hash\",\"artifact_type\",\"policy_version\",\"verdict\",\"source_class\",\"vantage_limitation\",\"related_decision_ref\",\"intended_audience\",\"confidentiality_tier\",\"disclosed_summary\",\"intended_verifier\",\"policy_commitment\",\"verified_at\",\"registry_as_of\",\"registry_snapshot_sha256\",\"action_binding_tool_hash\",\"action_binding_args_hash\",\"action_binding_agent_id\",\"action_binding_nonce\",\"freshness_beacon_hash\",\"epistemic_basis\",\"external_evidence_hash\",\"canonicalization_version\",\"related_claims_hash\",\"related_claims_result\",\"related_claims_comparison_version\",\"mediator_attestation_hash\"],\"decision_ref_preimage_rule\":\"every name in decision_ref_preimage_fields is a key in the hashed preimage object, always -- absent fields (e.g. vantage_limitation when not applicable) are present as JSON null, never omitted from the object.\",\"disclosed_summary\":\"L402 payment 10 sats for GET https://lightningfaucet.com/api/l402/quote\",\"engine_generation\":1,\"epistemic_basis\":null,\"freshness_beacon\":{\"block_time\":1791659589,\"hash\":\"000000000000000000014ccf5e67abda8efc7b0e831ac5575488fe1201e4a5d5\",\"height\":970812,\"source\":\"bitcoin\"},\"freshness_beacon_hash\":\"sha256:d29897eda01bd569a470e59c137554db8bae1c9faac7e840435ce154b0da270c\",\"independent_nodes\":[\"https://invinoveritas-castra.babyblueviper.workers.dev/verify\",\"https://babyblueviper1--2aba75da693711f185891607ee4eb77e.web.val.run\"],\"key_id\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"platform\":\"invinoveritas\",\"policy_commitment\":\"sha256:ce58857dea9f9851394bd3126f9aca28b8ef7cc95cc3562ab0e4a863f8be73fe\",\"policy_commitment_inputs\":{\"conformance_suite_commit\":\"e90948ed3eb9d36eb1d0997ea4d02045e28a405a\",\"conformance_suite_repo\":\"babyblueviper1/preaction-governance-conformance\",\"rubric_doc_path\":\"docs/policy_spec/invinoveritas.review.v12.md\",\"rubric_sha256\":\"bb74afa68bd5e8b1ca1038d8f0c8cd9a0d1f83888a7ea7df7c551f579a974180\"},\"policy_version\":\"invinoveritas.review.v22\",\"registry_as_of\":null,\"registry_snapshot_sha256\":null,\"related_claims_result\":\"not_supplied\",\"review_model_hash\":\"deda3dc02a1d1575f15d5c9f9b3e31cf0c768a55508c31e7ff0f4fc8f33fc669\",\"review_prompt_template_hash\":\"13a72a4c1e3a99b969ac46b724eceef6620716292f2b730f19915cdd469c1e31\",\"schema\":\"invinoveritas.verdict_proof.v1\",\"source_class\":\"agent_reported\",\"summary_hash\":\"566123a062c30d6cbc9be0b3c7dce6c6f6d338fc625e11c5b4e842b0fa906e49\",\"vantage_limitation\":\"source_class=agent_reported: nothing external confirms this /review call happened, or could not be bypassed, before the action it governs. Recomputability makes this record internally consistent (an occurrence claim) \u2014 it is not an absence/completeness claim, which needs a vantage the acting agent doesn't control. This note is derived from source_class and artifact_type only: it does not establish that the source classification is true or that execution cannot bypass this check. Treat this proof as advisory input, not standalone authorization, until paired with an independent mediation-point integration.\",\"verdict\":\"approve_with_concerns\",\"verified_at\":1791659650,\"verifier_keys\":\"https://api.babyblueviper.com/.well-known/verifier-keys.json\",\"verifier_pubkey\":\"6786e18a864893a900bd9858e650f67ccc3513f248fed374b591e2ff6922fbb7\",\"verify_how\":\"Easiest: install the offline verifier above and recompute locally. Or POST this proof's signed `event` to verify_url (or an independent_node), OR run NIP-01 yourself: recompute the Nostr event id = sha256([0,pubkey,created_at,kind,tags,content]), verify the schnorr signature against verifier_pubkey. valid \u21d2 invinoveritas issued this, untampered. No trust required.\",\"verify_offline\":\"npm i invinoveritas-verify  \u00b7  pip install invinoveritas-verify  \u2014 recompute this proof on your own machine against verifier_pubkey; you never have to call us.\",\"verify_url\":\"https://api.babyblueviper.com/verify-proof\"}",
+   "sig": "733840c5bf4cdf432cc5b9df4574f41b09e55026f96a9bdde4b449b8682a9b6aa82e54b72f83e6c4b4818305601149870af66f924729b467978dd8669bbd9253"
+  },
+  "payment_hash": "a900ad4ca7a6b8a44d95e89fe958ad8b285932c2c1f7758026c9e4c1a06dfa4e",
+  "preimage": "73863d919d6dbcda75ec8304b21652c1724ff93ebb49a3d395bb7b78bcdbd321",
+  "paid_at": 1791659655,
+  "amount_msat": "11056",
+  "fee_msat": "1056",
+  "governed": true,
+  "receipt_id": "sha256:2b812265da2093a06002ef58696fcc405b2808ecbf91ccf19350d0dce8f18fbf"
+ }
+}

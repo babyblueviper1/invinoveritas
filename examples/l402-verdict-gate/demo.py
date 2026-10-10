@@ -59,3 +59,11 @@ def server(method, u, headers, body):
 status, _, body, receipt = l402_request(url, g, MockWallet({ph: pre}), purpose=purpose, http=server, now=lambda: 1791658020)
 print("   ", status, body.decode())
 print("   receipt", receipt["receipt_id"][:23] + "...", "valid:", verify_receipt(receipt, pubkey=ISSUER_PK)["valid"])
+
+print("\n5. a REAL paid run (paid_run.py: live challenge, real verdict, 10 sats paid over Lightning, HTTP 200):")
+real = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests", "fixtures", "paid_run_receipt.json")))["receipt"]
+v = verify_receipt(real)
+print(f"   verdict {json.loads(real['verdict_event']['content']).get('verdict', '?')}, paid {int(real['amount_msat']) - int(real['fee_msat'])} msat "
+      f"+ {real['fee_msat']} msat fee, sha256(preimage) == payment_hash: "
+      f"{hashlib.sha256(bytes.fromhex(real['preimage'])).hexdigest() == real['payment_hash']}")
+print("   receipt", real["receipt_id"][:23] + "...", "valid against the pinned invinoveritas key:", v["valid"])

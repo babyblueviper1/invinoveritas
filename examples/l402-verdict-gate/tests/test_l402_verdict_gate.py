@@ -338,5 +338,24 @@ class Receipts(unittest.TestCase):
         self.assertFalse(c["verdict_fresh_at_reported_payment"])
 
 
+
+class RealPaidRun(unittest.TestCase):
+    """A receipt from a real payment (paid_run.py, 10 sats to lightningfaucet.com) verifies offline against the
+    pinned invinoveritas key, and any edit breaks it."""
+    R = fx("paid_run_receipt.json")["receipt"]
+
+    def test_valid(self):
+        v = verify_receipt(self.R)
+        self.assertTrue(v["valid"], v)
+        self.assertEqual(hashlib.sha256(bytes.fromhex(self.R["preimage"])).hexdigest(), self.R["payment_hash"])
+
+    def test_edits_break_it(self):
+        for k, val in (("preimage", "00" * 32), ("paid_at", self.R["paid_at"] + 3600)):
+            bad = json.loads(json.dumps(self.R)); bad[k] = val
+            self.assertFalse(verify_receipt(bad)["valid"], k)
+        bad = json.loads(json.dumps(self.R)); bad["args"]["amount_msat"] = 20000
+        self.assertFalse(verify_receipt(bad)["valid"])
+
+
 if __name__ == "__main__":
     unittest.main()
