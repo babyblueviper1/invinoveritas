@@ -133,7 +133,7 @@ the gate only where your policy would otherwise require manual approval.
 
 ## Tests
 
-`src/__tests__/verdict.test.ts` (38 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
+`src/__tests__/verdict.test.ts` (39 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
 `approve_with_concerns` verdict followed by a 1.00 USDC transfer on Base,
 [0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7),
 whose nonce is the verdict's `decision_ref`, plus a signed `reject`. No test touches the network.
