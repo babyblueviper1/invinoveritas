@@ -10,6 +10,8 @@
 // Vendor options (default: look the vendor up in Coinbase's public x402 directory, which the vendor doesn't control):
 //   --vendor 0xADDRESS "Label"     use this payout address as the vendor record, as if from your vendor database
 //   --vendor-record record.json    a saved record: {"payTo", "label", "source", "checked_at"}
+//   --vendor-source paycheck       ask Lumière PayCheck (lumierepaycheck.org, free check-payment API), which monitors
+//                                  x402 endpoints continuously (payout-wallet history, paid delivery tests, OFAC)
 // Env: INVINOVERITAS_KEY (free: POST https://api.babyblueviper.com/register, then fund it), PAYER_KEY (pay only:
 // a Base wallet holding a little USDC; no ETH needed, the facilitator pays gas), DEMO_URL (default /regime, 2.5 cents).
 import { readFileSync } from 'node:fs';
@@ -43,8 +45,30 @@ async function lookUpInDirectory(resource) {
   return null;
 }
 
-async function vendorRecord() {
+// Lumière PayCheck: an independent, continuous record of x402 endpoints. Its answer becomes the vendor record, credited
+// as the evidence source, so the reviewer sees third-party data about the payee instead of the payer's word.
+const PAYCHECK = 'https://lumierepaycheck.org/v1/check-payment';
+async function paycheckRecord(req) {
+  const r = await fetch(PAYCHECK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: URL_, payTo: req.payTo, amount: req.amountAtomic, network: req.network }), signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error(`PayCheck check-payment returned HTTP ${r.status}`);
+  const c = await r.json();
+  const observed = c.observed?.payTo;
+  return {
+    payTo: observed ?? null, label: new URL(URL_).host, checked_at: new Date().toISOString(), from_monitor: true,
+    source: 'Lumière PayCheck (lumierepaycheck.org): independent, continuous monitoring of x402 endpoints (payout-wallet history, paid delivery tests, OFAC screening)',
+    paycheck: { allow: c.allow, reasons: c.reasons, reviewable: c.reviewable, monitored: c.monitored, verdict: c.verdict, grade: c.grade,
+      score: c.score, delivery: c.delivery, observed_payTo: observed, observed_at: c.observed?.seenAt, sanctions: c.sanctions,
+      grade_reasons: (c.gradeReasons ?? []).map((x) => `${x.factor}: ${x.text}`) },
+  };
+}
+
+async function vendorRecord(req) {
   if (mode === 'reject') return null;
+  if (rest.includes('--vendor-source') && rest[rest.indexOf('--vendor-source') + 1] === 'paycheck') {
+    say("   Asking Lumière PayCheck (independent monitor of x402 endpoints) about this payee ...");
+    return paycheckRecord(req);
+  }
   const i = rest.indexOf('--vendor'), j = rest.indexOf('--vendor-record');
   if (j >= 0) return JSON.parse(readFileSync(rest[j + 1], 'utf8'));
   if (i >= 0) return { payTo: rest[i + 1], label: rest[i + 2] ?? 'vendor', checked_at: new Date().toISOString(), from_vendor_db: true,
@@ -63,10 +87,11 @@ const req = parsePaymentRequired(body);
 if (!req) throw new Error('no payable USDC-on-Base requirement in the 402');
 say(`   The vendor's invoice (HTTP 402): pay ${Number(req.amountAtomic) / 1e6} USDC to ${req.payTo} on Base`);
 
-const record = await vendorRecord();
-const match = record ? record.payTo.toLowerCase() === req.payTo.toLowerCase() : false;
+const record = await vendorRecord(req);
+const match = record?.payTo ? record.payTo.toLowerCase() === req.payTo.toLowerCase() : false;
 say(!record ? '2. Vendor record: NOT CHECKED. The only evidence for the payout address is the invoice itself.'
-  : `2. Vendor record (${record.label}): ${record.payTo}, from ${record.from_vendor_db ? 'the vendor database' : "Coinbase's x402 directory"} (${record.checked_at})\n   `
+  : `2. Vendor record (${record.label}): ${record.payTo ?? 'none (the monitor has no observed payout address for this endpoint)'}, from ${record.from_vendor_db ? 'the vendor database' : record.from_monitor ? 'Lumière PayCheck' : "Coinbase's x402 directory"} (${record.checked_at})\n   `
+    + (record.paycheck ? `PayCheck: ${record.paycheck.allow ? 'allow' : 'DENY'} (grade ${record.paycheck.grade}, ${record.paycheck.verdict}; ${(record.paycheck.reasons ?? []).join('; ')}; OFAC screened: ${record.paycheck.sanctions?.screened ? 'yes, not listed' : 'no'})\n   ` : '')
     + (match ? 'MATCHES the address the server asks for' : `DOES NOT MATCH the address the server asks for (${req.payTo})`));
 
 const evidence = {
@@ -74,6 +99,7 @@ const evidence = {
   obligation: { what: `one paid call to ${URL_}, priced by the server in its 402`, idempotency_key: `demo-${new Date().toISOString().slice(0, 16)}`, status: 'unpaid' },
   recipient_record: record
     ? { vendor: record.label, payout_address: record.payTo, network: 'eip155:8453', source: record.source, verified_at: record.checked_at, matches_402_payTo: match,
+        ...(record.paycheck ? { independent_monitor: record.paycheck } : {}),
         ...(match ? {} : { note: `the server's 402 asks for payment to ${req.payTo}, which is NOT the payout address in this vendor record` }), relationship: 'data vendor, pay-per-call' }
     : { vendor: new URL(URL_).host, payout_address_source: "the payTo in this server's own 402 response for this exact URL", relationship: 'data vendor, pay-per-call' },
 };
