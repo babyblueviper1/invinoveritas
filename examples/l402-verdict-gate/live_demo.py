@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Live L402 demo, run from this directory (examples/l402-verdict-gate).
 
-    python3 l402_demo.py mismatch   joke endpoint, but the agent's task is a BTC price for a trade -> expect reject, nothing paid
-    python3 l402_demo.py pay        quote endpoint for the newsletter task -> verdict -> 10 sats over Lightning -> 200 -> receipt
+    python3 live_demo.py mismatch   joke endpoint, but the agent's task is a BTC price for a trade -> expect reject, nothing paid
+    python3 live_demo.py pay        quote endpoint for the newsletter task -> verdict -> 10 sats over Lightning -> 200 -> receipt
 Env: INVINOVERITAS_KEY, LND_MACAROON (pay-only), LND_TLS_CERT, LND_REST (default https://127.0.0.1:8080).
 """
 import json
