@@ -88,17 +88,26 @@ the same tool call, one `approve` and one `deny`, share no public field. A holde
 Vectors p7, p8 and n13 are that case.
 
 - **What `conflicting_choice` closes:** a revealed set that contains both records rejects.
-- **What it does not close:** a holder who reveals only one record. Nothing in a single record, and nothing a checker can compute from
-  it, shows that it was the only record issued for that decision.
-- **The issuer today (the v0 service at `POST /decision-receipt`):** each request gets a fresh salt and a new signed receipt. It keeps
-  no index on `decider.request_id`, which is committed with the record's salt, so a second request for the same `request_id`, with
-  the same or a different choice, is issued like the first, and the two receipts cannot be linked from their public fields. The service
-  therefore makes **no uniqueness guarantee**. Until it does, a principal that needs one must hold both the decider's own log and
-  every receipt for the call, or obtain the receipt itself, directly from the decider, at the time of the decision.
-- **Planned, not deployed:** one public slot per (holder, `decider.request_id`). A second request for a taken slot is refused, and the
-  slot's receipts are listed at a free public endpoint, so a disputer holding one receipt can check it was the only one. The slot binds
-  to the `request_id` the holder declares, so a principal also has to require that it is the decider's own request id. This SPEC will
-  say so when the service ships it.
+- **What it does not close:** a holder who reveals only one record. Nothing a checker can compute from the record alone shows that
+  it was the only record issued for that decision. The issuer's request slot, below, does.
+- **The issuer, since 2026-10-10 (`POST /decision-receipt`): one receipt per request slot.** When a request carries
+  `decider.request_id` and is paid with an API key, the service computes a slot for (holder, `request_id`) and claims it
+  atomically before charging. A second request for a taken slot, with the same or a different choice, is refused with 409 and is
+  not charged. The receipt carries the slot unsalted as `request_slot`, the one public field two receipts for that request would
+  share. `GET /decision-receipt/slot/{request_slot}` (free, no auth) returns the receipt that holds it:
+  `{"slot", "taken", "event_ids"}`. A disputer holding one receipt checks that `event_ids` is exactly that receipt's event id.
+- **The slot** is HMAC-SHA256 under an issuer key over `invinoveritas.decision_receipt.slot.v1|holder|request_id`. It links nothing
+  across request ids or holders, and only the issuer can compute it, so the guarantee rests on the issuer's record, published at the
+  slot endpoint and signed into each receipt.
+- **Limits:**
+  - The slot binds only the `request_id` the holder declares. A holder can ask twice under two request ids. A relying party must
+    require that `request_id` is the decider's own id for the call (for example the decider API's response id) and check it
+    against the decider's log.
+  - No `request_id`, no slot: the receipt has no `request_slot` and makes no uniqueness claim. The same holds for x402-paid
+    requests, which carry no holder key. A relying party that needs uniqueness rejects a receipt without `request_slot`.
+  - Receipts issued before 2026-10-10 have no slot.
+  - The slot says one receipt was issued for that request id. It does not say the decider chose what the receipt records; the
+    decision stays caller-reported.
 
 ## Run
 
