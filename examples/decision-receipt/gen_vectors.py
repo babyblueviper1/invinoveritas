@@ -136,7 +136,7 @@ def main():
             {"record": record(pol, okp), "reveal": widened, "review": review(widened, issuer=ISSUER_B)}],
           "reject", "commitment_mismatch")
     if "--v03" in sys.argv:
-        # v0.3: one choice per decision within a revealed set. Found by Toshikatsu Oga (Horizon Shield, NENRIN),
+        # v0.3: one choice per decision within a revealed set. Found by Toshikatsu Oga (HORIZON SHIELD / NENRIN),
         # 2026-10-09: with a fresh salt per record, an approve record and a deny record for the same tool call share
         # no public field, so a holder can keep both and reveal whichever helps. These vectors are his case.
         tctx = sha("tool call: transfer 500 USDC to 0x1111111111111111111111111111111111111111")

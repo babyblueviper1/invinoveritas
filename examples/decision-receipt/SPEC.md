@@ -83,9 +83,9 @@ The first failure wins:
 
 ## Uniqueness: what a record does not show
 
-Found by Toshikatsu Oga (Horizon Shield, NENRIN), 2026-10-09. Every public field is salted with a fresh salt, so two records for
+Found by Toshikatsu Oga (HORIZON SHIELD / NENRIN), 2026-10-09. Every public field is salted with a fresh salt, so two records for
 the same tool call, one `approve` and one `deny`, share no public field. A holder can keep both and reveal whichever one helps.
-Vectors p7, p8 and n13 are that case.
+Vectors p7, p8 and n13 are that case, and his own probe is kept unmodified at `probes/two_receipt_probe.py`.
 
 - **What `conflicting_choice` closes:** a revealed set that contains both records rejects.
 - **What it does not close:** a holder who reveals only one record. Nothing a checker can compute from the record alone shows that
@@ -118,7 +118,11 @@ python3 gen_vectors.py --v02 > vectors-v0.2.json      # the 14 v0 vectors plus p
 python3 check.py vectors-v0.2.json                    # 18/18
 python3 gen_vectors.py --v03 > vectors-v0.3.json      # the 18 v0.2 vectors plus p7, p8, p9, n13, n14
 python3 check.py vectors-v0.3.json                    # 23/23
+python3 -I probes/two_receipt_probe.py .              # Oga's probe: accept, accept, reject conflicting_choice
 ```
+
+`probes/two_receipt_probe.py` is Toshikatsu Oga's (HORIZON SHIELD / NENRIN) probe, added byte for byte under its MIT header. Against the
+v0.2 checker (c39feb6) it prints accept, accept, accept; from v0.3 (deda27ff) the set of both records rejects with `conflicting_choice`.
 
 The vectors use ASCII strings only, where RFC 8785 JCS equals compact sorted-key JSON. The invinoveritas
 service's own test suite checks that the live code produces these vectors' commitments and review binding.
