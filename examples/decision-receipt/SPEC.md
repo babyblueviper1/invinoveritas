@@ -199,6 +199,11 @@ that anchors its `/ledger` verdicts: a 32-byte digest submitted to the public OT
   `{"status": "not_yet_in_a_snapshot"}` before the next daily snapshot.
 - **Append-only.** A snapshot is written once and never rebuilt. From one day to the next, every slot stays, with the same scope,
   event ids, claim hash and signature; only new conflicts may be appended.
+- **Outside copy.** NENRIN (Toshikatsu Oga, HORIZON SHIELD) keeps every day file and its `.ots` exactly as this server served
+  them, from 2026-10-09: index at `https://ledger.horizonshield.dev/evidence/slot-log`, files at `/evidence/slot-log/<date>` and
+  `<date>.ots`. It copies each new day at 00:30 UTC, keyed by `log_root`, stamps each copy record in its own Bitcoin-anchored
+  ledger, and keeps a second file for an already-held date beside the first, marked divergent. `slot_log_check.py` runs on those
+  files unchanged, so `--prev` and `--inclusion` can be run against either copy.
 
 Check with `slot_log_check.py` (standard library): the file against its header and roots, `--prev` for the chain and slot
 continuity to the day before, `--inclusion` for a slot GET response, `--slot` for one slot in a file. Then run `ots verify`.
