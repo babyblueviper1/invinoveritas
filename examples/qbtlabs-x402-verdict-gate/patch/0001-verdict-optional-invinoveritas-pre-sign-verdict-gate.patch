@@ -1,4 +1,4 @@
-From 4140da0f06d94474ea3375353be95ce15a6d1638 Mon Sep 17 00:00:00 2001
+From 6618eb8e95f558316f28b065963df1dc82f294dd Mon Sep 17 00:00:00 2001
 From: babyblueviper1 <babyblueviperbusiness@gmail.com>
 Date: Sat, 10 Oct 2026 23:00:19 +0000
 Subject: [PATCH] verdict: optional invinoveritas pre-sign verdict gate +
@@ -8,12 +8,12 @@ Includes QBT-Labs/x402 #14 (exact USD to atomic) and #15 (x402 v2 payment-requir
 which the gate's payment fetch builds on. Tested on Base mainnet: 0xa186db4ba79d6b9581cdb7a3134593038bc5ae186ab526eefaa6b349a274f84a.
 ---
  package.json                                  |   4 +
- src/__tests__/amount.test.ts                  |  23 ++
- .../exhibit3_approve_settled.json             |  95 +++++
- .../invinoveritas/exhibit3_reject.json        |  49 +++
+ src/__tests__/amount.test.ts                  |  23 +
+ .../exhibit3_approve_settled.json             |  95 ++++
+ .../invinoveritas/exhibit3_reject.json        |  49 ++
  src/__tests__/payment-fetch.test.ts           |  18 +
- src/__tests__/payment-required.test.ts        |  70 ++++
- src/__tests__/verdict.test.ts                 | 388 ++++++++++++++++++
+ src/__tests__/payment-required.test.ts        |  70 +++
+ src/__tests__/verdict.test.ts                 | 438 ++++++++++++++++++
  src/amount.ts                                 |  14 +
  src/chains/evm.ts                             |   3 +-
  src/client.ts                                 | 110 +++--
@@ -25,16 +25,16 @@ which the gate's payment fetch builds on. Tested on Base mainnet: 0xa186db4ba79d
  src/signer/server.ts                          |  21 +
  src/signer/types.ts                           |  16 +-
  src/transport/payment-fetch.ts                |  16 +-
- src/verdict/README.md                         | 118 ++++++
- src/verdict/execution.ts                      | 121 ++++++
+ src/verdict/README.md                         | 120 +++++
+ src/verdict/execution.ts                      | 178 +++++++
  src/verdict/fetch.ts                          |  89 ++++
- src/verdict/gate.ts                           | 308 ++++++++++++++
+ src/verdict/gate.ts                           | 316 +++++++++++++
  src/verdict/index.ts                          |  16 +
  src/verdict/jcs.ts                            |  33 ++
  src/verdict/proof.ts                          | 131 ++++++
  src/verdict/sign.ts                           |  29 ++
  src/verify.ts                                 |   3 +-
- 27 files changed, 1647 insertions(+), 41 deletions(-)
+ 27 files changed, 1764 insertions(+), 41 deletions(-)
  create mode 100644 src/__tests__/amount.test.ts
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_approve_settled.json
  create mode 100644 src/__tests__/fixtures/invinoveritas/exhibit3_reject.json
@@ -357,10 +357,10 @@ index 0000000..6b1d099
 +});
 diff --git a/src/__tests__/verdict.test.ts b/src/__tests__/verdict.test.ts
 new file mode 100644
-index 0000000..2d86b23
+index 0000000..cdde640
 --- /dev/null
 +++ b/src/__tests__/verdict.test.ts
-@@ -0,0 +1,388 @@
+@@ -0,0 +1,438 @@
 +/**
 + * invinoveritas verdict gate tests. Every proof here is a real signed verdict recorded from invinoveritas
 + * (pilot exhibit 3, 2026-10-08), and the settlement receipt is the real Base transaction 0x2afb35e2...
@@ -472,6 +472,56 @@ index 0000000..2d86b23
 +  });
 +  it('fails tx_succeeded on a reverted receipt', () => {
 +    expect(verifyExecutionLocal(approveEvent, approve.args, { ...approve.receipt, status: '0x0' }).valid).toBe(false);
++  });
++});
++
++describe('verifyExecutionLocal status (stale timing)', () => {
++  // Exhibit 3: verified_at 1791481056, settled in block time 1791481059 (3 s later), bound valid_before 1791481607.
++  const VERIFIED = contentOf(approveEvent).verified_at as number;
++  it('exhibit 3 settled inside the window: status valid', () => {
++    const r = verifyExecutionLocal(approveEvent, approve.args, approve.receipt, { settledAt: 1791481059 });
++    expect(r.status).toBe('valid');
++    expect(r.verdict_expires_at).toBe(VERIFIED + 120);
++    expect(r.seconds_late).toBeUndefined();
++  });
++  it('the same settlement 45 s after the window: status stale, binding still valid', () => {
++    const r = verifyExecutionLocal(approveEvent, approve.args, approve.receipt, { settledAt: VERIFIED + 165 });
++    expect(r.valid).toBe(true);
++    expect(r.status).toBe('stale');
++    expect(r.seconds_late).toBe(45);
++  });
++  it('a stricter caller window applies; without a settlement time, timing is not judged', () => {
++    expect(verifyExecutionLocal(approveEvent, approve.args, approve.receipt, { settledAt: 1791481059, maxVerdictAgeSeconds: 2 }).status).toBe('stale');
++    expect(verifyExecutionLocal(approveEvent, approve.args, approve.receipt).status).toBe('valid');
++  });
++  it('a verdict that does not bind this payment is invalid; a tampered proof is unsigned', () => {
++    expect(verifyExecutionLocal(rejectEvent, reject.args, approve.receipt).status).toBe('invalid');
++    const bad = clone(approveEvent);
++    bad.sig = (bad.sig[0] === '0' ? '1' : '0') + bad.sig.slice(1);
++    expect(verifyExecutionLocal(bad, approve.args, approve.receipt).status).toBe('unsigned');
++  });
++  it('gate.verifyExecution reads the block time over RPC and reports stale', async () => {
++    const rpc = (async (_u: any, init: any) => {
++      const m = JSON.parse(init.body).method;
++      const result = m === 'eth_getTransactionReceipt' ? approve.receipt : { timestamp: '0x' + (VERIFIED + 200).toString(16) };
++      return { ok: true, json: async () => ({ jsonrpc: '2.0', id: 1, result }) };
++    }) as unknown as typeof fetch;
++    const gate = createVerdictGate({ fetch: rpc });
++    const r = await gate.verifyExecution({ allowed: true, reason: '', event: approveEvent, args: approve.args }, approve.tx_hash, { rpcUrl: 'http://rpc' });
++    expect(r.status).toBe('stale');
++    expect(r.seconds_late).toBe(80);
++  });
++  it('remote check sends the evidence the verdict saw, so the endpoint can re-check the payee', async () => {
++    let sent: any;
++    const f = (async (_u: any, init: any) => { sent = JSON.parse(init.body);
++      return { ok: true, json: async () => ({ valid: true, status: 'evidence_changed', evidence_diff: [{ field: 'paycheck.delivery', at_verdict: 'verified', now: 'failing' }] }) };
++    }) as unknown as typeof fetch;
++    const gate = createVerdictGate({ fetch: f });
++    const evidence = { recipient_record: { independent_monitor: { grade: 'A', delivery: 'verified' } } };
++    const r = await gate.verifyExecution({ allowed: true, reason: '', event: approveEvent, args: approve.args, evidence }, approve.tx_hash);
++    expect(sent.evidence).toEqual(evidence);
++    expect(sent.max_verdict_age_seconds).toBe(120);
++    expect(r.status).toBe('evidence_changed');
 +  });
 +});
 +
@@ -1207,10 +1257,10 @@ index 3b3551e..d72da85 100644
      const retryResponse = await fetch(input, {
 diff --git a/src/verdict/README.md b/src/verdict/README.md
 new file mode 100644
-index 0000000..7d2357a
+index 0000000..ea8c7e9
 --- /dev/null
 +++ b/src/verdict/README.md
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,120 @@
 +# `@qbtlabs/x402/verdict`: an independent, signed verdict before the signature
 +
 +Optional module. Nothing in `@qbtlabs/x402` calls it unless you pass a gate in.
@@ -1232,7 +1282,9 @@ index 0000000..7d2357a
 +**After settlement**
 +5. `gate.verifyExecution(decision, txHash)` checks the chain: USDC's `AuthorizationUsed(authorizer, nonce)` log carries
 +   the verdict's `decision_ref`, and the `Transfer` matches the bound payer, recipient and amount. This runs offline over an RPC
-+   receipt (`{ rpcUrl }`), or through the free `POST /verify-execution` endpoint.
++   receipt (`{ rpcUrl }`), or through the free `POST /verify-execution` endpoint. Both return a `status`: `valid`, `stale`
++   (settled after the verdict's window), `evidence_changed`, `unsafe`, `unsigned` or `invalid`. The offline check covers
++   signature, binding and timing. The endpoint also re-checks the payee with Lumière PayCheck and lists what changed in `evidence_diff`.
 +
 +**Fail modes**: `failMode: 'closed'` (the default) blocks when the reviewer is unreachable. `'open'` allows and flags
 +`failOpen: true`. A proof that fails verification **always** blocks: a bad proof is a finding, not an outage.
@@ -1331,10 +1383,10 @@ index 0000000..7d2357a
 +whose nonce is the verdict's `decision_ref`, plus a signed `reject`. No test touches the network.
 diff --git a/src/verdict/execution.ts b/src/verdict/execution.ts
 new file mode 100644
-index 0000000..ba935b7
+index 0000000..4df066a
 --- /dev/null
 +++ b/src/verdict/execution.ts
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,178 @@
 +/**
 + * After settlement: prove a settled payment was governed by a specific prior verdict.
 + *
@@ -1344,6 +1396,9 @@ index 0000000..ba935b7
 + *
 + * Checks: proof_valid, args_bound, nonce_is_verdict (the AuthorizationUsed nonce equals the verdict's decision_ref),
 + * authorizer_matches, transfer_matches (Transfer(from, to, value) of args.token), tx_succeeded.
++ * `status` (same values as the endpoint): valid | stale | evidence_changed | unsafe | unsigned | invalid. Locally this
++ * covers signature, binding and timing (stale: settled after verified_at + maxVerdictAgeSeconds, capped by the bound
++ * valid_before); evidence_changed / unsafe need the endpoint, which re-asks Lumiere PayCheck about the payee.
 + * It does NOT establish that the reviewer had complete context, that the verdict was correct, or that the payer
 + * could not have paid by another route without a verdict. It proves this payment carried this verdict.
 + */
@@ -1368,8 +1423,25 @@ index 0000000..ba935b7
 +  logs: TxLog[];
 +}
 +
++export type ExecutionStatus = 'valid' | 'stale' | 'evidence_changed' | 'unsafe' | 'unsigned' | 'invalid';
++
++/** Default freshness window, the gate's maxVerdictAgeSeconds default. */
++export const DEFAULT_MAX_VERDICT_AGE_SECONDS = 120;
++
 +export interface ExecutionVerification {
 +  valid: boolean;
++  /** One answer: why a settled payment is (or is not) covered by its verdict. `valid` and `checks` keep their meaning. */
++  status: ExecutionStatus;
++  /** Block time of the settlement (unix s), when known. */
++  settled_at?: number | null;
++  /** verified_at + max verdict age, capped by the bound valid_before. */
++  verdict_expires_at?: number | null;
++  /** Present when status is stale. */
++  seconds_late?: number;
++  /** What changed in the payee evidence since the verdict (endpoint only; [] locally). */
++  evidence_diff?: Array<{ field: string; at_verdict: unknown; now: unknown }>;
++  evidence_recheck?: string;
++  status_reasons?: string[];
 +  checks: {
 +    proof_valid: boolean;
 +    args_bound: boolean;
@@ -1385,12 +1457,27 @@ index 0000000..ba935b7
 +}
 +
 +const addr = (t: string) => '0x' + t.toLowerCase().slice(-40);
++const int = (x: unknown): number | undefined => {
++  const n = typeof x === 'number' ? x : typeof x === 'string' && x.trim() !== '' ? Number(x) : NaN;
++  return Number.isFinite(n) ? Math.trunc(n) : undefined;
++};
++
++/** Same rule as /verify-execution: a bound max_verdict_age_seconds, else the caller's, else 120 s; capped by valid_before. */
++export function verdictExpiresAt(verifiedAt: unknown, args: Record<string, unknown>, maxVerdictAgeSeconds?: number): number | null {
++  const v = int(verifiedAt);
++  if (v === undefined) return null;
++  const bound = int(args.max_verdict_age_seconds);
++  const age = Math.min(bound && bound > 0 ? bound : maxVerdictAgeSeconds && maxVerdictAgeSeconds > 0 ? maxVerdictAgeSeconds
++    : DEFAULT_MAX_VERDICT_AGE_SECONDS, 86_400);
++  const vb = int(args.valid_before);
++  return vb !== undefined && vb < v + age ? vb : v + age;
++}
 +
 +export function verifyExecutionLocal(
 +  event: ProofEvent,
 +  args: ExecutionArgs,
 +  receipt: TxReceipt,
-+  opts: { pubkey?: string } = {},
++  opts: { pubkey?: string; settledAt?: number; maxVerdictAgeSeconds?: number } = {},
 +): ExecutionVerification {
 +  const proof = verifyVerdictProof(event, { pubkey: opts.pubkey, args });
 +  const checks = {
@@ -1403,7 +1490,8 @@ index 0000000..ba935b7
 +    tx_succeeded: false,
 +  };
 +  const out: ExecutionVerification = {
-+    valid: false, checks, verdict: proof.verdict, decision_ref: proof.decisionRef, executed_despite_reject: false,
++    valid: false, status: checks.proof_valid ? 'invalid' : 'unsigned', checks, verdict: proof.verdict,
++    decision_ref: proof.decisionRef, executed_despite_reject: false, evidence_diff: [],
 +  };
 +  let want: string;
 +  try {
@@ -1425,7 +1513,25 @@ index 0000000..ba935b7
 +  );
 +  out.valid = Object.values(checks).every(Boolean);
 +  out.executed_despite_reject = out.valid && out.verdict === 'reject';
++  out.settled_at = opts.settledAt ?? null;
++  out.verdict_expires_at = verdictExpiresAt(proof.verifiedAt, args, opts.maxVerdictAgeSeconds);
++  const late = out.settled_at != null && out.verdict_expires_at != null ? out.settled_at - out.verdict_expires_at : 0;
++  out.status = !checks.proof_valid ? 'unsigned' : !out.valid ? 'invalid' : late > 0 ? 'stale' : 'valid';
++  if (late > 0) out.seconds_late = late;
++  out.evidence_recheck = 'not_run_locally: POST /verify-execution with the evidence to re-check the payee with PayCheck';
 +  return out;
++}
++
++/** Block time (unix s) of a block, with plain JSON-RPC. */
++export async function fetchBlockTime(rpcUrl: string, blockNumber: string, fetchImpl: typeof fetch = fetch): Promise<number | null> {
++  const res = await fetchImpl(rpcUrl, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBlockByNumber', params: [blockNumber, false] }),
++  });
++  const body = (await res.json()) as { result?: { timestamp?: string }; error?: unknown };
++  if (body.error || !body.result?.timestamp) return null;
++  return Number(BigInt(body.result.timestamp));
 +}
 +
 +/** Fetch a receipt with plain JSON-RPC (no client library). */
@@ -1445,13 +1551,16 @@ index 0000000..ba935b7
 +  event: ProofEvent,
 +  args: ExecutionArgs,
 +  txHash: string,
-+  opts: { baseUrl?: string; fetch?: typeof fetch } = {},
++  opts: { baseUrl?: string; fetch?: typeof fetch; evidence?: unknown; resourceUrl?: string; maxVerdictAgeSeconds?: number } = {},
 +): Promise<ExecutionVerification & Record<string, unknown>> {
 +  const f = opts.fetch ?? fetch;
 +  const res = await f(`${opts.baseUrl ?? 'https://api.babyblueviper.com'}/verify-execution`, {
 +    method: 'POST',
 +    headers: { 'Content-Type': 'application/json' },
-+    body: JSON.stringify({ event, args, tx_hash: txHash }),
++    body: JSON.stringify({ event, args, tx_hash: txHash,
++      ...(opts.evidence !== undefined ? { evidence: opts.evidence } : {}),
++      ...(opts.resourceUrl ? { resource_url: opts.resourceUrl } : {}),
++      ...(opts.maxVerdictAgeSeconds ? { max_verdict_age_seconds: opts.maxVerdictAgeSeconds } : {}) }),
 +  });
 +  if (!res.ok) throw new Error(`/verify-execution returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
 +  return (await res.json()) as ExecutionVerification & Record<string, unknown>;
@@ -1553,10 +1662,10 @@ index 0000000..c6029ca
 +}
 diff --git a/src/verdict/gate.ts b/src/verdict/gate.ts
 new file mode 100644
-index 0000000..7cb089f
+index 0000000..e2eeb9a
 --- /dev/null
 +++ b/src/verdict/gate.ts
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,316 @@
 +/**
 + * invinoveritas verdict gate for @qbtlabs/x402: an independent, signed second opinion before a payment is signed.
 + *
@@ -1575,7 +1684,7 @@ index 0000000..7cb089f
 +import { USDC_CONTRACTS } from '../config.js';
 +import { canonicalize } from './jcs.js';
 +import { argsHash, executionNonce, verifyVerdictProof, type ProofEvent, type ProofVerification, type Verdict } from './proof.js';
-+import { fetchReceipt, verifyExecutionLocal, verifyExecutionRemote, type ExecutionVerification } from './execution.js';
++import { fetchBlockTime, fetchReceipt, verifyExecutionLocal, verifyExecutionRemote, type ExecutionVerification } from './execution.js';
 +
 +export const DEFAULT_BASE_URL = 'https://api.babyblueviper.com';
 +export const GATE_TOOL = 'usdc_transfer_eip3009';
@@ -1703,6 +1812,8 @@ index 0000000..7cb089f
 +  proof?: ProofVerification;
 +  /** Raw /review response, for your audit log. */
 +  review?: unknown;
++  /** The evidence the reviewer was shown (its sha256 is args.evidence_sha256); /verify-execution re-checks it after settlement. */
++  evidence?: PaymentEvidence;
 +  /** The concern that triggered `blockOn`, when that is why the payment was blocked. */
 +  blockedBy?: { category?: string; severity?: string; description?: string; [k: string]: unknown };
 +}
@@ -1823,7 +1934,8 @@ index 0000000..7cb089f
 +    } finally {
 +      clearTimeout(timer);
 +    }
-+    return decide(review, args);
++    const d = decide(review, args);
++    return evidence ? { ...d, evidence } : d;
 +  }
 +
 +  /**
@@ -1833,15 +1945,20 @@ index 0000000..7cb089f
 +  async function verifyExecution(
 +    decision: GateDecision,
 +    txHash: string,
-+    opts: { rpcUrl?: string; receipt?: Parameters<typeof verifyExecutionLocal>[2] } = {},
++    opts: { rpcUrl?: string; receipt?: Parameters<typeof verifyExecutionLocal>[2]; settledAt?: number } = {},
 +  ): Promise<ExecutionVerification> {
 +    if (!decision.event || !decision.args) throw new Error('decision has no verdict to check against');
 +    if (opts.receipt || opts.rpcUrl) {
 +      const receipt = opts.receipt ?? (await fetchReceipt(opts.rpcUrl!, txHash, f));
 +      if (!receipt) throw new Error('transaction not found (not mined yet, or wrong chain)');
-+      return verifyExecutionLocal(decision.event, decision.args, receipt, { pubkey: cfg.pubkey });
++      let settledAt = opts.settledAt;
++      if (settledAt === undefined && opts.rpcUrl && receipt.blockNumber) {
++        settledAt = (await fetchBlockTime(opts.rpcUrl, receipt.blockNumber, f).catch(() => null)) ?? undefined;
++      }
++      return verifyExecutionLocal(decision.event, decision.args, receipt, { pubkey: cfg.pubkey, settledAt, maxVerdictAgeSeconds: maxAge });
 +    }
-+    return verifyExecutionRemote(decision.event, decision.args, txHash, { baseUrl, fetch });
++    return verifyExecutionRemote(decision.event, decision.args, txHash,
++      { baseUrl, fetch: f, evidence: decision.evidence, maxVerdictAgeSeconds: maxAge });
 +  }
 +
 +  /**
@@ -1867,7 +1984,7 @@ index 0000000..7cb089f
 +export type VerdictGate = ReturnType<typeof createVerdictGate>;
 diff --git a/src/verdict/index.ts b/src/verdict/index.ts
 new file mode 100644
-index 0000000..8bfe0ad
+index 0000000..57e4759
 --- /dev/null
 +++ b/src/verdict/index.ts
 @@ -0,0 +1,16 @@
@@ -1881,8 +1998,8 @@ index 0000000..8bfe0ad
 +export type { VerdictGate, VerdictGateConfig, PaymentIntent, PaymentEvidence, BoundArgs, GateDecision } from './gate.js';
 +export { verifyVerdictProof, executionNonce, argsHash, nostrEventId, INVINOVERITAS_PUBKEY } from './proof.js';
 +export type { ProofEvent, ProofVerification, ProofChecks, Verdict } from './proof.js';
-+export { verifyExecutionLocal, verifyExecutionRemote, fetchReceipt } from './execution.js';
-+export type { ExecutionVerification, ExecutionArgs, TxReceipt, TxLog } from './execution.js';
++export { verifyExecutionLocal, verifyExecutionRemote, fetchReceipt, fetchBlockTime, verdictExpiresAt, DEFAULT_MAX_VERDICT_AGE_SECONDS } from './execution.js';
++export type { ExecutionVerification, ExecutionStatus, ExecutionArgs, TxReceipt, TxLog } from './execution.js';
 +export { signGatedAuthorization } from './sign.js';
 +export { createVerdictPaymentFetch } from './fetch.js';
 +export type { VerdictPaymentFetchOptions } from './fetch.js';

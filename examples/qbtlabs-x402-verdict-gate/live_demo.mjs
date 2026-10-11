@@ -154,7 +154,7 @@ try {
   else {
     say(`   Settlement: https://basescan.org/tx/${result.tx}`);
     say(result.r instanceof Error ? `6. Post-settlement check: ${result.r.message}`
-      : `6. Post-settlement check, offline against Base: ${result.r.valid ? 'VALID' : 'INVALID'}\n   ${checks(result.r.checks)}`);
+      : `6. Post-settlement check, offline against Base: ${result.r.valid ? 'VALID' : 'INVALID'} (status ${result.r.status})\n   ${checks(result.r.checks)}`);
   }
 } catch (e) {
   say(`STOPPED: ${e.message}`);

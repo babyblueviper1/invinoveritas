@@ -112,6 +112,56 @@ describe('verifyExecutionLocal (after settlement)', () => {
   });
 });
 
+describe('verifyExecutionLocal status (stale timing)', () => {
+  // Exhibit 3: verified_at 1791481056, settled in block time 1791481059 (3 s later), bound valid_before 1791481607.
+  const VERIFIED = contentOf(approveEvent).verified_at as number;
+  it('exhibit 3 settled inside the window: status valid', () => {
+    const r = verifyExecutionLocal(approveEvent, approve.args, approve.receipt, { settledAt: 1791481059 });
+    expect(r.status).toBe('valid');
+    expect(r.verdict_expires_at).toBe(VERIFIED + 120);
+    expect(r.seconds_late).toBeUndefined();
+  });
+  it('the same settlement 45 s after the window: status stale, binding still valid', () => {
+    const r = verifyExecutionLocal(approveEvent, approve.args, approve.receipt, { settledAt: VERIFIED + 165 });
+    expect(r.valid).toBe(true);
+    expect(r.status).toBe('stale');
+    expect(r.seconds_late).toBe(45);
+  });
+  it('a stricter caller window applies; without a settlement time, timing is not judged', () => {
+    expect(verifyExecutionLocal(approveEvent, approve.args, approve.receipt, { settledAt: 1791481059, maxVerdictAgeSeconds: 2 }).status).toBe('stale');
+    expect(verifyExecutionLocal(approveEvent, approve.args, approve.receipt).status).toBe('valid');
+  });
+  it('a verdict that does not bind this payment is invalid; a tampered proof is unsigned', () => {
+    expect(verifyExecutionLocal(rejectEvent, reject.args, approve.receipt).status).toBe('invalid');
+    const bad = clone(approveEvent);
+    bad.sig = (bad.sig[0] === '0' ? '1' : '0') + bad.sig.slice(1);
+    expect(verifyExecutionLocal(bad, approve.args, approve.receipt).status).toBe('unsigned');
+  });
+  it('gate.verifyExecution reads the block time over RPC and reports stale', async () => {
+    const rpc = (async (_u: any, init: any) => {
+      const m = JSON.parse(init.body).method;
+      const result = m === 'eth_getTransactionReceipt' ? approve.receipt : { timestamp: '0x' + (VERIFIED + 200).toString(16) };
+      return { ok: true, json: async () => ({ jsonrpc: '2.0', id: 1, result }) };
+    }) as unknown as typeof fetch;
+    const gate = createVerdictGate({ fetch: rpc });
+    const r = await gate.verifyExecution({ allowed: true, reason: '', event: approveEvent, args: approve.args }, approve.tx_hash, { rpcUrl: 'http://rpc' });
+    expect(r.status).toBe('stale');
+    expect(r.seconds_late).toBe(80);
+  });
+  it('remote check sends the evidence the verdict saw, so the endpoint can re-check the payee', async () => {
+    let sent: any;
+    const f = (async (_u: any, init: any) => { sent = JSON.parse(init.body);
+      return { ok: true, json: async () => ({ valid: true, status: 'evidence_changed', evidence_diff: [{ field: 'paycheck.delivery', at_verdict: 'verified', now: 'failing' }] }) };
+    }) as unknown as typeof fetch;
+    const gate = createVerdictGate({ fetch: f });
+    const evidence = { recipient_record: { independent_monitor: { grade: 'A', delivery: 'verified' } } };
+    const r = await gate.verifyExecution({ allowed: true, reason: '', event: approveEvent, args: approve.args, evidence }, approve.tx_hash);
+    expect(sent.evidence).toEqual(evidence);
+    expect(sent.max_verdict_age_seconds).toBe(120);
+    expect(r.status).toBe('evidence_changed');
+  });
+});
+
 describe('createVerdictGate.decide (policy over a verified verdict)', () => {
   const verifiedAt = contentOf(approveEvent).verified_at as number;
   it('allows a fresh approve_with_concerns and returns the decision_ref nonce', () => {

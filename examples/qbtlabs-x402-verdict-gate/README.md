@@ -8,7 +8,7 @@ bound to the exact EIP-3009 payment fields before the key signs**, plus a check 
 settled transfer carried that verdict (the EIP-3009 nonce is the verdict's `decision_ref`).
 
 - `src/verdict/`: the module (TypeScript, ESM). It needs no new dependencies, using the `@noble/*` and `viem` already in `@qbtlabs/x402`.
-- `src/__tests__/verdict.test.ts`: 42 tests on real recorded verdicts and the real Base settlement
+- `src/__tests__/verdict.test.ts`: 48 tests on real recorded verdicts and the real Base settlement
   [0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7). No network.
 - `patch/0001-*.patch`: the same change as one commit against `QBT-Labs/x402@f736392`. It also adds an optional `preSign`
   hook to the isolated signer, which runs after `PolicyEngine.check()` and before the vault decrypts, and a `./verdict` package export.
@@ -17,7 +17,7 @@ settled transfer carried that verdict (the EIP-3009 nonce is the verdict's `deci
 
 ```sh
 git clone https://github.com/QBT-Labs/x402 && cd x402 && git checkout f736392
-git am /path/to/patch/0001-*.patch && npm ci && npm test   # 273 passed, 18 skipped
+git am /path/to/patch/0001-*.patch && npm ci && npm test   # 279 passed, 18 skipped
 ```
 
 **Live on Base mainnet (2026-10-10).** `createVerdictPaymentFetch` paid a live x402 v2 server
@@ -81,10 +81,42 @@ sign off on it?* It also leaves a record that a third party can check later with
 **After settlement**
 5. `gate.verifyExecution(decision, txHash)` checks the chain: USDC's `AuthorizationUsed(authorizer, nonce)` log carries
    the verdict's `decision_ref`, and the `Transfer` matches the bound payer, recipient and amount. This runs offline over an RPC
-   receipt (`{ rpcUrl }`), or through the free `POST /verify-execution` endpoint.
+   receipt (`{ rpcUrl }`), or through the free `POST /verify-execution` endpoint. Both return a `status`: `valid`, `stale`
+   (settled after the verdict's window), `evidence_changed`, `unsafe`, `unsigned` or `invalid`. The offline check covers
+   signature, binding and timing. The endpoint also re-checks the payee with Lumière PayCheck and lists what changed in `evidence_diff`
+   (see [After settlement](#after-settlement)).
 
 **Fail modes**: `failMode: 'closed'` (the default) blocks when the reviewer is unreachable. `'open'` allows and flags
 `failOpen: true`. A proof that fails verification **always** blocks: a bad proof is a finding, not an outage.
+
+## After settlement
+
+`POST /verify-execution` (free, no auth) and `verifyExecutionLocal` answer one question: does this settled payment still
+stand on its verdict? `valid` and `checks` mean what they always did. `status` adds the reason (live 2026-10-11, on a suggestion from
+[@AxiomBot](https://x.com/AxiomBot)):
+
+| `status` | Meaning |
+|---|---|
+| `valid` | the transfer carried this verdict, settled inside its window, and a re-check of the payee found nothing new |
+| `stale` | it settled after the verdict's window: `settled_at` > `verdict_expires_at`, by `seconds_late` |
+| `evidence_changed` | asked again at verify time, PayCheck's answer about the payee differs from the one the verdict weighed |
+| `unsafe` | the re-check is a hard fail: the payee is now on the OFAC SDN list, or its monitored payout wallet is no longer the address paid |
+| `unsigned` | the verdict proof doesn't verify |
+| `invalid` | the proof verifies, but this payment isn't the one it bound |
+
+The window is the verdict's `verified_at` plus `maxVerdictAgeSeconds` (120 s by default, or a `max_verdict_age_seconds`
+bound in the args), and never later than the bound `valid_before`. The verdict binds only `sha256(JCS(evidence))`, so
+`gate.verifyExecution` without an `rpcUrl` sends the evidence along with the check. The endpoint confirms it hashes to the bound
+`evidence_sha256`, asks PayCheck's free `check-payment` about the same URL, payee, amount and network, and lists each change in
+`evidence_diff` as `{field, at_verdict, now}` (payout wallet, OFAC, allow, verdict, grade, delivery). If PayCheck can't be
+reached, the check fails open: `evidence_recheck: "unavailable"`, and the status rests on the signature and timing. `status_reasons`
+lists every condition that applies (a payment can be both `unsafe` and `stale`; the status shows the first in the table order unsafe, stale, evidence_changed).
+
+```sh
+curl -s https://api.babyblueviper.com/verify-execution -H 'content-type: application/json' \
+  -d '{"event": {...}, "args": {...}, "tx_hash": "0x2afb35e2...c4a7", "evidence": {...}}'
+# exhibit 3: {"valid": true, "status": "valid", "settled_at": 1791481059, "verdict_expires_at": 1791481176, "evidence_diff": [], ...}
+```
 
 ## Evidence: give the reviewer what your systems already know
 
@@ -164,7 +196,7 @@ the gate only where your policy would otherwise require manual approval.
 
 ## Tests
 
-`src/__tests__/verdict.test.ts` (42 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
+`src/__tests__/verdict.test.ts` (48 tests). The fixtures are real recorded invinoveritas verdicts from 2026-10-08: an
 `approve_with_concerns` verdict followed by a 1.00 USDC transfer on Base,
 [0x2afb35e2…c4a7](https://basescan.org/tx/0x2afb35e24a20fdee74c35937feb59b86358d45c8029a91d065d59825c3e7c4a7),
 whose nonce is the verdict's `decision_ref`, plus a signed `reject`. No test touches the network.
