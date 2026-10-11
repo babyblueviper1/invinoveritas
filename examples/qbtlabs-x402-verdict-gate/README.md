@@ -52,7 +52,8 @@ which monitors x402 endpoints continuously: payout-wallet history, paid delivery
 reviewer weighs third-party data about the payee instead of the payer's word. First run (2026-10-10, against our own
 `/regime`): PayCheck reported the payout wallet stable and matching and OFAC-clear, and denied on its own price rule (the
 quote was 0.000003 USDC above the price it last saw); the reviewer weighed that and returned `approve_with_concerns`,
-citing the monitor's grade and the unverified delivery.
+citing the monitor's grade and the unverified delivery. (That price rule has since been fixed on PayCheck's side: `check-payment` now allows small drift, so a
+price that tracks BTC is no longer flagged, while real overcharges still are. Our own prices now move in stable steps too.)
 
 **Tuning what blocks** (operator settings, details in `src/verdict/README.md`): `proceedOn` (stricter with
 `['approve']`; adding `'reject'` gives an advisory shadow mode that blocks nothing and keeps every verdict), `blockOn`
