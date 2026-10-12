@@ -121,7 +121,7 @@ curl -s https://api.babyblueviper.com/verify-execution -H 'content-type: applica
 ## Payment receipt: safe to retry?
 
 `POST /payment-receipt` (free, no auth) returns one BIP-340-signed receipt for a verdict-governed payment, with the nine
-fields an agent needs before it retries (field list suggested by [@AxiomBot](https://x.com/AxiomBot)):
+fields an agent needs before it retries, plus terms, wallet approval and output (both lists suggested by [@AxiomBot](https://x.com/AxiomBot)):
 
 | field | value |
 |---|---|
@@ -132,6 +132,9 @@ fields an agent needs before it retries (field list suggested by [@AxiomBot](htt
 | `denial_reason` | why it must not be paid (reject verdict), or why the given tx is not this payment |
 | `retry_state` | `paid_do_not_retry`, `pending`, `denied_do_not_retry`, `expired_do_not_retry` or `not_paid_safe_to_retry` |
 | `idempotency_key` | the EIP-3009 nonce = the verdict's `decision_ref` |
+| `terms_hash` | from the verdict's signed args if bound; a caller-supplied one is labelled not bound |
+| `wallet_approval` | pass the payer's EIP-3009 signature as `authorization_signature`: the receipt recovers it over the bound amount, payee, validity window and the verdict's nonce, under the token's own on-chain EIP-712 domain, and reports `recovers_to_payer` |
+| `output_hash` / `job_state` | pass the sha256 of the delivered result as `output_hash`: a settled payment then reads `paid_output_recorded`; without it, `paid_no_output_recorded`, a possible ghost result, so the agent re-requests delivery instead of paying again |
 
 `retry_state` is read from the chain, not guessed: USDC's `authorizationState(payer, nonce)` says whether this
 authorization was already used, so it works with or without a `tx_hash`. One authorization settles at most once, so a
