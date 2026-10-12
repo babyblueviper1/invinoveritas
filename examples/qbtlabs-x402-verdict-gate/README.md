@@ -130,13 +130,15 @@ fields an agent needs before it retries (field list suggested by [@AxiomBot](htt
 | `facilitator_verdict` | the signed verdict: `verdict`, `decision_ref`, `verified_at`, `allows_payment` |
 | `settlement_id` | the tx hash, set only when `/verify-execution` proves it is the payment this verdict bound |
 | `denial_reason` | why it must not be paid (reject verdict), or why the given tx is not this payment |
-| `retry_state` | `paid_do_not_retry`, `pending`, `denied_do_not_retry` or `not_paid_safe_to_retry` |
+| `retry_state` | `paid_do_not_retry`, `pending`, `denied_do_not_retry`, `expired_do_not_retry` or `not_paid_safe_to_retry` |
 | `idempotency_key` | the EIP-3009 nonce = the verdict's `decision_ref` |
 
 `retry_state` is read from the chain, not guessed: USDC's `authorizationState(payer, nonce)` says whether this
 authorization was already used, so it works with or without a `tx_hash`. One authorization settles at most once, so a
 retry with the same `idempotency_key` cannot double-pay; signing a new nonce would be a second payment. Retry only
-before `retry_until` (the verdict's window). If the verdict doesn't verify, or the args aren't the ones it bound, the
+before `retry_until` (the verdict's window). After it, an unpaid authorization reads `expired_do_not_retry`: a retry
+needs a new verdict, and its new authorization should not be signed until this one's `valid_before` (returned as
+`authorization_valid_before`) has passed or it is cancelled, or both could settle. If the verdict doesn't verify, or the args aren't the ones it bound, the
 endpoint returns 422 and signs nothing. Verify the receipt with `POST /verify-proof` or offline against `verifier_pubkey`.
 
 ```sh
