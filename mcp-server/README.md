@@ -10,7 +10,7 @@ verdict — model-agnostic, advisory (it never blocks), and checkable from the b
 
 - **Hosted, no install.** Remote Streamable-HTTP MCP server: `https://api.babyblueviper.com/mcp/verify`
 - **Sign-in:** standard MCP OAuth in clients that support it (a free account can be created on the consent screen), or a free API key as a Bearer header: `curl -X POST https://api.babyblueviper.com/register -d '{"label":"mcp"}'`
-- **`verify_proof` and `ledger` are always free / no auth.**
+- **`verify_proof`, `ledger`, and `payment_receipt` are always free / no auth.**
 
 ## Tools
 
@@ -18,9 +18,10 @@ verdict — model-agnostic, advisory (it never blocks), and checkable from the b
 |---|---|---|
 | `review` | Independent verdict (`approve` / `approve_with_concerns` / `reject`) on a code diff, shell command, plan, config, trade, or on-chain transaction, with ranked issues + a portable signed proof. | Bearer (paid) |
 | `verify_proof` | Recompute and verify a signed invinoveritas proof someone handed you — confirms it without trusting the presenter or us. | free |
+| `payment_receipt` | Signed receipt for one verdict-governed payment. `retry_state` is read on chain, so the same nonce cannot double-pay. Does not move funds. | free |
 | `witness` | Anchor a third party's exact claim bytes, unmodified and unjudged — pure notarization (receipt + timestamp + integrity), distinct from `review` (our verdict). Source is self-declared and marked as such in the signed proof. | Bearer (paid) |
 
-Also on this endpoint: `ledger` (free public verdict track record), `validate` (backtest reality-check), `audit_agent_readiness`, `ledger_submit`, `conformance_certify`. 8 tools in all; the server never moves money or assets for the user.
+Also on this endpoint: `ledger` (free public verdict track record), `validate` (backtest reality-check), `audit_agent_readiness`, `ledger_submit`, `conformance_certify`. 9 tools in all; the server never moves money or assets for the user.
 
 ## Add it to your agent
 

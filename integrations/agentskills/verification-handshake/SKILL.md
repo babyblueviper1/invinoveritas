@@ -74,6 +74,9 @@ invinoveritas still knows exactly how to check it.
 - **Stale proof** → the response carries `age_seconds`; decide if it's fresh enough for your use.
 - **Wrong artifact** → if `expect_artifact_hash` doesn't match, the proof is for a different
   artifact than what you received — reject.
+- **Retrying a verdict-governed payment** → call `payment_receipt` (free, no auth) with the signed
+  review event and the payment args it bound. `retry_state` is read from the token's
+  `authorizationState`, so the same nonce cannot double-pay. The receipt verifies at `verify_proof`.
 
 ## Success criteria
 - You never act on high-stakes unverified output without either a valid proof or your own review.

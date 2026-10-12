@@ -35,12 +35,12 @@ add a server entry pointing at the hosted URL. Do NOT try to npm-install or run 
    }
    ```
 
-3. Confirm it connected: the server should expose tools including `review` and `verify_proof`.
-   `verify_proof` requires no auth, so you can call it to confirm connectivity even before funding the key.
+3. Confirm it connected: the server should expose tools including `review`, `verify_proof`, and `payment_receipt`.
+   `verify_proof` and `payment_receipt` require no auth, so you can call `verify_proof` to confirm connectivity even before funding the key.
 
 ## Notes
 
-- `verify_proof` and `ledger` are free / no-auth. `review` is paid; new accounts include a few free calls. With no balance
+- `verify_proof`, `ledger`, and `payment_receipt` are free / no-auth. `review` is paid; new accounts include a few free calls. With no balance
   left, paid tools return a plain "not available with your current balance" message; that is expected, not an error.
 - Clients with MCP OAuth support can skip the header: they are prompted to sign in on the first paid call.
 - No environment variables, no local command, no Docker. If a setup flow asks for a command or args,
