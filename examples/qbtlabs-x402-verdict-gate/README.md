@@ -118,6 +118,34 @@ curl -s https://api.babyblueviper.com/verify-execution -H 'content-type: applica
 # exhibit 3: {"valid": true, "status": "valid", "settled_at": 1791481059, "verdict_expires_at": 1791481176, "evidence_diff": [], ...}
 ```
 
+## Payment receipt: safe to retry?
+
+`POST /payment-receipt` (free, no auth) returns one BIP-340-signed receipt for a verdict-governed payment, with the nine
+fields an agent needs before it retries (field list suggested by [@AxiomBot](https://x.com/AxiomBot)):
+
+| field | value |
+|---|---|
+| `endpoint` | the paid URL, from the verdict's signed args (`endpoint_source` says if it was only caller-supplied) |
+| `network`, `asset`, `max_amount`, `payer` | from the args the verdict bound (`max_amount` in atomic units) |
+| `facilitator_verdict` | the signed verdict: `verdict`, `decision_ref`, `verified_at`, `allows_payment` |
+| `settlement_id` | the tx hash, set only when `/verify-execution` proves it is the payment this verdict bound |
+| `denial_reason` | why it must not be paid (reject verdict), or why the given tx is not this payment |
+| `retry_state` | `paid_do_not_retry`, `pending`, `denied_do_not_retry` or `not_paid_safe_to_retry` |
+| `idempotency_key` | the EIP-3009 nonce = the verdict's `decision_ref` |
+
+`retry_state` is read from the chain, not guessed: USDC's `authorizationState(payer, nonce)` says whether this
+authorization was already used, so it works with or without a `tx_hash`. One authorization settles at most once, so a
+retry with the same `idempotency_key` cannot double-pay; signing a new nonce would be a second payment. Retry only
+before `retry_until` (the verdict's window). If the verdict doesn't verify, or the args aren't the ones it bound, the
+endpoint returns 422 and signs nothing. Verify the receipt with `POST /verify-proof` or offline against `verifier_pubkey`.
+
+```sh
+curl -s https://api.babyblueviper.com/payment-receipt -H 'content-type: application/json' \
+  -d '{"event": {...}, "args": {...}, "tx_hash": "0x2afb35e2...c4a7"}'
+# exhibit 3: {"receipt": {"retry_state": "paid_do_not_retry", "settlement_id": "0x2afb35e2...c4a7", ...}, "event": {...}}
+# the same pilot's rejected first run (never paid): {"receipt": {"retry_state": "denied_do_not_retry", "denial_reason": "verdict reject; ...", ...}}
+```
+
 ## Evidence: give the reviewer what your systems already know
 
 An independent reviewer that sees only an address and an amount cannot tie the recipient to anyone, so it rejects. That
