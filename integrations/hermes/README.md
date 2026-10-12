@@ -54,7 +54,7 @@ Restart Hermes. It auto-discovers the tools at startup; they appear to the agent
 
 | Tool | What it does | ~price |
 |---|---|---|
-| `payment_receipt` | Signed receipt for one verdict-governed payment. retry_state is read on chain, so the same nonce cannot double-pay. Free, no auth. Does not move funds | free |
+| `payment_receipt` | Signed receipt for one verdict-governed payment. retry_state is read on chain, so the same nonce cannot double-pay; optional output hash and verified wallet approval show whether a settled job delivered. Free, no auth. Does not move funds | free |
 | `review` | Capital-scale-aware second-opinion verdict on a proposed action (the differentiated one — set `include_trading_state` for live-state-aware verdicts) | ~260 sats |
 | `markets_act` | **The Markets Bundle** — macro regime + live derivatives signals + ecosystem brief + an optional governance review of a proposed trade, in one call, priced below the sum. Facts-only data + a governance verdict, never P&L/advice | ~240 sats |
 | `signals` | Live Hyperliquid derivatives signals — funding + 24h funding-delta, basis, open interest, the vol-expansion regime our own trading research is grounded in, realized vol, BTC DVOL (multi-coin). Facts-only. (Free BTC-regime teaser at `GET /signals`) | ~40 sats |
