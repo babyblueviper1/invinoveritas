@@ -81,6 +81,8 @@ gate for the cases OPA can't resolve on its own — pass the OPA-uncertain calls
 
 ## Real, live-verified (not mocked)
 
+On `approved`, the SDK does not pass the approval `reason` to the model or to `execute()` (only a denial reason reaches the model, as `execution-denied`; see [vercel/ai#23110](https://github.com/vercel/ai/pull/23110)). If you need the verdict or its proof later, log the `toolApproval` result yourself.
+
 Both branches tested against the real production API (`api.babyblueviper.com/review`), not a
 mock:
 
