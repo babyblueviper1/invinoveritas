@@ -85,7 +85,7 @@
     },
     {
       "name": "payment_receipt",
-      "description": "Signed receipt for one verdict-governed EIP-3009 payment, before a retry. Returns endpoint, network, asset, max_amount, payer, facilitator_verdict, settlement_id, denial_reason, retry_state (paid_do_not_retry, pending, denied_do_not_retry, not_paid_safe_to_retry) and idempotency_key (the EIP-3009 nonce). retry_state is read from USDC authorizationState, so the same nonce cannot double-pay. Accepts: event (signed review verdict), args (the payment args it bound), tx_hash (optional). Refuses unsigned when the verdict does not verify or does not bind those args. Free, no auth. Does not move funds."
+      "description": "Signed receipt for one verdict-governed EIP-3009 payment, before a retry. Returns endpoint, network, asset, max_amount, payer, facilitator_verdict, settlement_id, denial_reason, retry_state (paid_do_not_retry, pending, denied_do_not_retry, expired_do_not_retry, not_paid_safe_to_retry) and idempotency_key (the EIP-3009 nonce). retry_state is read from USDC authorizationState, so the same nonce cannot double-pay. Accepts: event (signed review verdict), args (the payment args it bound), tx_hash (optional). Refuses unsigned when the verdict does not verify or does not bind those args. Free, no auth. Does not move funds."
     },
     {
       "name": "ledger",
