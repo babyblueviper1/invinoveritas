@@ -76,7 +76,10 @@ invinoveritas still knows exactly how to check it.
   artifact than what you received — reject.
 - **Retrying a verdict-governed payment** → call `payment_receipt` (free, no auth) with the signed
   review event and the payment args it bound. `retry_state` is read from the token's
-  `authorizationState`, so the same nonce cannot double-pay. The receipt verifies at `verify_proof`.
+  `authorizationState`, so the same nonce cannot double-pay. Add `output_hash` (sha256 of what was
+  delivered) and, if you have it, the payer's `authorization_signature`: a settled payment with no
+  output recorded reads `paid_no_output_recorded`, so re-request delivery instead of paying again.
+  The receipt verifies at `verify_proof`.
 
 ## Success criteria
 - You never act on high-stakes unverified output without either a valid proof or your own review.
