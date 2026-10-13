@@ -135,6 +135,7 @@ fields an agent needs before it retries, plus terms, wallet approval and output 
 | `terms_hash` | from the verdict's signed args if bound; a caller-supplied one is labelled not bound |
 | `wallet_approval` | pass the payer's EIP-3009 signature as `authorization_signature`: the receipt recovers it over the bound amount, payee, validity window and the verdict's nonce, under the token's own on-chain EIP-712 domain, and reports `recovers_to_payer` |
 | `output_hash` / `job_state` | pass the sha256 of the delivered result as `output_hash`: a settled payment then reads `paid_output_recorded`; without it, `paid_no_output_recorded`, a possible ghost result, so the agent re-requests delivery instead of paying again |
+| `denial_code` / `denial_codes` | why not to spend, one code per negative path: `verdict_reject`, `verdict_outside_proceed_on`, `retry_window_expired` (stale nonce), `tx_not_bound_payment`, `tx_wrong_payee`, `wallet_approval_mismatch`, `terms_hash_conflict`, `paid_no_output_recorded` |
 
 `retry_state` is read from the chain, not guessed: USDC's `authorizationState(payer, nonce)` says whether this
 authorization was already used, so it works with or without a `tx_hash`. One authorization settles at most once, so a
@@ -142,7 +143,7 @@ retry with the same `idempotency_key` cannot double-pay; signing a new nonce wou
 before `retry_until` (the verdict's window). After it, an unpaid authorization reads `expired_do_not_retry`: a retry
 needs a new verdict, and its new authorization should not be signed until this one's `valid_before` (returned as
 `authorization_valid_before`) has passed or it is cancelled, or both could settle. If the verdict doesn't verify, or the args aren't the ones it bound, the
-endpoint returns 422 and signs nothing. Verify the receipt with `POST /verify-proof` or offline against `verifier_pubkey`.
+endpoint returns 422. If the verdict itself verifies but the args are not the ones it bound (a different payee or amount), the 422 is a **signed** refusal (`refusal_code: args_not_bound`, with the bound and submitted args hashes) that checks at `POST /verify-proof`; a verdict that does not verify is refused unsigned. Verify the receipt with `POST /verify-proof` or offline against `verifier_pubkey`.
 
 ```sh
 curl -s https://api.babyblueviper.com/payment-receipt -H 'content-type: application/json' \
