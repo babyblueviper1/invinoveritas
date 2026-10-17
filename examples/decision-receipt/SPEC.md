@@ -205,8 +205,16 @@ that anchors its `/ledger` verdicts: a 32-byte digest submitted to the public OT
   ledger, and keeps a second file for an already-held date beside the first, marked divergent. `slot_log_check.py` runs on those
   files unchanged, so `--prev` and `--inclusion` can be run against either copy.
 
+- **Profile, by hash** (since 2026-10-17). The index carries `profile: {id, sha256, vectors_sha256, url, vectors_url}`.
+  `sha256` is over the exact bytes of [`SLOT_LOG_PROFILE.md`](SLOT_LOG_PROFILE.md) (the rules above as one document) and
+  `vectors_sha256` over [`slot_log_vectors.json`](slot_log_vectors.json) (15 cases from the issuer's own snapshot builder: 3 valid, 12 that each break one rule). The
+  URLs are retrieval hints; the hashes are the identity. `slot_log_check.py --profile index.json` reports
+  `profile_unavailable` (exit 2) or `profile_mismatch` (exit 1) apart from a failing vector or snapshot. Only the last is
+  evidence about the log.
+
 Check with `slot_log_check.py` (standard library): the file against its header and roots, `--prev` for the chain and slot
-continuity to the day before, `--inclusion` for a slot GET response, `--slot` for one slot in a file. Then run `ots verify`.
+continuity to the day before, `--inclusion` for a slot GET response, `--slot` for one slot in a file, `--profile` for the
+profile and its vectors. Then run `ots verify`.
 
 What it adds, honestly:
 - **It addresses "the issuer shows different answers to different viewers", to the degree a daily stamped snapshot can.** A slot

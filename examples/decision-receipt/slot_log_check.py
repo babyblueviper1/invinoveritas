@@ -5,13 +5,19 @@
     python3 slot_log_check.py 2026-10-12.jsonl --prev 2026-10-11.jsonl  # and the chain to the day before
     python3 slot_log_check.py --inclusion slot.json                  # a GET /decision-receipt/slot/<slot> body (its "log")
     python3 slot_log_check.py 2026-10-11.jsonl --slot <hex>          # the slot is in this snapshot (prints its line)
+    python3 slot_log_check.py --profile index.json                   # the profile this kit carries is the one the
+                                                                     # GET /decision-receipt/slots/log body declares,
+                                                                     # then every case in slot_log_vectors.json
+    python3 slot_log_check.py --vectors slot_log_vectors.json        # the vector cases alone
 
 Each prints the log_root; then check the Bitcoin anchor with the standard OpenTimestamps client:
     ots verify -d <log_root> <date>.ots
-Exit 0 iff everything checked holds.
+Exit 0 iff everything checked holds. For --profile: 1 = profile_mismatch or a vector disagrees, 2 = profile_unavailable
+(the profile or vector file could not be read). Exit 2 is about the verifier's ability to check, not about the log.
 """
 import hashlib
 import json
+import os
 import re
 import sys
 
@@ -99,8 +105,70 @@ def check_inclusion(log):
     return root
 
 
+def check_chain(header, lines, prev_data):
+    """Raise Bad unless this snapshot chains to the previous day's snapshot bytes."""
+    ph, pl, proot = check_file(prev_data)
+    if header["prev_root"] != proot:
+        raise Bad("prev_root is not the previous snapshot's log_root (history rewritten?)")
+    if ph["date"] >= header["date"]:
+        raise Bad("previous snapshot is not an earlier day")
+    prev_slots = {x["slot"]: x for x in pl}
+    gone = [s for s in prev_slots if s not in {x["slot"] for x in lines}]
+    if gone:
+        raise Bad(f"{len(gone)} slot(s) of the previous day missing (first: {gone[0]})")
+    for x in lines:
+        p = prev_slots.get(x["slot"])
+        if p and ({k: p[k] for k in LINE_KEYS - {"conflicts"}} != {k: x[k] for k in LINE_KEYS - {"conflicts"}}
+                  or x["conflicts"][:len(p["conflicts"])] != p["conflicts"]):
+            raise Bad(f"slot {x['slot']} changed since the previous day (only new conflicts may be appended)")
+
+
+def run_vectors(doc):
+    """Check every case; return the number that disagree with their expected result."""
+    bad = 0
+    for v in doc["vectors"]:
+        try:
+            header, lines, root = check_file(v["file"].encode("utf-8"))
+            if v.get("prev") is not None:
+                check_chain(header, lines, v["prev"].encode("utf-8"))
+            got, detail = "ok", root
+        except (Bad, ValueError, KeyError, TypeError) as e:
+            got, detail = "reject", str(e)
+        agree = got == v["expect"] and (got != "ok" or detail == v.get("log_root"))
+        bad += not agree
+        print(f"  {'agree' if agree else 'DISAGREE'} {v['id']}: {got}" + ("" if got == "ok" else f" ({detail})"))
+    print(f"{len(doc['vectors']) - bad}/{len(doc['vectors'])} vectors agree")
+    return bad
+
+
+def check_profile(index, here):
+    """Compare the profile + vector files beside this checker with index["profile"]; then run the vectors."""
+    prof = index.get("profile") or {}
+    try:
+        pbytes = open(os.path.join(here, "SLOT_LOG_PROFILE.md"), "rb").read()
+        vbytes = open(os.path.join(here, "slot_log_vectors.json"), "rb").read()
+    except OSError as e:
+        print(f"profile_unavailable: {e}")
+        return 2
+    got = {"sha256": hashlib.sha256(pbytes).hexdigest(), "vectors_sha256": hashlib.sha256(vbytes).hexdigest()}
+    if prof.get("id") != SCHEMA:
+        print(f"profile_mismatch: index declares profile id {prof.get('id')!r}, this checker implements {SCHEMA}")
+        return 1
+    for k, val in got.items():
+        if prof.get(k) != val:
+            print(f"profile_mismatch: {k} declared {prof.get(k)} but the local file hashes to {val}")
+            return 1
+    print(f"profile ok: {SCHEMA} sha256 {got['sha256']} vectors_sha256 {got['vectors_sha256']}")
+    return 1 if run_vectors(json.loads(vbytes)) else 0
+
+
 def main(argv):
     try:
+        if "--profile" in argv:
+            index = json.load(open(argv[argv.index("--profile") + 1]))
+            return check_profile(index, os.path.dirname(os.path.abspath(__file__)))
+        if "--vectors" in argv:
+            return 1 if run_vectors(json.load(open(argv[argv.index("--vectors") + 1]))) else 0
         if "--inclusion" in argv:
             body = json.load(open(argv[argv.index("--inclusion") + 1]))
             log = body.get("log", body)
@@ -111,20 +179,7 @@ def main(argv):
         path = argv[1]
         header, lines, root = check_file(open(path, "rb").read())
         if "--prev" in argv:
-            ph, _pl, proot = check_file(open(argv[argv.index("--prev") + 1], "rb").read())
-            if header["prev_root"] != proot:
-                raise Bad("prev_root is not the previous snapshot's log_root (history rewritten?)")
-            if ph["date"] >= header["date"]:
-                raise Bad("previous snapshot is not an earlier day")
-            prev_slots = {x["slot"]: x for x in _pl}
-            gone = [s for s in prev_slots if s not in {x["slot"] for x in lines}]
-            if gone:
-                raise Bad(f"{len(gone)} slot(s) of the previous day missing (first: {gone[0]})")
-            for x in lines:
-                p = prev_slots.get(x["slot"])
-                if p and ({k: p[k] for k in LINE_KEYS - {"conflicts"}} != {k: x[k] for k in LINE_KEYS - {"conflicts"}}
-                          or x["conflicts"][:len(p["conflicts"])] != p["conflicts"]):
-                    raise Bad(f"slot {x['slot']} changed since the previous day (only new conflicts may be appended)")
+            check_chain(header, lines, open(argv[argv.index("--prev") + 1], "rb").read())
         elif header["prev_root"] == GENESIS:
             print("first snapshot (prev_root = genesis)")
         if "--slot" in argv:
