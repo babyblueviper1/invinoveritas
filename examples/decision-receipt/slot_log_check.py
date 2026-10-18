@@ -8,6 +8,11 @@
     python3 slot_log_check.py --profile index.json                   # the profile this kit carries is the one the
                                                                      # GET /decision-receipt/slots/log body declares,
                                                                      # then every case in slot_log_vectors.json
+    python3 slot_log_check.py --profile index.json --fetch           # same, but pull the profile doc + vector file
+                                                                     # cold from url/vectors_url instead of trusting
+                                                                     # the bundled copies -- a fetch failure prints
+                                                                     # profile_unavailable, a hash disagreement
+                                                                     # prints profile_mismatch, never conflated
     python3 slot_log_check.py --vectors slot_log_vectors.json        # the vector cases alone
 
 Each prints the log_root; then check the Bitcoin anchor with the standard OpenTimestamps client:
@@ -141,13 +146,25 @@ def run_vectors(doc):
     return bad
 
 
-def check_profile(index, here):
-    """Compare the profile + vector files beside this checker with index["profile"]; then run the vectors."""
+def check_profile(index, here, fetch=False):
+    """Compare the profile + vector files with index["profile"]; then run the vectors.
+
+    fetch=False (default): read SLOT_LOG_PROFILE.md / slot_log_vectors.json bundled beside this
+    checker. fetch=True: ignore the local files and pull prof["url"] / prof["vectors_url"] instead --
+    url/vectors_url are retrieval hints only, so a fetch failure is profile_unavailable (the
+    checker's problem) and a hash disagreement is profile_mismatch (the hint's problem), never
+    conflated with recompute_mismatch (an inputs disagreement, from run_vectors below).
+    """
     prof = index.get("profile") or {}
     try:
-        pbytes = open(os.path.join(here, "SLOT_LOG_PROFILE.md"), "rb").read()
-        vbytes = open(os.path.join(here, "slot_log_vectors.json"), "rb").read()
-    except OSError as e:
+        if fetch:
+            import urllib.request
+            pbytes = urllib.request.urlopen(prof["url"], timeout=15).read()
+            vbytes = urllib.request.urlopen(prof["vectors_url"], timeout=15).read()
+        else:
+            pbytes = open(os.path.join(here, "SLOT_LOG_PROFILE.md"), "rb").read()
+            vbytes = open(os.path.join(here, "slot_log_vectors.json"), "rb").read()
+    except (OSError, KeyError) as e:
         print(f"profile_unavailable: {e}")
         return 2
     got = {"sha256": hashlib.sha256(pbytes).hexdigest(), "vectors_sha256": hashlib.sha256(vbytes).hexdigest()}
@@ -156,7 +173,8 @@ def check_profile(index, here):
         return 1
     for k, val in got.items():
         if prof.get(k) != val:
-            print(f"profile_mismatch: {k} declared {prof.get(k)} but the local file hashes to {val}")
+            src = "the fetched bytes hash" if fetch else "the local file hashes"
+            print(f"profile_mismatch: {k} declared {prof.get(k)} but {src} to {val}")
             return 1
     print(f"profile ok: {SCHEMA} sha256 {got['sha256']} vectors_sha256 {got['vectors_sha256']}")
     return 1 if run_vectors(json.loads(vbytes)) else 0
@@ -166,7 +184,7 @@ def main(argv):
     try:
         if "--profile" in argv:
             index = json.load(open(argv[argv.index("--profile") + 1]))
-            return check_profile(index, os.path.dirname(os.path.abspath(__file__)))
+            return check_profile(index, os.path.dirname(os.path.abspath(__file__)), fetch="--fetch" in argv)
         if "--vectors" in argv:
             return 1 if run_vectors(json.load(open(argv[argv.index("--vectors") + 1]))) else 0
         if "--inclusion" in argv:
