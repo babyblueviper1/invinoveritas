@@ -1,0 +1,105 @@
+{
+ "api_version": "1.13.0",
+ "paths": {
+  "/attestations/{proof_id}": {
+   "get": {
+    "description": "Public retrieval of a previously issued /prove attestation. Free, no auth.\n\nAnyone can verify the proof by checking proof_hash against SHA-256 of the\nsorted proof payload JSON. The attestation was paid for at prove-time.",
+    "operationId": "get_attestation_attestations__proof_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "proof_id",
+      "required": true,
+      "schema": {
+       "title": "Proof Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [],
+    "summary": "Get Attestation",
+    "tags": [
+     "execution"
+    ]
+   }
+  },
+  "/prove/{proof_id}/reveal": {
+   "post": {
+    "description": "FREE, no-auth: bind held-back content to a previously published /prove commitment_hash\n(DEILS leg-2). Anyone holding the true content can reveal it \u2014 the check is a pure function\nof (stored commitment_hash, revealed content), never caller identity, so a third party can\nconfirm the bind without trusting whoever discloses.\n\nReturns content_bound (hash matches, content now disclosed) or content_commitment_mismatch\n(TERMINAL, fail-closed \u2014 a positive evidence state, not an absence: either the revealed\ncontent was tampered with, or the original commitment was bad. Preserves the full evidence\nbundle so the disagreement is legible, and does not adjudicate malice vs error).\n\nResponse contract (deils-reveal-v1). Every outcome below is HTTP 200 with a JSON body; the\nonly non-200s are 404 (unknown proof_id), 422 (body is not {\"content\": <JSON object>}) and\n429 (per-IP rate limit). There is no attempt counter: refusals write nothing.\nChecked in this order, first failure wins:\n  1. commitment_record_mismatch  terminal=true,  hash_evaluated=false  (stored signed record\n     does not bind this row; integrity check, no public trigger)\n  2. input_refused               terminal=false, hash_evaluated=false  reason is one of\n     \"integer outside +-(2^53-1)\" or \"<type> values are outside the v1 lane (integers only)\"\n  3. blinding_missing / blinding_malformed  terminal=false, hash_evaluated=false  (blinding\n     must be 64 lowercase hex chars)\n  4. input_refused               terminal=false, hash_evaluated=false  reason starts\n     \"content outside the RFC 8785 JCS domain (\" -- e.g. a lone surrogate string \"\\ud800\"\n  5. content_bound (matches=true) or content_commitment_mismatch (terminal=true, row is\n     permanently flipped; later calls return the stored evidence)\nRefusal bodies also carry proof_id, reason and the commitment record view\n(commitment_profile, commitment_record).",
+    "operationId": "prove_reveal_prove__proof_id__reveal_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "proof_id",
+      "required": true,
+      "schema": {
+       "title": "Proof Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProveRevealRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [],
+    "summary": "Prove Reveal",
+    "tags": [
+     "execution"
+    ]
+   }
+  }
+ },
+ "private_commits": {
+  "refusal_contract": "6f8c80be",
+  "terminal_mismatch_withholding_fix": "95e066cb"
+ },
+ "snapshot_utc": "2026-10-25",
+ "source": "https://api.babyblueviper.com/openapi.json"
+}
