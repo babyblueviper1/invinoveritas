@@ -3,7 +3,7 @@
  "paths": {
   "/attestations/{proof_id}": {
    "get": {
-    "description": "Public retrieval of a previously issued /prove attestation. Free, no auth.\n\nAnyone can verify the proof by checking proof_hash against SHA-256 of the\nsorted proof payload JSON. The attestation was paid for at prove-time.",
+    "description": "Public retrieval of a previously issued /prove attestation. Free, no auth.\n\nAnyone can verify the proof by checking proof_hash against SHA-256 of the\nsorted proof payload JSON. The attestation was paid for at prove-time.\n\nWithholding boundary (DEILS): the stored `proof` and `signature` are served only when\nreveal_state is content_bound. content_withheld serves the existence tuple (proof_id,\nledger_position, commitment_hash, created_at) and the signed commitment record.\ncontent_commitment_mismatch (terminal) serves the same plus `mismatch_evidence` (the\ncaller's revealed content, committed_hash, recomputed_hash), never the stored payload.\nPOST /verify-proof by proof_id follows the same rule.",
     "operationId": "get_attestation_attestations__proof_id__get",
     "parameters": [
      {
@@ -97,6 +97,7 @@
   }
  },
  "private_commits": {
+  "boundary_described": "e8149678",
   "refusal_contract": "6f8c80be",
   "terminal_mismatch_withholding_fix": "95e066cb"
  },
