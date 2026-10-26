@@ -9,15 +9,10 @@ DEILS group before anything is built. DEILS core v1 stays frozen at `trustless-a
   `python3 check.py D1.jsonl D2.jsonl ... --records records.jsonl --issuer <pubkey> --ots D=D.ots --headers headers.json`.
 - `ots_verify.py`: an OpenTimestamps proof walker, standard library only. A Bitcoin attestation counts only against a block
   header you supply. The walker checks the header's proof of work and its merkle root.
-- `gen_vectors.py` and `vectors.json`: 32 vectors. There are 6 valid cases (chains with an empty day; days of 3, 5 and 7 records)
-  and one failing vector per rule. Records are signed with a TEST key derived from a public string.
+- `gen_vectors.py` and `vectors.json`: 47 vectors, including the end-to-end anchored chain (day 3 confirmed at block 973231),
+  valid cases (empty day, days of 3, 5 and 7 records, a control character in a tag) and one failing or notice vector per rule. Records are signed with a TEST key derived from a public string.
 - `ots/`: real data. `real.json` holds our 2026-10-09 decision-receipt slot-log stamp, confirmed at Bitcoin block 970761, with
-  headers that mempool.space and blockstream.info both return. `base_day3.*` is a fresh stamp of the vector chain's day 3
-  `log_root`.
+  headers that mempool.space and blockstream.info both return. `base_day3.*` stamps the vector chain's day 3 `log_root`:
+  pending (4 calendars) and confirmed at block 973231 (`base_day3.confirmed.ots`, header in `base_day3.json`).
 
-The vectors were mutation-tested. Disabling any of 12 rules in the checker, including the RFC 9162 split, the leaf prefix, the
-day edge, proof of work and the "pending claimed confirmed" rule, makes at least one vector fail.
-
-Not in this draft yet: the end-to-end **anchored** vector. Day 3's stamp was submitted to 4 calendars on 2026-10-26 and is still
-pending. When it confirms in a Bitcoin block, we add it along with its header, and the vector should report `anchored`. Until
-then, the pending case is covered end to end, both honestly reported and falsely claimed as confirmed.
+Review 2 (Echo) fixes are listed at the end of PROFILE.md. Each of the 18 mutations in the mutation run (Echo's six survivors included) makes at least one vector fail.

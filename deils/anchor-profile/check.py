@@ -8,7 +8,7 @@
 Days are given oldest first; the first file's prev_root / prev_last_position are taken as given (supply the chain from the first day
 to check those too). headers.json is {height: 80-byte header hex}, from your own node or explorers you choose. Prints one JSON result
 per day: {date, status (anchored|not_anchored|failed), state (published|pending|confirmed), height, codes}."""
-import hashlib, json, os, sys
+import hashlib, json, os, re, sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,7 +19,9 @@ HEADER_KEYS = {"schema", "date", "start", "end", "count", "first_position", "las
                "merkle_root"}
 LINE_KEYS = {"ledger_position", "proof_id", "commitment_hash", "profile", "record_event_id", "created_at"}
 ZERO = "0" * 64
-NOT_CONFIRMED = {"ots_bitcoin_header_missing"}   # reasons a stamp is not (yet) confirmation; every other ots code fails the day
+NOT_CONFIRMED = ots_verify.NOT_CONFIRMING   # reasons a stamp is not (yet) confirmation; every other ots code fails the day
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _ok_value(v):
@@ -60,9 +62,39 @@ def day_edges(date: str):
     return s, s + 86400
 
 
+_NIP01_ESC = {"\n": "\\n", "\"": "\\\"", "\\": "\\\\", "\r": "\\r", "\t": "\\t", "\b": "\\b", "\f": "\\f"}
+
+
+def _nip01(v) -> str:
+    """NIP-01 serialization: in strings escape only \\n \\" \\\\ \\r \\t \\b \\f; every other character verbatim (UTF-8)."""
+    if isinstance(v, str):
+        return '"' + "".join(_NIP01_ESC.get(c, c) for c in v) + '"'
+    if isinstance(v, list):
+        return "[" + ",".join(_nip01(x) for x in v) + "]"
+    if type(v) is int:
+        return str(v)
+    raise ValueError("value outside NIP-01 event types")
+
+
 def event_id(ev) -> str:
-    return _h(json.dumps([0, ev["pubkey"], ev["created_at"], ev["kind"], ev["tags"], ev["content"]], separators=(",", ":"),
-                         ensure_ascii=False).encode()).hex()
+    return _h(_nip01([0, ev["pubkey"], ev["created_at"], ev["kind"], ev["tags"], ev["content"]]).encode("utf-8")).hex()
+
+
+def _types_ok(o, spec) -> bool:
+    for k, kind in spec.items():
+        v = o.get(k)
+        if kind == "int" and type(v) is not int: return False
+        if kind == "int?" and v is not None and type(v) is not int: return False
+        if kind == "str" and not isinstance(v, str): return False
+        if kind == "hex64" and not (isinstance(v, str) and HEX64.match(v)): return False
+        if kind == "date" and not (isinstance(v, str) and DATE_RE.match(v)): return False
+    return True
+
+
+HEADER_TYPES = {"schema": "str", "date": "date", "start": "int", "end": "int", "count": "int", "first_position": "int?",
+                "last_position": "int?", "prev_last_position": "int", "prev_root": "hex64", "merkle_root": "hex64"}
+LINE_TYPES = {"ledger_position": "int", "proof_id": "str", "commitment_hash": "str", "profile": "str", "record_event_id": "hex64",
+              "created_at": "int"}
 
 
 def parse_day(text: str):
@@ -82,25 +114,29 @@ def parse_day(text: str):
             objs.append(o)
         except ValueError:
             codes.append("line_not_canonical"); objs.append(None)
-    if not objs or not isinstance(objs[0], dict) or set(objs[0]) != HEADER_KEYS or objs[0].get("schema") != SCHEMA:
+    if (not objs or not isinstance(objs[0], dict) or set(objs[0]) != HEADER_KEYS or objs[0].get("schema") != SCHEMA
+            or not _types_ok(objs[0], HEADER_TYPES)):
         return None, [], sorted(set(codes + ["bad_fields"]))
     hdr, recs = objs[0], objs[1:]
-    if any(not isinstance(r, dict) or set(r) != LINE_KEYS for r in recs):
+    if any(not isinstance(r, dict) or set(r) != LINE_KEYS or not _types_ok(r, LINE_TYPES) for r in recs):
         codes.append("bad_fields")
         recs = [r for r in recs if isinstance(r, dict) and set(r) == LINE_KEYS]
     return hdr, recs, codes
 
 
 def check_day(text: str, prev_hdr=None):
+    """-> (header, codes, records, notices). notices = late_record: a real record first published after its own day's log was
+    sealed. It is reported, not a failure: the issuer's recovery path is to publish it in the next log (PROFILE.md section 4)."""
     hdr, recs, codes = parse_day(text)
+    notices = []
     if hdr is None:
-        return None, codes
+        return None, codes, [], notices
     if "bad_fields" in codes:
-        return hdr, sorted(set(codes)), []   # the day's lines are not this profile's: no further rule is meaningful
+        return hdr, sorted(set(codes)), [], notices   # the day's lines are not this profile's: no further rule is meaningful
     try:
         s, e = day_edges(hdr["date"])
     except (ValueError, TypeError):
-        return hdr, sorted(set(codes + ["bad_day_edges"]))
+        return hdr, sorted(set(codes + ["bad_day_edges"])), [], notices
     if hdr["start"] != s or hdr["end"] != e:
         codes.append("bad_day_edges")
     if hdr["count"] != len(recs):
@@ -123,7 +159,7 @@ def check_day(text: str, prev_hdr=None):
         if r["created_at"] >= e:
             codes.append("created_at_after_day")
         elif r["created_at"] < s:
-            codes.append("late_record")
+            notices.append("late_record")
     if prev_hdr is not None:
         try:
             ps, _ = day_edges(prev_hdr["date"])
@@ -136,7 +172,7 @@ def check_day(text: str, prev_hdr=None):
         carried = prev_hdr["last_position"] if prev_hdr["count"] else prev_hdr["prev_last_position"]
         if hdr["prev_last_position"] != carried:
             codes.append("prev_last_mismatch")
-    return hdr, sorted(set(codes)), recs
+    return hdr, sorted(set(codes)), recs, sorted(set(notices))
 
 
 def check_records(recs, records, issuer):
@@ -145,13 +181,24 @@ def check_records(recs, records, issuer):
         ev = records.get(r["record_event_id"])
         if ev is None:
             codes.append("record_missing"); continue
-        if event_id(ev) != ev.get("id") or ev.get("id") != r["record_event_id"]:
+        try:
+            same_id = event_id(ev) == ev.get("id") == r["record_event_id"]
+        except (KeyError, ValueError, TypeError):
+            same_id = False
+        if not same_id:
             codes.append("record_id_mismatch"); continue
-        if ev.get("pubkey") != issuer or not bip340.verify(bytes.fromhex(ev["pubkey"]), bytes.fromhex(ev["id"]), bytes.fromhex(ev["sig"])):
+        try:
+            sig_ok = (ev.get("pubkey") == issuer and isinstance(ev.get("sig"), str) and len(ev["sig"]) == 128
+                      and bip340.verify(bytes.fromhex(ev["pubkey"]), bytes.fromhex(ev["id"]), bytes.fromhex(ev["sig"])))
+        except (ValueError, TypeError):
+            sig_ok = False
+        if not sig_ok:
             codes.append("record_signature_invalid"); continue
         try:
             c = json.loads(ev["content"])
-        except ValueError:
+            if not isinstance(c, dict):
+                raise ValueError
+        except (ValueError, TypeError):
             codes.append("record_mismatch"); continue
         if any(c.get(k) != r[k] for k in ("proof_id", "ledger_position", "commitment_hash", "profile")):
             codes.append("record_mismatch")
@@ -161,12 +208,17 @@ def check_records(recs, records, issuer):
 
 
 def check_chain(days, records=None, issuer=None, ots=None, headers=None, claims=()):
-    """days: list of file texts, oldest first. Returns one result dict per day."""
-    out, prev, chain_ok = [], None, True
+    """days: list of file texts, oldest first. Returns one result dict per day.
+    'anchored' needs (1) the day confirmed, (2) the chain checked from GENESIS (first file: prev_root zeros, prev_last_position 0),
+    else a pre-window omission is invisible (Echo, review 2), and (3) no failed day anywhere before it: a failed day is permanent
+    evidence that the history is broken, so every later day stays not_anchored (terminal by design; PROFILE.md section 7)."""
+    out, prev, chain_ok, from_genesis, checked_from = [], None, True, None, None
     for text in days:
-        res = check_day(text, prev)
-        hdr, codes = res[0], list(res[1])
-        recs = res[2] if len(res) > 2 else []
+        hdr, codes, recs, notices = check_day(text, prev)
+        codes = list(codes)
+        if hdr is not None and from_genesis is None:
+            from_genesis = hdr["prev_root"] == ZERO and hdr["prev_last_position"] == 0
+            checked_from = hdr["date"]
         if hdr is not None and records is not None:
             codes += check_records(recs, records, issuer)
         date = hdr.get("date") if hdr else None
@@ -185,12 +237,13 @@ def check_chain(days, records=None, issuer=None, ots=None, headers=None, claims=
         codes = sorted(set(codes))
         if codes:
             status = "failed"
-        elif state == "confirmed" and chain_ok:
+        elif state == "confirmed" and chain_ok and from_genesis:
             status = "anchored"
         else:
             status = "not_anchored"
         chain_ok = chain_ok and not codes
-        out.append({"date": date, "status": status, "state": state, "height": height, "codes": codes})
+        out.append({"date": date, "status": status, "state": state, "height": height, "codes": codes, "notices": notices,
+                    "checked_from": checked_from, "from_genesis": bool(from_genesis), "after_failure": not chain_ok and not codes})
         prev = hdr if hdr is not None else prev
     return out
 
@@ -217,7 +270,8 @@ def run_vectors(path):
         got = check_chain(t["days"], recs, v.get("issuer"), ots, {int(k): x for k, x in (t.get("headers") or {}).items()},
                           set(t.get("claims") or ()))
         want = t["expect"]
-        same = [(g["status"], g["state"], g["codes"]) for g in got] == [(w["status"], w["state"], w["codes"]) for w in want]
+        same = ([(g["status"], g["state"], g["codes"], g["notices"]) for g in got]
+                == [(w["status"], w["state"], w["codes"], w.get("notices", [])) for w in want])
         ok += same; bad += not same
         print(("PASS " if same else "FAIL ") + t["name"] + ("" if same else f"\n  want {want}\n  got  {got}"))
     print(f"{ok}/{ok + bad} vectors pass")

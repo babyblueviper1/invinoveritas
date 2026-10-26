@@ -5,8 +5,10 @@ attestations it reaches. A Bitcoin attestation counts as CONFIRMED only when the
 and the header's merkle root equals the message the path computes; the header's proof of work is checked too. A calendar's
 pending attestation is never confirmation, whatever the calendar claims.
 
-The header is input, not something this file fetches: obtain it from your own node or from explorers you choose (two that agree is
-the minimum we suggest). A valid proof of work shows real work on that header; it does not show the block is in the best chain."""
+The header is TRUSTED INPUT, not something this file fetches: obtain it from your own node or from explorers you choose (two that
+agree is the minimum we suggest). The header must carry the PINNED difficulty for its retarget epoch (PINNED_BITS) and meet that
+target; a header's self-declared bits are never trusted (Echo, review 2: regtest bits 0x207fffff pass at nonce 0). Even so, proof of
+work only shows real work on that header, not that the block is in the best chain: the protection is where you got the header.""" 
 import hashlib
 
 MAGIC = b"\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94"
@@ -102,9 +104,15 @@ def attestations(ots: bytes, digest_hex: str):
     return out
 
 
-def _pow_ok(header: bytes) -> bool:
-    bits = int.from_bytes(header[72:76], "little")
-    exp, mant = bits >> 24, bits & 0xFFFFFF
+# Expected difficulty per retarget epoch (height // 2016), from headers two explorers agree on. A header's own bits field is NOT
+# trusted: with a self-declared easy target (regtest 0x207fffff) a forged header passes proof of work at nonce 0 (Echo, review 2,
+# 2026-10-26). A height whose epoch is not pinned here cannot reach "confirmed": extend the table from your own node.
+PINNED_BITS = {481: 0x17021EF0, 482: 0x17020093}
+
+
+def _pow_ok(header: bytes, bits_expected: int) -> bool:
+    """Proof of work under the PINNED target (the caller has already required header bits == pinned bits)."""
+    exp, mant = bits_expected >> 24, bits_expected & 0xFFFFFF
     if mant & 0x800000 or exp < 3:
         return False
     target = mant << (8 * (exp - 3))
@@ -112,10 +120,16 @@ def _pow_ok(header: bytes) -> bool:
     return h <= target
 
 
-def check(ots: bytes, digest_hex: str, headers: dict):
-    """-> {"state": "confirmed"|"pending"|"none", "height", "codes"}. headers = {height(int): 80-byte header hex}.
-    codes (each a reason the proof does not confirm): ots_bitcoin_header_missing, ots_bitcoin_header_mismatch,
-    ots_header_invalid_pow. A digest mismatch or a malformed proof raises OtsError (the caller reports it as failed)."""
+NOT_CONFIRMING = {"ots_bitcoin_header_missing", "ots_bits_unpinned"}   # reasons a proof is not (yet) confirmation; the rest are failures
+
+
+def check(ots: bytes, digest_hex: str, headers: dict, pinned_bits: dict = None):
+    """-> {"state": "confirmed"|"pending"|"none", "height", "codes"}. headers = {height(int): 80-byte header hex}; the header is TRUSTED
+    INPUT (get it from your own node or explorers you choose). Checks: the epoch's bits are pinned and the header carries exactly them,
+    proof of work under that target, merkle root == the message the proof computes.
+    codes: ots_bitcoin_header_missing / ots_bits_unpinned (not confirmation, not failure); ots_header_bits_mismatch,
+    ots_header_invalid_pow, ots_bitcoin_header_mismatch (failures). A digest mismatch or a malformed proof raises OtsError."""
+    pins = PINNED_BITS if pinned_bits is None else pinned_bits
     att = attestations(ots, digest_hex)
     codes = []
     for a in att:
@@ -127,7 +141,12 @@ def check(ots: bytes, digest_hex: str, headers: dict):
         hb = bytes.fromhex(hx)
         if len(hb) != 80:
             codes.append("ots_bitcoin_header_mismatch"); continue
-        if not _pow_ok(hb):
+        want = pins.get(a["height"] // 2016)
+        if want is None:
+            codes.append("ots_bits_unpinned"); continue
+        if int.from_bytes(hb[72:76], "little") != want:
+            codes.append("ots_header_bits_mismatch"); continue
+        if not _pow_ok(hb, want):
             codes.append("ots_header_invalid_pow"); continue
         if hb[36:68] != a["msg"]:
             codes.append("ots_bitcoin_header_mismatch"); continue

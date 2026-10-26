@@ -2012,7 +2012,7 @@
    ]
   },
   {
-   "name": "late record: created on day 2 (signed), first published in day 3's log",
+   "name": "late record: created on day 2 (signed), first published in day 3's log -> a NOTICE, not a failure (recovery path)",
    "days": [
     "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
     "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
@@ -2142,11 +2142,1013 @@
      "codes": []
     },
     {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [
+      "late_record"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "day start edge: created_at = previous day's 23:59:59 in day 3's log -> late_record notice",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"fdf620372047361ecd0d497ee439e672362a6829e7e3342652d087190e4447d4\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627199,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"b9f8e6e6e3474196befe9c8e5fe6f5cc9719f86d099faee5e2cba10488413952\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627199,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "b9f8e6e6e3474196befe9c8e5fe6f5cc9719f86d099faee5e2cba10488413952",
+     "sig": "4724b8eb47ac8753ff067aa79a03f5afbab241b661c96fc3d277c5ac27693931042c66f1373314030227f2c019a9afbd4831c4db75ec53f1d1c83b41455cea02"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [
+      "late_record"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "empty-day carry-forward exercised: day 2 empty and correctly carries 3; day 3 claims prev_last 5 and starts at 6",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":6,\"last_position\":7,\"merkle_root\":\"21c70456a83a933e85ba5ccc61e77a0c728abd78692656c2c0281d01150913dc\",\"prev_last_position\":5,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":6,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":7,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": null,
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
      "status": "failed",
      "state": "published",
      "codes": [
-      "late_record"
+      "prev_last_mismatch"
      ]
+    }
+   ]
+  },
+  {
+   "name": "issuer pin: every record validly signed by a different key",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"c9e5131f3df4e9699588b402f7303a8c261ecba449bfe00955b9e565264856a5\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"b098826c5445c04a0ae07e5688f815516a0066e55902c5707f5a7e145c489dc1\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"5a7f53dd526d2120a2f496be5ca62cd8d20459ad9eb142b83ce7f385f864fc12\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"410b4a20df90d63da9e8accd5b03b953d8d4fa8076d756ab37bfb3d9d7a87ee9\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"3e10f2e0ae1cc54e85af112e667c70ae2406d3d5c8722df0374ddcea439273f8\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"8a3485e89388b4f774030a4c9e6b12a4c7f83a30d9c670396cf914dc2377bb98\",\"prev_last_position\":3,\"prev_root\":\"c843feba33af7d2041cb8a719d06a163da1c68cf3616876078aced98c0d5fbb2\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"24a0807f94a96c7f7fce219d2e2f97ee143a9160086dc2470a06c1210b67b61f\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"e16f9c9a892070393eb6462ed6d8cbeda943a2593c90a0a8577f3d43ac4eb51a\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "4cc0ced95aa34bee45356334cf82a7d9af44c30a769e7c867f9f7dbf28d0043d",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "b098826c5445c04a0ae07e5688f815516a0066e55902c5707f5a7e145c489dc1",
+     "sig": "65c273036154777f9f836ecebb1d4b4ae31f4316ef4751105e86a9c2191fd7c232d0beaca5697c449c5e7a6e467e71977801ac697a19e977031c2a4f9a76c3b6"
+    },
+    {
+     "pubkey": "4cc0ced95aa34bee45356334cf82a7d9af44c30a769e7c867f9f7dbf28d0043d",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "5a7f53dd526d2120a2f496be5ca62cd8d20459ad9eb142b83ce7f385f864fc12",
+     "sig": "400d4bcf9f7b77fbfe0a476962c204cce3d251ed76b950a52b18c5712c7e9a2117a50fc7ee93d1a59ff42081acbb45836544e0602266897acca6ab44a59caa2a"
+    },
+    {
+     "pubkey": "4cc0ced95aa34bee45356334cf82a7d9af44c30a769e7c867f9f7dbf28d0043d",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "410b4a20df90d63da9e8accd5b03b953d8d4fa8076d756ab37bfb3d9d7a87ee9",
+     "sig": "de1ea9696a6963e814e1e88d1c745d4fcd2fe1605d9dfa1042355471a95fa7ce18cd46e6cd91f9107cdbac2df754fd1dc06b690e44f668c5a168ad9b6f63ba29"
+    },
+    {
+     "pubkey": "4cc0ced95aa34bee45356334cf82a7d9af44c30a769e7c867f9f7dbf28d0043d",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "24a0807f94a96c7f7fce219d2e2f97ee143a9160086dc2470a06c1210b67b61f",
+     "sig": "e2868d31b499aef94a9d8ed061d3988051459140ccbe8f9f2e235544b3fc96e2b03943293a7130c66b4e5afed8e8274bbbb900be58eacc1f24d3e6afe2a1d58e"
+    },
+    {
+     "pubkey": "4cc0ced95aa34bee45356334cf82a7d9af44c30a769e7c867f9f7dbf28d0043d",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "e16f9c9a892070393eb6462ed6d8cbeda943a2593c90a0a8577f3d43ac4eb51a",
+     "sig": "fa1a847b745d508ab6cc0d328a970ea4823cd87f9bbf29d2de9001937ffffcf731dd2686a61ad2a84405fc849f38f65cf3206a534432cb0a673faf451e947125"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "record_signature_invalid"
+     ]
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "record_signature_invalid"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "NIP-01 event id: a control character in a tag is serialized verbatim (not \\u0001)",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"e567a878742e10c5b0e7a2b63ede04f99810de55c2c4527b0ae87a3f34670acd\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"7efff1d327696d68608c674d81db2e7620fd8f35d0f4ebad82622e2e2b793bd1\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"d5e2f745937f4f4b795644834c6cf7091904832d3080950a03b7fb4e0721259d\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8a49ff60252d650ee0af05285ca755c21a51eed6fdfdfe858ce1ed1f77c06834\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"cdf41af301879d9bb2324c90b01e5ba9a811c4867499b282848417329d4f07a7\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"af8310224816b4cea7620a2ee3f031d76b1f814ed7d593a3b82ab38696ae14a8\",\"prev_last_position\":3,\"prev_root\":\"79bd86e9a4e699971321fdd8761c88676541ae19e68321a45de4089f3be76840\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"5193747da2b64b0d8986065bdbe3df2bcf4ceb352ba04c6f5a1c087eca89ce7d\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"13a5d3effa7dab7b39301f1eeb421eba5b3ac1be3bdc6784a9e3961a1ca670c7\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1\u0001ctl"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "7efff1d327696d68608c674d81db2e7620fd8f35d0f4ebad82622e2e2b793bd1",
+     "sig": "e16fee9dd17dedffed4de76b08dc7e82e66345e8e258db625cc0358826d0e2ef785853926ba63128f7a5cc080b37158307af667f6a85a712078d629c4491336d"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1\u0001ctl"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "d5e2f745937f4f4b795644834c6cf7091904832d3080950a03b7fb4e0721259d",
+     "sig": "4c111aeff91cc76a937dff4ef2de0a0d4dc99f150cb62cee3b1dc4aa185a4a13b35c499218e38c0af6cb4033458232601c898cc8eb753805aecdf939b4676c01"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1\u0001ctl"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8a49ff60252d650ee0af05285ca755c21a51eed6fdfdfe858ce1ed1f77c06834",
+     "sig": "41926539566f872d8ca22920b81b7901c9a34874f251bfb083ab62698f0526e91b4e86ffbfbab139f366a686e66fc27255731610279d70e69010e3dae1eb874d"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1\u0001ctl"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "5193747da2b64b0d8986065bdbe3df2bcf4ceb352ba04c6f5a1c087eca89ce7d",
+     "sig": "f9e2caa6f4c754a0ae9b725714cdc653a59cef1f94fe31a7ba95dddd3521d0c76c7a72c00a9d76743b7ca4d4e19e912bf1f430d98a0f5c53db2b892feedac09b"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1\u0001ctl"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\\u0001ctl\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "13a5d3effa7dab7b39301f1eeb421eba5b3ac1be3bdc6784a9e3961a1ca670c7",
+     "sig": "0164b6173cbfbfae2593dca90d77eb871c623927f42b48e83ee122b92b12bd09bfe347cd174a3fae6147cb27117db50c3b2910843b073c54623ce8dda1bf0351"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    }
+   ]
+  },
+  {
+   "name": "type: created_at as a string -> bad_fields, not a crash",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":\"1792454400\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ]
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    }
+   ]
+  },
+  {
+   "name": "type: null prev_last_position on a non-empty day -> bad_fields",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":null,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ]
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    }
+   ]
+  },
+  {
+   "name": "date not zero-padded (2026-10-2) -> bad_fields (one spelling per day)",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-2\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ]
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    }
+   ]
+  },
+  {
+   "name": "signed record with no sig -> record_signature_invalid, not a crash",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "record_signature_invalid"
+     ]
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
     }
    ]
   },
@@ -3210,6 +4212,51 @@
    }
   },
   {
+   "name": "ots trailing bytes after the proof -> malformed",
+   "ots_only": true,
+   "digest": "1fcb424b300d0334657de946a6b34f9212fde91d677da3bf1e2ffc93a16ca311",
+   "ots_hex": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401081fcb424b300d0334657de946a6b34f9212fde91d677da3bf1e2ffc93a16ca311fff0086cc51e1b87fbd82808f010ecfebdcbca9fde494242fa426e60491108f0204cce41eceb0eafa042bc19d009efbca574099528bcd55e8bc0c83f832fcb475208f0207f407c242abc9e0e1dcbd91ee74eb54c70f28b5fdcf834dcf0f2ee305a25860a08f1046aca2225f008850ff7a9c551b36dff0083dfe30d2ef90c8e2e2d68747470733a2f2f616c6963652e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f726708f120dad21d79c168ad0c64bb62d71ae246075e23fe26584311aa11733df3ea5b091f08f020197639b82e4477b7b5bda86fe29d62b9de419c4c6f9a79d666950607ba1ac14708f120600abae20f3aba5797cda8a8889e406216d0bbce422118382cc402729bb333ff08f0203b2d2d48bd1a67a0d1a80e66722d4693e2b098a3d9c982e6d39a8993f67039b408f120e9fbe4d11637a56e2d82bd2a831f68a2ec19cb1cddc935b6f7473985f2fb7e5f08f12032dadaa87c42a8d0d49e3ccd9ebe6e305604379d469ae72a10e32abd1e920ba708f120b923d76ad0165143b58fe8757752a6f75406672d818cd7137fea06be6c59acd508f020d486cd223e87a411062c67ddb357b3ff2a9d9fa3fb6bc1e0b1a5a167cbc1f89b08f12051410ae2762983d232193417b3dbc24c04387fc3a4aa8661a1eba4195bf02e8a08f0203c41b5570f12ca38cb238e18a16e4507f8280b25a8c53ffc5506d9e12fd7611208f12069470ba549b0ce63d4c5655b9ddc613aa97bd1b04744cea92a6c16cb67b1944008f0200acea6cdc8e989b20fffff57bbb38c88139b5554effe2db1c858f1e6b567bac208f15901000000016f92c706a804e5dc803e63bdee3a5fba221f40db5a82ce36420dabc8d861e8720000000000feffffff029d790000000000001600147702d9486299afdeb109a19cb0ff67ccc2b9a1b50000000000000000226a20f00407d00e000808f02092443e7569dff0cb2e217c54f7252230a3696b8827963d171becaa00fde5d60b0808f1200aa344015872dff46b8eb2890bb5edf4932ffbccbcadac8ade364d675a95b2750808f12098a47103270cd121741e0d844d8810976973beb1fa5e75d7dbb33aebeaf89d720808f0200360081d841dfee26495213417e72798436ef8e78ae567730f0d690c0a7f12170808f0208932f5aa3c24bac603699d7b52b894188dfc9b2af2ac1e85049a16dae4051ec80808f1202f7bc7cb22b6cd6c95195459bd2dc056505355e1081ce2ba7fec69ad1b5ca76e0808f020856c5c6310735281a13f09512616560f16a2dc3af7ca0e29b02943050ee438e80808f020fe324e1b510bcfe67386f721338cb98d42f2f34c45e9e58154de6570a3c651430808f1206eac01f9cccda410f44e1d6e9bf5f908deb9b11281774cba471fad7d2a9a7c650808f120f74a738c974b842c44e6ad3a11850c645777ba32b3d993561f9c359452bf2d0f0808f1209c3e91b6f59a63cf9c664d1400f28e1421750f4eba685c8d3b376e3f30c674520808f020767f23d30747fffa1e29f0bfa20c65c67826bced5722d9e3123ffa623afee4bd0808f020c3652de67f94603c3297ed40a27f00ddbe684a6ffdb1a257e59e5dcda57442cc0808000588960d73d719010389a03bfff0107a1fe4abdfb7e3b5c3018e9b7672004108f120b5e1126acce8e89d43b9885767e1697ce79cd4274c8eaea32f62c6bd405a6c6508f120bcc55e62a03fc5d68f6d380c3ae9d7efe65d100b9981bce09582de8c0e84a90508f1046aca2227f0086ffafda82c8c8f010083dfe30d2ef90c8e292868747470733a2f2f66696e6e65792e63616c656e6461722e657465726e69747977616c6c2e636f6dfff0107d4cd49fc1a31497c14a72a9dfb230c308f12072c69fe7fa7251a5665206f53e199990a264eaef4650aa8fc8e955c8ccd03c9008f1046aca2228f0087753571a725605010083dfe30d2ef90c8e232268747470733a2f2f6274632e63616c656e6461722e636174616c6c6178792e636f6df008e73742678ba5bbb508f0104355bacda680af3f1ff386fef6b8234208f0201be2a2c7fdcdc4fb982c989ce21e26b88e609c85852972f9a56604e0249347a808f0206acae7cc3b8dbfc75137203ae34930ae87d3bc1c607754e6b6249d254036241308f1046aca2226f00823300e2bc839e608ff0083dfe30d2ef90c8e2c2b68747470733a2f2f626f622e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f726708f1205232239e659182bc3aa1222f1866ce2eee59a8b2093641c61571309757a9600a08f1207c354da8f2c9e8ae8673026ea85204f3f2bf5d500128f23a3f82fb258841b9ed08f12039358c15c8453927e0c773bbd3080912d21a6d2c534d46c1164b3bee504c383308f020bd1e69fca1996dd3c20cf980da65d70c16d9cec4a12a212dd3571c5b4dab884808f0204be691492407007718ba24ef3cc785c09167dd6814b997f28ea4a93d9afeca0108f0209ac14a56235a4896337b94e40d887810ea0ec4bb176b36f5d07d577fe2e924b708f120ec6250f92065152a0d689a9ce384bfc11ed6f4db10493dcb9173c64786d8b46208f0204fb123a77a46f43265914920b7c4e542d1f50b0f2bf853c78a30b90d8faf8c7308f020989480d9e758f6ac09b7bce527827df6448db0737d6b8a54f6ff899271cb203508f120962943cd69a51cd7b22e3535d56d0d00b6bae8f8390c5cc1b7a7d1a83a3c3f5408f020993457556f732a81494a1e683ff456f9c485c2746579488489bf6d58a02f4e2808f1200f5c70e52c2b5fdb2988a10d7d3e2bfa8218f00f09a4338c05cb6b451fd9210a08f0204ff50ddf5ca6f5111e0ae5e3839adcc7fe8ccccbfa80390c891dfabf52a4ee3008f15901000000013dcad87f7a36e31694d13c06fdd002ff37e7386da0aab3eb88b4d057e8094ea60000000000feffffff02aab50000000000001600141158cac68816b9dcccf5c05f3d7d7b395f5de4090000000000000000226a20f00409d00e000808f1202439eb1d08113cbf9d03441325590b6d0b4e9be1d4070ad870f308dfe1ac59120808f020dd79ce3c15dad8dacedad01013f0dd9802ca45e4ea5de33690f35077501cac410808f02064365c1b8a727e9c47fa87c92ae39802f9e9b6b97275c9f3a91adb75a35590290808f120070733e6bbef6a7be23e29a77e818b6eccefa28b47819155f83337e68563a12b0808f0206e6281da16dbab8cbc455d6ceffe4041309f36850ebe0376dfe9545b4e9867a70808f02053c85e175905081ac49afe538015a2ad75bf2891ce57f232cc37b2ad6da052600808f12083c5221105f991aa7a63df29a4e4b8d01a71d21249f2e0b05f15835a874a21920808f020a3bd4a22025c489a8d9c4aca031f9fc983c0eb8f5fd4d76dbd2b490576f231f80808f020aaf072fca6519701583f3f09872971fa0ef26a00707bf28973a31e3a42f4bbd90808f1209609f7d8364c5b0115882f124ac6b71f770520151829e4ccdd7b61e70bdbc61f0808f0205691b40edcf9b4320c7406b24036b21af09328a47033b45f33a1fd74c936f0bb0808f02040e6e7bf028fa1a918113801353985f092ee45fdc46f8f198d3cc0b6bfb3c0660808f0205a3e879e93d863ba8b97110ee03376e3edfe8763daeb152ce6ab5503fd3d66750808000588960d73d71901038aa03b00",
+   "headers": {
+    "970761": "0000be29411f01e42eaf2a424c71ca9cca9800640f8f8c71c038010000000000000000000bad751fb2e1ce7091516e4b3aa6db67ed08884c7d0e4826ac00fa76da4293130b2dca6af01e02173128d8a2",
+    "970762": "00000030d848bf868f73f20c17c73193d9f693d4d5fb630022d0010000000000000000002d388b45289aa5c777c4241db29c421f3fa20bd9b870ea02472b6e81efb271e0dc2dca6af01e02177962754e"
+   },
+   "expect": {
+    "error": "ots_malformed"
+   }
+  },
+  {
+   "name": "FORGED header (Echo review 2): a never-stamped digest, header with self-declared easy bits 0x207fffff and valid PoW under them -> NOT confirmed",
+   "ots_only": true,
+   "digest": "16e04b4a692f0eb2941d3c37facd4e0b4ca38df71a0a41ebbbfe646295b049a0",
+   "ots_hex": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294010816e04b4a692f0eb2941d3c37facd4e0b4ca38df71a0a41ebbbfe646295b049a0000588960d73d719010389a03b",
+   "headers": {
+    "970761": "01000000000000000000000000000000000000000000000000000000000000000000000016e04b4a692f0eb2941d3c37facd4e0b4ca38df71a0a41ebbbfe646295b049a040baf668ffff7f2003000000"
+   },
+   "expect": {
+    "state": "pending",
+    "height": null,
+    "codes": [
+     "ots_header_bits_mismatch"
+    ]
+   }
+  },
+  {
+   "name": "a height whose difficulty epoch is not pinned -> not confirmed (ots_bits_unpinned)",
+   "ots_only": true,
+   "digest": "13e2ac9cef4e6131c44d17a89b43805f0586a82b3aee2ce04e03374685bbdd23",
+   "ots_hex": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294010813e2ac9cef4e6131c44d17a89b43805f0586a82b3aee2ce04e03374685bbdd23000588960d73d719010387c33d",
+   "headers": {
+    "1008007": "01000000000000000000000000000000000000000000000000000000000000000000000013e2ac9cef4e6131c44d17a89b43805f0586a82b3aee2ce04e03374685bbdd2340baf668ffff7f2001000000"
+   },
+   "expect": {
+    "state": "pending",
+    "height": null,
+    "codes": [
+     "ots_bits_unpinned"
+    ]
+   }
+  },
+  {
    "name": "end to end: day 3 stamped, calendar only -> not anchored (pending)",
    "days": [
     "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
@@ -3493,6 +4540,568 @@
    "claims": [
     "2026-10-22"
    ]
+  },
+  {
+   "name": "END TO END: genesis chain, day 3 confirmed at block 973231 + its header -> day 3 anchored",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "anchored",
+     "state": "confirmed",
+     "codes": []
+    }
+   ],
+   "ots": {
+    "2026-10-22": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e892940108fccca2c3f7e116648b53147816167b37fb58378546ff732a7fc7259463be2e6cfff010318aef55ac4b0a70886902389ae6896908f0202bc774052f53dbdaad2f3bac616129b07460a2f6ce1a3459d277f4a3237d8b9708f02034578bef1b993ae44e2958beb5d84d72021c61e364069e1d6ba2df0060f4291608f1046adf3727f0083fa0024b96fcf0980083dfe30d2ef90c8e232268747470733a2f2f6274632e63616c656e6461722e636174616c6c6178792e636f6dfff00847edb3ce65c955d008f0105a1f45a74dfaaf63aaa59395dafeba2b08f020ad77ea197411bbc5308f473b2c8ddc5bafee445f5d7544b648bba0e1740fd20008f0203424718bbf584d41b5a8c1d5767153e81a9eb988a2f7a71d284591a6fe92266008f02035b594a590a15404d0fc0774887d5ee2584901ae9c66a7e3ec59c975752b8db008f1046adf3724f00815025d85e7d77a610083dfe30d2ef90c8e2e2d68747470733a2f2f616c6963652e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f7267fff0104cc7d63ec142489e02a559845a631f8008f120cf9915150727f23ec4dc4d0ddd9053984607a4b1e301eb9bcef79ec56f8fa0fb08f12031bc39e4265c2bdf2f4416584e2ef52ff702cedf07daa3352519757f92d52c4f08f1046adf3726f0088402efa09adf41050083dfe30d2ef90c8e292868747470733a2f2f66696e6e65792e63616c656e6461722e657465726e69747977616c6c2e636f6df008dbcdde29a9d93bea08f0108ed85f5ba2a682b5e22414355e00b3c108f02077598513b23d6ec74cd9e8efe15a81d7a7456cd625bb6838917c37da78afd38f08f120ec47aee8a019dd26e6ba8018bd170617aa0e7552eadcce3fc07ce5388b9abfe208f020f2b5a6545fa2ab2e796353d27429ba564538d889f69031b54135d51b53dc6fd208f1046adf3725f00863946fb1453f0246ff0083dfe30d2ef90c8e2c2b68747470733a2f2f626f622e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f726708f0205294745545368fe8be0b30cb586dfc06f1925222e2636c35ee534fd5f125b52a08f12039d1c9e80124bdbf7a3631e678667abc8589909095d1a3b066d43202c041620d08f020f4ab3151f166d2d3486b595579159a768db46ec6d414c12ae1f749eb5c90872308f020e677941aafbc25ce262cc13f2130c0e49c5007f2dfddea52c26553815763bd5708f0209c85a5ad914e76a3a03ec7dfe1dd91b5f0cd992bc43f7f9ef0053da99ebb63cf08f020c27bc5c6d8577d546bc27faa2886b679b8ef304b53003494ba2cac6e0572c45208f0201cb1c0c88546b883d2c015ee41e8ebff423ce689be8df4525aa7f4f68540b0fe08f02056053b6a7e929e5f28127f1f1a2dd65648456a696cebb5318e2b7843569cda0a08f0206b6d957f9fe9516aceeaa0f40e00f2d3313ce7752b9b4ae8238e39474343edec08f0200e108d0378699b16cd6659d934a04161e8f48718078d6d25aa6a275d502c068f08f15901000000018a3ff5289d79cd93e9b597d388e10afa21b8b21164dd9dfd7071b947ba71db460000000000feffffff02e500010000000000160014d60cd6fa00ecb8ea50fd67e5bdeca804c30d75240000000000000000226a20f004aed90e000808f120865cb02e9c45c9507d892084f6fec7d541eb8de3f2df9b45b1ea73b9741aabc90808f120e2a5a400cbc12bd2eb40c523f42be71b656914e86d996b236d0b724c3918c0530808f120006f267400f8e0f28b0bf20c17efc10b2e9bf269a4b5826b219209ef2419a4760808f12052f07ef895968720bf4e537e26aae6b0365ebde8d581d30d256489a9426a7eb50808f1208342848f74c5cdc5edc38421f754a76bdb10cd200e7d1a7bb59197b5892df7c00808f1200bb131203d779d3e571046063dab7ae1f16aa520b433286abcbcd34cb5b01a560808f120bb5b82264e049a64604de8008e818a45869b285659d53efe800c98f42bc4c90c0808f020415b891f57844429e1dbdac8a750b0b6682f9a974392d6db03a0a6135a4cbedd0808f1205684e2254fbef02a0c141aa27139a6b07eb2b07ce805eab8b7c0cd529b6ab8a90808f1206b79fd1003e247ed4aa8f176c7e99531415a749f43f4c47e948f5c4f1aab566b0808f02051e0643dd84bdab1444f13434275cc41d0a82c555a2101708a115041f605fc480808f1206e1ecba314707b0e537fba2d3aa63365c1b17ff9f9eabe473900ee93cb07cff30808000588960d73d7190103afb33b"
+   },
+   "headers": {
+    "973231": "00a00520af303b87126813f6e1a1376e92e7eb6b8254a3b975480100000000000000000063e2b4a8ada2c91855029aca72897b6a8e624189e160160f4fe1eb13fdaedd7aba3cdf6a930002174420c39f"
+   }
+  },
+  {
+   "name": "checked from day 3 only (not genesis), confirmed -> not_anchored (earlier days unchecked)",
+   "days": [
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "confirmed",
+     "codes": []
+    }
+   ],
+   "ots": {
+    "2026-10-22": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e892940108fccca2c3f7e116648b53147816167b37fb58378546ff732a7fc7259463be2e6cfff010318aef55ac4b0a70886902389ae6896908f0202bc774052f53dbdaad2f3bac616129b07460a2f6ce1a3459d277f4a3237d8b9708f02034578bef1b993ae44e2958beb5d84d72021c61e364069e1d6ba2df0060f4291608f1046adf3727f0083fa0024b96fcf0980083dfe30d2ef90c8e232268747470733a2f2f6274632e63616c656e6461722e636174616c6c6178792e636f6dfff00847edb3ce65c955d008f0105a1f45a74dfaaf63aaa59395dafeba2b08f020ad77ea197411bbc5308f473b2c8ddc5bafee445f5d7544b648bba0e1740fd20008f0203424718bbf584d41b5a8c1d5767153e81a9eb988a2f7a71d284591a6fe92266008f02035b594a590a15404d0fc0774887d5ee2584901ae9c66a7e3ec59c975752b8db008f1046adf3724f00815025d85e7d77a610083dfe30d2ef90c8e2e2d68747470733a2f2f616c6963652e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f7267fff0104cc7d63ec142489e02a559845a631f8008f120cf9915150727f23ec4dc4d0ddd9053984607a4b1e301eb9bcef79ec56f8fa0fb08f12031bc39e4265c2bdf2f4416584e2ef52ff702cedf07daa3352519757f92d52c4f08f1046adf3726f0088402efa09adf41050083dfe30d2ef90c8e292868747470733a2f2f66696e6e65792e63616c656e6461722e657465726e69747977616c6c2e636f6df008dbcdde29a9d93bea08f0108ed85f5ba2a682b5e22414355e00b3c108f02077598513b23d6ec74cd9e8efe15a81d7a7456cd625bb6838917c37da78afd38f08f120ec47aee8a019dd26e6ba8018bd170617aa0e7552eadcce3fc07ce5388b9abfe208f020f2b5a6545fa2ab2e796353d27429ba564538d889f69031b54135d51b53dc6fd208f1046adf3725f00863946fb1453f0246ff0083dfe30d2ef90c8e2c2b68747470733a2f2f626f622e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f726708f0205294745545368fe8be0b30cb586dfc06f1925222e2636c35ee534fd5f125b52a08f12039d1c9e80124bdbf7a3631e678667abc8589909095d1a3b066d43202c041620d08f020f4ab3151f166d2d3486b595579159a768db46ec6d414c12ae1f749eb5c90872308f020e677941aafbc25ce262cc13f2130c0e49c5007f2dfddea52c26553815763bd5708f0209c85a5ad914e76a3a03ec7dfe1dd91b5f0cd992bc43f7f9ef0053da99ebb63cf08f020c27bc5c6d8577d546bc27faa2886b679b8ef304b53003494ba2cac6e0572c45208f0201cb1c0c88546b883d2c015ee41e8ebff423ce689be8df4525aa7f4f68540b0fe08f02056053b6a7e929e5f28127f1f1a2dd65648456a696cebb5318e2b7843569cda0a08f0206b6d957f9fe9516aceeaa0f40e00f2d3313ce7752b9b4ae8238e39474343edec08f0200e108d0378699b16cd6659d934a04161e8f48718078d6d25aa6a275d502c068f08f15901000000018a3ff5289d79cd93e9b597d388e10afa21b8b21164dd9dfd7071b947ba71db460000000000feffffff02e500010000000000160014d60cd6fa00ecb8ea50fd67e5bdeca804c30d75240000000000000000226a20f004aed90e000808f120865cb02e9c45c9507d892084f6fec7d541eb8de3f2df9b45b1ea73b9741aabc90808f120e2a5a400cbc12bd2eb40c523f42be71b656914e86d996b236d0b724c3918c0530808f120006f267400f8e0f28b0bf20c17efc10b2e9bf269a4b5826b219209ef2419a4760808f12052f07ef895968720bf4e537e26aae6b0365ebde8d581d30d256489a9426a7eb50808f1208342848f74c5cdc5edc38421f754a76bdb10cd200e7d1a7bb59197b5892df7c00808f1200bb131203d779d3e571046063dab7ae1f16aa520b433286abcbcd34cb5b01a560808f120bb5b82264e049a64604de8008e818a45869b285659d53efe800c98f42bc4c90c0808f020415b891f57844429e1dbdac8a750b0b6682f9a974392d6db03a0a6135a4cbedd0808f1205684e2254fbef02a0c141aa27139a6b07eb2b07ce805eab8b7c0cd529b6ab8a90808f1206b79fd1003e247ed4aa8f176c7e99531415a749f43f4c47e948f5c4f1aab566b0808f02051e0643dd84bdab1444f13434275cc41d0a82c555a2101708a115041f605fc480808f1206e1ecba314707b0e537fba2d3aa63365c1b17ff9f9eabe473900ee93cb07cff30808000588960d73d7190103afb33b"
+   },
+   "headers": {
+    "973231": "00a00520af303b87126813f6e1a1376e92e7eb6b8254a3b975480100000000000000000063e2b4a8ada2c91855029aca72897b6a8e624189e160160f4fe1eb13fdaedd7aba3cdf6a930002174420c39f"
+   }
+  },
+  {
+   "name": "a failed day 1 (bad record signature) -> confirmed day 3 stays not_anchored (terminal)",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c900"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "record_signature_invalid"
+     ]
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "confirmed",
+     "codes": []
+    }
+   ],
+   "ots": {
+    "2026-10-22": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e892940108fccca2c3f7e116648b53147816167b37fb58378546ff732a7fc7259463be2e6cfff010318aef55ac4b0a70886902389ae6896908f0202bc774052f53dbdaad2f3bac616129b07460a2f6ce1a3459d277f4a3237d8b9708f02034578bef1b993ae44e2958beb5d84d72021c61e364069e1d6ba2df0060f4291608f1046adf3727f0083fa0024b96fcf0980083dfe30d2ef90c8e232268747470733a2f2f6274632e63616c656e6461722e636174616c6c6178792e636f6dfff00847edb3ce65c955d008f0105a1f45a74dfaaf63aaa59395dafeba2b08f020ad77ea197411bbc5308f473b2c8ddc5bafee445f5d7544b648bba0e1740fd20008f0203424718bbf584d41b5a8c1d5767153e81a9eb988a2f7a71d284591a6fe92266008f02035b594a590a15404d0fc0774887d5ee2584901ae9c66a7e3ec59c975752b8db008f1046adf3724f00815025d85e7d77a610083dfe30d2ef90c8e2e2d68747470733a2f2f616c6963652e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f7267fff0104cc7d63ec142489e02a559845a631f8008f120cf9915150727f23ec4dc4d0ddd9053984607a4b1e301eb9bcef79ec56f8fa0fb08f12031bc39e4265c2bdf2f4416584e2ef52ff702cedf07daa3352519757f92d52c4f08f1046adf3726f0088402efa09adf41050083dfe30d2ef90c8e292868747470733a2f2f66696e6e65792e63616c656e6461722e657465726e69747977616c6c2e636f6df008dbcdde29a9d93bea08f0108ed85f5ba2a682b5e22414355e00b3c108f02077598513b23d6ec74cd9e8efe15a81d7a7456cd625bb6838917c37da78afd38f08f120ec47aee8a019dd26e6ba8018bd170617aa0e7552eadcce3fc07ce5388b9abfe208f020f2b5a6545fa2ab2e796353d27429ba564538d889f69031b54135d51b53dc6fd208f1046adf3725f00863946fb1453f0246ff0083dfe30d2ef90c8e2c2b68747470733a2f2f626f622e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f726708f0205294745545368fe8be0b30cb586dfc06f1925222e2636c35ee534fd5f125b52a08f12039d1c9e80124bdbf7a3631e678667abc8589909095d1a3b066d43202c041620d08f020f4ab3151f166d2d3486b595579159a768db46ec6d414c12ae1f749eb5c90872308f020e677941aafbc25ce262cc13f2130c0e49c5007f2dfddea52c26553815763bd5708f0209c85a5ad914e76a3a03ec7dfe1dd91b5f0cd992bc43f7f9ef0053da99ebb63cf08f020c27bc5c6d8577d546bc27faa2886b679b8ef304b53003494ba2cac6e0572c45208f0201cb1c0c88546b883d2c015ee41e8ebff423ce689be8df4525aa7f4f68540b0fe08f02056053b6a7e929e5f28127f1f1a2dd65648456a696cebb5318e2b7843569cda0a08f0206b6d957f9fe9516aceeaa0f40e00f2d3313ce7752b9b4ae8238e39474343edec08f0200e108d0378699b16cd6659d934a04161e8f48718078d6d25aa6a275d502c068f08f15901000000018a3ff5289d79cd93e9b597d388e10afa21b8b21164dd9dfd7071b947ba71db460000000000feffffff02e500010000000000160014d60cd6fa00ecb8ea50fd67e5bdeca804c30d75240000000000000000226a20f004aed90e000808f120865cb02e9c45c9507d892084f6fec7d541eb8de3f2df9b45b1ea73b9741aabc90808f120e2a5a400cbc12bd2eb40c523f42be71b656914e86d996b236d0b724c3918c0530808f120006f267400f8e0f28b0bf20c17efc10b2e9bf269a4b5826b219209ef2419a4760808f12052f07ef895968720bf4e537e26aae6b0365ebde8d581d30d256489a9426a7eb50808f1208342848f74c5cdc5edc38421f754a76bdb10cd200e7d1a7bb59197b5892df7c00808f1200bb131203d779d3e571046063dab7ae1f16aa520b433286abcbcd34cb5b01a560808f120bb5b82264e049a64604de8008e818a45869b285659d53efe800c98f42bc4c90c0808f020415b891f57844429e1dbdac8a750b0b6682f9a974392d6db03a0a6135a4cbedd0808f1205684e2254fbef02a0c141aa27139a6b07eb2b07ce805eab8b7c0cd529b6ab8a90808f1206b79fd1003e247ed4aa8f176c7e99531415a749f43f4c47e948f5c4f1aab566b0808f02051e0643dd84bdab1444f13434275cc41d0a82c555a2101708a115041f605fc480808f1206e1ecba314707b0e537fba2d3aa63365c1b17ff9f9eabe473900ee93cb07cff30808000588960d73d7190103afb33b"
+   },
+   "headers": {
+    "973231": "00a00520af303b87126813f6e1a1376e92e7eb6b8254a3b975480100000000000000000063e2b4a8ada2c91855029aca72897b6a8e624189e160160f4fe1eb13fdaedd7aba3cdf6a930002174420c39f"
+   }
+  },
+  {
+   "name": "end to end: day 3 confirmed + its block header -> anchored",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": []
+    },
+    {
+     "status": "anchored",
+     "state": "confirmed",
+     "codes": []
+    }
+   ],
+   "ots": {
+    "2026-10-22": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e892940108fccca2c3f7e116648b53147816167b37fb58378546ff732a7fc7259463be2e6cfff010318aef55ac4b0a70886902389ae6896908f0202bc774052f53dbdaad2f3bac616129b07460a2f6ce1a3459d277f4a3237d8b9708f02034578bef1b993ae44e2958beb5d84d72021c61e364069e1d6ba2df0060f4291608f1046adf3727f0083fa0024b96fcf0980083dfe30d2ef90c8e232268747470733a2f2f6274632e63616c656e6461722e636174616c6c6178792e636f6dfff00847edb3ce65c955d008f0105a1f45a74dfaaf63aaa59395dafeba2b08f020ad77ea197411bbc5308f473b2c8ddc5bafee445f5d7544b648bba0e1740fd20008f0203424718bbf584d41b5a8c1d5767153e81a9eb988a2f7a71d284591a6fe92266008f02035b594a590a15404d0fc0774887d5ee2584901ae9c66a7e3ec59c975752b8db008f1046adf3724f00815025d85e7d77a610083dfe30d2ef90c8e2e2d68747470733a2f2f616c6963652e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f7267fff0104cc7d63ec142489e02a559845a631f8008f120cf9915150727f23ec4dc4d0ddd9053984607a4b1e301eb9bcef79ec56f8fa0fb08f12031bc39e4265c2bdf2f4416584e2ef52ff702cedf07daa3352519757f92d52c4f08f1046adf3726f0088402efa09adf41050083dfe30d2ef90c8e292868747470733a2f2f66696e6e65792e63616c656e6461722e657465726e69747977616c6c2e636f6df008dbcdde29a9d93bea08f0108ed85f5ba2a682b5e22414355e00b3c108f02077598513b23d6ec74cd9e8efe15a81d7a7456cd625bb6838917c37da78afd38f08f120ec47aee8a019dd26e6ba8018bd170617aa0e7552eadcce3fc07ce5388b9abfe208f020f2b5a6545fa2ab2e796353d27429ba564538d889f69031b54135d51b53dc6fd208f1046adf3725f00863946fb1453f0246ff0083dfe30d2ef90c8e2c2b68747470733a2f2f626f622e6274632e63616c656e6461722e6f70656e74696d657374616d70732e6f726708f0205294745545368fe8be0b30cb586dfc06f1925222e2636c35ee534fd5f125b52a08f12039d1c9e80124bdbf7a3631e678667abc8589909095d1a3b066d43202c041620d08f020f4ab3151f166d2d3486b595579159a768db46ec6d414c12ae1f749eb5c90872308f020e677941aafbc25ce262cc13f2130c0e49c5007f2dfddea52c26553815763bd5708f0209c85a5ad914e76a3a03ec7dfe1dd91b5f0cd992bc43f7f9ef0053da99ebb63cf08f020c27bc5c6d8577d546bc27faa2886b679b8ef304b53003494ba2cac6e0572c45208f0201cb1c0c88546b883d2c015ee41e8ebff423ce689be8df4525aa7f4f68540b0fe08f02056053b6a7e929e5f28127f1f1a2dd65648456a696cebb5318e2b7843569cda0a08f0206b6d957f9fe9516aceeaa0f40e00f2d3313ce7752b9b4ae8238e39474343edec08f0200e108d0378699b16cd6659d934a04161e8f48718078d6d25aa6a275d502c068f08f15901000000018a3ff5289d79cd93e9b597d388e10afa21b8b21164dd9dfd7071b947ba71db460000000000feffffff02e500010000000000160014d60cd6fa00ecb8ea50fd67e5bdeca804c30d75240000000000000000226a20f004aed90e000808f120865cb02e9c45c9507d892084f6fec7d541eb8de3f2df9b45b1ea73b9741aabc90808f120e2a5a400cbc12bd2eb40c523f42be71b656914e86d996b236d0b724c3918c0530808f120006f267400f8e0f28b0bf20c17efc10b2e9bf269a4b5826b219209ef2419a4760808f12052f07ef895968720bf4e537e26aae6b0365ebde8d581d30d256489a9426a7eb50808f1208342848f74c5cdc5edc38421f754a76bdb10cd200e7d1a7bb59197b5892df7c00808f1200bb131203d779d3e571046063dab7ae1f16aa520b433286abcbcd34cb5b01a560808f120bb5b82264e049a64604de8008e818a45869b285659d53efe800c98f42bc4c90c0808f020415b891f57844429e1dbdac8a750b0b6682f9a974392d6db03a0a6135a4cbedd0808f1205684e2254fbef02a0c141aa27139a6b07eb2b07ce805eab8b7c0cd529b6ab8a90808f1206b79fd1003e247ed4aa8f176c7e99531415a749f43f4c47e948f5c4f1aab566b0808f02051e0643dd84bdab1444f13434275cc41d0a82c555a2101708a115041f605fc480808f1206e1ecba314707b0e537fba2d3aa63365c1b17ff9f9eabe473900ee93cb07cff30808000588960d73d7190103afb33b"
+   },
+   "headers": {
+    "973231": "00a00520af303b87126813f6e1a1376e92e7eb6b8254a3b975480100000000000000000063e2b4a8ada2c91855029aca72897b6a8e624189e160160f4fe1eb13fdaedd7aba3cdf6a930002174420c39f"
+   }
   }
  ]
 }
