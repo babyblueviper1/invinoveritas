@@ -3,7 +3,7 @@
 
   python3 check.py --vectors vectors.json
   python3 check.py D1.jsonl [D2.jsonl ...] [--records records.jsonl --issuer <x-only pubkey hex>]
-                   [--ots D=path.ots ...] [--headers headers.json] [--claim-confirmed D ...]
+                   [--ots D=path.ots ...] [--headers headers.json] [--pins pins.json] [--claim-confirmed D ...]
 
 Days are given oldest first; the first file's prev_root / prev_last_position are taken as given (supply the chain from the first day
 to check those too). headers.json is {height: 80-byte header hex}, from your own node or explorers you choose. Prints one JSON result
@@ -207,7 +207,7 @@ def check_records(recs, records, issuer):
     return codes
 
 
-def check_chain(days, records=None, issuer=None, ots=None, headers=None, claims=()):
+def check_chain(days, records=None, issuer=None, ots=None, headers=None, claims=(), pins=None):
     """days: list of file texts, oldest first. Returns one result dict per day.
     'anchored' needs (1) the day confirmed, (2) the chain checked from GENESIS (first file: prev_root zeros, prev_last_position 0),
     else a pre-window omission is invisible (Echo, review 2), and (3) no failed day anywhere before it: a failed day is permanent
@@ -225,7 +225,7 @@ def check_chain(days, records=None, issuer=None, ots=None, headers=None, claims=
         state, height = "published", None
         if hdr is not None and ots and date in ots:
             try:
-                o = ots_verify.check(ots[date], log_root(hdr), headers or {})
+                o = ots_verify.check(ots[date], log_root(hdr), headers or {}, pins)
                 state, height = o["state"], o["height"]
                 if state == "none":
                     state = "published"
@@ -281,7 +281,7 @@ def run_vectors(path):
 def main(argv):
     if argv[:1] == ["--vectors"]:
         return run_vectors(argv[1])
-    days, ots, claims, records, issuer, headers = [], {}, set(), None, None, {}
+    days, ots, claims, records, issuer, headers, pins = [], {}, set(), None, None, {}, None
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -293,11 +293,13 @@ def main(argv):
             d, p = argv[i + 1].split("=", 1); ots[d] = open(p, "rb").read(); i += 2
         elif a == "--headers":
             headers = {int(k): x for k, x in json.load(open(argv[i + 1])).items()}; i += 2
+        elif a == "--pins":
+            pins = {int(k): int(v) for k, v in json.load(open(argv[i + 1])).items()}; i += 2
         elif a == "--claim-confirmed":
             claims.add(argv[i + 1]); i += 2
         else:
             days.append(open(a, encoding="utf-8", newline="").read()); i += 1
-    res = check_chain(days, records, issuer, ots, headers, claims)
+    res = check_chain(days, records, issuer, ots, headers, claims, pins)
     for r in res:
         print(json.dumps(r))
     return 1 if any(r["status"] == "failed" for r in res) else 0

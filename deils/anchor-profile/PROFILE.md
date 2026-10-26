@@ -93,7 +93,7 @@ A day is in one of three states. A verifier never reports a stronger state than 
 - **confirmed**: the proof reaches a Bitcoin block-header attestation at height `H`, and the verifier holds a block header for
   `H`. The header is **trusted input**: get it from your own node, or from explorers you choose (two that agree is the minimum we
   suggest). The checker requires the header to carry the **pinned** difficulty for its retarget epoch (`H // 2016`, table
-  `PINNED_BITS` in `ots_verify.py`; extend it from your own node), to meet that target, and to have a merkle root equal to the
+  `PINNED_BITS` in `ots_verify.py`, or a pins file: `pins.py` derives an epoch's bits from its first block's header as two sources you choose return it byte-identically, checks its proof of work, and writes `pins.json` for `check.py --pins`. Run it against your own node to drop the explorers from your trust set), to meet that target, and to have a merkle root equal to the
   message the proof computes. A header's self-declared difficulty is never trusted: with regtest bits a forged header passes proof
   of work at nonce 0 (review 2). A height whose epoch is not pinned is `ots_bits_unpinned`, which means not confirmed and is not a
   failure. The calendar's word is never enough. Even a valid proof of work only shows real work on that header, not that the block
@@ -148,3 +148,11 @@ roots for the same confirmed day hold proof of equivocation.
    `sig`.
 6. Dates pinned to `^\d{4}-\d{2}-\d{2}$`. Event ids use exact NIP-01 serialization, with a vector that puts a control character
    in a tag.
+
+## Changes after review 3 (Echo TG 5863, Pavlo 5864, 2026-10-26)
+- Pin-update process: `pins.py` (epochs by number or `--for-height`). The two embedded pins (481 `0x17021ef0`, 482 `0x17020093`)
+  re-derived independently from each epoch's first block; mempool.space and blockstream.info agree on both (epoch 481 was previously
+  checked against one explorer only). Pins, like headers, are trusted input; an unpinned epoch stays `ots_bits_unpinned`.
+- Anchor layers (Echo 5867): this profile is the free, independent Bitcoin backstop (`published` / `pending` / `confirmed`). An
+  on-chain anchor that contracts can read (an L2 tree head, or the ERC-8274 verifier for zkIE) is a separate, programmable layer; a
+  consumer reports each layer as its own result and never collapses them.
