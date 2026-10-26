@@ -1,7 +1,7 @@
 {
   "name": "invinoveritas-activepieces-piece",
   "version": "0.7.2",
-  "description": "Activepieces actions for invinoveritas \u2014 the verification layer for autonomous agents: capital-scale-aware /review before an irreversible action, signed /prove after, and a public verdict track record (committed before the outcome it's graded against; recomputable from public data, no TEE, no trusted scorer). Plus reasoning, decisions, memory, and marketplace as supporting tools. Bitcoin/Lightning + x402.",
+  "description": "Activepieces actions for invinoveritas — the verification layer for autonomous agents: capital-scale-aware /review before an irreversible action, signed /prove after, and a public verdict track record (committed before the outcome it's graded against; recomputable from public data, no TEE, no trusted scorer). Plus reasoning, decisions, memory, and marketplace as supporting tools. Bitcoin/Lightning + x402.",
   "main": "src/index.ts",
   "license": "Apache-2.0",
   "keywords": [
@@ -19,10 +19,19 @@
     "test": "node test/smoke.js"
   },
   "dependencies": {
-    "@activepieces/pieces-common": "^0.12.3",
-    "@activepieces/pieces-framework": "^0.28.1"
+    "@activepieces/pieces-common": "^0.12.5",
+    "@activepieces/pieces-framework": "^0.32.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
+  },
+  "overrides": {
+    "axios": "^1.20.0",
+    "form-data": "^4.0.6",
+    "nanoid": "^3.3.18",
+    "deepmerge-ts": "^8.0.0",
+    "zod": "^4.6.6",
+    "@ai-sdk/provider-utils": "^4.0.33",
+    "expr-eval": "npm:expr-eval-fork@^3.0.3"
   }
 }
