@@ -126,17 +126,29 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -152,17 +164,29 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -331,7 +355,11 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -456,7 +484,11 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -585,17 +617,29 @@
      "state": "published",
      "codes": [
       "line_not_canonical"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -724,17 +768,29 @@
      "state": "published",
      "codes": [
       "bad_fields"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -863,17 +919,29 @@
      "state": "published",
      "codes": [
       "bad_day_edges"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -1002,17 +1070,29 @@
      "state": "published",
      "codes": [
       "count_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -1141,17 +1221,29 @@
      "state": "published",
      "codes": [
       "merkle_root_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -1280,17 +1372,29 @@
      "state": "published",
      "codes": [
       "merkle_root_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -1306,7 +1410,11 @@
      "state": "published",
      "codes": [
       "position_gap"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -1433,12 +1541,20 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
@@ -1446,7 +1562,11 @@
      "codes": [
       "position_start",
       "record_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -1575,19 +1695,31 @@
      "state": "published",
      "codes": [
       "position_end"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "prev_last_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -1714,19 +1846,31 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "empty_day_positions"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -1853,21 +1997,33 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "prev_last_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "record_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -1994,12 +2150,20 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
@@ -2007,7 +2171,11 @@
      "codes": [
       "created_at_after_day",
       "record_created_at_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -2134,12 +2302,20 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
@@ -2147,7 +2323,10 @@
      "codes": [],
      "notices": [
       "late_record"
-     ]
+     ],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -2274,12 +2453,20 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
@@ -2287,7 +2474,921 @@
      "codes": [],
      "notices": [
       "late_record"
-     ]
+     ],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    }
+   ]
+  },
+  {
+   "name": "late record exactly one day before its log's day (created_at = start - 86400) -> late_record, within grace",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"3c227fe4cd9c095025b1eb1c20a07a11617ee798fc0cf8e9d2826a91f6e2bd31\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792540800,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"4d877b06e417f7a33043c06eeb62e959f911205fd4c731a0cb89677441ebc1d6\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540800,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "4d877b06e417f7a33043c06eeb62e959f911205fd4c731a0cb89677441ebc1d6",
+     "sig": "31ebc0319c6772ec295dfcaca14bf6e0dcf8b51392f939b26ea5da4c44a63c1208c28e38cbafbfb3239cab192a78f5210f223cbb37aa237f424d246f7cfdaa39"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [
+      "late_record"
+     ],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    }
+   ]
+  },
+  {
+   "name": "late record one second beyond the grace (start - 86401) -> late_record_beyond_grace, a notice (not a failure: failure is terminal)",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"0613553cf5df308366ac29a1a43a3a4d2a57a78596e69072f577e7244de12f4d\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792540799,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"a33e49d572207a870b87da87bb2cfbb0e8dfee870c516133c40cabfd46b5ab4a\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "a33e49d572207a870b87da87bb2cfbb0e8dfee870c516133c40cabfd46b5ab4a",
+     "sig": "666ff20d7d823fca4b475d63b7f6efecd0b560279cc2ac700c580a849eb5500d765ffcbc02fc29285e56be83e6c50b8f7e5cb574843815fd25c552c5612518b1"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [
+      "late_record_beyond_grace"
+     ],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    }
+   ]
+  },
+  {
+   "name": "record backdated a full year (Echo's probe) -> late_record_beyond_grace; created_at is never evidence of creation time",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"8e5162402ec6adb5617a00a54fe22ccebda4537bf55496374953f9a571e272c5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1761091200,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"798ad33b73b0c93937a81239cdc3e70ef98b92becda62f91838da4e9601cab6a\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1761091200,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "798ad33b73b0c93937a81239cdc3e70ef98b92becda62f91838da4e9601cab6a",
+     "sig": "4fd4e585bd380ed2a1678da67c90fd25b96e7e9b67295464c5a2142a7b56d6dc7bab76e7c7e6d6fd670b8124bc3777721a935526527337bfedb7c95a272c8381"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [
+      "late_record_beyond_grace"
+     ],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    }
+   ]
+  },
+  {
+   "name": "genesis half 1: prev_root = zeros but prev_last_position = 3 (would hide records 1-3) -> NOT from genesis",
+   "days": [
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": null,
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-22",
+     "from_genesis": false,
+     "after_failure": false
+    }
+   ]
+  },
+  {
+   "name": "genesis half 2 (mirror): prev_last_position = 0 but prev_root not zeros -> NOT from genesis",
+   "days": [
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":1,\"last_position\":2,\"merkle_root\":\"b582e77a00400e18ce9deb0ca584d89b53bf253a6a1767ec0f12903cc94f44b0\",\"prev_last_position\":0,\"prev_root\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792627210,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"eaa974849a2497b3b31fb06bedee6c2907cedefde666c14e9989abd2e56a90cc\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792634400,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"ae296ee9677d6740db8a19cc7a07849a4993624cd33a7887d97080a4a63c27c0\"}\n"
+   ],
+   "records": null,
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-22",
+     "from_genesis": false,
+     "after_failure": false
+    }
+   ]
+  },
+  {
+   "name": "record_event_id with a trailing newline -> bad_fields (one spelling per id)",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"b04eb539e266fe635c261a8747042322d49bcbd72c1c79e92c889a710dcf087c\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\\n\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"2632d4c52e6e00c7cf6f92e8fc19ab9ab85f4f536a8848dec91dbdd21aea63b5\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"fd2249e891aae0a39ccdc038b4949aed41606837e695607baa12ca706d29a0ad\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": null,
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
+    }
+   ]
+  },
+  {
+   "name": "record_event_id in upper-case hex -> bad_fields",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"dd491c37efb5cb4e3ae7dc22f4e2bb1b4d66288fb60bceb0a40c2a50407126c0\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"F1F80B1E8C2B125D91B2068F211AA5ACC679FE01E34C4B08D6192230C534DF90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"2c7561fe091bb9d22abf6caf89b45ca8a700cca14b85186638eed5d598ac3dca\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"8d8919d16c05112aa1b4f95fa17b31699dde0d14f71fd7c2b2f6751c6a52a21f\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": null,
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
+    }
+   ]
+  },
+  {
+   "name": "record_event_id 63 hex characters -> bad_fields",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"feadd567a22f115f45c23b27aac45f10a8e6bef4d44875edab7f8c4d093d0c9e\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df9\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"914c1cd3eaec2314c972463374c0e5fb5a5b78a301e23458a9ac11e22d459039\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"c6a67ce6785e7afa5fd2acabd606870cc149930e2808b6c0fd9d71d923331a82\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": null,
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
+    }
+   ]
+  },
+  {
+   "name": "header date with a trailing newline -> bad_fields",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\\n\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ],
+     "notices": [],
+     "checked_from": null,
+     "from_genesis": false,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
+    }
+   ]
+  },
+  {
+   "name": "type int?: first_position as a string on a non-empty day -> bad_fields",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":\"1\",\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "failed",
+     "state": "published",
+     "codes": [
+      "bad_fields"
+     ],
+     "notices": [],
+     "checked_from": null,
+     "from_genesis": false,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
     }
    ]
   },
@@ -2303,19 +3404,31 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "prev_last_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -2444,19 +3557,31 @@
      "state": "published",
      "codes": [
       "record_signature_invalid"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "record_signature_invalid"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -2583,17 +3708,29 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -2722,17 +3859,29 @@
      "state": "published",
      "codes": [
       "bad_fields"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -2861,17 +4010,29 @@
      "state": "published",
      "codes": [
       "bad_fields"
-     ]
+     ],
+     "notices": [],
+     "checked_from": null,
+     "from_genesis": false,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
     }
    ]
   },
@@ -3000,17 +4161,29 @@
      "state": "published",
      "codes": [
       "bad_fields"
-     ]
+     ],
+     "notices": [],
+     "checked_from": null,
+     "from_genesis": false,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-21",
+     "from_genesis": false,
+     "after_failure": true
     }
    ]
   },
@@ -3138,17 +4311,29 @@
      "state": "published",
      "codes": [
       "record_signature_invalid"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -3274,7 +4459,11 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
@@ -3282,7 +4471,11 @@
      "codes": [
       "date_gap",
       "prev_root_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ]
   },
@@ -3409,19 +4602,31 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "published",
      "codes": [
       "prev_root_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -3550,17 +4755,29 @@
      "state": "published",
      "codes": [
       "record_signature_invalid"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -3689,17 +4906,29 @@
      "state": "published",
      "codes": [
       "record_missing"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -3828,17 +5057,29 @@
      "state": "published",
      "codes": [
       "record_id_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -3967,17 +5208,29 @@
      "state": "published",
      "codes": [
       "record_created_at_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -4106,17 +5359,29 @@
      "state": "published",
      "codes": [
       "record_mismatch"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ]
   },
@@ -4257,6 +5522,161 @@
    }
   },
   {
+   "name": "END TO END unpinned epoch: day 3 attested at a height in epoch 483 (no pin) -> not_anchored, pending, not a failure",
+   "days": [
+    "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
+    "{\"count\":0,\"date\":\"2026-10-21\",\"end\":1792627200,\"first_position\":null,\"last_position\":null,\"merkle_root\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"prev_last_position\":3,\"prev_root\":\"0ca199919bb74f339a8afa81f5d26c33b00e47124643729e033014f4f3d9265a\",\"schema\":\"deils-anchor-v1\",\"start\":1792540800}\n",
+    "{\"count\":2,\"date\":\"2026-10-22\",\"end\":1792713600,\"first_position\":4,\"last_position\":5,\"merkle_root\":\"7b156f37039adc48613973c6cbddda505ddbf4c8f31ea48c32325cbc2ee1eff5\",\"prev_last_position\":3,\"prev_root\":\"448ef43e26a1ce109c870337562d0ce95bfc76ae4ec4d45ecf8b8f0cb4035a41\",\"schema\":\"deils-anchor-v1\",\"start\":1792627200}\n{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"created_at\":1792627210,\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"record_event_id\":\"3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2\"}\n{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"created_at\":1792634400,\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"record_event_id\":\"81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc\"}\n"
+   ],
+   "records": [
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792454400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0001"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"type\":\"deils-commitment-record\"}",
+     "id": "f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90",
+     "sig": "7ea162e635aad853cf1d79bcf4794b3fc80ef91ccc37f043d6d68a67b7e2643f51ce4b4ca7f6d7c72e3a2e61bdd8ed7a040624c51d527e488adcb7121c06c940"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792458000,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0002"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"type\":\"deils-commitment-record\"}",
+     "id": "f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866",
+     "sig": "4e976dddc25e9145a55e5eb6b49a3351b72c148602426267bbe257727fa141a6c2bfbbab6084987dad3af61d19c36aa26f22eb7857563418bba8818d1191a8cf"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792540799,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0003"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"type\":\"deils-commitment-record\"}",
+     "id": "8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569",
+     "sig": "58f4ea22e19c46cb215ecbd462eb746d21218aa7bbb30579b70aed4cac86953f58070bcf3a280fa170d36c15de6d4440dcf7199b57f4a17598b512e758487c63"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792627210,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0004"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:a017ae74328c06b515ac87467df4e7c9cceffa383935c7f6ab0f6dba357c9d91\",\"ledger_position\":4,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0004\",\"type\":\"deils-commitment-record\"}",
+     "id": "3423c67d09778063182fae7184e7bd20271ea994728b3d93bc8a2dc2a54c6ff2",
+     "sig": "f74b966c33a6ec345f2611674039f8c6bb5da1ec59e44271c75f9c21c10a23979be593520db4e4bb8427cde100093cbf53719f93e16b0b638e6f3ddc9777b995"
+    },
+    {
+     "pubkey": "77c13dd33eb9ca827ae0240d9bb039399754dddbaa139cfb8c40d89a11c88cfe",
+     "created_at": 1792634400,
+     "kind": 30078,
+     "tags": [
+      [
+       "d",
+       "invinoveritas-commitment-proof_test0005"
+      ],
+      [
+       "t",
+       "deils-commitment-record"
+      ],
+      [
+       "profile",
+       "deils-reveal-v1"
+      ]
+     ],
+     "content": "{\"commitment_hash\":\"sha256:09922640236909f0591879a0270763fe4937b72ecdb76dd3693bd73a6f3fb6a6\",\"ledger_position\":5,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0005\",\"type\":\"deils-commitment-record\"}",
+     "id": "81d25deb62bb90c67f69d5f01fbbf3ef3af40153ceb49c792104910199fd03cc",
+     "sig": "3b65b71aed2ac2a77ea4d92fb1162314ce72e7db9defe2c2d8333029dcca235367f58715495339e394fd7303d1199eaa323f3a5db3d5ab73e372bac6362ff843"
+    }
+   ],
+   "expect": [
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "published",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    },
+    {
+     "status": "not_anchored",
+     "state": "pending",
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
+    }
+   ],
+   "ots": {
+    "2026-10-22": "004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e892940108fccca2c3f7e116648b53147816167b37fb58378546ff732a7fc7259463be2e6c000588960d73d7190103a5b73b"
+   },
+   "headers": {
+    "973733": "010000000000000000000000000000000000000000000000000000000000000000000000fccca2c3f7e116648b53147816167b37fb58378546ff732a7fc7259463be2e6c40baf668ffff7f2004000000"
+   }
+  },
+  {
    "name": "end to end: day 3 stamped, calendar only -> not anchored (pending)",
    "days": [
     "{\"count\":3,\"date\":\"2026-10-20\",\"end\":1792540800,\"first_position\":1,\"last_position\":3,\"merkle_root\":\"a590af24ab1f5bc6326fea534236130357532daf9bc39ab352e57bec5a325115\",\"prev_last_position\":0,\"prev_root\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema\":\"deils-anchor-v1\",\"start\":1792454400}\n{\"commitment_hash\":\"sha256:3ceb5c413ee02895bf1f357a8c2cc2bec824f4d8aad13aeab69303f341c8b781\",\"created_at\":1792454400,\"ledger_position\":1,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0001\",\"record_event_id\":\"f1f80b1e8c2b125d91b2068f211aa5acc679fe01e34c4b08d6192230c534df90\"}\n{\"commitment_hash\":\"sha256:26fdc315fadc05db9f8f3236fc30b9f0ca044e56ec1e9450ccd5fdab900e9e46\",\"created_at\":1792458000,\"ledger_position\":2,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0002\",\"record_event_id\":\"f19086d46fbfd2f4dfbd4d1c42f13d72802fd1e5eb00af5e5080e86d69a6a866\"}\n{\"commitment_hash\":\"sha256:cbc3578784d4537eb76d8fb4b6d73978f672104e7c3295b46af805fa032ef9f5\",\"created_at\":1792540799,\"ledger_position\":3,\"profile\":\"deils-reveal-v1\",\"proof_id\":\"proof_test0003\",\"record_event_id\":\"8d9f3b1d4331fb252ba2b63d7ae5d16a5724e95a0ceaf2de32d6406e9d0e4569\"}\n",
@@ -4379,17 +5799,29 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "pending",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ],
    "ots": {
@@ -4519,19 +5951,31 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "failed",
      "state": "pending",
      "codes": [
       "pending_claimed_confirmed"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ],
    "ots": {
@@ -4664,17 +6108,29 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "anchored",
      "state": "confirmed",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ],
    "ots": {
@@ -4805,7 +6261,11 @@
     {
      "status": "not_anchored",
      "state": "confirmed",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-22",
+     "from_genesis": false,
+     "after_failure": false
     }
    ],
    "ots": {
@@ -4940,17 +6400,29 @@
      "state": "published",
      "codes": [
       "record_signature_invalid"
-     ]
+     ],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     },
     {
      "status": "not_anchored",
      "state": "confirmed",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": true
     }
    ],
    "ots": {
@@ -5083,17 +6555,29 @@
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "not_anchored",
      "state": "published",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     },
     {
      "status": "anchored",
      "state": "confirmed",
-     "codes": []
+     "codes": [],
+     "notices": [],
+     "checked_from": "2026-10-20",
+     "from_genesis": true,
+     "after_failure": false
     }
    ],
    "ots": {

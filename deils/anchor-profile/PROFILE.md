@@ -21,7 +21,8 @@ What it does not establish is stated in "Limits" at the end. Every rule below ha
 One file per UTC day `D`, named `D.jsonl`: UTF-8 JSON lines, each line exactly its JCS bytes, each terminated by `\n`.
 - **Line 1, the header**, has exactly these keys:
   - `schema`: `"deils-anchor-v1"`.
-  - `date`: `"YYYY-MM-DD"`, matching `^\d{4}-\d{2}-\d{2}$` exactly (one spelling per day, so one `log_root` per day).
+  - `date`: `"YYYY-MM-DD"`: the WHOLE string is four, two and two ASCII digits with hyphens, nothing before or after, so no trailing
+    newline either (one spelling per day, so one `log_root` per day).
   - `start`: unix seconds of `D` 00:00:00 UTC. `end`: `start + 86400`, which is `D+1` 00:00:00 UTC.
   - `count`: the number of record lines.
   - `first_position` / `last_position`: the first and last `ledger_position` in the file. Both are `null` when `count` is 0.
@@ -36,7 +37,8 @@ One file per UTC day `D`, named `D.jsonl`: UTF-8 JSON lines, each line exactly i
 - Record lines are in `ledger_position` order. A record line has six fields. The proposal (TG 5850) listed five; `created_at` was
   added at review, so the leaf hash covers it.
 - Types are checked per key: integers are integers, `first_position`/`last_position` are integer or `null`, `prev_root`,
-  `merkle_root` and `record_event_id` are 64 lower-case hex. Anything else is `bad_fields`, never an exception.
+  `merkle_root` and `record_event_id` are exactly 64 lower-case hex characters, the whole string (a trailing newline, upper case or
+  63 characters is a second spelling of one id). Anything else is `bad_fields`, never an exception.
 
 ## 3. Merkle root (RFC 9162 section 2.1.1)
 - `leaf = sha256(0x00 || line_bytes)`, where `line_bytes` is the record line without its `\n`.
@@ -58,12 +60,21 @@ One file per UTC day `D`, named `D.jsonl`: UTF-8 JSON lines, each line exactly i
 | `count` 0: `first_position` and `last_position` are `null` | `empty_day_positions` |
 | a record with `created_at >= end` (dated after its day) | `created_at_after_day` |
 | a record with `created_at < start`: created on an earlier day but first published here, after that day's log was sealed | `late_record` (a **notice**, see below) |
+| ...and `created_at < start - 86400`: more than one day before the day it is published in | `late_record_beyond_grace` (a **notice**) |
 
 The day window is `[start, end)`: 00:00:00 UTC is in, the next day's 00:00:00 UTC is out. `created_at` is in whole seconds, so
 the edges are exact. `late_record` and `created_at_after_day` are reported separately on purpose. A record dated after its day is a
 timestamp that cannot be true, so it fails the day. A late record is a real record the issuer did not publish on its own day. Its
 **recovery path** is to publish it in the next day's log, at the next position. The checker reports it as a notice on that day and
 does not fail the day. Positions stay consecutive, and the record's own signed `created_at` shows how late it was.
+
+A late record's `created_at` is **the issuer's claim and nothing more**. The anchor proves when the record was *published* (no later
+than the block that confirms its day), never when it was *created*. A consumer must not treat a late record's `created_at` as
+evidence of creation time: a record backdated by a year passes with only a notice (review 4, Echo's probe). The grace window is one
+day: `late_record` covers the normal recovery path (the next day's log), and anything older is `late_record_beyond_grace`, reported
+separately so a consumer can refuse it. Neither is a failure, on purpose: a failed day is terminal for every later day (section 7),
+so failing a late record would turn one honest delayed publish into a permanently broken chain. The issuer's signed `created_at` and
+the independently anchored publication time stay two separate facts.
 
 ## 5. Rules between consecutive days
 | rule | code |
@@ -119,6 +130,10 @@ roots for the same confirmed day hold proof of equivocation.
 
 ## 8. Outcomes
 `check.py` prints one result per day: `{date, status, state, height, codes, notices, checked_from, from_genesis, after_failure}`.
+The vectors pin every one of these fields (review 4). `notices` is `late_record` and/or `late_record_beyond_grace`. `checked_from` is
+the date of the first readable header; `from_genesis` needs BOTH `prev_root` of 64 zeros and `prev_last_position` 0 in that header
+(either alone would let a first file hide earlier records); `after_failure` is true on a day that passes its own rules but comes
+after a failed day.
 `status` is one of:
 - `failed`: any code in sections 4 to 7 (except the not-confirmed reasons).
 - `anchored`: confirmed and the chain passes.
@@ -156,3 +171,19 @@ roots for the same confirmed day hold proof of equivocation.
 - Anchor layers (Echo 5867): this profile is the free, independent Bitcoin backstop (`published` / `pending` / `confirmed`). An
   on-chain anchor that contracts can read (an L2 tree head, or the ERC-8274 verifier for zkIE) is a separate, programmable layer; a
   consumer reports each layer as its own result and never collapses them.
+
+## Changes after review 4 (Echo TG 5880, Pavlo 5881, 2026-10-26/27)
+1. **Late records (decision for the Tuesday review).** Section 4 now says a late record's `created_at` is the issuer's claim only and
+   is never evidence of creation time; the anchor bounds publication. Proposed: a one-day grace, `late_record` within it and
+   `late_record_beyond_grace` beyond it, both notices. Failing was considered and rejected because a failed day is terminal for every
+   later day. Vectors at the exact edge (start - 86400: within) and one second beyond, plus Echo's year-old backdate.
+2. **Mutants that survived review 3**, each with a vector now: genesis needs both conditions (a zeros root with
+   `prev_last_position` 3, and the mirror); an unpinned epoch end to end on the chain (day 3's own `log_root` attested in epoch 483,
+   which starts in about two weeks: `not_anchored`, pending, not failed); the runner compares `checked_from`, `from_genesis` and
+   `after_failure` on every chain vector.
+3. **Anchored regexes.** `date` and the 64-hex fields are whole-string, ASCII-only matches (`$` also matched before a trailing
+   newline). Vectors: an id with `\n` appended, upper-case hex, 63 characters, a date with a trailing newline, and a string in an
+   `int?` field.
+4. **`pins.py --self-test`** runs offline: canned sources agree, disagree, or serve a header with bad proof of work.
+5. Mutation check on the new rules: 12 mutants (Echo's 7 survivors plus the grace boundary, upper case, both regexes and the `int?`
+   check), 12 killed. 58 vectors pass.

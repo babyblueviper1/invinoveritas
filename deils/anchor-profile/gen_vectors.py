@@ -81,8 +81,18 @@ def main():
     _d3 = os.path.join(HERE, "ots", "base_day3.root")
     open(_d3, "w").write(log_root(hdrs[2]) + "\n")
 
-    def add(name, days, expect, records=True, **kw):
-        V.append({"name": name, "days": days, "records": evs if records is True else records, "expect": expect, **kw})
+    def add(name, days, expect, records=True, cf=("2026-10-20", True), **kw):
+        """review 4: every chain vector pins the section-8 output fields. cf = (checked_from, from_genesis) for all days, or a list per
+        day. after_failure follows from the expected statuses alone (a day after any failed day that is not itself failed)."""
+        ex = copy.deepcopy(expect); seen_fail = False
+        cfs = cf if isinstance(cf, list) else [cf] * len(ex)
+        for w, (c, g) in zip(ex, cfs):
+            w.setdefault("notices", []); w["checked_from"] = c; w["from_genesis"] = g
+            w["after_failure"] = seen_fail and w["status"] != "failed"
+            seen_fail = seen_fail or w["status"] == "failed"
+        V.append({"name": name, "days": days, "records": evs if records is True else records, "expect": ex, **kw})
+
+    NOHDR = [(None, False), ("2026-10-21", False), ("2026-10-21", False)]   # day 1 header unreadable: genesis cannot be shown
 
     add("ok: 3 days, empty middle day carries position 3, edges 00:00:00 in and 23:59:59 in", texts, ok(3))
     add("ok: same chain without the signed records (created_at is only asserted)", texts, ok(3), records=None)
@@ -139,6 +149,39 @@ def main():
     edge_t, _, edge_e = chain([BASE[0], BASE[1], ("2026-10-22", [(4, S3 - 1), (5, S3 + 7200)])])
     add("day start edge: created_at = previous day's 23:59:59 in day 3's log -> late_record notice", edge_t,
         ok(2) + [{"status": "not_anchored", "state": "published", "codes": [], "notices": ["late_record"]}], records=edge_e)
+    # review 4 (Echo TG 5880): a late record's created_at is the issuer's claim; beyond one day it is a separate notice
+    g1_t, _, g1_e = chain([BASE[0], BASE[1], ("2026-10-22", [(4, S3 - 86400), (5, S3 + 7200)])])
+    add("late record exactly one day before its log's day (created_at = start - 86400) -> late_record, within grace", g1_t,
+        ok(2) + [{"status": "not_anchored", "state": "published", "codes": [], "notices": ["late_record"]}], records=g1_e)
+    g2_t, _, g2_e = chain([BASE[0], BASE[1], ("2026-10-22", [(4, S3 - 86401), (5, S3 + 7200)])])
+    add("late record one second beyond the grace (start - 86401) -> late_record_beyond_grace, a notice (not a failure: failure is terminal)",
+        g2_t, ok(2) + [{"status": "not_anchored", "state": "published", "codes": [], "notices": ["late_record_beyond_grace"]}], records=g2_e)
+    g3_t, _, g3_e = chain([BASE[0], BASE[1], ("2026-10-22", [(4, S3 - 365 * 86400), (5, S3 + 7200)])])
+    add("record backdated a full year (Echo's probe) -> late_record_beyond_grace; created_at is never evidence of creation time",
+        g3_t, ok(2) + [{"status": "not_anchored", "state": "published", "codes": [], "notices": ["late_record_beyond_grace"]}], records=g3_e)
+    # review 4: genesis needs BOTH conditions; each half on its own is not genesis
+    def first_day(prev_root, prev_last, recs):
+        ls = [record(p, ca)[0] for p, ca in recs]
+        hdr, ls = day("2026-10-22", ls, None)
+        hdr.update({"prev_root": prev_root, "prev_last_position": prev_last})
+        return [text(hdr, ls)]
+    add("genesis half 1: prev_root = zeros but prev_last_position = 3 (would hide records 1-3) -> NOT from genesis",
+        first_day(ZERO, 3, [(4, S3 + 10), (5, S3 + 7200)]), ok(1), records=None, cf=("2026-10-22", False))
+    add("genesis half 2 (mirror): prev_last_position = 0 but prev_root not zeros -> NOT from genesis",
+        first_day("11" * 32, 0, [(1, S3 + 10), (2, S3 + 7200)]), ok(1), records=None, cf=("2026-10-22", False))
+    # review 4: regex anchoring (fullmatch) and the remaining type kinds
+    def rec_field(k, v):
+        return mutate_day(0, lambda h, l: l[0].__setitem__(k, v))
+    add("record_event_id with a trailing newline -> bad_fields (one spelling per id)", rec_field("record_event_id", evs[0]["id"] + "\n"),
+        [fail(["bad_fields"])] + ok(2), records=None)
+    add("record_event_id in upper-case hex -> bad_fields", rec_field("record_event_id", evs[0]["id"].upper()), [fail(["bad_fields"])] + ok(2), records=None)
+    add("record_event_id 63 hex characters -> bad_fields", rec_field("record_event_id", evs[0]["id"][:63]), [fail(["bad_fields"])] + ok(2), records=None)
+    t = list(texts); h0 = json.loads(t[0].split("\n")[0]); h0["date"] = "2026-10-20\n"
+    t[0] = jcs(h0).decode() + "\n" + t[0].split("\n", 1)[1]
+    add("header date with a trailing newline -> bad_fields", t, [fail(["bad_fields"])] + ok(2), cf=NOHDR)
+    t = list(texts); h0 = json.loads(t[0].split("\n")[0]); h0["first_position"] = "1"
+    t[0] = jcs(h0).decode() + "\n" + t[0].split("\n", 1)[1]
+    add("type int?: first_position as a string on a non-empty day -> bad_fields", t, [fail(["bad_fields"])] + ok(2), cf=NOHDR)
     def carry(h, l):
         for x, p in zip(l, (6, 7)):
             x["ledger_position"] = p
@@ -155,10 +198,10 @@ def main():
     t = list(texts); h0 = json.loads(t[0].split("\n")[0]); h0["prev_last_position"] = None
     t[0] = jcs(h0).decode() + "\n" + t[0].split("\n", 1)[1]
     add("type: null prev_last_position on a non-empty day -> bad_fields", t,
-        [{"status": "failed", "state": "published", "codes": ["bad_fields"]}] + ok(2))
+        [{"status": "failed", "state": "published", "codes": ["bad_fields"]}] + ok(2), cf=NOHDR)
     t = list(texts); t[0] = t[0].replace('"date":"2026-10-20"', '"date":"2026-10-2"', 1)
     add("date not zero-padded (2026-10-2) -> bad_fields (one spelling per day)", t,
-        [{"status": "failed", "state": "published", "codes": ["bad_fields"]}] + ok(2))
+        [{"status": "failed", "state": "published", "codes": ["bad_fields"]}] + ok(2), cf=NOHDR)
     e = copy.deepcopy(evs); del e[0]["sig"]
     add("signed record with no sig -> record_signature_invalid, not a crash", texts, [fail(["record_signature_invalid"])] + ok(2), records=e)
     add("missing day (day 2 not published)", [texts[0], texts[2]], [ok(1)[0], fail(["date_gap", "prev_root_mismatch"])])
@@ -206,6 +249,12 @@ def main():
     V.append({"name": "a height whose difficulty epoch is not pinned -> not confirmed (ots_bits_unpinned)", "ots_only": True,
               "digest": fake_d2, "ots_hex": fake_ots2, "headers": {str(500 * 2016 + 7): fake_hdr2},
               "expect": {"state": "pending", "height": None, "codes": ["ots_bits_unpinned"]}})
+    # review 4: unpinned epoch END TO END -- day 3's own log_root attested at a height in an unpinned epoch (epoch 483 starts in ~2 weeks:
+    # every new stamp is unpinned until a pin is added) -> the day is not_anchored / pending, NOT failed
+    up_h = 483 * 2016 + 5
+    up_d, up_ots, up_hdr = _forged(up_h, bytes.fromhex(log_root(json.loads(texts[2].split("\n")[0]))))
+    add("END TO END unpinned epoch: day 3 attested at a height in epoch 483 (no pin) -> not_anchored, pending, not a failure", texts,
+        ok(2) + [{"status": "not_anchored", "state": "pending", "codes": []}], ots={"2026-10-22": up_ots}, headers={str(up_h): up_hdr})
     # end to end on the BASE chain: the pending proof for day 3, and a pending proof claimed confirmed
     _e = os.path.join(HERE, "ots", "base_day3.json")
     E = json.load(open(_e)) if os.path.exists(_e) else {}
@@ -219,7 +268,7 @@ def main():
             add("END TO END: genesis chain, day 3 confirmed at block 973231 + its header -> day 3 anchored", texts,
                 ok(2) + [{"status": "anchored", "state": "confirmed", "codes": []}], ots=C, headers=E["headers"])
             add("checked from day 3 only (not genesis), confirmed -> not_anchored (earlier days unchecked)", [texts[2]],
-                [{"status": "not_anchored", "state": "confirmed", "codes": []}], ots=C, headers=E["headers"])
+                [{"status": "not_anchored", "state": "confirmed", "codes": []}], ots=C, headers=E["headers"], cf=("2026-10-22", False))
             e2 = copy.deepcopy(evs); e2[0]["sig"] = e2[0]["sig"][:-2] + ("00" if e2[0]["sig"][-2:] != "00" else "01")
             add("a failed day 1 (bad record signature) -> confirmed day 3 stays not_anchored (terminal)", texts,
                 [fail(["record_signature_invalid"]), ok(1)[0], {"status": "not_anchored", "state": "confirmed", "codes": []}],
@@ -233,11 +282,12 @@ def main():
     print(len(V), "vectors;", "day 3 log_root", log_root(json.loads(texts[2].split("\n")[0])))
 
 
-def _forged(height):
+def _forged(height, digest=None):
     """Echo's attack: an .ots whose Bitcoin attestation sits directly on a never-stamped digest, and a header whose merkle root is that
-    digest, carrying the regtest bits 0x207fffff, mined until its PoW passes under its OWN declared target."""
+    digest, carrying the regtest bits 0x207fffff, mined until its PoW passes under its OWN declared target. digest: stamp this one
+    instead (review 4: the end-to-end unpinned-epoch vector stamps day 3's own log_root)."""
     from ots_verify import MAGIC, BITCOIN_TAG
-    d = hashlib.sha256(f"never stamped {height}".encode()).digest()
+    d = digest if digest is not None else hashlib.sha256(f"never stamped {height}".encode()).digest()
     def varuint(n):
         out = b""
         while True:

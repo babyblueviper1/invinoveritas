@@ -20,8 +20,11 @@ HEADER_KEYS = {"schema", "date", "start", "end", "count", "first_position", "las
 LINE_KEYS = {"ledger_position", "proof_id", "commitment_hash", "profile", "record_event_id", "created_at"}
 ZERO = "0" * 64
 NOT_CONFIRMED = ots_verify.NOT_CONFIRMING   # reasons a stamp is not (yet) confirmation; every other ots code fails the day
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-HEX64 = re.compile(r"^[0-9a-f]{64}$")
+# review 4 (Echo, TG 5880): `$` also matched before a trailing "\n", so an id with "\n" appended passed -- two spellings of one id.
+# fullmatch + re.ASCII: the whole string, and \d is 0-9 only.
+DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
+HEX64 = re.compile(r"[0-9a-f]{64}", re.ASCII)
+GRACE_S = 86400   # a late record more than one day before its log's day is reported separately (section 4)
 
 
 def _ok_value(v):
@@ -86,8 +89,8 @@ def _types_ok(o, spec) -> bool:
         if kind == "int" and type(v) is not int: return False
         if kind == "int?" and v is not None and type(v) is not int: return False
         if kind == "str" and not isinstance(v, str): return False
-        if kind == "hex64" and not (isinstance(v, str) and HEX64.match(v)): return False
-        if kind == "date" and not (isinstance(v, str) and DATE_RE.match(v)): return False
+        if kind == "hex64" and not (isinstance(v, str) and HEX64.fullmatch(v)): return False
+        if kind == "date" and not (isinstance(v, str) and DATE_RE.fullmatch(v)): return False
     return True
 
 
@@ -159,7 +162,10 @@ def check_day(text: str, prev_hdr=None):
         if r["created_at"] >= e:
             codes.append("created_at_after_day")
         elif r["created_at"] < s:
-            notices.append("late_record")
+            # review 4: the anchor bounds when the record was PUBLISHED, never when it was created; its signed created_at is the
+            # issuer's claim only. More than GRACE_S before the day is a separate notice (still not a failure: a failed day is
+            # terminal for every later day, so failing would turn one honest late publish into a permanently broken chain).
+            notices.append("late_record_beyond_grace" if r["created_at"] < s - GRACE_S else "late_record")
     if prev_hdr is not None:
         try:
             ps, _ = day_edges(prev_hdr["date"])
@@ -268,10 +274,12 @@ def run_vectors(path):
             recs = {ev["id"]: ev for ev in t["records"]}
         ots = {d: bytes.fromhex(h) for d, h in (t.get("ots") or {}).items()}
         got = check_chain(t["days"], recs, v.get("issuer"), ots, {int(k): x for k, x in (t.get("headers") or {}).items()},
-                          set(t.get("claims") or ()))
+                          set(t.get("claims") or ()), {int(k): int(x) for k, x in (t.get("pins") or {}).items()} or None)
         want = t["expect"]
-        same = ([(g["status"], g["state"], g["codes"], g["notices"]) for g in got]
-                == [(w["status"], w["state"], w["codes"], w.get("notices", [])) for w in want])
+        # review 4: the output fields of section 8 are compared too (hard-coding any of them survived before)
+        F = ("checked_from", "from_genesis", "after_failure")
+        same = ([(g["status"], g["state"], g["codes"], g["notices"]) + tuple(g[f] for f in F) for g in got]
+                == [(w["status"], w["state"], w["codes"], w.get("notices", [])) + tuple(w[f] for f in F) for w in want])
         ok += same; bad += not same
         print(("PASS " if same else "FAIL ") + t["name"] + ("" if same else f"\n  want {want}\n  got  {got}"))
     print(f"{ok}/{ok + bad} vectors pass")
