@@ -3,7 +3,7 @@
 key) signs synthetic DEILS commitment records; the OTS vectors use real proofs and real Bitcoin headers (ots/ and headers.json).
 
   python3 gen_vectors.py && python3 check.py --vectors vectors.json"""
-import copy, hashlib, json, os, sys
+import re, copy, hashlib, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -67,6 +67,19 @@ S1, _ = day_edges("2026-10-20"); S2, _ = day_edges("2026-10-21"); S3, E3 = day_e
 BASE = [("2026-10-20", [(1, S1), (2, S1 + 3600), (3, S1 + 86399)]), ("2026-10-21", []), ("2026-10-22", [(4, S3 + 10), (5, S3 + 7200)])]
 
 
+CONFIRMED_HEIGHT = 973231   # the block that attests base day 3 (ots/real.json); ots_verify reports it for a confirmed day
+
+
+def _hdr_date(text):
+    """the date a reader of this file sees: the header's date if the header line parses and the date is one canonical spelling."""
+    try:
+        h = json.loads(text.split("\n", 1)[0])
+    except ValueError:
+        return None
+    d = h.get("date") if isinstance(h, dict) else None
+    return d if isinstance(d, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", d, re.ASCII) else None
+
+
 def ok(n):
     return [{"status": "not_anchored", "state": "published", "codes": []}] * n
 
@@ -84,10 +97,17 @@ def main():
     def add(name, days, expect, records=True, cf=("2026-10-20", True), **kw):
         """review 4: every chain vector pins the section-8 output fields. cf = (checked_from, from_genesis) for all days, or a list per
         day. after_failure follows from the expected statuses alone (a day after any failed day that is not itself failed)."""
-        ex = copy.deepcopy(expect); seen_fail = False
+        ex = [copy.deepcopy(w) for w in expect]; seen_fail = False   # ok(n) repeats ONE dict: copy each day
         cfs = cf if isinstance(cf, list) else [cf] * len(ex)
-        for w, (c, g) in zip(ex, cfs):
+        # review 5 (Pavlo, TG 5889): every chain vector also pins each day's reported date and confirmed Bitcoin height. A day's date is
+        # its header's date when the header is readable (None otherwise: see the NOHDR cases); height is the attested block for a
+        # confirmed day, None for every other state. Per-vector overrides: dates=[...] / heights=[...].
+        dates = kw.pop("dates", None) or [_hdr_date(d) for d in days]
+        heights = kw.pop("heights", None)
+        for i, (w, (c, g)) in enumerate(zip(ex, cfs)):
             w.setdefault("notices", []); w["checked_from"] = c; w["from_genesis"] = g
+            w["date"] = None if c is None else dates[i]   # an unreadable header (checked_from not set yet) reports no date
+            w["height"] = heights[i] if heights else (CONFIRMED_HEIGHT if w["state"] == "confirmed" else None)
             w["after_failure"] = seen_fail and w["status"] != "failed"
             seen_fail = seen_fail or w["status"] == "failed"
         V.append({"name": name, "days": days, "records": evs if records is True else records, "expect": ex, **kw})

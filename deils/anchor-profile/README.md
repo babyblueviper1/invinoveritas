@@ -10,10 +10,12 @@ DEILS group before anything is built. DEILS core v1 stays frozen at `trustless-a
 - `pins.py`: derives the difficulty pin for any retarget epoch from two sources that must agree (or your own node), for `check.py --pins pins.json`. `python3 pins.py --self-test` runs offline.
 - `ots_verify.py`: an OpenTimestamps proof walker, standard library only. A Bitcoin attestation counts only against a block
   header you supply. The walker checks the header's proof of work and its merkle root.
-- `gen_vectors.py` and `vectors.json`: 47 vectors, including the end-to-end anchored chain (day 3 confirmed at block 973231),
+- `gen_vectors.py` and `vectors.json`: 58 vectors, each pinning every result field (date and height included), including the end-to-end anchored chain (day 3 confirmed at block 973231),
   valid cases (empty day, days of 3, 5 and 7 records, a control character in a tag) and one failing or notice vector per rule. Records are signed with a TEST key derived from a public string.
 - `ots/`: real data. `real.json` holds our 2026-10-09 decision-receipt slot-log stamp, confirmed at Bitcoin block 970761, with
   headers that mempool.space and blockstream.info both return. `base_day3.*` stamps the vector chain's day 3 `log_root`:
   pending (4 calendars) and confirmed at block 973231 (`base_day3.confirmed.ots`, header in `base_day3.json`).
 
-Review 2 (Echo) fixes are listed at the end of PROFILE.md. Each of the 18 mutations in the mutation run (Echo's six survivors included) makes at least one vector fail.
+- `mutants.py`: the mutation run, replayable offline (`python3 mutants.py`, ~15 min): 40 mutants, all killed (one listed equivalent mutant survives as expected), and 544 negative witnesses (each pinned result field tampered one at a time; the runner must fail every one).
+
+Fixes from each review are listed at the end of PROFILE.md.

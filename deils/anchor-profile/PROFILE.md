@@ -130,7 +130,8 @@ roots for the same confirmed day hold proof of equivocation.
 
 ## 8. Outcomes
 `check.py` prints one result per day: `{date, status, state, height, codes, notices, checked_from, from_genesis, after_failure}`.
-The vectors pin every one of these fields (review 4). `notices` is `late_record` and/or `late_record_beyond_grace`. `checked_from` is
+The vectors pin every one of these fields: since review 5, `date` and `height` too (review 4 said "every" but compared only
+`status, state, codes, notices, checked_from, from_genesis, after_failure`; Pavlo, TG 5889). `notices` is `late_record` and/or `late_record_beyond_grace`. `checked_from` is
 the date of the first readable header; `from_genesis` needs BOTH `prev_root` of 64 zeros and `prev_last_position` 0 in that header
 (either alone would let a first file hide earlier records); `after_failure` is true on a day that passes its own rules but comes
 after a failed day.
@@ -187,3 +188,19 @@ after a failed day.
 4. **`pins.py --self-test`** runs offline: canned sources agree, disagree, or serve a header with bad proof of work.
 5. Mutation check on the new rules: 12 mutants (Echo's 7 survivors plus the grace boundary, upper case, both regexes and the `int?`
    check), 12 killed. 58 vectors pass.
+
+## Changes after review 5 (Pavlo TG 5889, Echo TG 5890, 2026-10-27)
+1. **Every result field is pinned.** Each chain vector now also pins each day's `date` and its confirmed Bitcoin `height` (973231 on
+   the four confirmed chains, `null` on every other day; a day whose header cannot be read reports `date: null`), and the runner
+   compares them. Section 8 said "every" field at review 4 while comparing seven of nine; corrected above.
+2. **Negative witnesses.** `mutants.py` part 2 tampers each pinned field of every chain vector one at a time (`date`, `height` +1 and
+   `null`, `checked_from`, `from_genesis`, `after_failure`): 544/544 tampers make the runner fail.
+3. **The mutation run is in the repo** (`python3 mutants.py`, offline, standard library). 40 mutants: the earlier controls replayed (both
+   genesis halves, terminal failure, the grace edge both ways, collapsing the two late notices, whole-string and lower-case
+   regexes, `int?`, the unpinned epoch, the OpenTimestamps and pins checks, the section-8 output fields) and 5 new ones on
+   `date`/`height`. It covers the cases Echo listed for his 20; it is our own list, not a copy of his. 40/40 killed. One equivalent mutant is listed and expected
+   to survive: removing `re.ASCII` from the date regex, since a non-ASCII date is rejected at canonicalisation first; `re.ASCII` stays
+   as defense in depth.
+4. **Epoch pins.** When the end-to-end vector's epoch rolls over (483, from about block 973728), the new pin is added with `pins.py`
+   (two agreeing sources or your own node) and recorded in this changelog with the block and both sources. 58 vectors pass.
+

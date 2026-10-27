@@ -276,8 +276,9 @@ def run_vectors(path):
         got = check_chain(t["days"], recs, v.get("issuer"), ots, {int(k): x for k, x in (t.get("headers") or {}).items()},
                           set(t.get("claims") or ()), {int(k): int(x) for k, x in (t.get("pins") or {}).items()} or None)
         want = t["expect"]
-        # review 4: the output fields of section 8 are compared too (hard-coding any of them survived before)
-        F = ("checked_from", "from_genesis", "after_failure")
+        # review 4: the output fields of section 8 are compared too (hard-coding any of them survived before); review 5 (Pavlo,
+        # TG 5889): every result field, including each day's date and its confirmed Bitcoin height
+        F = ("checked_from", "from_genesis", "after_failure", "date", "height")
         same = ([(g["status"], g["state"], g["codes"], g["notices"]) + tuple(g[f] for f in F) for g in got]
                 == [(w["status"], w["state"], w["codes"], w.get("notices", [])) + tuple(w[f] for f in F) for w in want])
         ok += same; bad += not same
