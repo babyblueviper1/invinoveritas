@@ -16,6 +16,6 @@ DEILS group before anything is built. DEILS core v1 stays frozen at `trustless-a
   headers that mempool.space and blockstream.info both return. `base_day3.*` stamps the vector chain's day 3 `log_root`:
   pending (4 calendars) and confirmed at block 973231 (`base_day3.confirmed.ots`, header in `base_day3.json`).
 
-- `mutants.py`: the mutation run, replayable offline (`python3 mutants.py`, ~15 min): 40 mutants, all killed (one listed equivalent mutant survives as expected), and 544 negative witnesses (each pinned result field tampered one at a time; the runner must fail every one).
+- `mutants.py`: the mutation run, replayable offline (`python3 mutants.py`, ~15 min): 40 mutants, all killed (one listed equivalent mutant survives as expected), and 544 negative witnesses (each pinned result field tampered one at a time; the runner must fail every one, on that vector). A crash never counts as a kill, and three built-in controls fail the run if either guard is removed (review 5 replay).
 
 Fixes from each review are listed at the end of PROFILE.md.

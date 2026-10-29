@@ -204,3 +204,16 @@ after a failed day.
 4. **Epoch pins.** When the end-to-end vector's epoch rolls over (483, from about block 973728), the new pin is added with `pins.py`
    (two agreeing sources or your own node) and recorded in this changelog with the block and both sources. 58 vectors pass.
 
+## Changes after the review 5 replay (Pavlo TG 5930, 2026-10-29)
+The replay at `1fe5fb29104d` reproduced every count (58/58, 3/3, 40/40, 544/544) and found two places where the harness could report a
+pass without a check having caught anything. Both are in `mutants.py`'s accounting, not in `check.py`; the 40 and 544 also held under
+Pavlo's stricter independent checks.
+1. **A crash is not a kill.** `mutants.py:91` counted any nonzero exit as KILLED, an unrelated crash included. A run now counts only when
+   it finished normally: exit 0 or 1, a final `N/M` summary line whose counts match the PASS/FAIL lines, and exit 1 exactly when a line
+   failed. Anything else (a traceback, another exit code, a hang past 300 s) is CRASHED, reported as a problem, never a kill.
+2. **A witness is caught only by its own vector.** `mutants.py:145` counted any stdout containing `FAIL` as caught. A tamper now counts
+   only when the run finished normally and the one failing line names the tampered vector.
+3. **Removal controls.** Part 3 runs first: a mutant that crashes the runner must be classed crashed; a runner that prints a `FAIL` line
+   without running any check must not count as a caught witness, and neither may a failure on another vector. Put either old
+   accounting back and the run fails (checked both ways). Result: controls 3/3, 40/40 killed, 0 crashed, 544/544 caught.
+

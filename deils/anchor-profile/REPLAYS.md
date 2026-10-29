@@ -2,6 +2,13 @@
 
 Runs of this profile by parties other than its author, newest first. This file is outside `SHA256SUMS` on purpose, so adding a replay never changes the pinned profile (`babyblueviper1/invinoveritas@1fe5fb29104d deils/anchor-profile`).
 
+## 2026-10-29: review 5 replay (Pavlo)
+
+- **What:** the profile's harness at `1fe5fb29104d`, with negative controls of his own.
+- **Result:** reproduced 58/58 vectors, 3/3 pin controls, 40/40 non-equivalent mutants killed, 544/544 tamper witnesses detected, the `re.ASCII` equivalent mutant reported separately. Found two harness-level false-green paths (a crash counted as a kill; any `FAIL` text counted as a caught witness), each shown with a negative control; the 40/544 results held under stricter independent checks. Verdict: ITERATE for the harness, conformance sign-off on HOLD.
+- **Fixed:** see PROFILE.md, "Changes after the review 5 replay": crashes are their own outcome, a witness must fail on its own vector, and built-in removal controls fail the run if either guard is taken out.
+- **Source:** trustless-ai Telegram group, topic 5583, message 5930.
+
 ## 2026-10-29: genesis day, anchored (Echo, Vertice)
 
 - **What:** the production anchor log's genesis day, `2026-10-28.jsonl` (sha256 `7c9757691ef6bb83f0b0bc6963933c2870a7e29db147edcdf745e53a7848d7d4`), with `records.jsonl` and `2026-10-28.ots` as served by `https://api.babyblueviper.com/deils/anchor-log/`.

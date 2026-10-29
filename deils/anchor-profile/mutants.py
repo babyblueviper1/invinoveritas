@@ -11,8 +11,13 @@ tampered one at a time in a copy of vectors.json -- each day's date, each confir
 after_failure -- and the runner must report FAIL for every tamper. This proves the runner compares those fields, not just that the
 checker produces them.
 
-usage: python3 mutants.py            exit 0 iff every non-equivalent mutant is killed and every witness fails"""
-import json, os, shutil, subprocess, sys, tempfile
+Part 3, CONTROLS (review 5 replay, Pavlo TG 5930): a crash is its own outcome, never a kill, and a witness counts as caught only
+when the run finished and its own tampered vector is the line that failed; two built-in controls fail this run if either guard is
+removed.
+
+usage: python3 mutants.py            exit 0 iff the controls hold, every non-equivalent mutant is killed (none crashed) and every
+                                     witness is caught by its own vector"""
+import json, os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FILES = ("check.py", "ots_verify.py", "pins.py", "bip340.py", "vectors.json")
@@ -86,17 +91,38 @@ def _copy():
     return d
 
 
+def _outcome(d, cmd, summary):
+    """Run one harness command in d. Returns ("ran", failed_lines) only when it finished normally: exit 0 or 1, a final summary line
+    "N/M <summary>", M equal to the number of PASS/FAIL lines, N equal to the PASS count, and exit 1 exactly when a line failed.
+    Anything else (a traceback, another exit code, a hang, a missing or inconsistent summary) is ("crashed", reason): a crash shows
+    nothing about whether a check caught the change, so it is never counted as a kill or a caught witness (review 5 replay, Pavlo
+    TG 5930: mutants.py:91 counted any nonzero exit as KILLED, mutants.py:145 any stdout containing FAIL as caught)."""
+    try:
+        r = subprocess.run([sys.executable, "-I", "-B"] + cmd, cwd=d, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return "crashed", "timeout"
+    lines = r.stdout.splitlines()
+    res = [x for x in lines if x.startswith(("PASS ", "FAIL "))]
+    m = re.fullmatch(r"(\d+)/(\d+) " + re.escape(summary), lines[-1]) if lines else None
+    fails = [x[5:] for x in res if x.startswith("FAIL ")]
+    if (r.returncode not in (0, 1) or not m or int(m.group(2)) != len(res) or int(m.group(1)) != len(res) - len(fails)
+            or (r.returncode == 1) != bool(fails)):
+        return "crashed", f"exit {r.returncode}, last line {lines[-1][:60] if lines else '(none)'!r}"
+    return "ran", fails
+
+
 def _run(d, pins_test):
-    r = subprocess.run([sys.executable, "check.py", "--vectors", "vectors.json"], cwd=d, capture_output=True, text=True)
-    bad = r.returncode != 0 or "FAIL" in r.stdout
+    """killed / survived / crashed for one mutant: killed only when a check ran to the end and reported a failure."""
+    runs = [_outcome(d, ["check.py", "--vectors", "vectors.json"], "vectors pass")]
     if pins_test:
-        p = subprocess.run([sys.executable, "pins.py", "--self-test"], cwd=d, capture_output=True, text=True)
-        bad = bad or p.returncode != 0
-    return bad
+        runs.append(_outcome(d, ["pins.py", "--self-test"], "pins self-test"))
+    if any(k == "crashed" for k, _ in runs):
+        return "crashed"
+    return "killed" if any(f for _, f in runs) else "survived"
 
 
 def mutants():
-    killed = survived = equiv_ok = 0; problems = []
+    killed = survived = crashed = equiv_ok = 0; problems = []
     for m in MUTANTS:
         f, old, new, what = m[:4]; equivalent = len(m) > 4 and m[4]
         d = _copy()
@@ -105,9 +131,12 @@ def mutants():
             if src.count(old) != 1:
                 problems.append(f"STALE mutant (text not found exactly once in {f}): {what}"); continue
             open(os.path.join(d, f), "w").write(src.replace(old, new))
-            dead = _run(d, f == "pins.py")
+            res = _run(d, f == "pins.py")
         finally:
             shutil.rmtree(d, ignore_errors=True)
+        if res == "crashed":
+            crashed += 1; problems.append(f"CRASHED (not counted as killed): {what}"); print("CRASHED  " + what); continue
+        dead = res == "killed"
         if equivalent:
             equiv_ok += not dead
             print(("equivalent, survives as expected: " if not dead else "equivalent but KILLED (re-check the note): ") + what)
@@ -118,7 +147,35 @@ def mutants():
         else:
             survived += 1; problems.append(f"SURVIVED: {what}"); print("SURVIVED " + what)
     n = len([m for m in MUTANTS if not (len(m) > 4 and m[4])])
-    print(f"mutants: {killed}/{n} killed, {survived} survived; {equiv_ok} equivalent (expected to survive)")
+    print(f"mutants: {killed}/{n} killed, {survived} survived, {crashed} crashed; {equiv_ok} equivalent (expected to survive)")
+    return problems
+
+
+def _witness_caught(kind, fails, name):
+    """A tamper is caught only when the run finished and the one tampered vector itself is the line that failed."""
+    return kind == "ran" and fails == [name]
+
+
+def controls():
+    """Removal controls for both guards: each fails the harness if its guard is taken out. (1) A mutant that crashes the runner must
+    be classed crashed, not killed. (2) A runner that prints a FAIL line without running any check must not count as a caught witness,
+    and neither may a finished run whose failing line names another vector."""
+    problems = []
+    d = _copy()
+    try:
+        src = open(os.path.join(d, "check.py")).read()
+        open(os.path.join(d, "check.py"), "w").write(src.replace("def run_vectors(path):\n", "def run_vectors(path):\n    raise RuntimeError('control')\n", 1))
+        if _run(d, False) != "crashed":
+            problems.append("control 1: a crashing mutant was not classed crashed")
+        open(os.path.join(d, "check.py"), "w").write(src.replace("def run_vectors(path):\n", "def run_vectors(path):\n    print('FAIL x'); return 1\n", 1))
+        k, fails = _outcome(d, ["check.py", "--vectors", "vectors.json"], "vectors pass")
+        if _witness_caught(k, fails, "x"):
+            problems.append("control 2: a FAIL line with no checks run counted as a caught witness")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    if _witness_caught("ran", ["another vector"], "this vector"):
+        problems.append("control 2b: a failure on another vector counted as this vector's witness")
+    print(f"controls: {3 - len(problems)}/3 (crash is not a kill; FAIL text without checks or on another vector is not a caught witness)")
     return problems
 
 
@@ -139,10 +196,10 @@ def witnesses():
                 d = _copy()
                 try:
                     json.dump(v2, open(os.path.join(d, "vectors.json"), "w"))
-                    r = subprocess.run([sys.executable, "check.py", "--vectors", "vectors.json"], cwd=d, capture_output=True, text=True)
+                    k, fails = _outcome(d, ["check.py", "--vectors", "vectors.json"], "vectors pass")
                 finally:
                     shutil.rmtree(d, ignore_errors=True)
-                if "FAIL" in r.stdout:
+                if _witness_caught(k, fails, t["name"]):
                     caught += 1
                 else:
                     missed += 1; problems.append(f"witness NOT caught: {t['name'][:60]} day {di + 1} {field}={bad}")
@@ -151,7 +208,7 @@ def witnesses():
 
 
 if __name__ == "__main__":
-    p = mutants() + witnesses()
+    p = controls() + mutants() + witnesses()
     for x in p:
         print("PROBLEM " + x)
     sys.exit(1 if p else 0)
