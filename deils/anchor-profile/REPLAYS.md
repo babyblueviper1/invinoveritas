@@ -2,6 +2,14 @@
 
 Runs of this profile by parties other than its author, newest first. This file is outside `SHA256SUMS` on purpose, so adding a replay never changes the pinned profile (`babyblueviper1/invinoveritas@1fe5fb29104d deils/anchor-profile`).
 
+## 2026-10-30: harness fixes, third replay (Echo, Vertice)
+
+- **What:** the harness fixes at `57c91fc629de`, from a clean clone.
+- **Result:** 14/14 `SHA256SUMS` entries match; 58/58 vectors; `pins.py --self-test` 3/3; 3/3 removal controls pass (a crash is not a kill; `FAIL` text without checks, or on another vector, is not a caught witness); 40/40 non-equivalent mutants killed, 0 survived, 0 crashed, 1 equivalent as expected; 544/544 tampered expectations caught. Matches Pavlo's replay, so the lifted HOLD holds on a third machine.
+- **Note:** the 10-28 replay below used the old accounting, so the two false-green paths applied to its counts too; this run supersedes it.
+- **Scope (as stated by the replayer):** harness conformance at this commit, not production approval.
+- **Source:** trustless-ai Telegram group, topic 5583, message 5940.
+
 ## 2026-10-29: review 5 harness fixes reproduced -- HOLD lifted (Pavlo)
 
 - **What:** the harness fixes at `57c91fc629de`, on Windows, plus a separate parallel replay with the updated harness checks.
