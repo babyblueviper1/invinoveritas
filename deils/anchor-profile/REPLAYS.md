@@ -2,6 +2,14 @@
 
 Runs of this profile by parties other than its author, newest first. This file is outside `SHA256SUMS` on purpose, so adding a replay never changes the pinned profile (`babyblueviper1/invinoveritas@1fe5fb29104d deils/anchor-profile`).
 
+## 2026-10-29: review 5 harness fixes reproduced -- HOLD lifted (Pavlo)
+
+- **What:** the harness fixes at `57c91fc629de`, on Windows, plus a separate parallel replay with the updated harness checks.
+- **Result:** source hashes match; 58/58 vectors; `pins.py --self-test` 3/3; 40/40 non-equivalent mutants killed, the equivalent mutant survives as expected; 544/544 tamper witnesses caught; 3/3 removal controls pass, including under `python -O`; 0 crashed or unapplied mutations. The two false-green paths are addressed and no new harness failures were seen.
+- **Verdict:** the review 5 harness HOLD is lifted at this pinned commit.
+- **Scope (as stated by the reviewer):** this is not production approval, and does not establish best-chain membership, complete issuance history or actual record creation time; service implementation is a separate team decision.
+- **Source:** trustless-ai Telegram group, topic 5583, message 5932.
+
 ## 2026-10-29: review 5 replay (Pavlo)
 
 - **What:** the profile's harness at `1fe5fb29104d`, with negative controls of his own.
