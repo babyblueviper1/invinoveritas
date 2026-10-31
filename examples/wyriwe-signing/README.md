@@ -15,7 +15,19 @@ hosted service. CC0.
 | `live_check.py` | the Safe binding against a real chain, through two RPCs |
 | `mpt.py` | a Merkle-Patricia trie builder for making proofs (generator and live check only; the checker only verifies) |
 | `real_owners_proof.json` | a real owners@block proof (Ethereum mainnet) as captured |
+| `replay_execution.py` | an independent replay of the mainnet execution capture, sharing no code with the checker: py-trie, pyrlp and eth-hash verify the header, both proofs, and rebuild both tries from the RPC |
 | `real_execution_proof.json` | a real authenticated execution (transaction + receipt inclusion, Ethereum mainnet) as captured |
+
+## Run it cold
+```
+git clone --depth 1 --filter=blob:none --sparse https://github.com/babyblueviper1/invinoveritas && cd invinoveritas
+git sparse-checkout set examples/wyriwe-signing && cd examples/wyriwe-signing
+sha256sum -c SHA256SUMS                    # every file as published
+python3 check.py --vectors vectors.json    # exit 0 only if every vector matches AND the encoder pins check
+python3 mutants.py                         # exit 0 only if every check is killed and none crashed
+pip install trie==3.1.0 rlp eth-hash[pycryptodome] && python3 replay_execution.py   # optional: the mainnet capture, replayed
+```
+`check.py` needs `ENCODER.md` and `wyriwe_encoder.py` beside it: fetched alone, it reports the pins as NOT CHECKED and exits 1.
 
 ## Results at this commit
 - `check.py --vectors vectors.json`: **47/47**. `mutants.py`: **25/25 killed, 0 survived, 0 crashed**.
@@ -30,7 +42,9 @@ hosted service. CC0.
   transaction and receipt tries from its 170 raw transactions and receipts; both roots equal the header's, the header hashes
   to the block hash (a second RPC agrees), and `execution_proven()` reads the transaction (its hash equals the tx hash) and a
   status-1 receipt from the proofs. That receipt carries the Safe's `ExecutionSuccess` for the digest recomputed from the proven
-  calldata. One receipt-proof node removed, or one header bit flipped: rejected.
+  calldata. One receipt-proof node removed, or one header bit flipped: rejected. `replay_execution.py`, built on the Ethereum
+  Foundation's py-trie / pyrlp / eth-hash instead of our code, agrees: header hash, both proofs, both rebuilt roots, and both
+  RPCs report the same hash and roots. (Our run of an independent implementation; a replay by someone else is still open.)
 
 ## The four verdicts
 | verdict | PASS needs | without its evidence |

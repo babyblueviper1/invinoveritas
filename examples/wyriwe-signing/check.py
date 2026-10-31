@@ -418,7 +418,9 @@ def pins_ok() -> bool:
         spec = open(os.path.join(HERE, "ENCODER.md"), "rb").read()
         impl = hashlib.sha256(open(os.path.join(HERE, "wyriwe_encoder.py"), "rb").read()).hexdigest()
     except OSError:
-        print("pins: ENCODER.md / wyriwe_encoder.py not next to check.py -- not checked"); return True
+        # never a silent green (Echo, WG 5971): without the pinned files the run is incomplete, and the exit code says so
+        print("pins: NOT CHECKED -- ENCODER.md and wyriwe_encoder.py must sit next to check.py (fetch the whole directory, "
+              "then `sha256sum -c SHA256SUMS`)"); return False
     cid = "ipfs://b" + base64.b32encode(bytes([1, 0x55, 0x12, 0x20]) + hashlib.sha256(spec).digest()).decode().lower().rstrip("=")
     named = _re.search(rb"reference implementation: \*\*`([0-9a-f]{64})`\*\*", spec)
     ok = cid == ENCODER_SPEC_CID and named is not None and named.group(1).decode() == impl
