@@ -116,7 +116,7 @@ def owners_root(block=EXEC_BLOCK):
 
 
 def pin_records(mode, approvers=None, pin=None, account=SAFE, chain_id=1):
-    """Storage records that pin `pin` (Echo WG 5968, option a): a Safe message (signedMessages[getMessageHash(abi.encode(pin))]
+    """Storage records that pin `pin` (Echo, PR #1 review 2026-10-31, option a): a Safe message (signedMessages[getMessageHash(abi.encode(pin))]
     = 1, slot 7) or owner approvals (approvedHashes[owner][pin] = 1, slot 8)."""
     word = lambda n: n.to_bytes(32, "big")
     if mode == "safe_message":
@@ -205,7 +205,7 @@ def build():
         t, par = with_parent(tr)
         add(name, {"flow": fl, "review": {"trust_root": t, "approvals": approvals(fl, appr)}, "chain": chain_for(info, dg, two, parent=par)}, expect, extra)
     # positive: a content-addressed reviewer list, separate from the signers -> independent review. Its pin is RECORDED ON-CHAIN
-    # in the parent state (Echo WG 5968, option a): as a Safe message (no module enabled), and as owner approvals
+    # in the parent state (Echo, PR #1 review 2026-10-31, option a): as a Safe message (no module enabled), and as owner approvals
     rlv("pos_reviewer_list_content_addressed", reviewer_root(), REVIEWERS, P4, {"reviewed.independent_review": True})
     rlv("pos_reviewer_list_owner_approvals", reviewer_root(mode="owner_approvals"), REVIEWERS, P4, {"reviewed.independent_review": True})
     # positive: the Safe v1.4.x event layout (txHash as an indexed topic, found on a real mainnet execution)
@@ -278,7 +278,7 @@ def build():
     flx = {"intent": xi, "encoder_spec_cid": CID, "payload": fl["payload"],
            "claimed": {**fl["claimed"], "intentHash": C._h(ih), "encoderPipelineHash": C._h(W.encoder_pipeline_hash(CID, ih))}}
     add("neg_intent_unknown_member", {"flow": flx}, {"encoded": "FAIL", "reviewed": "NOT_ESTABLISHED", "signed": "NOT_ESTABLISHED", "executed": "NOT_ESTABLISHED"})
-    # ---- Pavlo (WG 5962) + Echo (WG 5968, option a): trust-root AUTHORITY, and a pin RECORDED ON-CHAIN before the execution block.
+    # ---- Pavlo (WG 5962) + Echo (PR #1 review 2026-10-31, option a): trust-root AUTHORITY, and a pin RECORDED ON-CHAIN before the execution block.
     # Each is reviewed: NOT_ESTABLISHED, never PASS.
     NE4 = {**P4, "reviewed": "NOT_ESTABLISHED"}
     nolist = reviewer_root(); nolist.pop("authorization")
@@ -372,7 +372,7 @@ def main():
     for n in (0, 1, 135, 136, 137, 500):
         b = os.urandom(n)
         assert W.keccak256(b) == keccak(b), "keccak"
-    # option (a) primitives (Echo WG 5968): the pin, the Safe message hash and both storage-slot formulas, against eth_abi
+    # option (a) primitives (Echo PR #1 review 2026-10-31): the pin, the Safe message hash and both storage-slot formulas, against eth_abi
     lh = "0x" + os.urandom(32).hex(); own = OWNERS[0].address.lower()
     pin = keccak(abi(["bytes32", "uint256", "address", "bytes32"], [keccak(text=C.REVIEWER_LIST_PIN_TYPE), 1, SAFE, bytes.fromhex(lh[2:])]))
     assert C.reviewer_list_pin(1, SAFE, lh) == pin, "reviewer_list_pin"

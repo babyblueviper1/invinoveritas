@@ -213,7 +213,7 @@ SAFE_MSG_TYPE = "SafeMessage(bytes message)"
 
 
 def reviewer_list_pin(chain_id: int, account: str, list_hash: str) -> bytes:
-    """reviewerListPin (PROFILE.md section 6, Echo WG 5968, option a): the value the account records ON-CHAIN, before the
+    """reviewerListPin (PROFILE.md section 6, Echo, PR #1 review 2026-10-31, option a): the value the account records ON-CHAIN, before the
     execution block, to pin a reviewer list. keccak256(abi.encode(typehash, chainId, account, listHash)), listHash =
     keccak256(JCS(list)). It carries no block number: the block is proven from the state it is recorded in, never stated."""
     return W.keccak256(W.typehash(REVIEWER_LIST_PIN_TYPE) + W._word(chain_id) + W._static("address", account) + bytes.fromhex(list_hash[2:]))
@@ -226,7 +226,7 @@ def safe_message_hash(chain_id: int, safe: str, message: bytes) -> bytes:
 
 
 def reviewer_list_pin_recorded(au: dict, account: str, chain_id: int, list_hash: str, exec_header):
-    """reviewer-list@commitment, option (a) (Echo, WG 5968): the list counts only when its pin is RECORDED ON-CHAIN BEFORE the
+    """reviewer-list@commitment, option (a) (Echo, PR #1 review 2026-10-31): the list counts only when its pin is RECORDED ON-CHAIN BEFORE the
     execution block, proven by the checker. The state is block E-1: a header the checker hashes, whose hash equals the
     authenticated execution header's parentHash (so it needs no canonicity check beyond block E's). Either record counts:
       safe_message     signedMessages[getMessageHash(abi.encode(pin))] == 1 (slot keccak256(msgHash . 7)), set by a Safe
@@ -396,7 +396,7 @@ def check(fx: dict) -> dict:
             # the owners' authorization below is over the hash of the list AS GIVEN, so a list that was changed after it was
             # pinned fails there; a content_hash that differs is reported, not a separate check
             lh = _h(W.keccak256(W.jcs(lst)))
-            # authority + prior binding (Pavlo WG 5962; Echo WG 5968, option a): the pin is RECORDED ON-CHAIN in the state before
+            # authority + prior binding (Pavlo WG 5962; Echo, PR #1 review 2026-10-31, option a): the pin is RECORDED ON-CHAIN in the state before
             # the execution block, proven against the execution header's parent; the execution header is authenticated first
             try:
                 eh = _header((fx.get("chain") or {}).get("execution") or {})

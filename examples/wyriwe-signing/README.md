@@ -48,7 +48,7 @@ pip install trie==3.1.0 rlp eth-hash[pycryptodome] && python3 replay_execution.p
   Foundation's py-trie / pyrlp / eth-hash instead of our code, agrees: header hash, both proofs, both rebuilt roots, and both
   RPCs report the same hash and roots, and the proven receipt carries the Safe's `ExecutionSuccess` for the digest (a copy with
   one digest nibble changed: rejected, exit 1). Echo (Tiago Merlini) replayed the capture himself, in a fresh environment, with
-  four RPCs of his own choosing: all agree, exit 0; and checked the `ExecutionSuccess` event with his own script (WG 5968).
+  four RPCs of his own choosing: all agree, exit 0; and checked the `ExecutionSuccess` event with his own script (PR #1 review 2026-10-31).
 
 ## The four verdicts
 | verdict | PASS needs | without its evidence |
@@ -64,7 +64,7 @@ pip install trie==3.1.0 rlp eth-hash[pycryptodome] && python3 replay_execution.p
   threshold are **read from the proofs**; a supplied list is never trusted. Reported as fidelity, not independent review, because
   the reviewers are the signers.
 - **reviewer-list@commitment** is accepted only when its pin is **recorded on-chain before the execution block**, and the checker
-  proves that record itself (Echo, WG 5968, option a). `reviewerListPin = keccak256(abi.encode(keccak256("WyriweReviewerList(uint256
+  proves that record itself (Echo, PR #1 review 2026-10-31, option a). `reviewerListPin = keccak256(abi.encode(keccak256("WyriweReviewerList(uint256
   chainId,address account,bytes32 listHash)"), chainId, account, listHash))`, `listHash = keccak256(JCS(list))`. The state is
   block E-1: account and storage proofs against a header the checker hashes, whose hash equals the **authenticated execution
   header's `parentHash`** (so it needs no canonicity check beyond block E's). Either record counts:

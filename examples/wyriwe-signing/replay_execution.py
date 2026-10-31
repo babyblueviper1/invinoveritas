@@ -9,7 +9,7 @@ Trie, RLP and Keccak come from the Ethereum Foundation's py-trie (HexaryTrie), p
    proven transaction hashes to the transaction;
 3. the block's transaction and receipt tries, rebuilt with HexaryTrie from the RPC's raw transactions and receipts, have
    the header's roots;
-4. what `executed` claims for a Safe (Echo, WG 5968): the PROVEN receipt carries ExecutionSuccess emitted by the proven
+4. what `executed` claims for a Safe (Echo, PR #1 review 2026-10-31): the PROVEN receipt carries ExecutionSuccess emitted by the proven
    transaction's `to` (the Safe), for the digest in the capture (v1.4.1: the hash is indexed, topics[1]).
 usage: python3 replay_execution.py [real_execution_proof.json] [RPC ...]   (default RPCs: publicnode, drpc)
 """
