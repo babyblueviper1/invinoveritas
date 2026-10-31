@@ -6,8 +6,10 @@ their trust root, and optional chain data (the Safe's owners and threshold at ex
 receipt), it returns FOUR SEPARATE verdicts -- encoded, reviewed, signed, executed -- each PASS, FAIL (with the step and reason)
 or NOT_ESTABLISHED (its evidence was not supplied). A verdict is never inferred from another one.
 
-Offline by design: chain reads (owners at a block, the transaction, the receipt) are supplied as data, exactly as an RPC would
-return them, so the result is recomputable from the fixture alone. What is checked against what is in README.md.
+Offline by design: chain reads are supplied as data, so the result is recomputable from the fixture alone. Supplied RPC data is
+never trusted as evidence on its own: owners@block and `executed` PASS only on proofs the checker verifies itself (a header it
+hashes, Merkle-Patricia proofs under its roots); unproven chain data gives NOT_ESTABLISHED with the reason. What is checked
+against what is in README.md.
 
 usage: python3 check.py FIXTURE.json            # print the four verdicts
        python3 check.py --vectors vectors.json  # run every vector, compare with its expected verdicts
@@ -124,11 +126,12 @@ def _nibbles(b: bytes):
     return [x for c in b for x in (c >> 4, c & 15)]
 
 
-def mpt_get(root: bytes, key: bytes, proof):
-    """Verify a Merkle-Patricia proof (eth_getProof node list) of key under root; return the value bytes, or b"" for a proven
-    absence. Raises ValueError on any node that does not hash to its reference or does not follow the path."""
+def mpt_get(root: bytes, key: bytes, proof, secure: bool = True):
+    """Verify a Merkle-Patricia proof (a node list, as eth_getProof returns) of key under root; return the value bytes, or b""
+    for a proven absence. Raises ValueError on any node that does not hash to its reference or does not follow the path.
+    secure=True: the state and storage tries (keys hashed); False: the transaction and receipt tries (key = rlp(index))."""
     nodes = {W.keccak256(n): n for n in proof}
-    path, ref = _nibbles(W.keccak256(key)), root
+    path, ref = _nibbles(W.keccak256(key) if secure else key), root
     while True:
         if isinstance(ref, list):
             node = ref
@@ -194,6 +197,52 @@ def safe_owners_proven(tr: dict, account: str):
     if not owners or not (1 <= thr <= len(owners)):
         raise ValueError("no owners or threshold out of range")
     return owners, thr
+
+
+def _header(blk: dict):
+    """A block header the checker hashes itself: it must hash to block_hash and carry `block`. Returns the decoded fields."""
+    hdr = _hx(blk.get("header_rlp"))
+    if not hdr or _h(W.keccak256(hdr)) != blk.get("block_hash"): raise ValueError("header does not hash to block_hash")  # CHECK:exec_header
+    h = rlp_decode(hdr)
+    if int.from_bytes(h[8], "big") != blk.get("block"): raise ValueError("header number differs from block")  # CHECK:exec_number
+    return h
+
+
+def execution_proven(ex: dict):
+    """executed, authenticated (Echo/Pavlo, WG 5966-5967): the transaction bytes and its receipt are both proven under the
+    transactionsRoot and receiptsRoot of a header the checker hashes, at the same index. Returns (tx bytes, status, logs) READ
+    FROM THE PROOFS; raises ValueError otherwise. As for owners@block, block_hash is reported for the consumer to confirm."""
+    h = _header(ex)
+    i = ex.get("tx_index")
+    if not isinstance(i, int) or i < 0:
+        raise ValueError("no tx_index")
+    key = W.rlp_encode(i)
+    txb = mpt_get(h[4], key, [_hx(n) for n in ex.get("tx_proof") or []], secure=False)
+    rcb = mpt_get(h[5], key, [_hx(n) for n in ex.get("receipt_proof") or []], secure=False)
+    if not txb or not rcb:
+        raise ValueError("transaction or receipt not included at tx_index")
+    r = rlp_decode(rcb[1:] if rcb[0] < 0x80 else rcb)   # typed receipt: type byte || rlp
+    logs = [{"address": _h(a), "topics": [_h(t) for t in ts], "data": _h(d)} for a, ts, d in r[3]]
+    return txb, int.from_bytes(r[0], "big"), logs
+
+
+def _tx_to_input(txb: bytes):
+    """(to, input) of a canonical transaction: legacy rlp, or a typed envelope (1, 2, 3, 4)."""
+    if txb[0] >= 0xc0:
+        f = rlp_decode(txb); return _h(f[3]), f[5]
+    f = rlp_decode(txb[1:])
+    return (_h(f[4]), f[6]) if txb[0] == 1 else (_h(f[5]), f[7])
+
+
+def _exec_outcome(status, logs, acct, dg):
+    """None when this receipt shows the account executed this digest; otherwise the reason."""
+    if status != 1: return "transaction_reverted"  # CHECK:status
+    # the Safe's event carries the digest as topics[1] (v1.4.x: `bytes32 indexed txHash`) or as the first data word (v1.3.0)
+    ev_hash = lambda l: (l.get("topics") or [])[1][2:] if len(l.get("topics") or []) > 1 else (l.get("data") or "")[2:66]
+    mine = [l for l in logs if (l.get("address") or "").lower() == acct and ev_hash(l) == dg[2:]]
+    # a Safe ExecutionFailure has no ExecutionSuccess, so one check covers both (the reason says which)
+    if not any((l.get("topics") or [None])[0] == EV_SUCCESS for l in mine): return "safe_ExecutionFailure" if any((l.get("topics") or [None])[0] == EV_FAILURE for l in mine) else "no_ExecutionSuccess_for_this_digest"  # CHECK:exec_success
+    return None
 
 
 def check(fx: dict) -> dict:
@@ -298,7 +347,10 @@ def check(fx: dict) -> dict:
             d = W.root_pin_digest(intent["chainId"], st)
             who = {W.ecrecover(d, _hx(sg)) for sg in au.get("signatures") or []} & set(aowners)
             if len(who) < athr: return _v(NE, 4, "reviewer_list_not_authorized_by_the_owners", trust_root={"kind": kind})  # CHECK:list_pin_sigs
-            exb = ((fx.get("chain") or {}).get("receipt") or {}).get("blockNumber")
+            try:
+                exb = _header((fx.get("chain") or {}).get("execution") or {}) and fx["chain"]["execution"]["block"]
+            except Exception:
+                exb = None   # the execution block is only known from an authenticated header
             if not isinstance(exb, int) or not pin < exb: return _v(NE, 4, "reviewer_list_not_bound_before_execution", trust_root={"kind": kind})  # CHECK:list_prior
             tid = f"content:{lh} pinned by owners@{pin}"
             keys, thr = [k.lower() for k in lst.get("reviewers") or []], lst.get("threshold")
@@ -331,20 +383,30 @@ def check(fx: dict) -> dict:
         return _v(PASS, **rep)
     res["reviewed"] = reviewed()
 
-    # ---- executed: step 7
+    # ---- executed: step 7. PASS only when authenticated; supplied RPC data alone is never execution evidence
     def executed():
-        rc = (fx.get("chain") or {}).get("receipt")
-        if not rc:
-            return _v(NE, 7, "no_receipt_supplied")
-        if rc.get("status") != 1: return _v(FAIL, 7, "transaction_reverted")  # CHECK:status
+        ch = fx.get("chain") or {}
+        rc, tx, ex = ch.get("receipt"), ch.get("tx"), ch.get("execution")
         dg = claimed.get("signingDigest") or ""
         acct = intent.get("account") if isinstance(intent, dict) else None
-        # the Safe's event carries the digest as topics[1] (v1.4.x: `bytes32 indexed txHash`) or as the first data word (v1.3.0)
-        ev_hash = lambda l: (l.get("topics") or [])[1][2:] if len(l.get("topics") or []) > 1 else (l.get("data") or "")[2:66]
-        mine = [l for l in rc.get("logs") or [] if (l.get("address") or "").lower() == acct and ev_hash(l) == dg[2:]]
-        # a Safe ExecutionFailure has no ExecutionSuccess, so one check covers both (the reason says which)
-        if not any((l.get("topics") or [None])[0] == EV_SUCCESS for l in mine): return _v(FAIL, 7, "safe_ExecutionFailure" if any((l.get("topics") or [None])[0] == EV_FAILURE for l in mine) else "no_ExecutionSuccess_for_this_digest")  # CHECK:exec_success
-        return _v(PASS)
+        if not ex:
+            if not rc:
+                return _v(NE, 7, "no_receipt_supplied")
+            ok = _exec_outcome(rc.get("status"), rc.get("logs") or [], acct, dg) is None
+            return _v(NE, 7, "rpc_data_consistent_unauthenticated" if ok else "rpc_data_unauthenticated")
+        try:
+            txb, status, logs = execution_proven(ex)
+        except Exception as e:
+            return _v(NE, 7, f"execution_not_authenticated: {e}")
+        th = _h(W.keccak256(txb))
+        rep = {"block": ex.get("block"), "block_hash": ex.get("block_hash") + " (confirm it is canonical)", "tx_hash": th}
+        if not tx:
+            return _v(NE, 7, "no_transaction_supplied", **rep)
+        # the transaction signed() judged must be the one proven in the block: its hash, as supplied, and its bytes
+        if tx.get("hash", th) != th or (rc or {}).get("transactionHash", th) != th: return _v(NE, 7, "transaction_hash_mismatch", **rep)  # CHECK:tx_hash
+        if _tx_to_input(txb) != ((tx.get("to") or "").lower(), _hx(tx.get("input"))): return _v(NE, 7, "proven_transaction_is_not_the_checked_one", **rep)  # CHECK:tx_bytes
+        why = _exec_outcome(status, logs, acct, dg)
+        return _v(FAIL, 7, why, **rep) if why else _v(PASS, **rep)
     res["executed"] = executed()
     return res
 

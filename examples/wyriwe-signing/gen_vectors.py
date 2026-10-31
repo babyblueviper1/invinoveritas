@@ -38,63 +38,12 @@ TS = 1793404800  # 2026-10-31T00:00:00Z, informational (ERC-8299: timestamp does
 import rlp  # noqa: E402  (generator only)
 
 
-def _hp(nibs, leaf):
-    f = (2 if leaf else 0) + (len(nibs) % 2)
-    ns = [f] + ([] if len(nibs) % 2 else [0]) + list(nibs)
-    return bytes(ns[i] * 16 + ns[i + 1] for i in range(0, len(ns), 2))
+import mpt  # noqa: E402  (stdlib trie builder; the checker only verifies)
 
 
-def build_trie(kv: dict):
-    """A minimal Merkle-Patricia trie over {key: value-bytes} (keys hashed with keccak, as Ethereum's secure tries).
-    Returns (root, db, proof(key))."""
-    db = {}
-    items = sorted((W.keccak256(k), v) for k, v in kv.items())
-    items = [([x for c in hk for x in (c >> 4, c & 15)], v) for hk, v in items]
-
-    def ref(node):
-        enc = rlp.encode(node)
-        if len(enc) < 32:
-            return node
-        h = W.keccak256(enc); db[h] = enc
-        return h
-
-    def build(its, d):
-        if len(its) == 1:
-            return [_hp(its[0][0][d:], True), its[0][1]]
-        cp = 0
-        while all(len(p) > d + cp for p, _ in its) and len({p[d + cp] for p, _ in its}) == 1:
-            cp += 1
-        if cp:
-            return [_hp(its[0][0][d:d + cp], False), ref(build(its, d + cp))]
-        br = [b""] * 17
-        for i in range(16):
-            sub = [x for x in its if x[0][d] == i]
-            if sub:
-                br[i] = ref(build(sub, d + 1))
-        return br
-
-    root_node = build(items, 0)
-    enc = rlp.encode(root_node); root = W.keccak256(enc); db[root] = enc
-
-    def proof(key):
-        path = [x for c in W.keccak256(key) for x in (c >> 4, c & 15)]
-        out, node = [db[root]], root_node
-        while True:
-            if len(node) == 17:
-                nxt, path = node[path[0]], path[1:]
-            else:
-                hp = [x for c in node[0] for x in (c >> 4, c & 15)]
-                part = hp[2:] if hp[0] in (0, 2) else hp[1:]
-                if hp[0] in (2, 3):
-                    return out
-                nxt, path = node[1], path[len(part):]
-            if isinstance(nxt, list):
-                node = nxt
-            elif len(nxt) == 32:
-                out.append(db[nxt]); node = rlp.decode(db[nxt])
-            else:
-                return out
-    return root, db, proof
+def build_trie(kv: dict, secure: bool = True):
+    root, proof = mpt.build_trie(kv, secure)
+    return root, None, proof
 
 
 def proven_owners_root(account, owners, threshold, block):
@@ -171,18 +120,48 @@ def reviewer_root(pin_signers=None, pin_block=PIN_BLOCK):
             "authorization": {"owners_root": owners_root(pin_block), "signatures": sig}}
 
 
-def chain_for(info, digest: bytes, safe_signers, executed=True, event="success", tx_fields=None, nonce=None, layout="1.3.0"):
+def block_for(tx_raw: bytes, receipt_raw: bytes, block=EXEC_BLOCK, index=1, prove=None):
+    """A synthetic block holding the transaction at `index` among two others, with its transaction and receipt tries, and a
+    header committing to both roots. Returns the `execution` evidence (header + both inclusion proofs)."""
+    filler_tx = lambda n: rlp.encode([n, 10**9, 21000, bytes.fromhex(PAYEE[2:]), 1, b""]) + b""   # legacy shape (unsigned filler)
+    filler_rc = lambda n: b"\x02" + rlp.encode([1, 21000 * (n + 1), b"\x00" * 256, []])
+    txs = {i: (tx_raw if i == index else filler_tx(i)) for i in range(3)}
+    rcs = {i: (receipt_raw if i == index else filler_rc(i)) for i in range(3)}
+    troot, tproof = mpt.build_trie({rlp.encode(i): v for i, v in txs.items()}, secure=False)
+    rroot, rproof = mpt.build_trie({rlp.encode(i): v for i, v in rcs.items()}, secure=False)
+    hdr = rlp.encode([b"\x11" * 32, W.keccak256(rlp.encode([])), b"\x22" * 20, b"\x66" * 32, troot, rroot, b"\x00" * 256, 0, block,
+                      30000000, 0, TS, b"", b"\x55" * 32, b"\x00" * 8])
+    k = rlp.encode(index if prove is None else prove)   # prove: the index whose inclusion is proven (a control for another tx)
+    return {"block": block, "block_hash": C._h(W.keccak256(hdr)), "header_rlp": C._h(hdr), "tx_index": index if prove is None else prove,
+            "tx_proof": [C._h(n) for n in tproof(k)], "receipt_proof": [C._h(n) for n in rproof(k)]}
+
+
+def chain_for(info, digest: bytes, safe_signers, executed=True, event="success", tx_fields=None, nonce=None, layout="1.3.0", status=None, logs=None):
     f = dict(info["fields"])
     f.update(tx_fields or {})
     sigs = b"".join(bytes.fromhex(sign(a, digest)[2:]) for a in safe_signers)
     inp = C.EXEC_TX + abi(["address", "uint256", "bytes", "uint8", "uint256", "uint256", "uint256", "address", "address", "bytes"],
                           [f["to"], f["value"], f["data"], f["operation"], 0, 0, 0, W.ZERO, W.ZERO, sigs])
     topic = C.EV_SUCCESS if event == "success" else C.EV_FAILURE
-    rc = {"status": 1 if executed else 0, "blockNumber": EXEC_BLOCK,
-          "logs": ([{"address": SAFE, "topics": [topic, "0x" + digest.hex()], "data": "0x" + "00" * 32}] if layout == "1.4.1" else
-                   [{"address": SAFE, "topics": [topic], "data": "0x" + digest.hex() + "00" * 32}]) if executed else []}
-    return {"owners": [a.address.lower() for a in OWNERS], "threshold": 2, "nonce_at_execution": nonce or info["fields"]["nonce"],
-            "tx": {"to": SAFE, "input": "0x" + inp.hex()}, "receipt": rc}
+    lg = ([{"address": SAFE, "topics": [topic, "0x" + digest.hex()], "data": "0x" + "00" * 32}] if layout == "1.4.1" else
+          [{"address": SAFE, "topics": [topic], "data": "0x" + digest.hex() + "00" * 32}]) if executed else []
+    lg = lg if logs is None else logs
+    st = (1 if executed else 0) if status is None else status
+    rc = {"status": st, "blockNumber": EXEC_BLOCK, "logs": lg}
+    return seal({"owners": [a.address.lower() for a in OWNERS], "threshold": 2, "nonce_at_execution": nonce or info["fields"]["nonce"],
+                 "tx": {"to": SAFE, "input": "0x" + inp.hex()}, "receipt": rc})
+
+
+def seal(ch, prove=None):
+    """Make the chain evidence authenticated and consistent with ch["tx"] / ch["receipt"] as they now stand: the EIP-1559
+    transaction carrying that call (its signature is not part of any v0 check), its typed receipt, both proven in a block."""
+    tx, rc = ch["tx"], ch["receipt"]
+    tx_raw = b"\x02" + rlp.encode([1, 7, 10**9, 3 * 10**10, 300000, bytes.fromhex(tx["to"][2:]), 0, bytes.fromhex(tx["input"][2:]), [], 1, 1, 1])
+    rc_raw = b"\x02" + rlp.encode([rc["status"], 150000, b"\x00" * 256,
+                                   [[bytes.fromhex(l["address"][2:]), [bytes.fromhex(t[2:]) for t in l["topics"]], bytes.fromhex(l["data"][2:])] for l in rc["logs"]]])
+    tx["hash"] = rc["transactionHash"] = C._h(W.keccak256(tx_raw))
+    ch["execution"] = block_for(tx_raw, rc_raw, prove=prove)
+    return ch
 
 
 def build():
@@ -262,7 +241,7 @@ def build():
     add("neg08b_execution_failure_event", {"flow": fl, "review": {"trust_root": owners_root(), "approvals": approvals(fl, two)},
         "chain": chain_for(info, dg, two, event="failure")}, {**P4, "executed": "FAIL"})
     # 9 no receipt supplied
-    ch9 = chain_for(info, dg, two); ch9.pop("receipt")
+    ch9 = chain_for(info, dg, two); ch9.pop("receipt"); ch9.pop("execution")
     add("neg09_no_receipt", {"flow": fl, "review": {"trust_root": owners_root(), "approvals": approvals(fl, two)}, "chain": ch9},
         {**P4, "executed": "NOT_ESTABLISHED"})
     # an intent outside v0 (an unknown member) is refused, never encoded approximately
@@ -305,20 +284,40 @@ def build():
     add("neg_claimed_payload_hash_wrong", {"flow": flp, "chain": chain_for(info, dg, two)},
         {"encoded": "FAIL", "reviewed": "NOT_ESTABLISHED", "signed": "PASS", "executed": "PASS"})
     add("neg06b_digest_substitution_no_tx", {"flow": fld}, {"encoded": "PASS", "reviewed": "NOT_ESTABLISHED", "signed": "FAIL", "executed": "NOT_ESTABLISHED"})
-    cto = chain_for(info, dg, two); cto["tx"]["to"] = ATTACKER
+    cto = chain_for(info, dg, two); cto["tx"]["to"] = ATTACKER; seal(cto)
     add("neg07f_tx_sent_to_another_address", {"flow": fl, "chain": cto}, {**P4, "reviewed": "NOT_ESTABLISHED", "signed": "FAIL"})
-    cnot = chain_for(info, dg, two); cnot["tx"]["input"] = "0xa9059cbb" + cnot["tx"]["input"][10:]
+    cnot = chain_for(info, dg, two); cnot["tx"]["input"] = "0xa9059cbb" + cnot["tx"]["input"][10:]; seal(cnot)
     add("neg07g_not_execTransaction", {"flow": fl, "chain": cnot}, {**P4, "reviewed": "NOT_ESTABLISHED", "signed": "FAIL"})
     cbad = chain_for(info, dg, two)
     raw = bytes.fromhex(cbad["tx"]["input"][2:]); sigs_at = len(raw) - ((-130) % 32) - 130
     i0 = raw.find(bytes.fromhex(sign(two[0], dg)[2:]))
     raw = raw[:i0 + 64] + b"\x00" + raw[i0 + 65:]   # v = 0: a contract signature, outside v0
-    cbad["tx"]["input"] = "0x" + raw.hex()
+    cbad["tx"]["input"] = "0x" + raw.hex(); seal(cbad)
     add("neg07h_signature_outside_v0", {"flow": fl, "chain": cbad}, {**P4, "reviewed": "NOT_ESTABLISHED", "signed": "FAIL"})
-    cst = chain_for(info, dg, two); cst["receipt"]["status"] = 0
+    cst = chain_for(info, dg, two, status=0)
     add("neg08c_status_zero_with_success_log", {"flow": fl, "chain": cst}, {**P4, "reviewed": "NOT_ESTABLISHED", "executed": "FAIL"})
-    cno = chain_for(info, dg, two); cno["receipt"]["logs"] = []
+    cno = chain_for(info, dg, two, logs=[])
     add("neg08d_success_status_no_safe_event", {"flow": fl, "chain": cno}, {**P4, "reviewed": "NOT_ESTABLISHED", "executed": "FAIL"})
+    # ---- Echo/Pavlo (WG 5966-5967): executed is PASS only when authenticated
+    P4R = {**P4, "reviewed": "NOT_ESTABLISHED"}
+    c1 = chain_for(info, dg, two); c1["receipt"]["transactionHash"] = C._h(W.keccak256(b"another transaction"))
+    add("neg10a_tx_hash_differs_from_receipt", {"flow": fl, "chain": c1}, {**P4R, "executed": "NOT_ESTABLISHED"})
+    c2 = chain_for(info, dg, two); c2.pop("execution"); c2["receipt"]["blockHash"] = C._h(W.keccak256(b"an arbitrary block"))
+    add("neg10b_receipt_without_inclusion_proof", {"flow": fl, "chain": c2}, {**P4R, "executed": "NOT_ESTABLISHED"})
+    c3 = chain_for(info, dg, two); c3.pop("tx")
+    add("neg10c_tx_removed_success_receipt_kept", {"flow": fl, "chain": c3}, {**P4R, "signed": "NOT_ESTABLISHED", "executed": "NOT_ESTABLISHED"})
+    c4 = chain_for(info, dg, two); c4["execution"]["block_hash"] = C._h(W.keccak256(b"an arbitrary block"))
+    add("neg10d_header_not_the_block_hash", {"flow": fl, "chain": c4}, {**P4R, "executed": "NOT_ESTABLISHED"})
+    c5 = chain_for(info, dg, two); c5["execution"]["block"] = EXEC_BLOCK + 1
+    add("neg10e_header_number_differs", {"flow": fl, "chain": c5}, {**P4R, "executed": "NOT_ESTABLISHED"})
+    c6 = chain_for(info, dg, two); c6["execution"]["receipt_proof"] = c6["execution"]["receipt_proof"][:-1]
+    add("neg10f_receipt_proof_node_removed", {"flow": fl, "chain": c6}, {**P4R, "executed": "NOT_ESTABLISHED"})
+    c7 = seal(chain_for(info, dg, two), prove=0)   # a valid inclusion proof, but of another transaction in the same block
+    add("neg10g_proof_of_another_transaction", {"flow": fl, "chain": c7}, {**P4R, "executed": "NOT_ESTABLISHED"})
+    c8 = chain_for(info, dg, two); other = seal(chain_for(info, dg, two, tx_fields={"value": 1}))
+    c8["execution"] = other["execution"]   # a proven, successful execution of a DIFFERENT call to the same Safe,
+    c8["tx"].pop("hash"); c8["receipt"].pop("transactionHash")   # supplied without hashes, so only the bytes can bind it
+    add("neg10h_proven_tx_is_not_the_checked_one", {"flow": fl, "chain": c8}, {**P4R, "executed": "NOT_ESTABLISHED"})
     return V
 
 
