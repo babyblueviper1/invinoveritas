@@ -8,7 +8,9 @@ Trie, RLP and Keccak come from the Ethereum Foundation's py-trie (HexaryTrie), p
 2. the captured tx and receipt proofs verify under those roots (HexaryTrie.get_from_proof) at rlp(tx_index), and the
    proven transaction hashes to the transaction;
 3. the block's transaction and receipt tries, rebuilt with HexaryTrie from the RPC's raw transactions and receipts, have
-   the header's roots.
+   the header's roots;
+4. what `executed` claims for a Safe (Echo, WG 5968): the PROVEN receipt carries ExecutionSuccess emitted by the proven
+   transaction's `to` (the Safe), for the digest in the capture (v1.4.1: the hash is indexed, topics[1]).
 usage: python3 replay_execution.py [real_execution_proof.json] [RPC ...]   (default RPCs: publicnode, drpc)
 """
 import json
@@ -61,6 +63,13 @@ def main():
     out["tx proof verifies, proven tx hashes to the transaction"] = bool(txb) and "0x" + keccak(txb).hex() == txh.lower()
     r = rlp.decode(rcb[1:] if rcb[0] < 0x80 else rcb)
     out["receipt proof verifies, status"] = int.from_bytes(r[0], "big") if rcb else None
+    # 4. the Safe's ExecutionSuccess for the captured digest, read from the PROVEN receipt (not from an RPC)
+    f = rlp.decode(txb[1:]) if txb[0] < 0x80 else rlp.decode(txb)
+    safe = f[5] if txb[0] in (2, 3, 4) else (f[4] if txb[0] == 1 else f[3])
+    ev = keccak(b"ExecutionSuccess(bytes32,uint256)")
+    dg = b(cap["summary"]["recomputed_digest"])
+    out["proven receipt has the Safe's ExecutionSuccess for the digest"] = any(
+        a == safe and len(ts) > 1 and ts[0] == ev and ts[1] == dg for a, ts, _ in r[3])
     # rebuild both tries from the first RPC (it must serve eth_getRawTransactionByBlockNumberAndIndex)
     n = len(rpc(rpcs[0], "eth_getBlockByNumber", [hex(blk), False])["transactions"])
     tt, rt = HexaryTrie({}), HexaryTrie({})

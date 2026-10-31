@@ -162,13 +162,16 @@ def mpt_get(root: bytes, key: bytes, proof, secure: bool = True):
 
 
 SAFE_OWNERS_SLOT, SAFE_THRESHOLD_SLOT, SENTINEL = 2, 4, "0x" + "00" * 19 + "01"
+# Safe v1.4.1 storage layout (SafeStorage.sol): 1 modules, 2 owners, 3 ownerCount, 4 threshold, 5 nonce, 7 signedMessages,
+# 8 approvedHashes (modules and owners are linked lists from the sentinel 0x..01)
+SAFE_MODULES_SLOT, SAFE_SIGNED_MESSAGES_SLOT, SAFE_APPROVED_HASHES_SLOT = 1, 7, 8
 
 
-def safe_owners_proven(tr: dict, account: str):
-    """owners@block, authenticated: the header hashes to block_hash and carries `block`; the Safe's account proof verifies
-    against the header's stateRoot; storage proofs of the owners linked list (slot 2) and threshold (slot 4) verify against
-    the Safe's storageRoot. Returns (owners, threshold) READ FROM THE PROOFS; raises ValueError otherwise. The canonicity of
-    block_hash itself is not something an offline checker can know: it is reported for the consumer to confirm."""
+def safe_state_proven(tr: dict, account: str):
+    """The Safe's state at a block, authenticated: the header hashes to block_hash and carries `block`; the Safe's account
+    proof verifies against the header's stateRoot; every storage slot is read through proofs against the Safe's storageRoot.
+    Returns (owners, threshold, slot(key) -> int, header fields), all READ FROM THE PROOFS; raises ValueError otherwise. The
+    canonicity of block_hash itself is not something an offline checker can know: it is reported for the consumer to confirm."""
     hdr = _hx(tr.get("header_rlp"))
     if not hdr or _h(W.keccak256(hdr)) != tr.get("block_hash"):
         raise ValueError("header does not hash to block_hash")
@@ -196,7 +199,66 @@ def safe_owners_proven(tr: dict, account: str):
     thr = slot(word(SAFE_THRESHOLD_SLOT))
     if not owners or not (1 <= thr <= len(owners)):
         raise ValueError("no owners or threshold out of range")
+    return owners, thr, slot, h
+
+
+def safe_owners_proven(tr: dict, account: str):
+    """owners@block, authenticated (see safe_state_proven). Returns (owners, threshold) read from the proofs."""
+    owners, thr, _, _ = safe_state_proven(tr, account)
     return owners, thr
+
+
+REVIEWER_LIST_PIN_TYPE = "WyriweReviewerList(uint256 chainId,address account,bytes32 listHash)"
+SAFE_MSG_TYPE = "SafeMessage(bytes message)"
+
+
+def reviewer_list_pin(chain_id: int, account: str, list_hash: str) -> bytes:
+    """reviewerListPin (PROFILE.md section 6, Echo WG 5968, option a): the value the account records ON-CHAIN, before the
+    execution block, to pin a reviewer list. keccak256(abi.encode(typehash, chainId, account, listHash)), listHash =
+    keccak256(JCS(list)). It carries no block number: the block is proven from the state it is recorded in, never stated."""
+    return W.keccak256(W.typehash(REVIEWER_LIST_PIN_TYPE) + W._word(chain_id) + W._static("address", account) + bytes.fromhex(list_hash[2:]))
+
+
+def safe_message_hash(chain_id: int, safe: str, message: bytes) -> bytes:
+    """Safe getMessageHash(message) = keccak256(0x19 || 0x01 || domainSeparator || keccak256(abi.encode(SAFE_MSG_TYPEHASH,
+    keccak256(message)))), the key SignMessageLib.signMessage sets to 1 in signedMessages (Safe v1.4.1)."""
+    return W.keccak256(b"\x19\x01" + W.safe_domain_separator(chain_id, safe) + W.keccak256(W.typehash(SAFE_MSG_TYPE) + W.keccak256(message)))
+
+
+def reviewer_list_pin_recorded(au: dict, account: str, chain_id: int, list_hash: str, exec_header):
+    """reviewer-list@commitment, option (a) (Echo, WG 5968): the list counts only when its pin is RECORDED ON-CHAIN BEFORE the
+    execution block, proven by the checker. The state is block E-1: a header the checker hashes, whose hash equals the
+    authenticated execution header's parentHash (so it needs no canonicity check beyond block E's). Either record counts:
+      safe_message     signedMessages[getMessageHash(abi.encode(pin))] == 1 (slot keccak256(msgHash . 7)), set by a Safe
+                       transaction delegatecalling SignMessageLib.signMessage -- only with NO module enabled in that state
+                       (an enabled module can execute without owner signatures)
+      owner_approvals  approvedHashes[owner][pin] == 1 (slot keccak256(pin . keccak256(owner . 8))) for >= threshold of the
+                       owners proven in that state
+    Returns (None, record id) when proven, else (reason, None). Signatures over a message that STATES a block do not count:
+    the signers choose that number."""
+    st = au.get("state")
+    if not st:
+        return ("reviewer_list_prior_binding_unproven" if au.get("signatures") else "reviewer_list_not_authorized_by_the_owners"), None
+    try:
+        owners, thr, slot, ph = safe_state_proven(st, account)
+    except Exception as e:
+        return f"reviewer_list_authority_not_established: {e}", None
+    # the state must be block E-1 of an AUTHENTICATED execution header: its header hashes to that header's parentHash
+    if not exec_header or W.keccak256(_hx(st.get("header_rlp"))) != exec_header[0]: return "reviewer_list_pin_not_in_the_parent_state" + ("" if exec_header else " (no authenticated execution header)"), None  # CHECK:list_parent
+    pin = reviewer_list_pin(chain_id, account, list_hash)
+    word = lambda n: n.to_bytes(32, "big")
+    mode = au.get("mode")
+    if mode == "safe_message":
+        # modules list empty: modules[SENTINEL] == SENTINEL
+        if slot(W.keccak256(word(int(SENTINEL, 16)) + word(SAFE_MODULES_SLOT))) != int(SENTINEL, 16): return "reviewer_list_pin_module_possible", None  # CHECK:list_no_module
+        mh = safe_message_hash(chain_id, account, pin)
+        if slot(W.keccak256(mh + word(SAFE_SIGNED_MESSAGES_SLOT))) != 1: return "reviewer_list_pin_not_recorded", None  # CHECK:list_pin_msg
+        return None, f"signedMessages[{_h(mh)}]@{st.get('block')}"
+    if mode == "owner_approvals":
+        who = [o for o in owners if slot(W.keccak256(pin + W.keccak256(word(int(o, 16)) + word(SAFE_APPROVED_HASHES_SLOT)))) == 1]
+        if len(who) < thr: return "reviewer_list_pin_not_recorded", None  # CHECK:list_pin_approvals
+        return None, f"approvedHashes[{len(who)}/{thr} owners][{_h(pin)}]@{st.get('block')}"
+    return "reviewer_list_pin_record_kind_unknown", None
 
 
 def _header(blk: dict):
@@ -334,25 +396,15 @@ def check(fx: dict) -> dict:
             # the owners' authorization below is over the hash of the list AS GIVEN, so a list that was changed after it was
             # pinned fails there; a content_hash that differs is reported, not a separate check
             lh = _h(W.keccak256(W.jcs(lst)))
-            # authority + prior binding (Pavlo, WG 5962): the account's PROVEN owners pinned this list hash, before execution
-            au = tr.get("authorization") or {}
+            # authority + prior binding (Pavlo WG 5962; Echo WG 5968, option a): the pin is RECORDED ON-CHAIN in the state before
+            # the execution block, proven against the execution header's parent; the execution header is authenticated first
             try:
-                aowners, athr = safe_owners_proven(au.get("owners_root") or {}, intent["account"]); aerr = None
-            except Exception as e:
-                o_r = au.get("owners_root") or {}
-                aowners, athr, aerr = [k.lower() for k in o_r.get("owners") or []], o_r.get("threshold") or 1, str(e)
-            if aerr is not None: return _v(NE, 4, f"reviewer_list_authority_not_established: {aerr}", trust_root={"kind": kind})  # CHECK:list_authority
-            pin = (au.get("owners_root") or {}).get("block") or 0
-            st = {"account": intent["account"], "listHash": lh, "pinnedAtBlock": pin}
-            d = W.root_pin_digest(intent["chainId"], st)
-            who = {W.ecrecover(d, _hx(sg)) for sg in au.get("signatures") or []} & set(aowners)
-            if len(who) < athr: return _v(NE, 4, "reviewer_list_not_authorized_by_the_owners", trust_root={"kind": kind})  # CHECK:list_pin_sigs
-            try:
-                exb = _header((fx.get("chain") or {}).get("execution") or {}) and fx["chain"]["execution"]["block"]
+                eh = _header((fx.get("chain") or {}).get("execution") or {})
             except Exception:
-                exb = None   # the execution block is only known from an authenticated header
-            if not isinstance(exb, int) or not pin < exb: return _v(NE, 4, "reviewer_list_not_bound_before_execution", trust_root={"kind": kind})  # CHECK:list_prior
-            tid = f"content:{lh} pinned by owners@{pin}"
+                eh = None   # no authenticated execution header: the parent-state binding below cannot hold (one check, both cases)
+            why, rec = reviewer_list_pin_recorded(tr.get("authorization") or {}, intent["account"], intent["chainId"], lh, eh)
+            if why is not None: return _v(NE, 4, why, trust_root={"kind": kind})  # CHECK:list_authority
+            tid = f"content:{lh} pinned on-chain at {rec} (parent of the execution block)"
             keys, thr = [k.lower() for k in lst.get("reviewers") or []], lst.get("threshold")
             if not keys or not isinstance(thr, int) or thr < 1:
                 return _v(NE, 4, "reviewer_list_incomplete", trust_root={"kind": kind, "id": tid})
