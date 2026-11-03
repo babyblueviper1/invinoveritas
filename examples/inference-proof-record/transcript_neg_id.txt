@@ -1,0 +1,4 @@
+id: these are not the files of the commitment that you named; nothing in them was checked
+id: take the commitment ID from your own record of where it was published, never from these files
+NO: model-statement
+cp_verify exit 1

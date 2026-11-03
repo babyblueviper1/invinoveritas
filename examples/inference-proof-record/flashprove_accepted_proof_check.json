@@ -1,0 +1,100 @@
+{
+ "checker": {
+  "capture": "each command's stdout+stderr to a file, exit code via $? appended; time / peak RSS from /usr/bin/time -f '%e %M' on the honest run",
+  "checked_at": "2026-11-03T23:09:41Z",
+  "cp_verify_sha256": "7f9efc1e86a848a3715c6cc870e465ac2a1c5e8fd1eac09e4809023de7604394",
+  "digest_definitions": {
+   "cp_verify_sha256": "sha256sum bin/cp_verify after verifier/build.sh (our binary; builds may differ by toolchain)",
+   "verifier_source_digest": "the build= field cp_verify prints: verifier/build.sh (line 311) hashes the verifier sources and headers -- not build.sh itself, the compiler or its flags; equal values mean the same sources"
+  },
+  "isolation": "unprivileged user, no network, read-only system, 2.2 GB memory cap",
+  "machine": "x86-64 Linux, Ubuntu 24.04, g++ 13.3.0, 4 vCPU",
+  "party": "invinoveritas: not the producer (Anthropic); a member of the Trustless-AI working group (github.com/trustless-ai), so not independent of its members' own checks; checked on its own machine",
+  "procedure": {
+   "build": "cd FlashProve && verifier/build.sh   (unmodified; writes bin/cp_verify)",
+   "flipped_byte": "copy example.proof, XOR byte 2072650 (0-based) with 0x01, run the honest command on the copy",
+   "honest": "cd examples/accepted-proof && ../../bin/cp_verify config ivk example.req example.y example.proof -id \"$(cat ID.txt)\"",
+   "inputs": "cd examples/accepted-proof && sha256sum -c SHA256SUMS",
+   "wrong_id": "run the honest command with -id 09a5a2bc7a469b40df73dedf40abeb740671e8ae8077738bd3743897aeb22183 (first hex digit 7 -> 0)"
+  },
+  "verifier_build": "verifier/build.sh unmodified, 72 s",
+  "verifier_source_digest": "93afdaf592393a54ebd17b681d1c03295eb883f0161ff0e6ab872a3b39939595"
+ },
+ "covers": [
+  "this proof file verifies under cp_verify at this commit for this commitment ID, on a machine operated by the party named in checker (an attestation by that party; the commands and digests here let anyone repeat it)",
+  "the check refuses the two altered inputs tried here: this one byte-flipped copy of the proof (sha256 given) and this one wrong commitment ID -- not a claim about all alterations"
+ ],
+ "does_not_cover": [
+  "anything about a served or real model (the example uses synthetic weights)",
+  "the Lean proof's coverage of cp_verify (the Lean proof covers FlashProve's Lean verifier, as the authors state)",
+  "where the input came from (input provenance)",
+  "whether any action taken on the output was authorised (decision authorisation)",
+  "that what ran in production is what was proven (execution binding)",
+  "the full-size Maverick-shape proof (not run here)"
+ ],
+ "results": {
+  "honest_proof": {
+   "exit_code": 0,
+   "matches_published_result_line": "27 of the 28 fields of README.md line 22 identical; the 28th, build=, is a placeholder there (<64 hex digits>) -- ours is the value in result_line",
+   "output_last_line": "YES",
+   "peak_rss_kb": 157960,
+   "result_line": "result-v1 status=0 claim=exact-match id=79a5a2bc7a469b40df73dedf40abeb740671e8ae8077738bd3743897aeb22183 bits=128 work=32 work-rounds=38 least-round=128.00 least-round-without-work=96.23 commitment-assumed-rounds=49 record=1 r=60 e=64 T=64 tokens=61..63 y=yes policy=exact-match C=256 theta=256 cap=0 s=16 sh=8 sT=4 F=24 above-clip=0 leaf=0 stages=key,leaf,request dw=8 build=93afdaf592393a54ebd17b681d1c03295eb883f0161ff0e6ab872a3b39939595",
+   "seconds": 2.61,
+   "verdict": "YES"
+  },
+  "inputs_match_published_SHA256SUMS": true,
+  "negative_controls": [
+   {
+    "altered_proof_sha256": "5e769da7ab8574d0f88c9f731510f93f0469fda39ab3e8f682ce51ebade2ad82",
+    "change": "byte 2072650 of 4145300 XOR 0x01",
+    "exit_code": 1,
+    "output": [
+     "refused by the stage request: an opening does not lead to its root",
+     "NO: proof-refused"
+    ]
+   },
+   {
+    "change": "-id 09a5a2bc...22183 (first hex digit changed)",
+    "exit_code": 1,
+    "output": [
+     "id: take the commitment ID from your own record of where it was published, never from these files",
+     "NO: model-statement"
+    ]
+   }
+  ]
+ },
+ "schema": "invinoveritas.independent_check.v0.3",
+ "subject": {
+  "commit": "9e2bdd8ff5bf9c62f18263d7dac189b0400b260c",
+  "commitment_id": "79a5a2bc7a469b40df73dedf40abeb740671e8ae8077738bd3743897aeb22183",
+  "inputs_sha256": {
+   "config/KL.bin": "b8fb55ed7c70c4cdc7bac01e804dd0dc79349022ba7972957c7e50a29dc974a2",
+   "config/layout.txt": "a0cce649d992c6f17d1e27c68ac4b900b828ff6ef0bfe8da7c2491fed9f02225",
+   "config/policy.txt": "8d9ae1dda2e503550cafade93c54c1b8ecc8eb4b6dab3b843c72a478bb892d2f",
+   "example.proof": "5ed47fd101093e826a5bc833e57633e5a9237b49213c8f37cf518a3c1c8d9d99",
+   "example.req": "ce700974a03d43586d66ca742f9bbc8ad45c936d03dfdb8614dd559a2780aa13",
+   "example.y": "add7f2a4843f8c512c0e2875546581db11b9ba227ee008b5f719dfacb125de76",
+   "ivk/key.bin": "123dc39e8947fd3ba838d7a1a35d587c2f0e1707d1bca9b6ed551b52bf0c2e09",
+   "ivk/leaf/0.bin": "c9484f50fedfaf4e28ec9d1b5d19c3cd5e97bf4582511da49f9eb5693f10e1e0"
+  },
+  "license": "Apache-2.0",
+  "proof": "examples/accepted-proof (small model, synthetic weights)",
+  "published_references": {
+   "SHA256SUMS": {
+    "git_blob": "6e78986682676c633bca6480f1b142b774b8587e",
+    "path": "examples/accepted-proof/SHA256SUMS",
+    "sha256": "da8f5562eaa27e177b3b8aa39366d913befdfdc3114786907750ed5c0c18ecea"
+   },
+   "published_result_line": {
+    "git_blob": "e2df3af4bf2717965ae08b5cc80bd688d9e26dd7",
+    "line": 22,
+    "path": "examples/accepted-proof/README.md",
+    "sha256_of_file": "1d61a46f28e8b22ab2730eb255440b42925e60e20b810d23dbdd833aee5b0de7"
+   }
+  },
+  "release": "0.16.0-rc.26",
+  "repo": "https://github.com/anthropics/FlashProve",
+  "retrieve": "git clone https://github.com/anthropics/FlashProve && git -C FlashProve checkout 9e2bdd8ff5bf9c62f18263d7dac189b0400b260c",
+  "system": "FlashProve"
+ }
+}

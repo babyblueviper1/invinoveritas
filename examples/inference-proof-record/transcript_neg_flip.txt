@@ -1,0 +1,4 @@
+---- the call ----
+refused by the stage request: an opening does not lead to its root
+NO: proof-refused
+cp_verify exit 1
