@@ -1,0 +1,50 @@
+{
+ "schema": "invinoveritas.inference_benchmark_row.v0",
+ "about": "One row per (system, run) in a verifiable-inference comparison, so every number sits next to the request shape, the hardware, the referee verifier, the negative controls and what the proof does and does not guarantee. check_row.py validates a row with the Python standard library.",
+ "system": {
+  "name": "<FlashProve | zkIE | DeepProve | ...>",
+  "repo": "<url>",
+  "commit": "<40-hex commit the proof was produced at>",
+  "license": "<SPDX id>",
+  "modified": "<false, or a list of the files changed, e.g. a CPU port>"
+ },
+ "request_shape": {
+  "request_length": "<tokens in the request, e.g. the T= field>",
+  "checked_positions": "<range of output positions the proof covers, as the verifier prints it, e.g. 24..1023>",
+  "next_token_included": "<true | false>",
+  "decoding": "<greedy | sampled | ...>",
+  "proof_timing": "<after generation over a given sequence | during generation>",
+  "model": "<model id or 'synthetic weights', and the commitment id>"
+ },
+ "hardware": {
+  "prove": {"cpu_or_gpu": "<model>", "cores": "<n>", "memory_gb": "<n>", "os": "<os + kernel>", "compiler": "<toolchain>"},
+  "verify": {"cpu": "<model>", "cores": "<n>", "os": "<os + kernel>", "compiler": "<toolchain>"}
+ },
+ "numbers": {
+  "prove_seconds": "<number or null if only verified>",
+  "prove_peak_rss_kb": "<number or null>",
+  "proof_bytes": "<number>",
+  "verify_seconds": "<number>",
+  "verify_peak_rss_kb": "<number>"
+ },
+ "referee": {
+  "verifier": "<the UNMODIFIED reference verifier of the system, binary + build command>",
+  "verifier_commit": "<40-hex>",
+  "verifier_source_digest": "<the digest the verifier prints for its own sources, if any>",
+  "verdict": "<YES | NO>",
+  "result_line": "<the verifier's full result line, verbatim>"
+ },
+ "negative_controls": [
+  {"change": "<e.g. flip byte N of the proof>", "expected": "NO", "observed": "<verbatim verifier verdict>", "exit_code": "<n>"}
+ ],
+ "gates": {
+  "covers": ["<what a YES establishes for THIS run>"],
+  "does_not_cover": ["<input provenance, decision authorisation, execution binding, served-model identity, ... as applicable>"]
+ },
+ "checker": {
+  "party": "<who ran the referee verifier, and their relation to the system's authors>",
+  "independent_of_producer": "<true | false, with one line why>",
+  "checked_at": "<ISO 8601 UTC>",
+  "record_sha256": "<sha256 of the full check record this row summarises>"
+ }
+}

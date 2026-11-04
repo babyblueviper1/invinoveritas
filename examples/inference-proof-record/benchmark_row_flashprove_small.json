@@ -1,0 +1,59 @@
+{
+ "schema": "invinoveritas.inference_benchmark_row.v0",
+ "system": {
+  "name": "FlashProve",
+  "repo": "https://github.com/anthropics/FlashProve",
+  "commit": "9e2bdd8ff5bf9c62f18263d7dac189b0400b260c",
+  "license": "Apache-2.0",
+  "modified": false
+ },
+ "request_shape": {
+  "request_length": 64,
+  "checked_positions": "61..63",
+  "next_token_included": true,
+  "decoding": "greedy (claim=exact-match)",
+  "proof_timing": "after generation over a given sequence (stored proof)",
+  "model": "synthetic weights (examples/accepted-proof); commitment id 79a5a2bc7a469b40df73dedf40abeb740671e8ae8077738bd3743897aeb22183"
+ },
+ "hardware": {
+  "prove": {"cpu_or_gpu": "not run here (stored proof produced by the authors)", "cores": null, "memory_gb": null, "os": null, "compiler": null},
+  "verify": {"cpu": "AMD EPYC-Rome", "cores": 4, "os": "Ubuntu 24.04.5 LTS, Linux 6.8.0", "compiler": "g++ 13.3.0"}
+ },
+ "numbers": {
+  "prove_seconds": null,
+  "prove_peak_rss_kb": null,
+  "proof_bytes": 4145300,
+  "verify_seconds": 2.61,
+  "verify_peak_rss_kb": 157960
+ },
+ "referee": {
+  "verifier": "bin/cp_verify built by verifier/build.sh, unmodified",
+  "verifier_commit": "9e2bdd8ff5bf9c62f18263d7dac189b0400b260c",
+  "verifier_source_digest": "93afdaf592393a54ebd17b681d1c03295eb883f0161ff0e6ab872a3b39939595",
+  "verdict": "YES",
+  "result_line": "result-v1 status=0 claim=exact-match id=79a5a2bc7a469b40df73dedf40abeb740671e8ae8077738bd3743897aeb22183 bits=128 work=32 work-rounds=38 least-round=128.00 least-round-without-work=96.23 commitment-assumed-rounds=49 record=1 r=60 e=64 T=64 tokens=61..63 y=yes policy=exact-match C=256 theta=256 cap=0 s=16 sh=8 sT=4 F=24 above-clip=0 leaf=0 stages=key,leaf,request dw=8 build=93afdaf592393a54ebd17b681d1c03295eb883f0161ff0e6ab872a3b39939595"
+ },
+ "negative_controls": [
+  {"change": "XOR byte 2072650 of the proof with 0x01", "expected": "NO", "observed": "NO: proof-refused", "exit_code": 1},
+  {"change": "commitment id with its first hex digit 7 -> 0", "expected": "NO", "observed": "NO: model-statement", "exit_code": 1}
+ ],
+ "gates": {
+  "covers": [
+   "this stored proof verifies under the unmodified cp_verify at this commit for this commitment id",
+   "the two altered inputs tried here are refused (not a claim about all alterations)"
+  ],
+  "does_not_cover": [
+   "a served or real model (synthetic weights)",
+   "input provenance",
+   "decision authorisation",
+   "execution binding (that what ran in production is what was proven)",
+   "proving cost: the proof was not produced here"
+  ]
+ },
+ "checker": {
+  "party": "invinoveritas: not the producer (Anthropic); a member of the Trustless-AI working group, so not independent of its members' own checks",
+  "independent_of_producer": true,
+  "checked_at": "2026-11-03T23:09:41Z",
+  "record_sha256": "11a274c6cb2929b7724b6cf0e930e5a8b06107d0f7a773355ec3d798932ba8b7"
+ }
+}
